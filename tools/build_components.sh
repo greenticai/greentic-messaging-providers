@@ -7,6 +7,11 @@ BUILD_TARGET="wasm32-wasip2"
 TARGET_DIR_OVERRIDE="${ROOT_DIR}/target/${BUILD_TARGET}"
 PACKAGES=("secrets-probe" "slack" "teams" "telegram" "webchat" "webex" "whatsapp")
 
+if ! rustup target list --installed | grep -q "${BUILD_TARGET}"; then
+  echo "Installing Rust target ${BUILD_TARGET}..."
+  rustup target add "${BUILD_TARGET}"
+fi
+
 mkdir -p "${TARGET_DIR}"
 mkdir -p "${TARGET_DIR_OVERRIDE}"
 

@@ -1,7 +1,7 @@
 {
   "version": "0.0.0",
-  "generated_at": "2025-12-17T13:26:22Z",
-  "git_sha": "unknown",
+  "generated_at": "2025-12-17T14:37:42Z",
+  "git_sha": "fe153d4",
   "registry": "ghcr.io",
   "org": "greentic",
   "repo": "greentic-packs",

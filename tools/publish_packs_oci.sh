@@ -39,17 +39,8 @@ build_pack() {
   local src_dir="$1"
   local output="$2"
 
-  if command -v "${PACKC_BIN}" >/dev/null 2>&1 && [ -f "${src_dir}/pack.yaml" ]; then
-    # Prefer packc when available to produce deterministic .gtpack archives.
-    "${PACKC_BIN}" build --in "${src_dir}" --out "${output}"
-  else
-    if ! [ -f "${src_dir}/pack.yaml" ]; then
-      echo "pack.yaml not found in ${src_dir}; zipping directory instead" >&2
-    else
-      echo "packc not found; falling back to zip for ${src_dir}" >&2
-    fi
-    (cd "${src_dir}" && zip -qr "${output}" .)
-  fi
+  echo "packc unavailable or pack.yaml missing; zipping ${src_dir} instead" >&2
+  (cd "${src_dir}" && zip -qr "${output}" .)
 }
 
 generate_pack_manifest() {
@@ -122,7 +113,8 @@ stage_components_into_pack() {
 for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   [ -d "${dir}" ] || continue
   pack_name="$(basename "${dir}")"
-  pack_out="${ROOT_DIR}/${OUT_DIR}/${pack_name}.gtpack"
+  pack_out_rel="${OUT_DIR}/${pack_name}.gtpack"
+  pack_out="${ROOT_DIR}/${pack_out_rel}"
   secrets_out="${dir}/.secret_requirements.json"
 
   generate_pack_manifest "${dir}" "${secrets_out}"
@@ -134,10 +126,13 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   stage_components_into_pack "${dir}" "${components[@]}"
 
   if command -v "${PACKC_BIN}" >/dev/null 2>&1 && [ -f "${dir}/pack.yaml" ]; then
-    "${PACKC_BIN}" build \
-      --in "${dir}" \
-      --gtpack-out "${pack_out}" \
-      --secrets-req "${secrets_out}"
+    local_out_dir="${dir}/build"
+    mkdir -p "${local_out_dir}"
+    (cd "${dir}" && "${PACKC_BIN}" build \
+      --in "." \
+      --gtpack-out "build/${pack_name}.gtpack" \
+      --secrets-req ".secret_requirements.json")
+    mv "${local_out_dir}/${pack_name}.gtpack" "${pack_out}"
   else
     build_pack "${dir}" "${pack_out}"
   fi
@@ -149,6 +144,7 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     digest="$(
       oras push \
         --artifact-type "${MEDIA_TYPE}" \
+        --disable-path-validation \
         --annotation "org.opencontainers.image.source=${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-unknown}" \
         --annotation "org.opencontainers.image.revision=${git_sha}" \
         --annotation "org.opencontainers.image.version=${PACK_VERSION}" \
