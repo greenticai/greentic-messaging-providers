@@ -4,7 +4,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde_json::{Map, Value};
 use tempfile::tempdir;
 use zip::write::FileOptions;
@@ -100,9 +100,14 @@ fn collect_expected_requirements(
 ) -> Result<BTreeMap<(String, String), Map<String, Value>>> {
     let mut merged: BTreeMap<(String, String), Map<String, Value>> = BTreeMap::new();
     for component in component_names {
-        let manifest_path = components_dir.join(component).join("component.manifest.json");
+        let manifest_path = components_dir
+            .join(component)
+            .join("component.manifest.json");
         let manifest: Value = serde_json::from_slice(&fs::read(manifest_path)?)?;
-        if let Some(reqs) = manifest.get("secret_requirements").and_then(|v| v.as_array()) {
+        if let Some(reqs) = manifest
+            .get("secret_requirements")
+            .and_then(|v| v.as_array())
+        {
             for req in reqs {
                 let obj = req
                     .as_object()
@@ -125,7 +130,9 @@ fn collect_expected_requirements(
     Ok(merged)
 }
 
-fn requirement_keys(requirements: &[Value]) -> Result<BTreeMap<(String, String), Map<String, Value>>> {
+fn requirement_keys(
+    requirements: &[Value],
+) -> Result<BTreeMap<(String, String), Map<String, Value>>> {
     let mut merged: BTreeMap<(String, String), Map<String, Value>> = BTreeMap::new();
     for req in requirements {
         let obj = req

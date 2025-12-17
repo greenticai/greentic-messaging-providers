@@ -105,7 +105,10 @@ fn get_access_token() -> Result<String, String> {
     let req = http_client::Request {
         method: "POST".into(),
         url: token_url,
-        headers: vec![("Content-Type".into(), "application/x-www-form-urlencoded".into())],
+        headers: vec![(
+            "Content-Type".into(),
+            "application/x-www-form-urlencoded".into(),
+        )],
         body: Some(form.into_bytes()),
     };
 
@@ -120,8 +123,8 @@ fn get_access_token() -> Result<String, String> {
     }
 
     let body = resp.body.unwrap_or_default();
-    let value: Value =
-        serde_json::from_slice(&body).map_err(|_| "other error: invalid token response".to_string())?;
+    let value: Value = serde_json::from_slice(&body)
+        .map_err(|_| "other error: invalid token response".to_string())?;
     let token = value
         .get("access_token")
         .and_then(Value::as_str)
