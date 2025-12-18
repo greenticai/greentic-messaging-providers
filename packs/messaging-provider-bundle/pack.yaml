@@ -3,6 +3,15 @@ version: 0.0.0
 kind: application
 publisher: Greentic
 
+# Host-injected (non-secret) runtime config blob for all provider components.
+# This file is injected by the host at instantiation/startup time (not read from WASI FS).
+# Providers must be initialized via `init-runtime-config(config-json)`.
+x-provider-runtime-config:
+  schema_version: 1
+  format: json
+  injected_as: provider_runtime_config.json
+  init_export: init-runtime-config
+
 components:
   - id: "messaging-provider-bundle.slack"
     version: 0.0.0

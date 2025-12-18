@@ -1,6 +1,13 @@
 {
   "name": "teams",
   "description": "Microsoft Teams provider component supporting egress, ingress, and formatting.",
+  "config_schema": {
+    "provider_runtime_config": {
+      "schema_version": 1,
+      "format": "json",
+      "injected_as": "provider_runtime_config.json"
+    }
+  },
   "secret_requirements": [
     {
       "name": "MS_GRAPH_TENANT_ID",

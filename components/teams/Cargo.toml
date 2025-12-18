@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 serde.workspace = true
 serde_json.workspace = true
 provider-common = { path = "../../crates/provider-common" }
+provider-runtime-config = { path = "../../crates/provider-runtime-config" }
 wit-bindgen.workspace = true
 urlencoding.workspace = true
 

@@ -1,7 +1,8 @@
 use std::fs;
 use std::path::Path;
 
-const EXPECTED_EXPORTS: &[&str] = &[
+const PROVIDER_EXPECTED_EXPORTS: &[&str] = &[
+    "export init-runtime-config",
     "export send-message",
     "export handle-webhook",
     "export refresh",
@@ -34,17 +35,31 @@ fn components_have_manifests_and_exports() {
             "manifest missing secret_requirements for {name}"
         );
 
-        // world.wit must export the expected functions.
+        // world.wit must export the expected functions for provider:* components.
         let world_wit = entry.path().join("wit").join(&*name).join("world.wit");
         assert!(
             world_wit.exists(),
             "missing world.wit for component {name} at {world_wit:?}"
         );
         let contents = fs::read_to_string(&world_wit).expect("read world.wit");
-        for export in EXPECTED_EXPORTS {
-            assert!(
-                contents.contains(export),
-                "component {name} world.wit missing export {export}"
+        let is_provider = contents.contains("package provider:");
+        if is_provider {
+            for export in PROVIDER_EXPECTED_EXPORTS {
+                assert!(
+                    contents.contains(export),
+                    "component {name} world.wit missing export {export}"
+                );
+            }
+
+            let schema_version = manifest
+                .get("config_schema")
+                .and_then(|v| v.get("provider_runtime_config"))
+                .and_then(|v| v.get("schema_version"))
+                .and_then(|v| v.as_u64());
+            assert_eq!(
+                schema_version,
+                Some(1),
+                "provider component {name} must declare config_schema.provider_runtime_config.schema_version = 1"
             );
         }
     }

@@ -1,6 +1,13 @@
 {
   "name": "webex",
   "description": "Webex provider component supporting egress, ingress, and formatting.",
+  "config_schema": {
+    "provider_runtime_config": {
+      "schema_version": 1,
+      "format": "json",
+      "injected_as": "provider_runtime_config.json"
+    }
+  },
   "secret_requirements": [
     {
       "name": "WEBEX_BOT_TOKEN",
