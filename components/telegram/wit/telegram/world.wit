@@ -11,6 +11,7 @@ world telegram {
     import state-store;
     import logger-api;
 
+    export init-runtime-config: func(config-json: string) -> result<_, string>;
     export send-message: func(chat-id: string, text: string) -> result<string, string>;
     export handle-webhook: func(headers-json: string, body-json: string) -> result<string, string>;
     export refresh: func() -> result<string, string>;

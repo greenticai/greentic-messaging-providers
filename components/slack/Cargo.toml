@@ -14,6 +14,7 @@ serde_json.workspace = true
 hmac.workspace = true
 sha2.workspace = true
 provider-common = { path = "../../crates/provider-common" }
+provider-runtime-config = { path = "../../crates/provider-runtime-config" }
 wit-bindgen.workspace = true
 
 [package.metadata.component]

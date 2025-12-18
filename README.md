@@ -22,9 +22,10 @@ Current layout:
 
 ## Conformance checks
 - Workspace tests include a provider conformance test ensuring each component:
-  - exposes the expected exports (send/handle_webhook/refresh/format_message) in its WIT world,
+  - exposes the expected exports (including `init-runtime-config`) in its WIT world,
   - has a `component.manifest.json` with `secret_requirements`,
   - does not reference environment variables (secrets come from `greentic:secrets-store`).
+  - declares `config_schema.provider_runtime_config` (schema v1, JSON) for host injection as `provider_runtime_config.json`.
 
 ## Packs (.gtpack) publishing
 - Pack sources live under `packs/` (placeholder `messaging-provider-bundle` exists). Packs are built with `tools/publish_packs_oci.sh`, which prefers `packc` when available and falls back to zipping the pack directory.
@@ -43,6 +44,7 @@ Current layout:
 
 ## Slack component
 Exports:
+- `init-runtime-config(config_json) -> result<_, provider-error>`
 - `send_message(channel, text) -> result<string, provider-error>`
 - `handle_webhook(headers_json, body_json) -> result<string, provider-error>`
 - `refresh() -> result<string, provider-error>` (no-op)
@@ -54,6 +56,7 @@ Secrets (from `greentic:secrets-store@1.0.0`):
 
 ## Teams component
 Exports:
+- `init-runtime-config(config_json) -> result<_, provider-error>`
 - `send_message(destination_json, text) -> result<string, provider-error>`
 - `handle_webhook(headers_json, body_json) -> result<string, provider-error>`
 - `refresh() -> result<string, provider-error>` (no-op)
@@ -66,6 +69,7 @@ Secrets (from `greentic:secrets-store@1.0.0`):
 
 ## Telegram component
 Exports:
+- `init-runtime-config(config_json) -> result<_, provider-error>`
 - `send_message(chat_id, text) -> result<string, provider-error>`
 - `handle_webhook(headers_json, body_json) -> result<string, provider-error>`
 - `refresh() -> result<string, provider-error>` (no-op)
@@ -76,6 +80,7 @@ Secrets (from `greentic:secrets-store@1.0.0`):
 
 ## WebChat component
 Exports:
+- `init-runtime-config(config_json) -> result<_, provider-error>`
 - `send_message(session_id, text) -> result<string, provider-error>`
 - `handle_webhook(headers_json, body_json) -> result<string, provider-error>`
 - `refresh() -> result<string, provider-error>` (no-op)
@@ -86,6 +91,7 @@ Secrets:
 
 ## Webex component
 Exports:
+- `init-runtime-config(config_json) -> result<_, provider-error>`
 - `send_message(room_id, text) -> result<string, provider-error>`
 - `handle_webhook(headers_json, body_json) -> result<string, provider-error>`
 - `refresh() -> result<string, provider-error>` (no-op)
@@ -96,6 +102,7 @@ Secrets (from `greentic:secrets-store@1.0.0`):
 
 ## WhatsApp component
 Exports:
+- `init-runtime-config(config_json) -> result<_, provider-error>`
 - `send_message(destination_json, text) -> result<string, provider-error>`
 - `handle_webhook(headers_json, body_json) -> result<string, provider-error>`
 - `refresh() -> result<string, provider-error>` (no-op)

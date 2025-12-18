@@ -7,7 +7,6 @@ use std::process::Command;
 use anyhow::{Result, anyhow};
 use serde_json::{Map, Value};
 use tempfile::tempdir;
-use zip::write::FileOptions;
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -35,7 +34,8 @@ fn copy_dir(src: &Path, dest: &Path) -> std::io::Result<()> {
 fn build_gtpack(src_dir: &Path, output: &Path) -> Result<()> {
     let file = fs::File::create(output)?;
     let mut zip = zip::ZipWriter::new(file);
-    let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    let options =
+        zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
     let mut stack = vec![src_dir.to_path_buf()];
     while let Some(dir) = stack.pop() {
@@ -162,6 +162,16 @@ fn gtpack_contains_secret_requirements_metadata() -> Result<()> {
     let pack_copy = temp.path().join("messaging-provider-bundle");
     copy_dir(&pack_source, &pack_copy)?;
 
+    let pack_yaml = fs::read_to_string(pack_copy.join("pack.yaml"))?;
+    assert!(
+        pack_yaml.contains("x-provider-runtime-config:"),
+        "pack.yaml must declare x-provider-runtime-config (host injected blob contract)"
+    );
+    assert!(
+        pack_yaml.contains("injected_as: provider_runtime_config.json"),
+        "pack.yaml must reference provider_runtime_config.json"
+    );
+
     run_metadata_generator(&root, &pack_copy);
 
     let gtpack_path = temp.path().join("messaging-provider-bundle.gtpack");
@@ -169,6 +179,18 @@ fn gtpack_contains_secret_requirements_metadata() -> Result<()> {
 
     let manifest_bytes = read_from_gtpack(&gtpack_path, "pack.manifest.json")?;
     let manifest: Value = serde_json::from_slice(&manifest_bytes)?;
+
+    let schema_version = manifest
+        .get("config_schema")
+        .and_then(|v| v.get("provider_runtime_config"))
+        .and_then(|v| v.get("schema_version"))
+        .and_then(Value::as_u64);
+    assert_eq!(
+        schema_version,
+        Some(1),
+        "pack manifest must declare config_schema.provider_runtime_config.schema_version = 1"
+    );
+
     let requirements = manifest
         .get("secret_requirements")
         .and_then(|v| v.as_array())
