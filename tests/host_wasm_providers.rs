@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::path::Path;
 
 use wasmtime::{
@@ -34,6 +34,7 @@ mod telegram {
         http_fail_first: bool,
         http_calls: Cell<u32>,
         telemetry_calls: Cell<u32>,
+        http_options: RefCell<Option<bindings::greentic::http::http_client::RequestOptions>>,
     }
 
     struct HttpHost;
@@ -45,10 +46,12 @@ mod telegram {
         fn send(
             &mut self,
             _req: bindings::greentic::http::http_client::Request,
+            options: Option<bindings::greentic::http::http_client::RequestOptions>,
             _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
         ) -> Result<bindings::greentic::http::http_client::Response, bindings::greentic::http::http_client::HostError> {
             let call = self.http_calls.get();
             self.http_calls.set(call + 1);
+            self.http_options.replace(options);
             if self.http_fail_first && call == 0 {
                 return Err(bindings::greentic::http::http_client::HostError {
                     code: "timeout".into(),
@@ -146,6 +149,7 @@ mod telegram {
             http_fail_first: true,
             http_calls: Cell::new(0),
             telemetry_calls: Cell::new(0),
+            http_options: RefCell::new(None),
         };
         let (mut store, tg) = instantiate(&engine, state);
 
@@ -160,6 +164,14 @@ mod telegram {
             .expect("send ok");
         assert!(resp.contains("\"chat_id\":\"123\""));
         assert_eq!(store.data().http_calls.get(), 2);
+        let opts = store
+            .data()
+            .http_options
+            .borrow()
+            .clone()
+            .expect("options");
+        assert!(matches!(opts.proxy, bindings::greentic::http::http_client::ProxyMode::Inherit));
+        assert!(matches!(opts.tls, bindings::greentic::http::http_client::TlsMode::Strict));
         assert_eq!(store.data().telemetry_calls.get(), 1);
     }
 
@@ -171,6 +183,7 @@ mod telegram {
             http_fail_first: false,
             http_calls: Cell::new(0),
             telemetry_calls: Cell::new(0),
+            http_options: RefCell::new(None),
         };
         let (mut store, tg) = instantiate(&engine, state);
         tg.call_init_runtime_config(&mut store, r#"{"schema_version":1}"#.into())
@@ -206,6 +219,7 @@ mod webex {
         http_fail_first: bool,
         http_calls: Cell<u32>,
         telemetry_calls: Cell<u32>,
+        http_options: RefCell<Option<bindings::greentic::http::http_client::RequestOptions>>,
     }
 
     struct HttpHost;
@@ -217,10 +231,12 @@ mod webex {
         fn send(
             &mut self,
             _req: bindings::greentic::http::http_client::Request,
+            options: Option<bindings::greentic::http::http_client::RequestOptions>,
             _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
         ) -> Result<bindings::greentic::http::http_client::Response, bindings::greentic::http::http_client::HostError> {
             let call = self.http_calls.get();
             self.http_calls.set(call + 1);
+            self.http_options.replace(options);
             if self.http_fail_first && call == 0 {
                 return Err(bindings::greentic::http::http_client::HostError {
                     code: "timeout".into(),
@@ -318,6 +334,7 @@ mod webex {
             http_fail_first: true,
             http_calls: Cell::new(0),
             telemetry_calls: Cell::new(0),
+            http_options: RefCell::new(None),
         };
         let (mut store, comp) = instantiate(&engine, state);
 
@@ -332,6 +349,14 @@ mod webex {
             .expect("send ok");
         assert!(resp.contains("\"roomId\":\"room1\""));
         assert_eq!(store.data().http_calls.get(), 2);
+        let opts = store
+            .data()
+            .http_options
+            .borrow()
+            .clone()
+            .expect("options");
+        assert!(matches!(opts.proxy, bindings::greentic::http::http_client::ProxyMode::Inherit));
+        assert!(matches!(opts.tls, bindings::greentic::http::http_client::TlsMode::Strict));
         assert_eq!(store.data().telemetry_calls.get(), 1);
     }
 
@@ -343,6 +368,7 @@ mod webex {
             http_fail_first: false,
             http_calls: Cell::new(0),
             telemetry_calls: Cell::new(0),
+            http_options: RefCell::new(None),
         };
         let (mut store, comp) = instantiate(&engine, state);
         comp.call_init_runtime_config(&mut store, r#"{"schema_version":1}"#.into())
@@ -377,6 +403,7 @@ mod whatsapp {
         http_fail_first: bool,
         http_calls: Cell<u32>,
         telemetry_calls: Cell<u32>,
+        http_options: RefCell<Option<bindings::greentic::http::http_client::RequestOptions>>,
     }
 
     struct HttpHost;
@@ -388,10 +415,12 @@ mod whatsapp {
         fn send(
             &mut self,
             _req: bindings::greentic::http::http_client::Request,
+            options: Option<bindings::greentic::http::http_client::RequestOptions>,
             _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
         ) -> Result<bindings::greentic::http::http_client::Response, bindings::greentic::http::http_client::HostError> {
             let call = self.http_calls.get();
             self.http_calls.set(call + 1);
+            self.http_options.replace(options);
             if self.http_fail_first && call == 0 {
                 return Err(bindings::greentic::http::http_client::HostError {
                     code: "timeout".into(),
@@ -489,6 +518,7 @@ mod whatsapp {
             http_fail_first: true,
             http_calls: Cell::new(0),
             telemetry_calls: Cell::new(0),
+            http_options: RefCell::new(None),
         };
         let (mut store, comp) = instantiate(&engine, state);
 
@@ -504,6 +534,14 @@ mod whatsapp {
             .expect("send ok");
         assert!(resp.contains("\"messaging_product\":\"whatsapp\""));
         assert_eq!(store.data().http_calls.get(), 2);
+        let opts = store
+            .data()
+            .http_options
+            .borrow()
+            .clone()
+            .expect("options");
+        assert!(matches!(opts.proxy, bindings::greentic::http::http_client::ProxyMode::Inherit));
+        assert!(matches!(opts.tls, bindings::greentic::http::http_client::TlsMode::Strict));
         assert_eq!(store.data().telemetry_calls.get(), 1);
     }
 
@@ -515,6 +553,7 @@ mod whatsapp {
             http_fail_first: false,
             http_calls: Cell::new(0),
             telemetry_calls: Cell::new(0),
+            http_options: RefCell::new(None),
         };
         let (mut store, comp) = instantiate(&engine, state);
         comp.call_init_runtime_config(&mut store, r#"{"schema_version":1}"#.into())
@@ -550,6 +589,7 @@ mod teams {
         http_fail_first: bool,
         http_calls: Cell<u32>,
         telemetry_calls: Cell<u32>,
+        http_options: RefCell<Option<bindings::greentic::http::http_client::RequestOptions>>,
     }
 
     struct HttpHost;
@@ -561,10 +601,12 @@ mod teams {
         fn send(
             &mut self,
             _req: bindings::greentic::http::http_client::Request,
+            options: Option<bindings::greentic::http::http_client::RequestOptions>,
             _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
         ) -> Result<bindings::greentic::http::http_client::Response, bindings::greentic::http::http_client::HostError> {
             let call = self.http_calls.get();
             self.http_calls.set(call + 1);
+            self.http_options.replace(options);
             if self.http_fail_first && call == 0 {
                 return Err(bindings::greentic::http::http_client::HostError {
                     code: "timeout".into(),
@@ -662,6 +704,7 @@ mod teams {
             http_fail_first: true,
             http_calls: Cell::new(0),
             telemetry_calls: Cell::new(0),
+            http_options: RefCell::new(None),
         };
         let (mut store, comp) = instantiate(&engine, state);
 
@@ -677,6 +720,14 @@ mod teams {
             .expect("send ok");
         assert!(resp.contains("\"team_id\":\"t1\""));
         assert_eq!(store.data().http_calls.get(), 2);
+        let opts = store
+            .data()
+            .http_options
+            .borrow()
+            .clone()
+            .expect("options");
+        assert!(matches!(opts.proxy, bindings::greentic::http::http_client::ProxyMode::Inherit));
+        assert!(matches!(opts.tls, bindings::greentic::http::http_client::TlsMode::Strict));
         assert_eq!(store.data().telemetry_calls.get(), 1);
     }
 
@@ -688,6 +739,7 @@ mod teams {
             http_fail_first: false,
             http_calls: Cell::new(0),
             telemetry_calls: Cell::new(0),
+            http_options: RefCell::new(None),
         };
         let (mut store, comp) = instantiate(&engine, state);
         comp.call_init_runtime_config(&mut store, r#"{"schema_version":1}"#.into())
@@ -723,6 +775,7 @@ mod webchat {
         http_fail_first: bool,
         http_calls: Cell<u32>,
         telemetry_calls: Cell<u32>,
+        http_options: RefCell<Option<bindings::greentic::http::http_client::RequestOptions>>,
     }
 
     struct HttpHost;
@@ -734,10 +787,12 @@ mod webchat {
         fn send(
             &mut self,
             _req: bindings::greentic::http::http_client::Request,
+            options: Option<bindings::greentic::http::http_client::RequestOptions>,
             _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
         ) -> Result<bindings::greentic::http::http_client::Response, bindings::greentic::http::http_client::HostError> {
             let call = self.http_calls.get();
             self.http_calls.set(call + 1);
+            self.http_options.replace(options);
             if self.http_fail_first && call == 0 {
                 return Err(bindings::greentic::http::http_client::HostError {
                     code: "timeout".into(),
@@ -835,6 +890,7 @@ mod webchat {
             http_fail_first: true,
             http_calls: Cell::new(0),
             telemetry_calls: Cell::new(0),
+            http_options: RefCell::new(None),
         };
         let (mut store, comp) = instantiate(&engine, state);
 
@@ -849,6 +905,14 @@ mod webchat {
             .expect("send ok");
         assert!(resp.contains("\"session_id\":\"sess-1\""));
         assert_eq!(store.data().http_calls.get(), 2);
+        let opts = store
+            .data()
+            .http_options
+            .borrow()
+            .clone()
+            .expect("options");
+        assert!(matches!(opts.proxy, bindings::greentic::http::http_client::ProxyMode::Inherit));
+        assert!(matches!(opts.tls, bindings::greentic::http::http_client::TlsMode::Strict));
         assert_eq!(store.data().telemetry_calls.get(), 1);
     }
 
@@ -859,6 +923,8 @@ mod webchat {
             secret: None,
             http_fail_first: false,
             http_calls: Cell::new(0),
+            telemetry_calls: Cell::new(0),
+            http_options: RefCell::new(None),
         };
         let (mut store, comp) = instantiate(&engine, state);
         comp.call_init_runtime_config(&mut store, r#"{"schema_version":1}"#.into())

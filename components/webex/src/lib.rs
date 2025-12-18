@@ -125,9 +125,10 @@ fn runtime_config() -> &'static ProviderRuntimeConfig {
 
 fn send_with_retries(req: &http_client::Request) -> Result<http_client::Response, String> {
     let attempts = runtime_config().network.max_attempts.clamp(1, 10);
+    let options = request_options();
     let mut last_err: Option<String> = None;
     for _ in 0..attempts {
-        match http_send(req) {
+        match http_send(req, &options) {
             Ok(resp) => return Ok(resp),
             Err(e) => last_err = Some(format!("transport error: {} ({})", e.message, e.code)),
         }
@@ -138,6 +139,21 @@ fn send_with_retries(req: &http_client::Request) -> Result<http_client::Response
 fn missing_secret_error(name: &str) -> String {
     serde_json::to_string(&ProviderError::missing_secret(name))
         .unwrap_or_else(|_| format!("missing secret: {name}"))
+}
+
+fn request_options() -> http_client::RequestOptions {
+    let cfg = runtime_config();
+    http_client::RequestOptions {
+        timeout_ms: None,
+        proxy: match cfg.network.proxy {
+            provider_runtime_config::ProxyMode::Inherit => http_client::ProxyMode::Inherit,
+            provider_runtime_config::ProxyMode::Disabled => http_client::ProxyMode::Disabled,
+        },
+        tls: match cfg.network.tls {
+            provider_runtime_config::TlsMode::Strict => http_client::TlsMode::Strict,
+            provider_runtime_config::TlsMode::Insecure => http_client::TlsMode::Insecure,
+        },
+    }
 }
 
 fn log_if_enabled(event: &str) {
@@ -173,14 +189,17 @@ fn secrets_get(key: &str) -> Result<Option<Vec<u8>>, secrets_store::SecretsError
     }
 }
 
-fn http_send(req: &http_client::Request) -> Result<http_client::Response, http_client::HostError> {
+fn http_send(
+    req: &http_client::Request,
+    options: &http_client::RequestOptions,
+) -> Result<http_client::Response, http_client::HostError> {
     #[cfg(test)]
     {
-        return http_send_test(req);
+        return http_send_test(req, options);
     }
     #[cfg(not(test))]
     {
-        http_client::send(req, None)
+        http_client::send(req, Some(options), None)
     }
 }
 
@@ -188,7 +207,7 @@ fn http_send(req: &http_client::Request) -> Result<http_client::Response, http_c
 thread_local! {
     static SECRETS_GET_MOCK: std::cell::RefCell<Option<Box<dyn Fn(&str) -> Result<Option<Vec<u8>>, secrets_store::SecretsError>>>> =
         std::cell::RefCell::new(None);
-    static HTTP_SEND_MOCK: std::cell::RefCell<Option<Box<dyn Fn(&http_client::Request) -> Result<http_client::Response, http_client::HostError>>>> =
+    static HTTP_SEND_MOCK: std::cell::RefCell<Option<Box<dyn Fn(&http_client::Request, &http_client::RequestOptions) -> Result<http_client::Response, http_client::HostError>>>> =
         std::cell::RefCell::new(None);
 }
 
@@ -208,7 +227,10 @@ where
 
 #[cfg(test)]
 fn with_http_send_mock<F, R>(
-    mock: impl Fn(&http_client::Request) -> Result<http_client::Response, http_client::HostError>
+    mock: impl Fn(
+        &http_client::Request,
+        &http_client::RequestOptions,
+    ) -> Result<http_client::Response, http_client::HostError>
     + 'static,
     f: F,
 ) -> R
@@ -232,9 +254,10 @@ fn secrets_get_test(key: &str) -> Result<Option<Vec<u8>>, secrets_store::Secrets
 #[cfg(test)]
 fn http_send_test(
     req: &http_client::Request,
+    options: &http_client::RequestOptions,
 ) -> Result<http_client::Response, http_client::HostError> {
     HTTP_SEND_MOCK.with(|cell| match &*cell.borrow() {
-        Some(mock) => mock(req),
+        Some(mock) => mock(req, options),
         None => Err(http_client::HostError {
             code: "unconfigured".into(),
             message: "http_send_test mock not set".into(),
@@ -281,7 +304,7 @@ mod tests {
         let calls = Rc::new(Cell::new(0u32));
         let calls_for_mock = Rc::clone(&calls);
         super::with_http_send_mock(
-            move |_: &http_client::Request| {
+            move |_: &http_client::Request, _: &http_client::RequestOptions| {
                 let n = calls_for_mock.get() + 1;
                 calls_for_mock.set(n);
                 if n == 1 {

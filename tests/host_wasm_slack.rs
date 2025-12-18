@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::path::Path;
 
 use wasmtime::{
@@ -24,6 +24,7 @@ struct HostState {
     http_fail_first: bool,
     http_calls: Cell<u32>,
     telemetry_calls: Cell<u32>,
+    http_options: RefCell<Option<bindings::greentic::http::http_client::RequestOptions>>,
 }
 
 struct HttpHost;
@@ -35,10 +36,12 @@ impl bindings::greentic::http::http_client::Host for HostState {
     fn send(
         &mut self,
         _req: bindings::greentic::http::http_client::Request,
+        options: Option<bindings::greentic::http::http_client::RequestOptions>,
         _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
     ) -> Result<bindings::greentic::http::http_client::Response, bindings::greentic::http::http_client::HostError> {
         let call = self.http_calls.get();
         self.http_calls.set(call + 1);
+        self.http_options.replace(options);
         if self.http_fail_first && call == 0 {
             return Err(bindings::greentic::http::http_client::HostError {
                 code: "timeout".into(),
@@ -144,6 +147,7 @@ fn slack_injected_config_controls_retries() {
         http_fail_first: true,
         http_calls: Cell::new(0),
         telemetry_calls: Cell::new(0),
+        http_options: RefCell::new(None),
     };
     let (mut store, slack) = instantiate_slack(&engine, state);
 
@@ -161,6 +165,14 @@ fn slack_injected_config_controls_retries() {
 
     let calls = store.data().http_calls.get();
     assert_eq!(calls, 2, "should retry once before succeeding");
+    let opts = store
+        .data()
+        .http_options
+        .borrow()
+        .clone()
+        .expect("options");
+    assert!(matches!(opts.proxy, bindings::greentic::http::http_client::ProxyMode::Inherit));
+    assert!(matches!(opts.tls, bindings::greentic::http::http_client::TlsMode::Strict));
     assert_eq!(store.data().telemetry_calls.get(), 1, "should emit one telemetry log");
 }
 
@@ -171,6 +183,8 @@ fn slack_missing_secret_surfaces_structured_error() {
         secret: None,
         http_fail_first: false,
         http_calls: Cell::new(0),
+        telemetry_calls: Cell::new(0),
+        http_options: RefCell::new(None),
     };
     let (mut store, slack) = instantiate_slack(&engine, state);
 

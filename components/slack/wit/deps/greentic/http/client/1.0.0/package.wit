@@ -1,26 +1,61 @@
+// SPDX-License-Identifier: MIT
+
 package greentic:http@1.0.0;
 
-interface client {
-    record header { name: string, value: string }
+interface http-client {
+  use greentic:interfaces-types/types@0.1.0.{tenant-ctx};
 
-    record request {
-        method: string,
-        url: string,
-        headers: list<header>,
-        body: list<u8>,
-    }
+  /// Canonical host error payload.
+  record host-error {
+    code: string,
+    message: string,
+  }
 
-    record response {
-        status: u16,
-        headers: list<header>,
-        body: list<u8>,
-    }
+  /// HTTP request issued by a component.
+  record request {
+    method: string,
+    url: string,
+    headers: list<tuple<string, string>>,
+    body: option<list<u8>>,
+  }
 
-    enum http-error {
-        network,
-        invalid,
-        other,
-    }
+  /// Options controlling transport behavior; host applies policy.
+  record request-options {
+    /// Optional request timeout in milliseconds.
+    timeout-ms: option<u64>,
+    /// Proxy behavior for this request.
+    proxy: proxy-mode,
+    /// TLS behavior for this request.
+    tls: tls-mode,
+  }
 
-    send: func(req: request) -> result<response, http-error>;
+  /// Proxy resolution mode.
+  enum proxy-mode {
+    /// Inherit host defaults.
+    inherit,
+    /// Do not use a proxy.
+    disabled,
+  }
+
+  /// TLS validation mode.
+  enum tls-mode {
+    /// Enforce certificate validation.
+    strict,
+    /// Allow insecure connections.
+    insecure,
+  }
+
+  /// HTTP response returned by the host.
+  record response {
+    status: u16,
+    headers: list<tuple<string, string>>,
+    body: option<list<u8>>,
+  }
+
+  /// Issues an HTTP request using the host's networking stack.
+  send: func(req: request, options: option<request-options>, ctx: option<tenant-ctx>) -> result<response, host-error>;
+}
+
+world client {
+  import http-client;
 }
