@@ -179,6 +179,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dyn-clone"
+version = "1.0.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -274,6 +280,12 @@ checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
 dependencies = [
  "digest",
 ]
+
+[[package]]
+name = "htmlescape"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9025058dae765dee5070ec375f591e2ba14638c63feff74f13805a72e523163"
 
 [[package]]
 name = "id-arena"
@@ -375,7 +387,7 @@ checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 
 [[package]]
 name = "messaging-core"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "serde",
 ]
@@ -451,9 +463,10 @@ dependencies = [
 
 [[package]]
 name = "provider-common"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "anyhow",
+ "schemars",
  "serde",
  "serde_json",
  "tempfile",
@@ -463,7 +476,7 @@ dependencies = [
 
 [[package]]
 name = "provider-runtime-config"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "serde",
  "serde_json",
@@ -504,8 +517,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 
 [[package]]
+name = "schemars"
+version = "0.8.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fbf2ae1b8bc8e02df939598064d22402220cd5bbcca1c76f7d6a310974d5615"
+dependencies = [
+ "dyn-clone",
+ "schemars_derive",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "schemars_derive"
+version = "0.8.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32e265784ad618884abaea0600a9adf15393368d840e0222d101a072f3f7534d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_derive_internals",
+ "syn",
+]
+
+[[package]]
 name = "secrets-probe"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "wit-bindgen 0.49.0",
 ]
@@ -540,6 +577,17 @@ name = "serde_derive"
 version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "serde_derive_internals"
+version = "0.29.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18d26a20a969b9e3fdf2fc2d9f21eda6c40e2de84c9408bb5d3b05d499aae711"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -595,7 +643,7 @@ checksum = "e320a6c5ad31d271ad523dcf3ad13e2767ad8b1cb8f047f75a8aeaf8da139da2"
 
 [[package]]
 name = "slack"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "hmac",
  "provider-common",
@@ -625,7 +673,7 @@ dependencies = [
 
 [[package]]
 name = "teams"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -637,8 +685,9 @@ dependencies = [
 
 [[package]]
 name = "telegram"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
+ "htmlescape",
  "provider-common",
  "provider-runtime-config",
  "serde",
@@ -773,7 +822,7 @@ dependencies = [
 
 [[package]]
 name = "webchat"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -784,7 +833,7 @@ dependencies = [
 
 [[package]]
 name = "webex"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -795,7 +844,7 @@ dependencies = [
 
 [[package]]
 name = "whatsapp"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "provider-common",
  "provider-runtime-config",

@@ -159,10 +159,18 @@ mod telegram {
         )
         .expect("init");
 
+        let req = bindings::provider::telegram::SendMessageRequest {
+            chat_id: "123".into(),
+            text: "hi".into(),
+            message_thread_id: None,
+            reply_to_message_id: None,
+            buttons: vec![],
+            format_options: None,
+        };
         let resp = tg
-            .call_send_message(&mut store, "123".into(), "hi".into())
+            .call_send_message(&mut store, &req)
             .expect("send ok");
-        assert!(resp.contains("\"chat_id\":\"123\""));
+        assert!(resp.payload_json.contains("\"chat_id\":\"123\""));
         assert_eq!(store.data().http_calls.get(), 2);
         let opts = store
             .data()
@@ -189,8 +197,16 @@ mod telegram {
         tg.call_init_runtime_config(&mut store, r#"{"schema_version":1}"#.into())
             .expect("init");
 
+        let req = bindings::provider::telegram::SendMessageRequest {
+            chat_id: "123".into(),
+            text: "hi".into(),
+            message_thread_id: None,
+            reply_to_message_id: None,
+            buttons: vec![],
+            format_options: None,
+        };
         let err = tg
-            .call_send_message(&mut store, "123".into(), "hi".into())
+            .call_send_message(&mut store, &req)
             .expect_err("should fail");
         let val: serde_json::Value = serde_json::from_str(&err).expect("json error");
         assert_eq!(val["MissingSecret"]["name"], "TELEGRAM_BOT_TOKEN");

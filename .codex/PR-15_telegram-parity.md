@@ -1,0 +1,5 @@
+- Ownership split: WASM handles formatting/truncation, button mapping, webhook normalization, capability export; host wrapper owns HTTP edge, retries/backoff, telemetry exporters, secrets delivery.
+- Current capabilities(): threads ✅, buttons ✅, webhook validation ✅, formatting options ✅; limits: max_text_len 4000, callback_data_max_bytes 64, max_buttons_per_row 5, max_button_rows 8.
+- Gaps vs greentic-messaging: webhook validation minimal (structure only), callback_data over-limit buttons dropped with warning instead of structured rejection, formatting fixtures need more coverage for legacy edge cases.
+- Test plan now: capabilities() contract test; formatting/button/truncation/warning golden tests; webhook normalization result; retry behavior; missing secret structure.
+- Next steps: expand webhook validation schema + suggested status, add more golden fixtures (unicode, nested tags), align callbacks handling behavior with legacy if stricter rejection is desired.

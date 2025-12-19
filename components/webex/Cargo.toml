@@ -28,3 +28,4 @@ world = "webex"
 "greentic:state" = { path = "wit/webex/deps/state" }
 "greentic:telemetry" = { path = "wit/webex/deps/telemetry" }
 "greentic:interfaces-types" = { path = "wit/webex/deps/interfaces-types" }
+"provider:common" = { path = "wit/webex/deps/provider-common" }

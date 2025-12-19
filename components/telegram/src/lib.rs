@@ -8,13 +8,23 @@ use bindings::Guest;
 use bindings::greentic::http::http_client;
 use bindings::greentic::secrets_store::secrets_store;
 use bindings::greentic::telemetry::logger_api;
+use bindings::provider::common::capabilities::{
+    CapabilitiesResponse, ProviderCapabilities, ProviderLimits, ProviderMetadata,
+};
+use bindings::provider::telegram::types::{
+    Button, Messagerender as MessageRender, Sendmessagerequest as SendMessageRequest,
+    ValidationOutcome, Webhookresult as WebhookResult,
+};
 use provider_common::ProviderError;
 use provider_runtime_config::ProviderRuntimeConfig;
-use serde_json::Value;
 use std::sync::OnceLock;
 
 const TELEGRAM_API: &str = "https://api.telegram.org";
 const TELEGRAM_BOT_TOKEN: &str = "TELEGRAM_BOT_TOKEN";
+const MAX_TEXT_LEN: u32 = 4000;
+const CALLBACK_DATA_MAX_BYTES: u32 = 64;
+const MAX_BUTTONS_PER_ROW: u32 = 5;
+const MAX_BUTTON_ROWS: u32 = 8;
 
 static RUNTIME_CONFIG: OnceLock<ProviderRuntimeConfig> = OnceLock::new();
 
@@ -26,23 +36,46 @@ impl Guest for Component {
         set_runtime_config(config)
     }
 
-    fn send_message(chat_id: String, text: String) -> Result<String, String> {
+    fn capabilities() -> CapabilitiesResponse {
+        CapabilitiesResponse {
+            metadata: ProviderMetadata {
+                provider_id: "telegram".into(),
+                display_name: "Telegram".into(),
+                version: env!("CARGO_PKG_VERSION").into(),
+                rate_limit_hint: None,
+            },
+            capabilities: ProviderCapabilities {
+                supports_threads: true,
+                supports_buttons: true,
+                supports_webhook_validation: true,
+                supports_formatting_options: true,
+            },
+            limits: ProviderLimits {
+                max_text_len: MAX_TEXT_LEN,
+                callback_data_max_bytes: CALLBACK_DATA_MAX_BYTES,
+                max_buttons_per_row: MAX_BUTTONS_PER_ROW,
+                max_button_rows: MAX_BUTTON_ROWS,
+            },
+        }
+    }
+
+    fn send_message(req: SendMessageRequest) -> Result<MessageRender, String> {
         let token = get_secret(TELEGRAM_BOT_TOKEN)?;
         let url = format!("{}/bot{}/sendMessage", TELEGRAM_API, token);
-        let payload = format_message_json(&chat_id, &text);
+        let render = format_message_internal(&req);
 
-        let req = http_client::Request {
+        let request = http_client::Request {
             method: "POST".into(),
             url,
             headers: vec![("Content-Type".into(), "application/json".into())],
-            body: Some(payload.clone().into_bytes()),
+            body: Some(render.payload_json.clone().into_bytes()),
         };
 
-        let resp = send_with_retries(&req)?;
+        let resp = send_with_retries(&request)?;
 
         if (200..300).contains(&resp.status) {
             log_if_enabled("send_message_success");
-            Ok(payload)
+            Ok(render)
         } else {
             Err(format!(
                 "transport error: telegram returned status {}",
@@ -51,19 +84,26 @@ impl Guest for Component {
         }
     }
 
-    fn handle_webhook(_headers_json: String, body_json: String) -> Result<String, String> {
-        let parsed: Value = serde_json::from_str(&body_json)
+    fn handle_webhook(_headers_json: String, body_json: String) -> Result<WebhookResult, String> {
+        let parsed: serde_json::Value = serde_json::from_str(&body_json)
             .map_err(|_| "validation error: invalid body".to_string())?;
         let normalized = serde_json::json!({ "ok": true, "event": parsed });
-        serde_json::to_string(&normalized).map_err(|_| "other error: serialization failed".into())
+        let normalized_json = serde_json::to_string(&normalized)
+            .map_err(|_| "other error: serialization failed".to_string())?;
+        Ok(WebhookResult {
+            validation: ValidationOutcome::Ok,
+            normalized_event_json: Some(normalized_json),
+            warnings: vec![],
+            suggested_http_status: None,
+        })
     }
 
     fn refresh() -> Result<String, String> {
         Ok(r#"{"ok":true,"refresh":"not-needed"}"#.to_string())
     }
 
-    fn format_message(chat_id: String, text: String) -> String {
-        format_message_json(&chat_id, &text)
+    fn format_message(req: SendMessageRequest) -> MessageRender {
+        format_message_internal(&req)
     }
 }
 
@@ -84,13 +124,101 @@ fn secret_error(key: &str, error: secrets_store::SecretsError) -> Result<String,
     })
 }
 
-fn format_message_json(chat_id: &str, text: &str) -> String {
-    let payload = serde_json::json!({
-        "chat_id": chat_id,
+fn format_message_internal(req: &SendMessageRequest) -> MessageRender {
+    let mut warnings = Vec::new();
+    let text = sanitize_and_truncate(&req.text, &mut warnings);
+    let parse_mode = req
+        .format_options
+        .as_ref()
+        .and_then(|o| o.parse_mode.clone())
+        .unwrap_or_else(|| "HTML".to_string());
+
+    let keyboard = build_inline_keyboard(&req.buttons, &mut warnings);
+
+    let mut payload = serde_json::json!({
+        "chat_id": req.chat_id,
         "text": text,
-        "parse_mode": "HTML"
+        "parse_mode": parse_mode,
     });
-    serde_json::to_string(&payload).unwrap_or_else(|_| "{\"chat_id\":\"\",\"text\":\"\"}".into())
+
+    if let Some(thread_id) = req.message_thread_id {
+        payload["message_thread_id"] = serde_json::json!(thread_id);
+    }
+    if let Some(reply_id) = req.reply_to_message_id {
+        payload["reply_to_message_id"] = serde_json::json!(reply_id);
+    }
+    if let Some(kb) = keyboard {
+        payload["reply_markup"] = serde_json::json!({ "inline_keyboard": kb });
+    }
+
+    let payload_json = serde_json::to_string(&payload)
+        .unwrap_or_else(|_| "{\"chat_id\":\"\",\"text\":\"\"}".into());
+
+    MessageRender {
+        payload_json,
+        warnings,
+    }
+}
+
+fn sanitize_and_truncate(text: &str, warnings: &mut Vec<String>) -> String {
+    let escaped = htmlescape::encode_minimal(text);
+    let mut bytes = escaped.into_bytes();
+    if bytes.len() as u32 > MAX_TEXT_LEN {
+        bytes.truncate(MAX_TEXT_LEN as usize);
+        warnings.push(format!(
+            "text truncated to {} bytes to satisfy limit",
+            MAX_TEXT_LEN
+        ));
+    }
+    String::from_utf8(bytes).unwrap_or_default()
+}
+
+fn build_inline_keyboard(
+    buttons: &[Button],
+    warnings: &mut Vec<String>,
+) -> Option<Vec<Vec<serde_json::Value>>> {
+    if buttons.is_empty() {
+        return None;
+    }
+    let mut rows: Vec<Vec<serde_json::Value>> = Vec::new();
+    let mut current: Vec<serde_json::Value> = Vec::new();
+
+    for btn in buttons {
+        if rows.len() as u32 >= MAX_BUTTON_ROWS {
+            warnings.push("button rows exceeded max; dropping remaining buttons".into());
+            break;
+        }
+        if current.len() as u32 >= MAX_BUTTONS_PER_ROW {
+            rows.push(current);
+            current = Vec::new();
+        }
+        match btn {
+            Button::OpenUrl(v) => current.push(serde_json::json!({
+                "text": v.text,
+                "url": v.url,
+            })),
+            Button::Postback(v) => {
+                let data = v.callback_data.as_bytes();
+                if data.len() as u32 > CALLBACK_DATA_MAX_BYTES {
+                    warnings.push(format!(
+                        "callback_data too long ({} bytes), max {}: dropped button '{}'",
+                        data.len(),
+                        CALLBACK_DATA_MAX_BYTES,
+                        v.text
+                    ));
+                    continue;
+                }
+                current.push(serde_json::json!({
+                    "text": v.text,
+                    "callback_data": v.callback_data,
+                }));
+            }
+        }
+    }
+    if !current.is_empty() && (rows.len() as u32) < MAX_BUTTON_ROWS {
+        rows.push(current);
+    }
+    if rows.is_empty() { None } else { Some(rows) }
 }
 
 fn parse_runtime_config(config_json: &str) -> Result<ProviderRuntimeConfig, String> {
@@ -267,32 +395,120 @@ bindings::__export_world_telegram_cabi!(Component with_types_in bindings);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
     use std::cell::Cell;
     use std::rc::Rc;
 
     #[test]
-    fn formats_payload() {
-        let json = format_message_json("123", "hello");
-        let v: Value = serde_json::from_str(&json).unwrap();
+    fn publishes_capabilities() {
+        let caps = Component::capabilities();
+        assert_eq!(caps.metadata.provider_id, "telegram");
+        assert!(caps.capabilities.supports_buttons);
+        assert_eq!(caps.limits.max_text_len, MAX_TEXT_LEN);
+    }
+
+    #[test]
+    fn formats_payload_with_threads_and_buttons() {
+        let req = SendMessageRequest {
+            chat_id: "123".into(),
+            text: "<b>hello</b>".into(),
+            message_thread_id: Some(42),
+            reply_to_message_id: Some(24),
+            buttons: vec![
+                Button::OpenUrl(bindings::provider::telegram::types::Buttonopenurl {
+                    text: "Docs".into(),
+                    url: "https://example.com".into(),
+                }),
+                Button::Postback(bindings::provider::telegram::types::Buttonpostback {
+                    text: "Ack".into(),
+                    callback_data: "ack".into(),
+                }),
+            ],
+            format_options: Some(bindings::provider::telegram::types::Formatoptions {
+                parse_mode: Some("HTML".into()),
+            }),
+        };
+
+        let render = format_message_internal(&req);
+        assert!(render.warnings.is_empty());
+        let v: Value = serde_json::from_str(&render.payload_json).unwrap();
         assert_eq!(v["chat_id"], "123");
-        assert_eq!(v["text"], "hello");
+        assert_eq!(v["text"], "&lt;b&gt;hello&lt;/b&gt;");
         assert_eq!(v["parse_mode"], "HTML");
+        assert_eq!(v["message_thread_id"], 42);
+        assert_eq!(v["reply_to_message_id"], 24);
+        let buttons = v["reply_markup"]["inline_keyboard"].as_array().unwrap();
+        assert_eq!(buttons.len(), 1);
+        assert_eq!(buttons[0].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn truncates_text_and_warns() {
+        let req = SendMessageRequest {
+            chat_id: "123".into(),
+            text: "a".repeat((MAX_TEXT_LEN + 10) as usize),
+            message_thread_id: None,
+            reply_to_message_id: None,
+            buttons: vec![],
+            format_options: None,
+        };
+        let render = format_message_internal(&req);
+        assert!(
+            render.warnings.iter().any(|w| w.contains("truncated")),
+            "expected truncation warning"
+        );
+        let v: Value = serde_json::from_str(&render.payload_json).unwrap();
+        assert!(v["text"].as_str().unwrap().len() as u32 <= MAX_TEXT_LEN);
+    }
+
+    #[test]
+    fn drops_oversize_callback_data_and_warns() {
+        let req = SendMessageRequest {
+            chat_id: "123".into(),
+            text: "hi".into(),
+            message_thread_id: None,
+            reply_to_message_id: None,
+            buttons: vec![
+                Button::Postback(bindings::provider::telegram::types::Buttonpostback {
+                    text: "TooBig".into(),
+                    callback_data: "x".repeat((CALLBACK_DATA_MAX_BYTES + 1) as usize),
+                }),
+                Button::Postback(bindings::provider::telegram::types::Buttonpostback {
+                    text: "Ok".into(),
+                    callback_data: "ok".into(),
+                }),
+            ],
+            format_options: None,
+        };
+        let render = format_message_internal(&req);
+        assert!(
+            render.warnings.iter().any(|w| w.contains("dropped button")),
+            "expected warning about dropped button"
+        );
+        let v: Value = serde_json::from_str(&render.payload_json).unwrap();
+        let buttons = v["reply_markup"]["inline_keyboard"]
+            .as_array()
+            .expect("inline keyboard");
+        assert_eq!(buttons[0].as_array().unwrap().len(), 1);
+        assert_eq!(buttons[0][0]["text"], "Ok");
     }
 
     #[test]
     fn normalizes_webhook() {
         let res = Component::handle_webhook("{}".into(), r#"{"update_id":1}"#.into()).unwrap();
-        let v: Value = serde_json::from_str(&res).unwrap();
+        assert!(matches!(res.validation, ValidationOutcome::Ok));
+        let normalized = res.normalized_event_json.unwrap();
+        let v: Value = serde_json::from_str(&normalized).unwrap();
         assert_eq!(v["ok"], true);
         assert_eq!(v["event"]["update_id"], 1);
+        assert!(res.warnings.is_empty());
     }
 
     #[test]
     fn init_runtime_config_controls_http_retries() {
-        Component::init_runtime_config(
-            r#"{"schema_version":1,"network":{"max_attempts":2}}"#.into(),
-        )
-        .expect("init");
+        let _ = Component::init_runtime_config(
+            r#"{"schema_version":1,"network":{"max_attempts":2},"telemetry":{"emit_enabled":false}}"#.into(),
+        );
 
         let req = http_client::Request {
             method: "GET".into(),
@@ -339,5 +555,51 @@ mod tests {
         assert_eq!(value["MissingSecret"]["name"], TELEGRAM_BOT_TOKEN);
         assert_eq!(value["MissingSecret"]["scope"], "tenant");
         assert!(value["MissingSecret"]["remediation"].is_string());
+    }
+
+    #[test]
+    fn send_message_retries_and_uses_secret() {
+        let _ = Component::init_runtime_config(
+            r#"{"schema_version":1,"network":{"max_attempts":2},"telemetry":{"emit_enabled":false}}"#.into(),
+        );
+        let msg_req = SendMessageRequest {
+            chat_id: "chat-1".into(),
+            text: "hi".into(),
+            message_thread_id: None,
+            reply_to_message_id: None,
+            buttons: vec![],
+            format_options: None,
+        };
+
+        let calls = Rc::new(Cell::new(0u32));
+        let calls_for_mock = Rc::clone(&calls);
+        let resp = super::with_secrets_get_mock(
+            |_| Ok(Some(b"token".to_vec())),
+            || {
+                super::with_http_send_mock(
+                    move |_req: &http_client::Request, _opts: &http_client::RequestOptions| {
+                        let n = calls_for_mock.get() + 1;
+                        calls_for_mock.set(n);
+                        if n == 1 {
+                            Err(http_client::HostError {
+                                code: "timeout".into(),
+                                message: "first attempt fails".into(),
+                            })
+                        } else {
+                            Ok(http_client::Response {
+                                status: 200,
+                                headers: vec![],
+                                body: None,
+                            })
+                        }
+                    },
+                    || Component::send_message(msg_req.clone()),
+                )
+            },
+        )
+        .expect("send succeeds");
+
+        assert!(resp.payload_json.contains("\"chat_id\":\"chat-1\""));
+        assert_eq!(calls.get(), 2);
     }
 }
