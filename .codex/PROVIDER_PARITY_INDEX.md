@@ -1,0 +1,6 @@
+- telegram: capabilities() ✅; threads ✅; buttons ✅; webhook validation ✅; formatting options ✅; gaps: callback_data rejection only warns, webhook validation minimal.
+- slack: capabilities() ✅; threads ❌; buttons ❌; webhook validation ✅; formatting options ❌; gaps: truncation/escaping minimal, buttons not supported.
+- teams: capabilities() ✅; threads ❌; buttons ❌; webhook validation ❌; formatting options ❌; gaps: no webhook validation, no threads/replies.
+- webchat: capabilities() ✅; threads ❌; buttons ❌; webhook validation ✅; formatting options ❌; gaps: minimal validation, no buttons/threads.
+- webex: capabilities() ✅; threads ❌; buttons ❌; webhook validation ❌; formatting options ❌; gaps: only basic normalize, no limits enforcement beyond JSON size guess.
+- whatsapp: capabilities() ✅; threads ❌; buttons ❌; webhook validation ✅; formatting options ❌; gaps: verify token only, no buttons/threads, no truncation rules.

@@ -28,3 +28,4 @@ world = "whatsapp"
 "greentic:state" = { path = "wit/whatsapp/deps/state" }
 "greentic:telemetry" = { path = "wit/whatsapp/deps/telemetry" }
 "greentic:interfaces-types" = { path = "wit/whatsapp/deps/interfaces-types" }
+"provider:common" = { path = "wit/whatsapp/deps/provider-common" }

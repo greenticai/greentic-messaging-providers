@@ -1,17 +1,20 @@
 package provider:slack@0.0.1;
 
+use provider:common/capabilities@0.0.1;
 use greentic:http/http-client@1.0.0;
 use greentic:secrets-store/secrets-store@1.0.0;
 use greentic:state/state-store@1.0.0;
 use greentic:telemetry/logger-api@1.0.0;
 
 world slack {
+    use capabilities.{capabilities-response};
     import http-client;
     import secrets-store;
     import state-store;
     import logger-api;
 
     export init-runtime-config: func(config-json: string) -> result<_, string>;
+    export capabilities: func() -> capabilities-response;
     export send-message: func(channel: string, text: string) -> result<string, string>;
     export handle-webhook: func(headers-json: string, body-json: string) -> result<string, string>;
     export refresh: func() -> result<string, string>;

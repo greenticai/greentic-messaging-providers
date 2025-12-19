@@ -1,0 +1,5 @@
+- Ownership split: WASM formats/escapes payloads and normalizes webhook events; host wrapper owns HTTP edge, retries/backoff, auth injection, telemetry exporters.
+- Current capabilities(): threads ❌, buttons ❌, webhook validation ✅ (basic shape), formatting options ❌; limits: max_text_len 5000, buttons/callback data not applicable.
+- Gaps vs greentic-messaging: minimal validation, no threads or buttons, no truncation/escaping guarantees beyond current payload shape.
+- Test plan now: capabilities() contract test; payload formatting golden; webhook normalization; retry behavior; optional secret handling.
+- Next steps: tighten validation rules, define truncation/escaping fixtures, consider structured warnings for malformed payloads.

@@ -29,3 +29,4 @@ world = "teams"
 "greentic:state" = { path = "wit/teams/deps/state" }
 "greentic:telemetry" = { path = "wit/teams/deps/telemetry" }
 "greentic:interfaces-types" = { path = "wit/teams/deps/interfaces-types" }
+"provider:common" = { path = "wit/teams/deps/provider-common" }

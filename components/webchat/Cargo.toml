@@ -28,3 +28,4 @@ world = "webchat"
 "greentic:state" = { path = "wit/webchat/deps/state" }
 "greentic:telemetry" = { path = "wit/webchat/deps/telemetry" }
 "greentic:interfaces-types" = { path = "wit/webchat/deps/interfaces-types" }
+"provider:common" = { path = "wit/webchat/deps/provider-common" }

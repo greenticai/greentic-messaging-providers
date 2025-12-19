@@ -1,19 +1,56 @@
 package provider:telegram@0.0.1;
 
+use provider:common/capabilities@0.0.1;
 use greentic:http/http-client@1.0.0;
 use greentic:secrets-store/secrets-store@1.0.0;
 use greentic:state/state-store@1.0.0;
 use greentic:telemetry/logger-api@1.0.0;
 
+interface types {
+  record buttonopenurl { text: string, url: string }
+  record buttonpostback { text: string, callback-data: string }
+  variant button { open-url(buttonopenurl), postback(buttonpostback) }
+
+  record formatoptions {
+    parse-mode: option<string>,
+  }
+
+  record messagerender {
+    payload-json: string,
+    warnings: list<string>,
+  }
+
+  variant validation-outcome { ok, reject(string), warn(string) }
+
+  record webhookresult {
+    validation: validation-outcome,
+    normalized-event-json: option<string>,
+    warnings: list<string>,
+    suggested-http-status: option<u16>,
+  }
+
+  record sendmessagerequest {
+    chat-id: string,
+    text: string,
+    message-thread-id: option<u64>,
+    reply-to-message-id: option<u64>,
+    buttons: list<button>,
+    format-options: option<formatoptions>,
+  }
+}
+
 world telegram {
+    use capabilities.{capabilities-response};
+    use types.{button, formatoptions, messagerender, validation-outcome, webhookresult, sendmessagerequest};
     import http-client;
     import secrets-store;
     import state-store;
     import logger-api;
 
     export init-runtime-config: func(config-json: string) -> result<_, string>;
-    export send-message: func(chat-id: string, text: string) -> result<string, string>;
-    export handle-webhook: func(headers-json: string, body-json: string) -> result<string, string>;
+    export capabilities: func() -> capabilities-response;
+    export send-message: func(req: sendmessagerequest) -> result<messagerender, string>;
+    export handle-webhook: func(headers-json: string, body-json: string) -> result<webhookresult, string>;
     export refresh: func() -> result<string, string>;
-    export format-message: func(chat-id: string, text: string) -> string;
+    export format-message: func(req: sendmessagerequest) -> messagerender;
 }

@@ -1,0 +1,5 @@
+- Ownership split: WASM shapes Graph message payloads; host wrapper owns HTTP edge concerns, retries/backoff, token storage, telemetry exporters.
+- Current capabilities(): threads ❌, buttons ❌, webhook validation ❌, formatting options ❌; limits: max_text_len 25000, buttons/callback data not applicable.
+- Gaps vs greentic-messaging: no threads/replies, no webhook validation/normalization beyond echo, minimal escaping/truncation rules.
+- Test plan now: capabilities() contract test; destination parse + payload shape test; retry behavior from runtime config; missing-secret structure.
+- Next steps: add webhook validation/normalization, consider formatting constraints/golden fixtures, document platform limits more precisely.

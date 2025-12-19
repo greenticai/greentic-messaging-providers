@@ -8,6 +8,9 @@ use bindings::Guest;
 use bindings::greentic::http::http_client;
 use bindings::greentic::secrets_store::secrets_store;
 use bindings::greentic::telemetry::logger_api;
+use bindings::provider::common::capabilities::{
+    CapabilitiesResponse, ProviderCapabilities, ProviderLimits, ProviderMetadata,
+};
 use provider_common::ProviderError;
 use provider_runtime_config::ProviderRuntimeConfig;
 use serde_json::Value;
@@ -24,6 +27,29 @@ impl Guest for Component {
     fn init_runtime_config(config_json: String) -> Result<(), String> {
         let config = parse_runtime_config(&config_json)?;
         set_runtime_config(config)
+    }
+
+    fn capabilities() -> CapabilitiesResponse {
+        CapabilitiesResponse {
+            metadata: ProviderMetadata {
+                provider_id: "webex".into(),
+                display_name: "Webex".into(),
+                version: env!("CARGO_PKG_VERSION").into(),
+                rate_limit_hint: None,
+            },
+            capabilities: ProviderCapabilities {
+                supports_threads: false,
+                supports_buttons: false,
+                supports_webhook_validation: false,
+                supports_formatting_options: false,
+            },
+            limits: ProviderLimits {
+                max_text_len: 4096,
+                callback_data_max_bytes: 0,
+                max_buttons_per_row: 0,
+                max_button_rows: 0,
+            },
+        }
     }
 
     fn send_message(room_id: String, text: String) -> Result<String, String> {
@@ -270,6 +296,14 @@ mod tests {
     use super::*;
     use std::cell::Cell;
     use std::rc::Rc;
+
+    #[test]
+    fn publishes_capabilities() {
+        let caps = Component::capabilities();
+        assert_eq!(caps.metadata.provider_id, "webex");
+        assert!(!caps.capabilities.supports_buttons);
+        assert_eq!(caps.limits.max_text_len, 4096);
+    }
 
     #[test]
     fn formats_payload() {
