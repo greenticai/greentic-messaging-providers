@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 serde.workspace = true
 thiserror.workspace = true
+serde_json.workspace = true
 schemars = { version = "0.8", optional = true }
 
 [dev-dependencies]
@@ -14,6 +15,7 @@ anyhow = "1"
 serde_json.workspace = true
 tempfile = "3"
 zip = "6"
+sha2 = "0.10"
 
 [features]
 schema = ["schemars"]

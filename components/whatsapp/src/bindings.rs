@@ -2,6 +2,8 @@
 // Options used:
 //   * runtime_path: "wit_bindgen_rt"
 pub type CapabilitiesResponse = provider::common::capabilities::CapabilitiesResponse;
+pub type RenderPlan = provider::common::render::RenderPlan;
+pub type EncodeResult = provider::common::render::EncodeResult;
 #[doc(hidden)]
 #[allow(non_snake_case)]
 pub unsafe fn _export_init_runtime_config_cabi<T: Guest>(
@@ -162,6 +164,344 @@ pub unsafe fn __post_return_capabilities<T: Guest>(arg0: *mut u8) {
             _rt::cabi_dealloc(l7, l8, 1);
         }
     }
+}
+#[doc(hidden)]
+#[allow(non_snake_case)]
+pub unsafe fn _export_encode_cabi<T: Guest>(
+    arg0: i32,
+    arg1: i32,
+    arg2: *mut u8,
+    arg3: usize,
+    arg4: *mut u8,
+    arg5: usize,
+    arg6: *mut u8,
+    arg7: usize,
+    arg8: *mut u8,
+    arg9: usize,
+    arg10: i32,
+    arg11: *mut u8,
+    arg12: usize,
+) -> *mut u8 {
+    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+    let base4 = arg4;
+    let len4 = arg5;
+    let mut result4 = _rt::Vec::with_capacity(len4);
+    for i in 0..len4 {
+        let base = base4.add(i * (2 * ::core::mem::size_of::<*const u8>()));
+        let e4 = {
+            let l1 = *base.add(0).cast::<*mut u8>();
+            let l2 = *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
+            let len3 = l2;
+            let bytes3 = _rt::Vec::from_raw_parts(l1.cast(), len3, len3);
+            _rt::string_lift(bytes3)
+        };
+        result4.push(e4);
+    }
+    _rt::cabi_dealloc(
+        base4,
+        len4 * (2 * ::core::mem::size_of::<*const u8>()),
+        ::core::mem::size_of::<*const u8>(),
+    );
+    let base8 = arg6;
+    let len8 = arg7;
+    let mut result8 = _rt::Vec::with_capacity(len8);
+    for i in 0..len8 {
+        let base = base8.add(i * (2 * ::core::mem::size_of::<*const u8>()));
+        let e8 = {
+            let l5 = *base.add(0).cast::<*mut u8>();
+            let l6 = *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
+            let len7 = l6;
+            let bytes7 = _rt::Vec::from_raw_parts(l5.cast(), len7, len7);
+            _rt::string_lift(bytes7)
+        };
+        result8.push(e8);
+    }
+    _rt::cabi_dealloc(
+        base8,
+        len8 * (2 * ::core::mem::size_of::<*const u8>()),
+        ::core::mem::size_of::<*const u8>(),
+    );
+    let base20 = arg8;
+    let len20 = arg9;
+    let mut result20 = _rt::Vec::with_capacity(len20);
+    for i in 0..len20 {
+        let base = base20.add(i * (8 * ::core::mem::size_of::<*const u8>()));
+        let e20 = {
+            let l9 = *base.add(0).cast::<*mut u8>();
+            let l10 = *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
+            let len11 = l10;
+            let bytes11 = _rt::Vec::from_raw_parts(l9.cast(), len11, len11);
+            let l12 = i32::from(
+                *base.add(2 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+            );
+            let l16 = i32::from(
+                *base.add(5 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+            );
+            provider::common::render::RenderWarning {
+                code: _rt::string_lift(bytes11),
+                message: match l12 {
+                    0 => None,
+                    1 => {
+                        let e = {
+                            let l13 = *base
+                                .add(3 * ::core::mem::size_of::<*const u8>())
+                                .cast::<*mut u8>();
+                            let l14 = *base
+                                .add(4 * ::core::mem::size_of::<*const u8>())
+                                .cast::<usize>();
+                            let len15 = l14;
+                            let bytes15 = _rt::Vec::from_raw_parts(
+                                l13.cast(),
+                                len15,
+                                len15,
+                            );
+                            _rt::string_lift(bytes15)
+                        };
+                        Some(e)
+                    }
+                    _ => _rt::invalid_enum_discriminant(),
+                },
+                path: match l16 {
+                    0 => None,
+                    1 => {
+                        let e = {
+                            let l17 = *base
+                                .add(6 * ::core::mem::size_of::<*const u8>())
+                                .cast::<*mut u8>();
+                            let l18 = *base
+                                .add(7 * ::core::mem::size_of::<*const u8>())
+                                .cast::<usize>();
+                            let len19 = l18;
+                            let bytes19 = _rt::Vec::from_raw_parts(
+                                l17.cast(),
+                                len19,
+                                len19,
+                            );
+                            _rt::string_lift(bytes19)
+                        };
+                        Some(e)
+                    }
+                    _ => _rt::invalid_enum_discriminant(),
+                },
+            }
+        };
+        result20.push(e20);
+    }
+    _rt::cabi_dealloc(
+        base20,
+        len20 * (8 * ::core::mem::size_of::<*const u8>()),
+        ::core::mem::size_of::<*const u8>(),
+    );
+    let result22 = T::encode(provider::common::render::RenderPlan {
+        tier: provider::common::render::RenderTier::_lift(arg0 as u8),
+        summary_text: match arg1 {
+            0 => None,
+            1 => {
+                let e = {
+                    let len0 = arg3;
+                    let bytes0 = _rt::Vec::from_raw_parts(arg2.cast(), len0, len0);
+                    _rt::string_lift(bytes0)
+                };
+                Some(e)
+            }
+            _ => _rt::invalid_enum_discriminant(),
+        },
+        actions: result4,
+        attachments: result8,
+        warnings: result20,
+        debug_json: match arg10 {
+            0 => None,
+            1 => {
+                let e = {
+                    let len21 = arg12;
+                    let bytes21 = _rt::Vec::from_raw_parts(arg11.cast(), len21, len21);
+                    _rt::string_lift(bytes21)
+                };
+                Some(e)
+            }
+            _ => _rt::invalid_enum_discriminant(),
+        },
+    });
+    let ptr23 = (&raw mut _RET_AREA.0).cast::<u8>();
+    let provider::common::render::EncodeResult {
+        payload: payload24,
+        warnings: warnings24,
+    } = result22;
+    let provider::common::render::ProviderPayload {
+        content_type: content_type25,
+        body: body25,
+        metadata_json: metadata_json25,
+    } = payload24;
+    let vec26 = (content_type25.into_bytes()).into_boxed_slice();
+    let ptr26 = vec26.as_ptr().cast::<u8>();
+    let len26 = vec26.len();
+    ::core::mem::forget(vec26);
+    *ptr23.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len26;
+    *ptr23.add(0).cast::<*mut u8>() = ptr26.cast_mut();
+    let vec27 = (body25).into_boxed_slice();
+    let ptr27 = vec27.as_ptr().cast::<u8>();
+    let len27 = vec27.len();
+    ::core::mem::forget(vec27);
+    *ptr23.add(3 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len27;
+    *ptr23.add(2 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>() = ptr27
+        .cast_mut();
+    match metadata_json25 {
+        Some(e) => {
+            *ptr23.add(4 * ::core::mem::size_of::<*const u8>()).cast::<u8>() = (1i32)
+                as u8;
+            let vec28 = (e.into_bytes()).into_boxed_slice();
+            let ptr28 = vec28.as_ptr().cast::<u8>();
+            let len28 = vec28.len();
+            ::core::mem::forget(vec28);
+            *ptr23.add(6 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len28;
+            *ptr23.add(5 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>() = ptr28
+                .cast_mut();
+        }
+        None => {
+            *ptr23.add(4 * ::core::mem::size_of::<*const u8>()).cast::<u8>() = (0i32)
+                as u8;
+        }
+    };
+    let vec33 = warnings24;
+    let len33 = vec33.len();
+    let layout33 = _rt::alloc::Layout::from_size_align_unchecked(
+        vec33.len() * (8 * ::core::mem::size_of::<*const u8>()),
+        ::core::mem::size_of::<*const u8>(),
+    );
+    let result33 = if layout33.size() != 0 {
+        let ptr = _rt::alloc::alloc(layout33).cast::<u8>();
+        if ptr.is_null() {
+            _rt::alloc::handle_alloc_error(layout33);
+        }
+        ptr
+    } else {
+        ::core::ptr::null_mut()
+    };
+    for (i, e) in vec33.into_iter().enumerate() {
+        let base = result33.add(i * (8 * ::core::mem::size_of::<*const u8>()));
+        {
+            let provider::common::render::RenderWarning {
+                code: code29,
+                message: message29,
+                path: path29,
+            } = e;
+            let vec30 = (code29.into_bytes()).into_boxed_slice();
+            let ptr30 = vec30.as_ptr().cast::<u8>();
+            let len30 = vec30.len();
+            ::core::mem::forget(vec30);
+            *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len30;
+            *base.add(0).cast::<*mut u8>() = ptr30.cast_mut();
+            match message29 {
+                Some(e) => {
+                    *base.add(2 * ::core::mem::size_of::<*const u8>()).cast::<u8>() = (1i32)
+                        as u8;
+                    let vec31 = (e.into_bytes()).into_boxed_slice();
+                    let ptr31 = vec31.as_ptr().cast::<u8>();
+                    let len31 = vec31.len();
+                    ::core::mem::forget(vec31);
+                    *base.add(4 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len31;
+                    *base
+                        .add(3 * ::core::mem::size_of::<*const u8>())
+                        .cast::<*mut u8>() = ptr31.cast_mut();
+                }
+                None => {
+                    *base.add(2 * ::core::mem::size_of::<*const u8>()).cast::<u8>() = (0i32)
+                        as u8;
+                }
+            };
+            match path29 {
+                Some(e) => {
+                    *base.add(5 * ::core::mem::size_of::<*const u8>()).cast::<u8>() = (1i32)
+                        as u8;
+                    let vec32 = (e.into_bytes()).into_boxed_slice();
+                    let ptr32 = vec32.as_ptr().cast::<u8>();
+                    let len32 = vec32.len();
+                    ::core::mem::forget(vec32);
+                    *base.add(7 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len32;
+                    *base
+                        .add(6 * ::core::mem::size_of::<*const u8>())
+                        .cast::<*mut u8>() = ptr32.cast_mut();
+                }
+                None => {
+                    *base.add(5 * ::core::mem::size_of::<*const u8>()).cast::<u8>() = (0i32)
+                        as u8;
+                }
+            };
+        }
+    }
+    *ptr23.add(8 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len33;
+    *ptr23.add(7 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>() = result33;
+    ptr23
+}
+#[doc(hidden)]
+#[allow(non_snake_case)]
+pub unsafe fn __post_return_encode<T: Guest>(arg0: *mut u8) {
+    let l0 = *arg0.add(0).cast::<*mut u8>();
+    let l1 = *arg0.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
+    _rt::cabi_dealloc(l0, l1, 1);
+    let l2 = *arg0.add(2 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
+    let l3 = *arg0.add(3 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
+    let base4 = l2;
+    let len4 = l3;
+    _rt::cabi_dealloc(base4, len4 * 1, 1);
+    let l5 = i32::from(*arg0.add(4 * ::core::mem::size_of::<*const u8>()).cast::<u8>());
+    match l5 {
+        0 => {}
+        _ => {
+            let l6 = *arg0
+                .add(5 * ::core::mem::size_of::<*const u8>())
+                .cast::<*mut u8>();
+            let l7 = *arg0.add(6 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
+            _rt::cabi_dealloc(l6, l7, 1);
+        }
+    }
+    let l8 = *arg0.add(7 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
+    let l9 = *arg0.add(8 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
+    let base18 = l8;
+    let len18 = l9;
+    for i in 0..len18 {
+        let base = base18.add(i * (8 * ::core::mem::size_of::<*const u8>()));
+        {
+            let l10 = *base.add(0).cast::<*mut u8>();
+            let l11 = *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
+            _rt::cabi_dealloc(l10, l11, 1);
+            let l12 = i32::from(
+                *base.add(2 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+            );
+            match l12 {
+                0 => {}
+                _ => {
+                    let l13 = *base
+                        .add(3 * ::core::mem::size_of::<*const u8>())
+                        .cast::<*mut u8>();
+                    let l14 = *base
+                        .add(4 * ::core::mem::size_of::<*const u8>())
+                        .cast::<usize>();
+                    _rt::cabi_dealloc(l13, l14, 1);
+                }
+            }
+            let l15 = i32::from(
+                *base.add(5 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+            );
+            match l15 {
+                0 => {}
+                _ => {
+                    let l16 = *base
+                        .add(6 * ::core::mem::size_of::<*const u8>())
+                        .cast::<*mut u8>();
+                    let l17 = *base
+                        .add(7 * ::core::mem::size_of::<*const u8>())
+                        .cast::<usize>();
+                    _rt::cabi_dealloc(l16, l17, 1);
+                }
+            }
+        }
+    }
+    _rt::cabi_dealloc(
+        base18,
+        len18 * (8 * ::core::mem::size_of::<*const u8>()),
+        ::core::mem::size_of::<*const u8>(),
+    );
 }
 #[doc(hidden)]
 #[allow(non_snake_case)]
@@ -355,6 +695,7 @@ pub unsafe fn __post_return_format_message<T: Guest>(arg0: *mut u8) {
 pub trait Guest {
     fn init_runtime_config(config_json: _rt::String) -> Result<(), _rt::String>;
     fn capabilities() -> CapabilitiesResponse;
+    fn encode(plan: RenderPlan) -> EncodeResult;
     fn send_message(
         destination_json: _rt::String,
         text: _rt::String,
@@ -380,11 +721,18 @@ macro_rules! __export_world_whatsapp_cabi {
         _export_capabilities_cabi::<$ty > () } } #[unsafe (export_name =
         "cabi_post_capabilities")] unsafe extern "C" fn _post_return_capabilities(arg0 :
         * mut u8,) { unsafe { $($path_to_types)*:: __post_return_capabilities::<$ty >
-        (arg0) } } #[unsafe (export_name = "send-message")] unsafe extern "C" fn
-        export_send_message(arg0 : * mut u8, arg1 : usize, arg2 : * mut u8, arg3 :
-        usize,) -> * mut u8 { unsafe { $($path_to_types)*::
-        _export_send_message_cabi::<$ty > (arg0, arg1, arg2, arg3) } } #[unsafe
-        (export_name = "cabi_post_send-message")] unsafe extern "C" fn
+        (arg0) } } #[unsafe (export_name = "encode")] unsafe extern "C" fn
+        export_encode(arg0 : i32, arg1 : i32, arg2 : * mut u8, arg3 : usize, arg4 : * mut
+        u8, arg5 : usize, arg6 : * mut u8, arg7 : usize, arg8 : * mut u8, arg9 : usize,
+        arg10 : i32, arg11 : * mut u8, arg12 : usize,) -> * mut u8 { unsafe {
+        $($path_to_types)*:: _export_encode_cabi::<$ty > (arg0, arg1, arg2, arg3, arg4,
+        arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12) } } #[unsafe (export_name =
+        "cabi_post_encode")] unsafe extern "C" fn _post_return_encode(arg0 : * mut u8,) {
+        unsafe { $($path_to_types)*:: __post_return_encode::<$ty > (arg0) } } #[unsafe
+        (export_name = "send-message")] unsafe extern "C" fn export_send_message(arg0 : *
+        mut u8, arg1 : usize, arg2 : * mut u8, arg3 : usize,) -> * mut u8 { unsafe {
+        $($path_to_types)*:: _export_send_message_cabi::<$ty > (arg0, arg1, arg2, arg3) }
+        } #[unsafe (export_name = "cabi_post_send-message")] unsafe extern "C" fn
         _post_return_send_message(arg0 : * mut u8,) { unsafe { $($path_to_types)*::
         __post_return_send_message::<$ty > (arg0) } } #[unsafe (export_name =
         "handle-webhook")] unsafe extern "C" fn export_handle_webhook(arg0 : * mut u8,
@@ -3950,6 +4298,125 @@ pub mod provider {
                 }
             }
         }
+        #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+        pub mod render {
+            #[used]
+            #[doc(hidden)]
+            static __FORCE_SECTION_REF: fn() = super::super::super::__link_custom_section_describing_imports;
+            use super::super::super::_rt;
+            #[repr(u8)]
+            #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+            pub enum RenderTier {
+                TierA,
+                TierB,
+                TierC,
+                TierD,
+            }
+            impl ::core::fmt::Debug for RenderTier {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    match self {
+                        RenderTier::TierA => f.debug_tuple("RenderTier::TierA").finish(),
+                        RenderTier::TierB => f.debug_tuple("RenderTier::TierB").finish(),
+                        RenderTier::TierC => f.debug_tuple("RenderTier::TierC").finish(),
+                        RenderTier::TierD => f.debug_tuple("RenderTier::TierD").finish(),
+                    }
+                }
+            }
+            impl RenderTier {
+                #[doc(hidden)]
+                pub unsafe fn _lift(val: u8) -> RenderTier {
+                    if !cfg!(debug_assertions) {
+                        return ::core::mem::transmute(val);
+                    }
+                    match val {
+                        0 => RenderTier::TierA,
+                        1 => RenderTier::TierB,
+                        2 => RenderTier::TierC,
+                        3 => RenderTier::TierD,
+                        _ => panic!("invalid enum discriminant"),
+                    }
+                }
+            }
+            #[derive(Clone)]
+            pub struct RenderWarning {
+                pub code: _rt::String,
+                pub message: Option<_rt::String>,
+                pub path: Option<_rt::String>,
+            }
+            impl ::core::fmt::Debug for RenderWarning {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    f.debug_struct("RenderWarning")
+                        .field("code", &self.code)
+                        .field("message", &self.message)
+                        .field("path", &self.path)
+                        .finish()
+                }
+            }
+            #[derive(Clone)]
+            pub struct RenderPlan {
+                pub tier: RenderTier,
+                pub summary_text: Option<_rt::String>,
+                pub actions: _rt::Vec<_rt::String>,
+                pub attachments: _rt::Vec<_rt::String>,
+                pub warnings: _rt::Vec<RenderWarning>,
+                pub debug_json: Option<_rt::String>,
+            }
+            impl ::core::fmt::Debug for RenderPlan {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    f.debug_struct("RenderPlan")
+                        .field("tier", &self.tier)
+                        .field("summary-text", &self.summary_text)
+                        .field("actions", &self.actions)
+                        .field("attachments", &self.attachments)
+                        .field("warnings", &self.warnings)
+                        .field("debug-json", &self.debug_json)
+                        .finish()
+                }
+            }
+            #[derive(Clone)]
+            pub struct ProviderPayload {
+                pub content_type: _rt::String,
+                pub body: _rt::Vec<u8>,
+                pub metadata_json: Option<_rt::String>,
+            }
+            impl ::core::fmt::Debug for ProviderPayload {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    f.debug_struct("ProviderPayload")
+                        .field("content-type", &self.content_type)
+                        .field("body", &self.body)
+                        .field("metadata-json", &self.metadata_json)
+                        .finish()
+                }
+            }
+            #[derive(Clone)]
+            pub struct EncodeResult {
+                pub payload: ProviderPayload,
+                pub warnings: _rt::Vec<RenderWarning>,
+            }
+            impl ::core::fmt::Debug for EncodeResult {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    f.debug_struct("EncodeResult")
+                        .field("payload", &self.payload)
+                        .field("warnings", &self.warnings)
+                        .finish()
+                }
+            }
+        }
     }
 }
 #[rustfmt::skip]
@@ -4098,75 +4565,84 @@ macro_rules! __export_whatsapp_impl {
 pub(crate) use __export_whatsapp_impl as export;
 #[cfg(target_arch = "wasm32")]
 #[unsafe(
-    link_section = "component-type:wit-bindgen:0.41.0:provider:whatsapp@0.0.1:whatsapp:encoded world"
+    link_section = "component-type:wit-bindgen:0.41.0:provider:whatsapp@0.0.2:whatsapp:encoded world"
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 2986] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xab\x16\x01A\x02\x01\
-A\x1f\x01B\x09\x01ks\x01r\x04\x0bprovider-ids\x0cdisplay-names\x07versions\x0fra\
-te-limit-hint\0\x04\0\x11provider-metadata\x03\0\x01\x01r\x04\x10supports-thread\
-s\x7f\x10supports-buttons\x7f\x1bsupports-webhook-validation\x7f\x1bsupports-for\
-matting-options\x7f\x04\0\x15provider-capabilities\x03\0\x03\x01r\x04\x0cmax-tex\
-t-leny\x17callback-data-max-bytesy\x13max-buttons-per-rowy\x0fmax-button-rowsy\x04\
-\0\x0fprovider-limits\x03\0\x05\x01r\x03\x08metadata\x02\x0ccapabilities\x04\x06\
-limits\x06\x04\0\x15capabilities-response\x03\0\x07\x03\0\"provider:common/capab\
-ilities@0.0.1\x05\0\x02\x03\0\0\x15capabilities-response\x03\0\x15capabilities-r\
-esponse\x03\0\x01\x01B6\x01s\x04\0\x06env-id\x03\0\0\x01s\x04\0\x09tenant-id\x03\
-\0\x02\x01s\x04\0\x07team-id\x03\0\x04\x01s\x04\0\x07user-id\x03\0\x06\x01s\x04\0\
-\x09state-key\x03\0\x08\x01s\x04\0\x0bsession-key\x03\0\x0a\x01ks\x01r\x02\x08ac\
-tor-id\x07\x06reason\x0c\x04\0\x0dimpersonation\x03\0\x0d\x01k\x05\x01k\x07\x01o\
-\x02ss\x01p\x11\x01kx\x01k\x0e\x01r\x12\x03env\x01\x06tenant\x03\x09tenant-id\x03\
-\x04team\x0f\x07team-id\x0f\x04user\x10\x07user-id\x10\x08trace-id\x0c\x0ecorrel\
-ation-id\x0c\x0aattributes\x12\x0asession-id\x0c\x07flow-id\x0c\x07node-id\x0c\x0b\
-provider-id\x0c\x0bdeadline-ms\x13\x07attempty\x0fidempotency-key\x0c\x0dimperso\
-nation\x14\x04\0\x0atenant-ctx\x03\0\x15\x01r\x03\x0cnode-pointers\x0bwait-reaso\
-n\x0c\x0doutbox-marker\x0c\x04\0\x0esession-cursor\x03\0\x17\x01m\x0a\x07unknown\
-\x0dinvalid-input\x09not-found\x08conflict\x07timeout\x0funauthenticated\x11perm\
-ission-denied\x0crate-limited\x0bunavailable\x08internal\x04\0\x0aerror-code\x03\
-\0\x19\x01ps\x01k\x1b\x01r\x02\x06reasons\x0eexpected-input\x1c\x04\0\x0foutcome\
--pending\x03\0\x1d\x01r\x02\x04code\x1a\x07messages\x04\0\x0doutcome-error\x03\0\
-\x1f\x01q\x03\x04done\x01s\0\x07pending\x01\x1e\0\x05error\x01\x20\0\x04\0\x07ou\
-tcome\x03\0!\x01q\x06\x04http\0\0\x05https\0\0\x03tcp\0\0\x03udp\0\0\x04grpc\0\0\
-\x06custom\x01s\0\x04\0\x08protocol\x03\0#\x01p{\x01p$\x01r\x03\x07domains\x1b\x05\
-ports%\x09protocols&\x04\0\x0aallow-list\x03\0'\x01r\x02\x06egress(\x0cdeny-on-m\
-iss\x7f\x04\0\x0enetwork-policy\x03\0)\x01q\x02\x07ed25519\0\0\x05other\x01s\0\x04\
-\0\x13signature-algorithm\x03\0+\x01p}\x01r\x03\x06key-ids\x09algorithm,\x09sign\
-ature-\x04\0\x09signature\x03\0.\x01p/\x01r\x04\x07oci-urls\x07versions\x06diges\
-ts\x0asignatures0\x04\0\x08pack-ref\x03\01\x01k\x0b\x01r\x07\x06tenant\x03\x0ase\
-ssion-id3\x07flow-ids\x07node-id\x0c\x08providers\x08start-ms\x13\x06end-ms\x13\x04\
-\0\x0cspan-context\x03\04\x03\0%greentic:interfaces-types/types@0.1.0\x05\x03\x02\
-\x03\0\x01\x0atenant-ctx\x01B\x18\x02\x03\x02\x01\x04\x04\0\x0atenant-ctx\x03\0\0\
-\x01r\x02\x04codes\x07messages\x04\0\x0ahost-error\x03\0\x02\x01o\x02ss\x01p\x04\
-\x01p}\x01k\x06\x01r\x04\x06methods\x03urls\x07headers\x05\x04body\x07\x04\0\x07\
-request\x03\0\x08\x01m\x02\x07inherit\x08disabled\x04\0\x0aproxy-mode\x03\0\x0a\x01\
-m\x02\x06strict\x08insecure\x04\0\x08tls-mode\x03\0\x0c\x01kw\x01r\x03\x0atimeou\
-t-ms\x0e\x05proxy\x0b\x03tls\x0d\x04\0\x0frequest-options\x03\0\x0f\x01r\x03\x06\
-status{\x07headers\x05\x04body\x07\x04\0\x08response\x03\0\x11\x01k\x10\x01k\x01\
-\x01j\x01\x12\x01\x03\x01@\x03\x03req\x09\x07options\x13\x03ctx\x14\0\x15\x04\0\x04\
-send\x01\x16\x03\0\x1fgreentic:http/http-client@1.0.0\x05\x05\x01B\x07\x01m\x04\x09\
-not-found\x06denied\x0binvalid-key\x08internal\x04\0\x0dsecrets-error\x03\0\0\x01\
-p}\x01k\x02\x01j\x01\x03\x01\x01\x01@\x01\x03keys\0\x04\x04\0\x03get\x01\x05\x03\
-\0*greentic:secrets-store/secrets-store@1.0.0\x05\x06\x02\x03\0\x01\x09state-key\
-\x01B\x12\x02\x03\x02\x01\x07\x04\0\x09state-key\x03\0\0\x02\x03\x02\x01\x04\x04\
-\0\x0atenant-ctx\x03\0\x02\x01r\x02\x04codes\x07messages\x04\0\x0ahost-error\x03\
-\0\x04\x01m\x01\x02ok\x04\0\x06op-ack\x03\0\x06\x01k\x03\x01p}\x01j\x01\x09\x01\x05\
-\x01@\x02\x03key\x01\x03ctx\x08\0\x0a\x04\0\x04read\x01\x0b\x01j\x01\x07\x01\x05\
-\x01@\x03\x03key\x01\x05bytes\x09\x03ctx\x08\0\x0c\x04\0\x05write\x01\x0d\x01@\x02\
-\x03key\x01\x03ctx\x08\0\x0c\x04\0\x06delete\x01\x0e\x03\0\x20greentic:state/sta\
-te-store@1.0.0\x05\x08\x02\x03\0\x01\x0cspan-context\x01B\x0e\x02\x03\x02\x01\x04\
-\x04\0\x0atenant-ctx\x03\0\0\x02\x03\x02\x01\x09\x04\0\x0cspan-context\x03\0\x02\
-\x01r\x02\x04codes\x07messages\x04\0\x0ahost-error\x03\0\x04\x01m\x01\x02ok\x04\0\
-\x06op-ack\x03\0\x06\x01o\x02ss\x01p\x08\x01k\x01\x01j\x01\x07\x01\x05\x01@\x03\x04\
-span\x03\x06fields\x09\x03ctx\x0a\0\x0b\x04\0\x03log\x01\x0c\x03\0#greentic:tele\
-metry/logger-api@1.0.0\x05\x0a\x01j\0\x01s\x01@\x01\x0bconfig-jsons\0\x0b\x04\0\x13\
-init-runtime-config\x01\x0c\x01@\0\0\x02\x04\0\x0ccapabilities\x01\x0d\x01j\x01s\
-\x01s\x01@\x02\x10destination-jsons\x04texts\0\x0e\x04\0\x0csend-message\x01\x0f\
-\x01@\x02\x0cheaders-jsons\x09body-jsons\0\x0e\x04\0\x0ehandle-webhook\x01\x10\x01\
-@\0\0\x0e\x04\0\x07refresh\x01\x11\x01@\x02\x10destination-jsons\x04texts\0s\x04\
-\0\x0eformat-message\x01\x12\x04\0\x20provider:whatsapp/whatsapp@0.0.1\x04\0\x0b\
-\x0e\x01\0\x08whatsapp\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-co\
-mponent\x070.227.1\x10wit-bindgen-rust\x060.41.0";
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 3403] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xcc\x19\x01A\x02\x01\
+A'\x01B\x09\x01ks\x01r\x04\x0bprovider-ids\x0cdisplay-names\x07versions\x0frate-\
+limit-hint\0\x04\0\x11provider-metadata\x03\0\x01\x01r\x04\x10supports-threads\x7f\
+\x10supports-buttons\x7f\x1bsupports-webhook-validation\x7f\x1bsupports-formatti\
+ng-options\x7f\x04\0\x15provider-capabilities\x03\0\x03\x01r\x04\x0cmax-text-len\
+y\x17callback-data-max-bytesy\x13max-buttons-per-rowy\x0fmax-button-rowsy\x04\0\x0f\
+provider-limits\x03\0\x05\x01r\x03\x08metadata\x02\x0ccapabilities\x04\x06limits\
+\x06\x04\0\x15capabilities-response\x03\0\x07\x03\0\"provider:common/capabilitie\
+s@0.0.2\x05\0\x02\x03\0\0\x15capabilities-response\x03\0\x15capabilities-respons\
+e\x03\0\x01\x01B\x0e\x01m\x04\x06tier-a\x06tier-b\x06tier-c\x06tier-d\x04\0\x0br\
+ender-tier\x03\0\0\x01ks\x01r\x03\x04codes\x07message\x02\x04path\x02\x04\0\x0er\
+ender-warning\x03\0\x03\x01ps\x01p\x04\x01r\x06\x04tier\x01\x0csummary-text\x02\x07\
+actions\x05\x0battachments\x05\x08warnings\x06\x0adebug-json\x02\x04\0\x0brender\
+-plan\x03\0\x07\x01p}\x01r\x03\x0ccontent-types\x04body\x09\x0dmetadata-json\x02\
+\x04\0\x10provider-payload\x03\0\x0a\x01r\x02\x07payload\x0b\x08warnings\x06\x04\
+\0\x0dencode-result\x03\0\x0c\x03\0\x1cprovider:common/render@0.0.2\x05\x03\x02\x03\
+\0\x01\x0brender-plan\x03\0\x0brender-plan\x03\0\x04\x02\x03\0\x01\x0dencode-res\
+ult\x03\0\x0dencode-result\x03\0\x06\x01B6\x01s\x04\0\x06env-id\x03\0\0\x01s\x04\
+\0\x09tenant-id\x03\0\x02\x01s\x04\0\x07team-id\x03\0\x04\x01s\x04\0\x07user-id\x03\
+\0\x06\x01s\x04\0\x09state-key\x03\0\x08\x01s\x04\0\x0bsession-key\x03\0\x0a\x01\
+ks\x01r\x02\x08actor-id\x07\x06reason\x0c\x04\0\x0dimpersonation\x03\0\x0d\x01k\x05\
+\x01k\x07\x01o\x02ss\x01p\x11\x01kx\x01k\x0e\x01r\x12\x03env\x01\x06tenant\x03\x09\
+tenant-id\x03\x04team\x0f\x07team-id\x0f\x04user\x10\x07user-id\x10\x08trace-id\x0c\
+\x0ecorrelation-id\x0c\x0aattributes\x12\x0asession-id\x0c\x07flow-id\x0c\x07nod\
+e-id\x0c\x0bprovider-id\x0c\x0bdeadline-ms\x13\x07attempty\x0fidempotency-key\x0c\
+\x0dimpersonation\x14\x04\0\x0atenant-ctx\x03\0\x15\x01r\x03\x0cnode-pointers\x0b\
+wait-reason\x0c\x0doutbox-marker\x0c\x04\0\x0esession-cursor\x03\0\x17\x01m\x0a\x07\
+unknown\x0dinvalid-input\x09not-found\x08conflict\x07timeout\x0funauthenticated\x11\
+permission-denied\x0crate-limited\x0bunavailable\x08internal\x04\0\x0aerror-code\
+\x03\0\x19\x01ps\x01k\x1b\x01r\x02\x06reasons\x0eexpected-input\x1c\x04\0\x0fout\
+come-pending\x03\0\x1d\x01r\x02\x04code\x1a\x07messages\x04\0\x0doutcome-error\x03\
+\0\x1f\x01q\x03\x04done\x01s\0\x07pending\x01\x1e\0\x05error\x01\x20\0\x04\0\x07\
+outcome\x03\0!\x01q\x06\x04http\0\0\x05https\0\0\x03tcp\0\0\x03udp\0\0\x04grpc\0\
+\0\x06custom\x01s\0\x04\0\x08protocol\x03\0#\x01p{\x01p$\x01r\x03\x07domains\x1b\
+\x05ports%\x09protocols&\x04\0\x0aallow-list\x03\0'\x01r\x02\x06egress(\x0cdeny-\
+on-miss\x7f\x04\0\x0enetwork-policy\x03\0)\x01q\x02\x07ed25519\0\0\x05other\x01s\
+\0\x04\0\x13signature-algorithm\x03\0+\x01p}\x01r\x03\x06key-ids\x09algorithm,\x09\
+signature-\x04\0\x09signature\x03\0.\x01p/\x01r\x04\x07oci-urls\x07versions\x06d\
+igests\x0asignatures0\x04\0\x08pack-ref\x03\01\x01k\x0b\x01r\x07\x06tenant\x03\x0a\
+session-id3\x07flow-ids\x07node-id\x0c\x08providers\x08start-ms\x13\x06end-ms\x13\
+\x04\0\x0cspan-context\x03\04\x03\0%greentic:interfaces-types/types@0.1.0\x05\x08\
+\x02\x03\0\x02\x0atenant-ctx\x01B\x18\x02\x03\x02\x01\x09\x04\0\x0atenant-ctx\x03\
+\0\0\x01r\x02\x04codes\x07messages\x04\0\x0ahost-error\x03\0\x02\x01o\x02ss\x01p\
+\x04\x01p}\x01k\x06\x01r\x04\x06methods\x03urls\x07headers\x05\x04body\x07\x04\0\
+\x07request\x03\0\x08\x01m\x02\x07inherit\x08disabled\x04\0\x0aproxy-mode\x03\0\x0a\
+\x01m\x02\x06strict\x08insecure\x04\0\x08tls-mode\x03\0\x0c\x01kw\x01r\x03\x0ati\
+meout-ms\x0e\x05proxy\x0b\x03tls\x0d\x04\0\x0frequest-options\x03\0\x0f\x01r\x03\
+\x06status{\x07headers\x05\x04body\x07\x04\0\x08response\x03\0\x11\x01k\x10\x01k\
+\x01\x01j\x01\x12\x01\x03\x01@\x03\x03req\x09\x07options\x13\x03ctx\x14\0\x15\x04\
+\0\x04send\x01\x16\x03\0\x1fgreentic:http/http-client@1.0.0\x05\x0a\x01B\x07\x01\
+m\x04\x09not-found\x06denied\x0binvalid-key\x08internal\x04\0\x0dsecrets-error\x03\
+\0\0\x01p}\x01k\x02\x01j\x01\x03\x01\x01\x01@\x01\x03keys\0\x04\x04\0\x03get\x01\
+\x05\x03\0*greentic:secrets-store/secrets-store@1.0.0\x05\x0b\x02\x03\0\x02\x09s\
+tate-key\x01B\x12\x02\x03\x02\x01\x0c\x04\0\x09state-key\x03\0\0\x02\x03\x02\x01\
+\x09\x04\0\x0atenant-ctx\x03\0\x02\x01r\x02\x04codes\x07messages\x04\0\x0ahost-e\
+rror\x03\0\x04\x01m\x01\x02ok\x04\0\x06op-ack\x03\0\x06\x01k\x03\x01p}\x01j\x01\x09\
+\x01\x05\x01@\x02\x03key\x01\x03ctx\x08\0\x0a\x04\0\x04read\x01\x0b\x01j\x01\x07\
+\x01\x05\x01@\x03\x03key\x01\x05bytes\x09\x03ctx\x08\0\x0c\x04\0\x05write\x01\x0d\
+\x01@\x02\x03key\x01\x03ctx\x08\0\x0c\x04\0\x06delete\x01\x0e\x03\0\x20greentic:\
+state/state-store@1.0.0\x05\x0d\x02\x03\0\x02\x0cspan-context\x01B\x0e\x02\x03\x02\
+\x01\x09\x04\0\x0atenant-ctx\x03\0\0\x02\x03\x02\x01\x0e\x04\0\x0cspan-context\x03\
+\0\x02\x01r\x02\x04codes\x07messages\x04\0\x0ahost-error\x03\0\x04\x01m\x01\x02o\
+k\x04\0\x06op-ack\x03\0\x06\x01o\x02ss\x01p\x08\x01k\x01\x01j\x01\x07\x01\x05\x01\
+@\x03\x04span\x03\x06fields\x09\x03ctx\x0a\0\x0b\x04\0\x03log\x01\x0c\x03\0#gree\
+ntic:telemetry/logger-api@1.0.0\x05\x0f\x01j\0\x01s\x01@\x01\x0bconfig-jsons\0\x10\
+\x04\0\x13init-runtime-config\x01\x11\x01@\0\0\x02\x04\0\x0ccapabilities\x01\x12\
+\x01@\x01\x04plan\x05\0\x07\x04\0\x06encode\x01\x13\x01j\x01s\x01s\x01@\x02\x10d\
+estination-jsons\x04texts\0\x14\x04\0\x0csend-message\x01\x15\x01@\x02\x0cheader\
+s-jsons\x09body-jsons\0\x14\x04\0\x0ehandle-webhook\x01\x16\x01@\0\0\x14\x04\0\x07\
+refresh\x01\x17\x01@\x02\x10destination-jsons\x04texts\0s\x04\0\x0eformat-messag\
+e\x01\x18\x04\0\x20provider:whatsapp/whatsapp@0.0.2\x04\0\x0b\x0e\x01\0\x08whats\
+app\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10\
+wit-bindgen-rust\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

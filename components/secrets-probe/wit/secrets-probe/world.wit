@@ -1,4 +1,4 @@
-package probe:secrets-probe@0.0.1;
+package probe:secrets-probe@0.0.2;
 
 use greentic:secrets-store/secrets-store@1.0.0;
 

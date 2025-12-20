@@ -9,7 +9,17 @@ use bindings::greentic::http::http_client;
 use bindings::greentic::secrets_store::secrets_store;
 use bindings::greentic::telemetry::logger_api;
 use bindings::provider::common::capabilities::{
-    CapabilitiesResponse, ProviderCapabilities, ProviderLimits, ProviderMetadata,
+    CapabilitiesResponse as BindingsCapabilitiesResponse,
+    ProviderCapabilities as BindingsProviderCapabilities, ProviderLimits as BindingsProviderLimits,
+    ProviderMetadata as BindingsProviderMetadata,
+};
+use bindings::provider::common::render::{
+    EncodeResult as BindingsEncodeResult, ProviderPayload as BindingsProviderPayload,
+    RenderPlan as BindingsRenderPlan, RenderTier as BindingsRenderTier,
+    RenderWarning as BindingsRenderWarning,
+};
+use provider_common::{
+    CapabilitiesResponseV1, ProviderCapabilitiesV1, ProviderLimitsV1, ProviderMetadataV1,
 };
 use provider_runtime_config::ProviderRuntimeConfig;
 use serde_json::Value;
@@ -28,27 +38,12 @@ impl Guest for Component {
         set_runtime_config(config)
     }
 
-    fn capabilities() -> CapabilitiesResponse {
-        CapabilitiesResponse {
-            metadata: ProviderMetadata {
-                provider_id: "webchat".into(),
-                display_name: "WebChat".into(),
-                version: env!("CARGO_PKG_VERSION").into(),
-                rate_limit_hint: None,
-            },
-            capabilities: ProviderCapabilities {
-                supports_threads: false,
-                supports_buttons: false,
-                supports_webhook_validation: true,
-                supports_formatting_options: false,
-            },
-            limits: ProviderLimits {
-                max_text_len: 5000,
-                callback_data_max_bytes: 0,
-                max_buttons_per_row: 0,
-                max_button_rows: 0,
-            },
-        }
+    fn capabilities() -> BindingsCapabilitiesResponse {
+        bindings_capabilities_response(capabilities_v1())
+    }
+
+    fn encode(plan: BindingsRenderPlan) -> BindingsEncodeResult {
+        encode_tier_d(plan)
     }
 
     fn send_message(session_id: String, text: String) -> Result<String, String> {
@@ -95,6 +90,70 @@ impl Guest for Component {
     fn format_message(session_id: String, text: String) -> String {
         format_message_json(&session_id, &text)
     }
+}
+
+fn capabilities_v1() -> CapabilitiesResponseV1 {
+    CapabilitiesResponseV1::new(
+        ProviderMetadataV1 {
+            provider_id: "webchat".into(),
+            display_name: "WebChat".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
+            rate_limit_hint: None,
+        },
+        ProviderCapabilitiesV1 {
+            supports_threads: false,
+            supports_buttons: false,
+            supports_webhook_validation: true,
+            supports_formatting_options: false,
+        },
+        ProviderLimitsV1 {
+            max_text_len: 5_000,
+            callback_data_max_bytes: 0,
+            max_buttons_per_row: 0,
+            max_button_rows: 0,
+        },
+    )
+}
+
+fn bindings_capabilities_response(resp: CapabilitiesResponseV1) -> BindingsCapabilitiesResponse {
+    BindingsCapabilitiesResponse {
+        metadata: BindingsProviderMetadata {
+            provider_id: resp.metadata.provider_id,
+            display_name: resp.metadata.display_name,
+            version: resp.metadata.version,
+            rate_limit_hint: resp.metadata.rate_limit_hint,
+        },
+        capabilities: BindingsProviderCapabilities {
+            supports_threads: resp.capabilities.supports_threads,
+            supports_buttons: resp.capabilities.supports_buttons,
+            supports_webhook_validation: resp.capabilities.supports_webhook_validation,
+            supports_formatting_options: resp.capabilities.supports_formatting_options,
+        },
+        limits: BindingsProviderLimits {
+            max_text_len: resp.limits.max_text_len,
+            callback_data_max_bytes: resp.limits.callback_data_max_bytes,
+            max_buttons_per_row: resp.limits.max_buttons_per_row,
+            max_button_rows: resp.limits.max_button_rows,
+        },
+    }
+}
+
+fn encode_tier_d(plan: BindingsRenderPlan) -> BindingsEncodeResult {
+    let mut warnings = plan.warnings.clone();
+    if plan.tier != BindingsRenderTier::TierD {
+        warnings.push(BindingsRenderWarning {
+            code: "encoder_forced_downgrade".into(),
+            message: Some("downgraded to tier_d text payload".into()),
+            path: None,
+        });
+    }
+    let text = plan.summary_text.unwrap_or_default();
+    let payload = BindingsProviderPayload {
+        content_type: "text/plain; charset=utf-8".into(),
+        body: text.into_bytes(),
+        metadata_json: None,
+    };
+    BindingsEncodeResult { payload, warnings }
 }
 
 fn get_optional_secret(key: &str) -> Option<Result<String, String>> {
@@ -295,7 +354,24 @@ fn http_send_test(
 mod tests {
     use super::*;
     use std::cell::Cell;
+    use std::path::PathBuf;
     use std::rc::Rc;
+
+    #[derive(Debug, serde::Deserialize)]
+    struct ExpectedPayload {
+        content_type: String,
+        body_text: Option<String>,
+        warnings: Vec<String>,
+    }
+
+    #[test]
+    fn capabilities_version_and_shape() {
+        let caps = capabilities_v1();
+        assert_eq!(caps.version, provider_common::PROVIDER_CAPABILITIES_VERSION);
+        assert_eq!(caps.metadata.provider_id, "webchat");
+        assert!(caps.capabilities.supports_webhook_validation);
+        assert_eq!(caps.limits.max_text_len, 5_000);
+    }
 
     #[test]
     fn publishes_capabilities() {
@@ -303,6 +379,120 @@ mod tests {
         assert_eq!(caps.metadata.provider_id, "webchat");
         assert!(caps.capabilities.supports_webhook_validation);
         assert_eq!(caps.limits.max_text_len, 5000);
+    }
+
+    #[test]
+    fn encode_tier_d_plain_text() {
+        let res = Component::encode(BindingsRenderPlan {
+            tier: BindingsRenderTier::TierD,
+            summary_text: Some("hi".into()),
+            actions: vec![],
+            attachments: vec![],
+            warnings: vec![],
+            debug_json: None,
+        });
+        assert!(res.warnings.is_empty());
+        assert_eq!(res.payload.content_type, "text/plain; charset=utf-8");
+        assert_eq!(res.payload.body, b"hi");
+    }
+
+    #[test]
+    fn encode_downgrades_other_tiers() {
+        let res = Component::encode(BindingsRenderPlan {
+            tier: BindingsRenderTier::TierA,
+            summary_text: Some("hi".into()),
+            actions: vec![],
+            attachments: vec![],
+            warnings: vec![],
+            debug_json: None,
+        });
+        assert_eq!(res.payload.content_type, "text/plain; charset=utf-8");
+        assert!(!res.warnings.is_empty());
+        assert_eq!(res.warnings[0].code, "encoder_forced_downgrade");
+    }
+
+    #[test]
+    fn golden_tier_a_card() {
+        let plan = load_plan("tier_a_card.json");
+        let expected = load_expected("webchat", "tier_a_card.json");
+        let res = Component::encode(plan);
+        assert_eq!(res.payload.content_type, expected.content_type);
+        assert_eq!(
+            res.warnings
+                .iter()
+                .map(|w| w.code.clone())
+                .collect::<Vec<_>>(),
+            expected.warnings
+        );
+        if let Some(text) = expected.body_text {
+            assert_eq!(String::from_utf8(res.payload.body).unwrap(), text);
+        }
+    }
+
+    #[test]
+    fn golden_tier_d_text() {
+        let plan = load_plan("tier_d_text.json");
+        let expected = load_expected("webchat", "tier_d_text.json");
+        let res = Component::encode(plan);
+        assert_eq!(res.payload.content_type, expected.content_type);
+        assert_eq!(
+            res.warnings
+                .iter()
+                .map(|w| w.code.clone())
+                .collect::<Vec<_>>(),
+            expected.warnings
+        );
+        if let Some(text) = expected.body_text {
+            assert_eq!(String::from_utf8(res.payload.body).unwrap(), text);
+        }
+    }
+
+    fn load_plan(name: &str) -> BindingsRenderPlan {
+        let path = fixtures_root().join("render_plans").join(name);
+        let raw = std::fs::read_to_string(path).unwrap();
+        let plan: provider_common::RenderPlan = serde_json::from_str(&raw).unwrap();
+        to_bindings_plan(plan)
+    }
+
+    fn load_expected(provider: &str, name: &str) -> ExpectedPayload {
+        let path = fixtures_root()
+            .join("expected_payloads")
+            .join(provider)
+            .join(name);
+        let raw = std::fs::read_to_string(path).unwrap();
+        serde_json::from_str(&raw).unwrap()
+    }
+
+    fn fixtures_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|p| p.parent())
+            .expect("workspace root")
+            .join("tests/fixtures")
+    }
+
+    fn to_bindings_plan(plan: provider_common::RenderPlan) -> BindingsRenderPlan {
+        BindingsRenderPlan {
+            tier: match plan.tier {
+                provider_common::RenderTier::TierA => BindingsRenderTier::TierA,
+                provider_common::RenderTier::TierB => BindingsRenderTier::TierB,
+                provider_common::RenderTier::TierC => BindingsRenderTier::TierC,
+                provider_common::RenderTier::TierD => BindingsRenderTier::TierD,
+            },
+            summary_text: plan.summary_text,
+            actions: plan.actions,
+            attachments: plan.attachments,
+            warnings: plan
+                .warnings
+                .into_iter()
+                .map(|w| BindingsRenderWarning {
+                    code: w.code,
+                    message: w.message,
+                    path: w.path,
+                })
+                .collect(),
+            debug_json: plan.debug.map(|v| v.to_string()),
+        }
     }
 
     #[test]

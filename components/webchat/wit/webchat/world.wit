@@ -1,6 +1,7 @@
-package provider:webchat@0.0.1;
+package provider:webchat@0.0.2;
 
-use provider:common/capabilities@0.0.1;
+use provider:common/capabilities@0.0.2;
+use provider:common/render@0.0.2;
 use greentic:http/http-client@1.0.0;
 use greentic:secrets-store/secrets-store@1.0.0;
 use greentic:state/state-store@1.0.0;
@@ -8,6 +9,7 @@ use greentic:telemetry/logger-api@1.0.0;
 
 world webchat {
     use capabilities.{capabilities-response};
+    use render.{render-plan, encode-result};
     import http-client;
     import secrets-store;
     import state-store;
@@ -15,6 +17,7 @@ world webchat {
 
     export init-runtime-config: func(config-json: string) -> result<_, string>;
     export capabilities: func() -> capabilities-response;
+    export encode: func(plan: render-plan) -> encode-result;
     export send-message: func(session-id: string, text: string) -> result<string, string>;
     export handle-webhook: func(headers-json: string, body-json: string) -> result<string, string>;
     export refresh: func() -> result<string, string>;

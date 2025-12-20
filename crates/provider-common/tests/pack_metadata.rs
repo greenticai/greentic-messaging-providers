@@ -74,6 +74,7 @@ fn run_metadata_generator(workspace_root: &Path, pack_dir: &Path) {
         .arg(pack_dir)
         .arg("--components-dir")
         .arg(workspace_root.join("components"))
+        .arg("--include-capabilities-cache")
         .arg("--version")
         .arg("test")
         .status()
@@ -243,5 +244,70 @@ fn gtpack_contains_secret_requirements_metadata() -> Result<()> {
         }
     }
 
+    let cache = manifest
+        .get("capabilities_cache")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| anyhow!("pack manifest missing capabilities_cache"))?;
+    assert_eq!(
+        cache.len(),
+        components.len(),
+        "capabilities_cache must contain entries for each component"
+    );
+    for entry in cache {
+        let obj = entry
+            .as_object()
+            .ok_or_else(|| anyhow!("capabilities_cache entry must be object"))?;
+        let component = obj
+            .get("component")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("capabilities_cache entry missing component"))?;
+        assert!(
+            components.contains(&component.to_string()),
+            "capabilities_cache component {} not in manifest components",
+            component
+        );
+        let path = obj
+            .get("path")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("capabilities_cache entry missing path"))?;
+        let cache_bytes = read_from_gtpack(&gtpack_path, path)?;
+        assert!(
+            !cache_bytes.is_empty(),
+            "capabilities cache file {} should be present",
+            path
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
+fn packs_lock_has_digest() -> Result<()> {
+    use sha2::{Digest, Sha256};
+
+    let root = workspace_root();
+    let lock_path = root.join("packs.lock.json");
+    let gtpack_path = root
+        .join("dist")
+        .join("packs")
+        .join("messaging-provider-bundle.gtpack");
+    let lock_json: Value = serde_json::from_slice(&std::fs::read(&lock_path)?)?;
+    let packs = lock_json
+        .get("packs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("packs.lock.json missing packs array"))?;
+    let entry = packs
+        .iter()
+        .find(|p| p.get("name").and_then(Value::as_str) == Some("messaging-provider-bundle"))
+        .ok_or_else(|| anyhow!("packs.lock.json missing messaging-provider-bundle entry"))?;
+    let digest = entry
+        .get("digest")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow!("packs.lock.json missing digest"))?;
+    let bytes = std::fs::read(&gtpack_path)?;
+    let mut hasher = Sha256::new();
+    hasher.update(&bytes);
+    let hex = format!("{:x}", hasher.finalize());
+    assert_eq!(digest, format!("sha256:{hex}"));
     Ok(())
 }

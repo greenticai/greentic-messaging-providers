@@ -387,7 +387,7 @@ checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 
 [[package]]
 name = "messaging-core"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "serde",
 ]
@@ -463,12 +463,13 @@ dependencies = [
 
 [[package]]
 name = "provider-common"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "anyhow",
  "schemars",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "thiserror",
  "zip",
@@ -476,7 +477,7 @@ dependencies = [
 
 [[package]]
 name = "provider-runtime-config"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "serde",
  "serde_json",
@@ -542,7 +543,7 @@ dependencies = [
 
 [[package]]
 name = "secrets-probe"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "wit-bindgen 0.49.0",
 ]
@@ -643,7 +644,7 @@ checksum = "e320a6c5ad31d271ad523dcf3ad13e2767ad8b1cb8f047f75a8aeaf8da139da2"
 
 [[package]]
 name = "slack"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "hmac",
  "provider-common",
@@ -673,7 +674,7 @@ dependencies = [
 
 [[package]]
 name = "teams"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -685,7 +686,7 @@ dependencies = [
 
 [[package]]
 name = "telegram"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "htmlescape",
  "provider-common",
@@ -822,7 +823,7 @@ dependencies = [
 
 [[package]]
 name = "webchat"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -833,7 +834,7 @@ dependencies = [
 
 [[package]]
 name = "webex"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -844,7 +845,7 @@ dependencies = [
 
 [[package]]
 name = "whatsapp"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "provider-common",
  "provider-runtime-config",

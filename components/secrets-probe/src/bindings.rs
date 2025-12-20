@@ -260,7 +260,7 @@ macro_rules! __export_secrets_probe_impl {
 pub(crate) use __export_secrets_probe_impl as export;
 #[cfg(target_arch = "wasm32")]
 #[unsafe(
-    link_section = "component-type:wit-bindgen:0.41.0:probe:secrets-probe@0.0.1:secrets-probe:encoded world"
+    link_section = "component-type:wit-bindgen:0.41.0:probe:secrets-probe@0.0.2:secrets-probe:encoded world"
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
@@ -269,7 +269,7 @@ pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 335] = *b"\
 A\x04\x01B\x07\x01m\x04\x09not-found\x06denied\x0binvalid-key\x08internal\x04\0\x0d\
 secrets-error\x03\0\0\x01p}\x01k\x02\x01j\x01\x03\x01\x01\x01@\x01\x03keys\0\x04\
 \x04\0\x03get\x01\x05\x03\0*greentic:secrets-store/secrets-store@1.0.0\x05\0\x01\
-@\0\0s\x04\0\x03run\x01\x01\x04\0'probe:secrets-probe/secrets-probe@0.0.1\x04\0\x0b\
+@\0\0s\x04\0\x03run\x01\x01\x04\0'probe:secrets-probe/secrets-probe@0.0.2\x04\0\x0b\
 \x13\x01\0\x0dsecrets-probe\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dw\
 it-component\x070.227.1\x10wit-bindgen-rust\x060.41.0";
 #[inline(never)]
