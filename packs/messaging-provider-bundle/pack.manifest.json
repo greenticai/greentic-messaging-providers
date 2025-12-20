@@ -68,5 +68,37 @@
       "scope": "tenant",
       "description": "Verify token used for webhook validation (if configured)."
     }
+  ],
+  "capabilities_cache": [
+    {
+      "component": "slack",
+      "version": "v1",
+      "path": "components/slack-capabilities_v1.json"
+    },
+    {
+      "component": "teams",
+      "version": "v1",
+      "path": "components/teams-capabilities_v1.json"
+    },
+    {
+      "component": "telegram",
+      "version": "v1",
+      "path": "components/telegram-capabilities_v1.json"
+    },
+    {
+      "component": "webchat",
+      "version": "v1",
+      "path": "components/webchat-capabilities_v1.json"
+    },
+    {
+      "component": "webex",
+      "version": "v1",
+      "path": "components/webex-capabilities_v1.json"
+    },
+    {
+      "component": "whatsapp",
+      "version": "v1",
+      "path": "components/whatsapp-capabilities_v1.json"
+    }
   ]
 }

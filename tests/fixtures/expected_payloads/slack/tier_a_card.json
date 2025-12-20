@@ -1,0 +1,20 @@
+{
+  "content_type": "application/json",
+  "body_json": {
+    "channel": "",
+    "text": "Please confirm action",
+    "blocks": [
+      {
+        "type": "section",
+        "text": { "type": "mrkdwn", "text": "Please confirm action" }
+      }
+    ],
+    "attachments": [
+      { "text": "Additional note" }
+    ],
+    "metadata": {
+      "actions": ["accept", "decline"]
+    }
+  },
+  "warnings": []
+}

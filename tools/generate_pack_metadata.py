@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 
 def load_json(path: Path) -> dict:
@@ -68,6 +69,26 @@ def write_manifest(manifest_path: Path, manifest: dict) -> None:
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
 
 
+def include_capabilities_cache(
+    manifest: dict, pack_dir: Path, components_dir: Path
+) -> None:
+    cache_entries = []
+    components = manifest.get("components") or []
+    cache_out_dir = pack_dir / "components"
+    cache_out_dir.mkdir(parents=True, exist_ok=True)
+    for component in components:
+        src = components_dir / component / "capabilities_v1.json"
+        if not src.exists():
+            continue
+        dest = cache_out_dir / f"{component}-capabilities_v1.json"
+        shutil.copyfile(src, dest)
+        cache_entries.append(
+            {"component": component, "version": "v1", "path": f"components/{dest.name}"}
+        )
+    if cache_entries:
+        manifest["capabilities_cache"] = cache_entries
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Aggregate pack secret requirements.")
     parser.add_argument(
@@ -95,6 +116,11 @@ def main() -> int:
         type=Path,
         help="Optional path to write aggregated secret requirements JSON array for pack builders",
     )
+    parser.add_argument(
+        "--include-capabilities-cache",
+        action="store_true",
+        help="If set, copy capabilities_v1.json from component directories into the pack and reference them in pack.manifest.json",
+    )
     args = parser.parse_args()
 
     pack_dir = args.pack_dir
@@ -108,6 +134,8 @@ def main() -> int:
     secret_requirements = aggregate_requirements(pack_dir, components_dir)
     manifest = load_json(pack_dir / "pack.manifest.json")
     manifest["secret_requirements"] = secret_requirements
+    if args.include_capabilities_cache:
+        include_capabilities_cache(manifest, pack_dir, components_dir)
     if args.version:
         manifest["version"] = args.version
 

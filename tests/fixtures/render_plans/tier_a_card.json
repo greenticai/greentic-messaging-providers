@@ -1,0 +1,8 @@
+{
+  "tier": "tier_a",
+  "summary_text": "Please confirm action",
+  "actions": ["accept", "decline"],
+  "attachments": ["Additional note"],
+  "warnings": [],
+  "debug": null
+}
