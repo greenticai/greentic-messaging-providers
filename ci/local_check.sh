@@ -7,10 +7,10 @@ cd "${ROOT_DIR}"
 echo "==> cargo fmt --check"
 cargo fmt --check
 
-echo "==> cargo test --workspace"
-cargo test --workspace
-
 echo "==> tools/build_components.sh"
 ./tools/build_components.sh
+
+echo "==> cargo test --workspace"
+cargo test --workspace
 
 echo "All checks completed."

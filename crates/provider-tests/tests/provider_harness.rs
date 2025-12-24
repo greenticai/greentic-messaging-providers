@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -167,6 +168,7 @@ fn packs_root() -> PathBuf {
 fn component_path(provider: ProviderId) -> PathBuf {
     let name = provider.as_str();
     let candidates = [
+        workspace_root().join(format!("target/components/{name}.wasm")),
         workspace_root().join(format!("target/wasm32-wasip1/release/{name}.wasm")),
         workspace_root().join(format!("target/wasm32-wasip1/debug/{name}.wasm")),
         workspace_root().join(format!(
