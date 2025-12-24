@@ -1,0 +1,17 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 862
+expression: value
+---
+{
+  "body": "Adaptive card with actions",
+  "content_type": "text/plain; charset=utf-8",
+  "metadata": null,
+  "warnings": [
+    {
+      "code": "encoder_forced_downgrade",
+      "message": "downgraded to tier_d text payload",
+      "path": null
+    }
+  ]
+}

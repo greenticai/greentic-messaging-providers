@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-provider": "teams",
+    "x-scenario": "reply_thread"
+  },
+  "body": {
+    "type": "message",
+    "channel": "teams-channel",
+    "thread_id": "teams-thread-1",
+    "reply_to": "teams-msg-1",
+    "provider": "teams",
+    "id": "teams-reply_thread-id",
+    "timestamp": "2024-03-01T12:00:00Z",
+    "text": "reply thread message from teams"
+  }
+}

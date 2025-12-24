@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-provider": "slack",
+    "x-scenario": "reply_thread"
+  },
+  "body": {
+    "type": "message",
+    "channel": "slack-channel",
+    "thread_id": "slack-thread-1",
+    "reply_to": "slack-msg-1",
+    "provider": "slack",
+    "id": "slack-reply_thread-id",
+    "timestamp": "2024-03-01T12:00:00Z",
+    "text": "reply thread message from slack"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "tier": "tier_a",
+  "summary_text": "Adaptive card basic content",
+  "actions": ["open_url"],
+  "attachments": ["card:basic"],
+  "warnings": [],
+  "debug": {
+    "card": {
+      "type": "AdaptiveCard",
+      "version": "1.5",
+      "body": [
+        { "type": "TextBlock", "text": "Basic title", "weight": "bolder" },
+        { "type": "TextBlock", "text": "This is a basic adaptive card body." }
+      ]
+    }
+  }
+}

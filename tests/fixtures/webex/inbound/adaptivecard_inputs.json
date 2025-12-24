@@ -1,0 +1,31 @@
+{
+  "headers": {
+    "x-provider": "webex",
+    "x-scenario": "adaptivecard_inputs"
+  },
+  "body": {
+    "type": "adaptivecard",
+    "variant": "inputs",
+    "inputs": [
+      {
+        "id": "name",
+        "placeholder": "Name"
+      },
+      {
+        "id": "choice",
+        "choices": [
+          "a",
+          "b"
+        ]
+      },
+      {
+        "id": "toggle",
+        "title": "Opt in"
+      }
+    ],
+    "provider": "webex",
+    "id": "webex-adaptivecard_inputs-id",
+    "timestamp": "2024-03-01T12:00:00Z",
+    "text": "adaptivecard inputs message from webex"
+  }
+}

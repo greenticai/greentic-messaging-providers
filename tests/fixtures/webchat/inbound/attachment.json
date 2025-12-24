@@ -1,0 +1,23 @@
+{
+  "headers": {
+    "x-provider": "webchat",
+    "x-scenario": "attachment"
+  },
+  "body": {
+    "type": "message",
+    "attachments": [
+      {
+        "kind": "image",
+        "url": "https://example.invalid/image.png"
+      },
+      {
+        "kind": "file",
+        "name": "notes.txt"
+      }
+    ],
+    "provider": "webchat",
+    "id": "webchat-attachment-id",
+    "timestamp": "2024-03-01T12:00:00Z",
+    "text": "attachment message from webchat"
+  }
+}

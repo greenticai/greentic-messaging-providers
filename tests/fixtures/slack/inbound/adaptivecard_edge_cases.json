@@ -1,0 +1,18 @@
+{
+  "headers": {
+    "x-provider": "slack",
+    "x-scenario": "adaptivecard_edge_cases"
+  },
+  "body": {
+    "type": "adaptivecard",
+    "variant": "edge",
+    "text": "Long text with markdown **bold** and newlines\nsecond line",
+    "notes": [
+      "unicode-safe",
+      "no emoji"
+    ],
+    "provider": "slack",
+    "id": "slack-adaptivecard_edge_cases-id",
+    "timestamp": "2024-03-01T12:00:00Z"
+  }
+}

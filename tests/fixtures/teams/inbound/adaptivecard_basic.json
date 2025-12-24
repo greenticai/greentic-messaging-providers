@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-provider": "teams",
+    "x-scenario": "adaptivecard_basic"
+  },
+  "body": {
+    "type": "adaptivecard",
+    "variant": "basic",
+    "summary": "card with title/body",
+    "provider": "teams",
+    "id": "teams-adaptivecard_basic-id",
+    "timestamp": "2024-03-01T12:00:00Z",
+    "text": "adaptivecard basic message from teams"
+  }
+}

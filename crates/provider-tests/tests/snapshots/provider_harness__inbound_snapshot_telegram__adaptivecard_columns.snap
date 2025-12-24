@@ -1,0 +1,31 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 878
+expression: value
+---
+{
+  "normalized_event": {
+    "event": {
+      "columns": [
+        [
+          "left",
+          "right"
+        ],
+        [
+          "top",
+          "bottom"
+        ]
+      ],
+      "id": "<FIXED>",
+      "provider": "telegram",
+      "text": "adaptivecard columns message from telegram",
+      "timestamp": "<FIXED>",
+      "type": "adaptivecard",
+      "variant": "columns"
+    },
+    "ok": true
+  },
+  "suggested_http_status": null,
+  "validation": "ok",
+  "warnings": []
+}

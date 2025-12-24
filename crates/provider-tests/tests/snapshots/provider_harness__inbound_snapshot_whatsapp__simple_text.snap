@@ -1,0 +1,16 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 878
+expression: value
+---
+{
+  "event": {
+    "channel": "whatsapp-channel",
+    "id": "<FIXED>",
+    "provider": "whatsapp",
+    "text": "simple text message from whatsapp",
+    "timestamp": "<FIXED>",
+    "type": "message"
+  },
+  "ok": true
+}

@@ -1,0 +1,26 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 878
+expression: value
+---
+{
+  "event": {
+    "columns": [
+      [
+        "left",
+        "right"
+      ],
+      [
+        "top",
+        "bottom"
+      ]
+    ],
+    "id": "<FIXED>",
+    "provider": "teams",
+    "text": "adaptivecard columns message from teams",
+    "timestamp": "<FIXED>",
+    "type": "adaptivecard",
+    "variant": "columns"
+  },
+  "ok": true
+}

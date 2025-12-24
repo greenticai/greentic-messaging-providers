@@ -1,0 +1,14 @@
+{
+  "headers": {
+    "x-provider": "webchat",
+    "x-scenario": "simple_text"
+  },
+  "body": {
+    "type": "message",
+    "channel": "webchat-channel",
+    "provider": "webchat",
+    "id": "webchat-simple_text-id",
+    "timestamp": "2024-03-01T12:00:00Z",
+    "text": "simple text message from webchat"
+  }
+}
