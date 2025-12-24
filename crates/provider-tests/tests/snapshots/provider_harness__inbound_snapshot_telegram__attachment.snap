@@ -1,0 +1,30 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 878
+expression: value
+---
+{
+  "normalized_event": {
+    "event": {
+      "attachments": [
+        {
+          "kind": "image",
+          "url": "https://example.invalid/image.png"
+        },
+        {
+          "kind": "file",
+          "name": "notes.txt"
+        }
+      ],
+      "id": "<FIXED>",
+      "provider": "telegram",
+      "text": "attachment message from telegram",
+      "timestamp": "<FIXED>",
+      "type": "message"
+    },
+    "ok": true
+  },
+  "suggested_http_status": null,
+  "validation": "ok",
+  "warnings": []
+}

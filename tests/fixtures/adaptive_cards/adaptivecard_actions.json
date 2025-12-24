@@ -1,0 +1,17 @@
+{
+  "tier": "tier_a",
+  "summary_text": "Adaptive card with actions",
+  "actions": ["open_url", "submit"],
+  "attachments": ["card:actions"],
+  "warnings": [],
+  "debug": {
+    "card": {
+      "type": "AdaptiveCard",
+      "version": "1.5",
+      "actions": [
+        { "type": "Action.OpenUrl", "title": "View Docs", "url": "https://example.com" },
+        { "type": "Action.Submit", "title": "Approve", "data": { "op": "approve" } }
+      ]
+    }
+  }
+}

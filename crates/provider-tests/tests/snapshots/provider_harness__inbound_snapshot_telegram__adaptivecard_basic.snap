@@ -1,0 +1,22 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 878
+expression: value
+---
+{
+  "normalized_event": {
+    "event": {
+      "id": "<FIXED>",
+      "provider": "telegram",
+      "summary": "card with title/body",
+      "text": "adaptivecard basic message from telegram",
+      "timestamp": "<FIXED>",
+      "type": "adaptivecard",
+      "variant": "basic"
+    },
+    "ok": true
+  },
+  "suggested_http_status": null,
+  "validation": "ok",
+  "warnings": []
+}

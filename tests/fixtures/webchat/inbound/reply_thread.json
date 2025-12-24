@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-provider": "webchat",
+    "x-scenario": "reply_thread"
+  },
+  "body": {
+    "type": "message",
+    "channel": "webchat-channel",
+    "thread_id": "webchat-thread-1",
+    "reply_to": "webchat-msg-1",
+    "provider": "webchat",
+    "id": "webchat-reply_thread-id",
+    "timestamp": "2024-03-01T12:00:00Z",
+    "text": "reply thread message from webchat"
+  }
+}

@@ -1,0 +1,18 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 878
+expression: value
+---
+{
+  "event": {
+    "channel": "webex-channel",
+    "id": "<FIXED>",
+    "provider": "webex",
+    "reply_to": "webex-msg-1",
+    "text": "reply thread message from webex",
+    "thread_id": "webex-thread-1",
+    "timestamp": "<FIXED>",
+    "type": "message"
+  },
+  "ok": true
+}

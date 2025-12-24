@@ -1,0 +1,23 @@
+{
+  "headers": {
+    "x-provider": "teams",
+    "x-scenario": "attachment"
+  },
+  "body": {
+    "type": "message",
+    "attachments": [
+      {
+        "kind": "image",
+        "url": "https://example.invalid/image.png"
+      },
+      {
+        "kind": "file",
+        "name": "notes.txt"
+      }
+    ],
+    "provider": "teams",
+    "id": "teams-attachment-id",
+    "timestamp": "2024-03-01T12:00:00Z",
+    "text": "attachment message from teams"
+  }
+}

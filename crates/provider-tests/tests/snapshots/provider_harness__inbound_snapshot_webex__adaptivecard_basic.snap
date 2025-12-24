@@ -1,0 +1,17 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 878
+expression: value
+---
+{
+  "event": {
+    "id": "<FIXED>",
+    "provider": "webex",
+    "summary": "card with title/body",
+    "text": "adaptivecard basic message from webex",
+    "timestamp": "<FIXED>",
+    "type": "adaptivecard",
+    "variant": "basic"
+  },
+  "ok": true
+}

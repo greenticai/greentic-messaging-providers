@@ -1,0 +1,35 @@
+{
+  "tier": "tier_a",
+  "summary_text": "Adaptive card with inputs",
+  "actions": ["submit_form"],
+  "attachments": ["card:inputs"],
+  "warnings": [],
+  "debug": {
+    "card": {
+      "type": "AdaptiveCard",
+      "version": "1.5",
+      "body": [
+        {
+          "type": "Input.Text",
+          "id": "name",
+          "placeholder": "Enter your name"
+        },
+        {
+          "type": "Input.ChoiceSet",
+          "id": "choice",
+          "style": "compact",
+          "choices": [
+            { "title": "Option A", "value": "a" },
+            { "title": "Option B", "value": "b" }
+          ]
+        },
+        {
+          "type": "Input.Toggle",
+          "id": "toggle",
+          "title": "Enable",
+          "value": "true"
+        }
+      ]
+    }
+  }
+}

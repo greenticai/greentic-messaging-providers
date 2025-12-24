@@ -1,0 +1,24 @@
+{
+  "headers": {
+    "x-provider": "webex",
+    "x-scenario": "adaptivecard_columns"
+  },
+  "body": {
+    "type": "adaptivecard",
+    "variant": "columns",
+    "columns": [
+      [
+        "left",
+        "right"
+      ],
+      [
+        "top",
+        "bottom"
+      ]
+    ],
+    "provider": "webex",
+    "id": "webex-adaptivecard_columns-id",
+    "timestamp": "2024-03-01T12:00:00Z",
+    "text": "adaptivecard columns message from webex"
+  }
+}

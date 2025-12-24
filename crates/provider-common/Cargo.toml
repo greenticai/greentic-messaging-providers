@@ -8,14 +8,14 @@ license.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 serde_json.workspace = true
-schemars = { version = "0.8", optional = true }
+schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
-anyhow = "1"
+anyhow.workspace = true
 serde_json.workspace = true
-tempfile = "3"
-zip = "6"
-sha2 = "0.10"
+tempfile.workspace = true
+zip.workspace = true
+sha2.workspace = true
 
 [features]
 schema = ["schemars"]

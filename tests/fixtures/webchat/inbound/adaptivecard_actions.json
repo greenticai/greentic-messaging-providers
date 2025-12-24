@@ -1,0 +1,28 @@
+{
+  "headers": {
+    "x-provider": "webchat",
+    "x-scenario": "adaptivecard_actions"
+  },
+  "body": {
+    "type": "adaptivecard",
+    "variant": "actions",
+    "actions": [
+      {
+        "type": "open_url",
+        "title": "Docs",
+        "url": "https://example.invalid/docs"
+      },
+      {
+        "type": "submit",
+        "title": "Ack",
+        "data": {
+          "op": "ack"
+        }
+      }
+    ],
+    "provider": "webchat",
+    "id": "webchat-adaptivecard_actions-id",
+    "timestamp": "2024-03-01T12:00:00Z",
+    "text": "adaptivecard actions message from webchat"
+  }
+}

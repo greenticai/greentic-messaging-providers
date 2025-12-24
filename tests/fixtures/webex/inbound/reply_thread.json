@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-provider": "webex",
+    "x-scenario": "reply_thread"
+  },
+  "body": {
+    "type": "message",
+    "channel": "webex-channel",
+    "thread_id": "webex-thread-1",
+    "reply_to": "webex-msg-1",
+    "provider": "webex",
+    "id": "webex-reply_thread-id",
+    "timestamp": "2024-03-01T12:00:00Z",
+    "text": "reply thread message from webex"
+  }
+}

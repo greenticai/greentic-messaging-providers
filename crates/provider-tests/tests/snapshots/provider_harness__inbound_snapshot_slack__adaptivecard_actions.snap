@@ -1,0 +1,30 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 878
+expression: value
+---
+{
+  "event": {
+    "actions": [
+      {
+        "title": "Docs",
+        "type": "open_url",
+        "url": "https://example.invalid/docs"
+      },
+      {
+        "data": {
+          "op": "ack"
+        },
+        "title": "Ack",
+        "type": "submit"
+      }
+    ],
+    "id": "<FIXED>",
+    "provider": "slack",
+    "text": "adaptivecard actions message from slack",
+    "timestamp": "<FIXED>",
+    "type": "adaptivecard",
+    "variant": "actions"
+  },
+  "ok": true
+}

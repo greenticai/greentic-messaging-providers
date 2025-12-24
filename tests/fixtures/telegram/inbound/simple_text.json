@@ -1,0 +1,14 @@
+{
+  "headers": {
+    "x-provider": "telegram",
+    "x-scenario": "simple_text"
+  },
+  "body": {
+    "type": "message",
+    "channel": "telegram-channel",
+    "provider": "telegram",
+    "id": "telegram-simple_text-id",
+    "timestamp": "2024-03-01T12:00:00Z",
+    "text": "simple text message from telegram"
+  }
+}

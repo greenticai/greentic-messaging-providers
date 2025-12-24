@@ -1,0 +1,24 @@
+{
+  "headers": {
+    "x-provider": "teams",
+    "x-scenario": "adaptivecard_columns"
+  },
+  "body": {
+    "type": "adaptivecard",
+    "variant": "columns",
+    "columns": [
+      [
+        "left",
+        "right"
+      ],
+      [
+        "top",
+        "bottom"
+      ]
+    ],
+    "provider": "teams",
+    "id": "teams-adaptivecard_columns-id",
+    "timestamp": "2024-03-01T12:00:00Z",
+    "text": "adaptivecard columns message from teams"
+  }
+}

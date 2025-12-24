@@ -1,0 +1,29 @@
+{
+  "tier": "tier_a",
+  "summary_text": "Adaptive card with columns",
+  "actions": ["ack"],
+  "attachments": ["card:columns"],
+  "warnings": [],
+  "debug": {
+    "card": {
+      "type": "AdaptiveCard",
+      "version": "1.5",
+      "body": [
+        {
+          "type": "ColumnSet",
+          "columns": [
+            { "type": "Column", "items": [{ "type": "TextBlock", "text": "Left" }] },
+            { "type": "Column", "items": [{ "type": "TextBlock", "text": "Right" }] }
+          ]
+        },
+        {
+          "type": "FactSet",
+          "facts": [
+            { "title": "Owner", "value": "Greentic" },
+            { "title": "Status", "value": "Active" }
+          ]
+        }
+      ]
+    }
+  }
+}

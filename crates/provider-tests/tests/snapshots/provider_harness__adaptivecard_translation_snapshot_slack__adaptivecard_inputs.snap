@@ -1,0 +1,33 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 862
+expression: value
+---
+{
+  "body": {
+    "attachments": [
+      {
+        "text": "card:inputs"
+      }
+    ],
+    "blocks": [
+      {
+        "text": {
+          "text": "Adaptive card with inputs",
+          "type": "mrkdwn"
+        },
+        "type": "section"
+      }
+    ],
+    "channel": "",
+    "metadata": {
+      "actions": [
+        "submit_form"
+      ]
+    },
+    "text": "Adaptive card with inputs"
+  },
+  "content_type": "application/json",
+  "metadata": null,
+  "warnings": []
+}

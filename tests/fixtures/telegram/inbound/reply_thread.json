@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-provider": "telegram",
+    "x-scenario": "reply_thread"
+  },
+  "body": {
+    "type": "message",
+    "channel": "telegram-channel",
+    "thread_id": "telegram-thread-1",
+    "reply_to": "telegram-msg-1",
+    "provider": "telegram",
+    "id": "telegram-reply_thread-id",
+    "timestamp": "2024-03-01T12:00:00Z",
+    "text": "reply thread message from telegram"
+  }
+}

@@ -1,0 +1,33 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 862
+expression: value
+---
+{
+  "body": {
+    "attachments": [
+      {
+        "text": "card:columns"
+      }
+    ],
+    "blocks": [
+      {
+        "text": {
+          "text": "Adaptive card with columns",
+          "type": "mrkdwn"
+        },
+        "type": "section"
+      }
+    ],
+    "channel": "",
+    "metadata": {
+      "actions": [
+        "ack"
+      ]
+    },
+    "text": "Adaptive card with columns"
+  },
+  "content_type": "application/json",
+  "metadata": null,
+  "warnings": []
+}
