@@ -2,7 +2,7 @@
   "name": "messaging-teams",
   "version": "0.4.8",
   "description": "Provider-core Microsoft Teams messaging pack (Graph send).",
-  "kind": "application",
+  "kind": "messaging",
   "publisher": "Greentic",
   "config_schema": {
     "provider_config": {
@@ -11,27 +11,50 @@
     }
   },
   "components": [
-    "messaging-provider-teams"
+    {
+      "id": "messaging-provider-teams",
+      "kind": "messaging",
+      "version": "0.4.8",
+      "world": "greentic:provider/schema-core@1.0.0",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {},
+        "host": {}
+      },
+      "wasm": "components/messaging-provider-teams.wasm"
+    }
   ],
   "extensions": {
     "greentic.ext.provider": {
+      "kind": "greentic.ext.provider",
+      "version": "1.0.0",
       "inline": {
         "providers": [
           {
             "provider_type": "messaging.teams.graph",
-            "capabilities": [],
+            "capabilities": [
+              "messaging"
+            ],
             "ops": [
               "send",
               "reply"
             ],
             "config_schema_ref": "schemas/messaging/teams/config.schema.json",
-            "state_schema_ref": null,
+            "state_schema_ref": "",
             "runtime": {
               "component_ref": "messaging-provider-teams",
               "export": "schema-core-api",
-              "world": "greentic:provider-schema-core/schema-core@1.0.0"
+              "world": "greentic:provider/schema-core@1.0.0"
             },
-            "docs_ref": null
+            "docs_ref": ""
           }
         ]
       }

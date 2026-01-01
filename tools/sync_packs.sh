@@ -41,7 +41,9 @@ lines = path.read_text().splitlines()
 updated = False
 out = []
 for line in lines:
-    if line.strip().startswith("version:"):
+    stripped = line.lstrip()
+    indent = len(line) - len(stripped)
+    if indent == 0 and stripped.startswith("version:"):
         prefix = line.split("version:")[0] + "version: "
         out.append(f"{prefix}{version}")
         updated = True
@@ -82,16 +84,19 @@ for dir in "${PACKS_DIR}"/*; do
     --include-capabilities-cache
 
   mkdir -p "${dir}/components"
-  while IFS= read -r comp; do
+  while IFS=$'\t' read -r comp wasm_path; do
     [ -z "${comp}" ] && continue
-    src="${TARGET_COMPONENTS}/${comp}.wasm"
-    dest="${dir}/components/${comp}.wasm"
+    wasm_rel="${wasm_path:-components/${comp}.wasm}"
+    wasm_file="$(basename "${wasm_rel}")"
+    src="${TARGET_COMPONENTS}/${wasm_file}"
+    dest="${dir}/${wasm_rel}"
+    mkdir -p "$(dirname "${dest}")"
     if [ ! -f "${src}" ]; then
       echo "Missing component artifact: ${src}" >&2
       exit 1
     fi
     cp "${src}" "${dest}"
-  done < <(jq -r '.components[] | if type=="string" then . else .id end' "${dir}/pack.manifest.json")
+  done < <(jq -r '.components[] | if type=="string" then [.,"components/"+.+".wasm"] else [.id, .wasm // "components/"+.id+".wasm"] end | @tsv' "${dir}/pack.manifest.json")
 
   while IFS= read -r schema; do
     [ -z "${schema}" ] && continue

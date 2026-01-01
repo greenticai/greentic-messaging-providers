@@ -2,7 +2,7 @@
   "name": "messaging-webchat",
   "version": "0.4.8",
   "description": "Provider-core WebChat messaging pack (send + ingest).",
-  "kind": "application",
+  "kind": "messaging",
   "publisher": "Greentic",
   "config_schema": {
     "provider_config": {
@@ -11,27 +11,50 @@
     }
   },
   "components": [
-    "messaging-provider-webchat"
+    {
+      "id": "messaging-provider-webchat",
+      "kind": "messaging",
+      "version": "0.4.8",
+      "world": "greentic:provider/schema-core@1.0.0",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {},
+        "host": {}
+      },
+      "wasm": "components/messaging-provider-webchat.wasm"
+    }
   ],
   "extensions": {
     "greentic.ext.provider": {
+      "kind": "greentic.ext.provider",
+      "version": "1.0.0",
       "inline": {
         "providers": [
           {
             "provider_type": "messaging.webchat",
-            "capabilities": [],
+            "capabilities": [
+              "messaging"
+            ],
             "ops": [
               "send",
               "ingest"
             ],
             "config_schema_ref": "schemas/messaging/webchat/config.schema.json",
-            "state_schema_ref": null,
+            "state_schema_ref": "",
             "runtime": {
               "component_ref": "messaging-provider-webchat",
               "export": "schema-core-api",
-              "world": "greentic:provider-schema-core/schema-core@1.0.0"
+              "world": "greentic:provider/schema-core@1.0.0"
             },
-            "docs_ref": null
+            "docs_ref": ""
           }
         ]
       }

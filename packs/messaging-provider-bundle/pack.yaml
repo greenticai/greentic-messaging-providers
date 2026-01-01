@@ -93,6 +93,8 @@ components:
 
 flows:
   - id: main
+    kind: job
+    version: 0.4.8
     file: flows/main.ygtc
     tags: [default]
     entrypoints: [default]

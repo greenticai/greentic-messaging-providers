@@ -7,7 +7,7 @@ components:
   - id: "messaging-provider-whatsapp"
     kind: messaging
     version: 0.4.8
-    world: "greentic:provider-schema-core/schema-core@1.0.0"
+    world: "greentic:provider/schema-core@1.0.0"
     supports: ["messaging"]
     profiles:
       default: "default"
@@ -19,21 +19,25 @@ components:
 
 extensions:
   greentic.ext.provider:
+    kind: greentic.ext.provider
+    version: "1.0.0"
     inline:
       providers:
         - provider_type: "messaging.whatsapp.cloud"
-          capabilities: []
+          capabilities: ["messaging"]
           ops: ["send", "reply"]
           config_schema_ref: "schemas/messaging/whatsapp/config.schema.json"
-          state_schema_ref: null
+          state_schema_ref: ""
           runtime:
             component_ref: "messaging-provider-whatsapp"
             export: "schema-core-api"
-            world: "greentic:provider-schema-core/schema-core@1.0.0"
-          docs_ref: null
+            world: "greentic:provider/schema-core@1.0.0"
+          docs_ref: ""
 
 schemas:
-  config: "schemas/messaging/whatsapp/config.schema.json"
+  - kind: config
+    version: 0.4.8
+    path: "schemas/messaging/whatsapp/config.schema.json"
 
 secret_requirements:
   - name: "WHATSAPP_TOKEN"

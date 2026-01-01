@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
+import yaml
 
 def load_json(path: Path) -> dict:
     try:
@@ -58,6 +59,9 @@ def aggregate_requirements(pack_dir: Path, components_dir: Path) -> List[dict]:
     for component in components:
         comp_id = component.get("id") if isinstance(component, dict) else component
         comp_manifest = components_dir / comp_id / "component.manifest.json"
+        if not comp_manifest.exists():
+            sys.stderr.write(f"warning: component manifest not found for {comp_id} at {comp_manifest}\n")
+            continue
         data = load_json(comp_manifest)
         component_reqs = data.get("secret_requirements") or []
         reqs.extend(component_reqs)
@@ -82,7 +86,7 @@ def include_capabilities_cache(
         src = components_dir / comp_id / "capabilities_v1.json"
         if not src.exists():
             continue
-        dest = cache_out_dir / f"{component}-capabilities_v1.json"
+        dest = cache_out_dir / f"{comp_id}-capabilities_v1.json"
         shutil.copyfile(src, dest)
         cache_entries.append(
             {"component": comp_id, "version": "v1", "path": f"components/{dest.name}"}
@@ -133,9 +137,61 @@ def main() -> int:
         sys.stderr.write(f"pack directory not found: {pack_dir}\n")
         return 1
 
+    # Load pack.yaml to align top-level kind/version/components.
+    pack_yaml_path = pack_dir / "pack.yaml"
+    pack_yaml = yaml.safe_load(pack_yaml_path.read_text()) if pack_yaml_path.exists() else {}
+
     secret_requirements = aggregate_requirements(pack_dir, components_dir)
     manifest = load_json(pack_dir / "pack.manifest.json")
+
+    # Bring manifest basics in sync with pack.yaml.
+    if pack_yaml:
+        manifest["name"] = pack_yaml.get("pack_id", manifest.get("name", ""))
+        manifest["publisher"] = pack_yaml.get(
+            "publisher", manifest.get("publisher", "Greentic")
+        )
+        manifest["kind"] = pack_yaml.get("kind", manifest.get("kind", "application"))
+        manifest["version"] = pack_yaml.get("version", manifest.get("version", "0.0.0"))
+        if pack_yaml.get("extensions"):
+            manifest["extensions"] = pack_yaml.get("extensions", {})
+
+        components = []
+        for comp in pack_yaml.get("components", []) or []:
+            if not isinstance(comp, dict):
+                continue
+            comp_id = comp.get("id")
+            if not comp_id:
+                continue
+            components.append(
+                {
+                    "id": comp_id,
+                    "kind": comp.get("kind") or manifest.get("kind", "application"),
+                    "version": comp.get("version", manifest.get("version", "0.0.0")),
+                    "world": comp.get("world"),
+                    "supports": comp.get("supports", []),
+                    "profiles": comp.get("profiles", {}),
+                    "capabilities": comp.get("capabilities", {}),
+                    "wasm": comp.get("wasm"),
+                }
+            )
+        if components:
+            manifest["components"] = components
+
+        schemas = pack_yaml.get("schemas") or []
+        if isinstance(schemas, list):
+            for schema in schemas:
+                if not isinstance(schema, dict):
+                    continue
+                if schema.get("kind") == "config" and schema.get("path"):
+                    manifest["config_schema"] = {
+                        "provider_config": {
+                            "format": "json",
+                            "path": schema.get("path"),
+                        }
+                    }
+
     manifest["secret_requirements"] = secret_requirements
+
     if args.include_capabilities_cache:
         include_capabilities_cache(manifest, pack_dir, components_dir)
     if args.version:
