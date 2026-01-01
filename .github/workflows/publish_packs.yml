@@ -28,8 +28,11 @@ jobs:
         with:
           targets: wasm32-wasip2
 
+      - name: Install cargo-binstall
+        run: cargo install cargo-binstall --locked
+
       - name: Install cargo-component
-        run: cargo install cargo-component --locked
+        run: cargo binstall cargo-component --no-confirm --locked
 
       - name: Configure git auth for greentic-pack
         if: env.GREENTIC_GITHUB_TOKEN != ''
@@ -47,7 +50,6 @@ jobs:
           CARGO_NET_GIT_FETCH_WITH_CLI: "true"
         run: |
           set -euo pipefail
-          cargo install cargo-binstall --locked
           cargo binstall packc --version 0.4.29 --no-confirm --locked
 
       - name: Login to GHCR
