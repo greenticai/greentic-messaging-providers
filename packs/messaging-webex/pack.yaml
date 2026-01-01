@@ -1,6 +1,6 @@
 pack_id: messaging-webex
 version: 0.4.8
-kind: application
+kind: messaging
 publisher: Greentic
 
 components:

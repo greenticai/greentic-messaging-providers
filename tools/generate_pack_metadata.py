@@ -56,7 +56,8 @@ def aggregate_requirements(pack_dir: Path, components_dir: Path) -> List[dict]:
     components = manifest.get("components") or []
     reqs: List[dict] = []
     for component in components:
-        comp_manifest = components_dir / component / "component.manifest.json"
+        comp_id = component.get("id") if isinstance(component, dict) else component
+        comp_manifest = components_dir / comp_id / "component.manifest.json"
         data = load_json(comp_manifest)
         component_reqs = data.get("secret_requirements") or []
         reqs.extend(component_reqs)
@@ -77,13 +78,14 @@ def include_capabilities_cache(
     cache_out_dir = pack_dir / "components"
     cache_out_dir.mkdir(parents=True, exist_ok=True)
     for component in components:
-        src = components_dir / component / "capabilities_v1.json"
+        comp_id = component.get("id") if isinstance(component, dict) else component
+        src = components_dir / comp_id / "capabilities_v1.json"
         if not src.exists():
             continue
         dest = cache_out_dir / f"{component}-capabilities_v1.json"
         shutil.copyfile(src, dest)
         cache_entries.append(
-            {"component": component, "version": "v1", "path": f"components/{dest.name}"}
+            {"component": comp_id, "version": "v1", "path": f"components/{dest.name}"}
         )
     if cache_entries:
         manifest["capabilities_cache"] = cache_entries

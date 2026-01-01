@@ -91,7 +91,7 @@ for dir in "${PACKS_DIR}"/*; do
       exit 1
     fi
     cp "${src}" "${dest}"
-  done < <(jq -r '.components[]' "${dir}/pack.manifest.json")
+  done < <(jq -r '.components[] | if type=="string" then . else .id end' "${dir}/pack.manifest.json")
 
   while IFS= read -r schema; do
     [ -z "${schema}" ] && continue
