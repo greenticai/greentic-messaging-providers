@@ -48,9 +48,9 @@ jobs:
           GIT_ASKPASS: /tmp/git-askpass.sh
         run: |
           cat > /tmp/git-askpass.sh <<'EOF'
-#!/usr/bin/env bash
-echo "${GREENTIC_GITHUB_TOKEN}"
-EOF
+          #!/usr/bin/env bash
+          echo "${GREENTIC_GITHUB_TOKEN}"
+          EOF
           chmod +x /tmp/git-askpass.sh
           git config --global credential.helper ""
           git config --global url."https://github.com/".insteadOf ssh://git@github.com/
