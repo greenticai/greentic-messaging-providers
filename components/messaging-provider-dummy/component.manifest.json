@@ -1,0 +1,11 @@
+{
+  "name": "messaging-provider-dummy",
+  "description": "Deterministic provider-core messaging provider for CI fixtures.",
+  "config_schema": {
+    "provider_config": {
+      "format": "json",
+      "path": "schemas/messaging/dummy/config.schema.json"
+    }
+  },
+  "secret_requirements": []
+}

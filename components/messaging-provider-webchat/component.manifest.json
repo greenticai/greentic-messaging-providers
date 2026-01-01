@@ -1,0 +1,11 @@
+{
+  "name": "messaging-provider-webchat",
+  "description": "Provider-core WebChat messaging provider (send + ingest).",
+  "config_schema": {
+    "provider_config": {
+      "format": "json",
+      "path": "schemas/messaging/webchat/config.schema.json"
+    }
+  },
+  "secret_requirements": []
+}

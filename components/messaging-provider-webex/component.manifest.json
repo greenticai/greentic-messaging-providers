@@ -1,0 +1,17 @@
+{
+  "name": "messaging-provider-webex",
+  "description": "Provider-core Webex messaging provider (messages API).",
+  "config_schema": {
+    "provider_config": {
+      "format": "json",
+      "path": "schemas/messaging/webex/config.schema.json"
+    }
+  },
+  "secret_requirements": [
+    {
+      "name": "WEBEX_BOT_TOKEN",
+      "scope": "tenant",
+      "description": "Webex bot access token used for Messages API calls."
+    }
+  ]
+}

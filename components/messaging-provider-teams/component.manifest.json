@@ -1,0 +1,22 @@
+{
+  "name": "messaging-provider-teams",
+  "description": "Provider-core Microsoft Teams messaging provider (Graph send).",
+  "config_schema": {
+    "provider_config": {
+      "format": "json",
+      "path": "schemas/messaging/teams/config.schema.json"
+    }
+  },
+  "secret_requirements": [
+    {
+      "name": "MS_GRAPH_CLIENT_SECRET",
+      "scope": "tenant",
+      "description": "Client secret used for client_credentials or refresh flows."
+    },
+    {
+      "name": "MS_GRAPH_REFRESH_TOKEN",
+      "scope": "tenant",
+      "description": "Refresh token used when auth_mode selects refresh_token grant."
+    }
+  ]
+}

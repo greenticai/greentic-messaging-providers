@@ -13,6 +13,7 @@ PACKS_DIR="${PACKS_DIR:-packs}"
 OUT_DIR="${OUT_DIR:-dist/packs}"
 DRY_RUN="${DRY_RUN:-0}"
 PACKC_BIN="${PACKC_BIN:-packc}"
+PACKC_BUILD_FLAGS="${PACKC_BUILD_FLAGS:-}"
 MEDIA_TYPE="${MEDIA_TYPE:-application/vnd.greentic.gtpack.v1+zip}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -27,6 +28,31 @@ if [ "${DRY_RUN}" -eq 0 ]; then
   command -v oras >/dev/null 2>&1 || { echo "oras is required"; exit 1; }
 fi
 command -v python3 >/dev/null 2>&1 || { echo "python3 is required"; exit 1; }
+if ! command -v "${PACKC_BIN}" >/dev/null 2>&1; then
+  echo "packc (from greentic-pack) is required for building gtpack artifacts" >&2
+  exit 1
+fi
+packc_version="$("${PACKC_BIN}" --version 2>/dev/null || true)"
+required_packc="0.4.28"
+if [ -z "${packc_version}" ]; then
+  echo "packc is required (expected >= ${required_packc})" >&2
+  exit 1
+fi
+echo "Using ${PACKC_BIN}: ${packc_version}" >&2
+python3 - "${packc_version}" "${required_packc}" <<'PY'
+import sys
+def parse(ver: str):
+    for token in ver.split():
+        if token[0].isdigit():
+            parts = token.split(".")
+            return tuple(int(p) for p in parts[:3])
+    return (0, 0, 0)
+current = parse(sys.argv[1])
+required = parse(sys.argv[2])
+if current < required:
+    sys.stderr.write(f"packc {sys.argv[2]} or newer is required; found {sys.argv[1]}\n")
+    sys.exit(1)
+PY
 
 if [ ! -d "${ROOT_DIR}/${PACKS_DIR}" ]; then
   echo "Packs directory ${PACKS_DIR} not found" >&2
@@ -34,14 +60,6 @@ if [ ! -d "${ROOT_DIR}/${PACKS_DIR}" ]; then
 fi
 
 packs_json="[]"
-
-build_pack() {
-  local src_dir="$1"
-  local output="$2"
-
-  echo "packc unavailable or pack.yaml missing; zipping ${src_dir} instead" >&2
-  (cd "${src_dir}" && zip -qr "${output}" .)
-}
 
 generate_pack_manifest() {
   local pack_dir="$1"
@@ -125,16 +143,35 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   ensure_components_artifacts "${components[@]}"
   stage_components_into_pack "${dir}" "${components[@]}"
 
-  if command -v "${PACKC_BIN}" >/dev/null 2>&1 && [ -f "${dir}/pack.yaml" ]; then
-    local_out_dir="${dir}/build"
-    mkdir -p "${local_out_dir}"
+  if [ ! -f "${dir}/pack.yaml" ]; then
+    echo "Missing pack.yaml in ${dir}; packc requires pack.yaml inputs" >&2
+    exit 1
+  fi
+
+  local_out_dir="${dir}/build"
+  mkdir -p "${local_out_dir}"
+  declare -a packc_flags=()
+  if [ -n "${PACKC_BUILD_FLAGS:-}" ]; then
+    IFS=' ' read -r -a packc_flags <<< "${PACKC_BUILD_FLAGS}"
+  fi
+  if [ "${#packc_flags[@]}" -gt 0 ]; then
+    (cd "${dir}" && "${PACKC_BIN}" build "${packc_flags[@]}" \
+      --in "." \
+      --gtpack-out "build/${pack_name}.gtpack" \
+      --secrets-req ".secret_requirements.json")
+  else
     (cd "${dir}" && "${PACKC_BIN}" build \
       --in "." \
       --gtpack-out "build/${pack_name}.gtpack" \
       --secrets-req ".secret_requirements.json")
-    mv "${local_out_dir}/${pack_name}.gtpack" "${pack_out}"
-  else
-    build_pack "${dir}" "${pack_out}"
+  fi
+  mv "${local_out_dir}/${pack_name}.gtpack" "${pack_out}"
+
+  # Reject legacy pack-v1 outputs; requires greentic-pack schema to carry messaging adapters.
+  pack_version="$("${PACKC_BIN}" inspect --json --pack "${pack_out}" | jq -r '.meta.packVersion // ""')"
+  if [ "${pack_version}" = "1" ] || [ -z "${pack_version}" ]; then
+    echo "packc produced legacy pack-v1 manifest for ${pack_name}; upgrade greentic-pack/packc to a version that emits the greentic-pack schema with meta.messaging" >&2
+    exit 1
   fi
 
   oci_ref="${OCI_REGISTRY}/${OCI_ORG}/${OCI_REPO}/${pack_name}:${PACK_VERSION}"

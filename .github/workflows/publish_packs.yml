@@ -35,18 +35,8 @@ jobs:
         with:
           version: 1.1.0
 
-      - name: Install packc (optional)
-        run: |
-          set -euo pipefail
-          if command -v packc >/dev/null 2>&1; then
-            echo "packc already available"
-            exit 0
-          fi
-          if cargo install packc --locked; then
-            echo "packc installed via cargo"
-          else
-            echo "packc install failed; publish script will fall back to zip" >&2
-          fi
+      - name: Install packc (greentic-pack)
+        run: cargo install packc --locked --git https://github.com/greentic/greentic-pack --tag v0.4.28
 
       - name: Login to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin

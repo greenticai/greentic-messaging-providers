@@ -1,0 +1,26 @@
+[package]
+name = "messaging-provider-email"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+greentic-types.workspace = true
+sha2.workspace = true
+wit-bindgen.workspace = true
+
+[package.metadata.component]
+package = "greentic:messaging-provider-email-core"
+
+[package.metadata.component.target]
+path = "wit/messaging-provider-email"
+world = "messaging-provider-email"
+
+[package.metadata.component.target.dependencies]
+"greentic:provider-schema-core" = { path = "wit/messaging-provider-email/deps/provider-schema-core.wit" }

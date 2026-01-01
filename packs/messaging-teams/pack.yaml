@@ -1,0 +1,47 @@
+pack_id: messaging-teams
+version: 0.4.8
+kind: application
+publisher: Greentic
+
+components:
+  - id: "messaging-provider-teams"
+    version: 0.4.8
+    world: "greentic:provider-schema-core/schema-core@1.0.0"
+    supports: ["provider"]
+    profiles:
+      default: "default"
+      supported: ["default"]
+    capabilities:
+      wasi: {}
+      host: {}
+    wasm: "components/messaging-provider-teams.wasm"
+
+extensions:
+  greentic.ext.provider:
+    inline:
+      providers:
+        - provider_type: "messaging.teams.graph"
+          capabilities: []
+          ops: ["send", "reply"]
+          config_schema_ref: "schemas/messaging/teams/config.schema.json"
+          state_schema_ref: null
+          runtime:
+            component_ref: "messaging-provider-teams"
+            export: "schema-core-api"
+            world: "greentic:provider-schema-core/schema-core@1.0.0"
+          docs_ref: null
+
+schemas:
+  config: "schemas/messaging/teams/config.schema.json"
+
+secret_requirements:
+  - name: "MS_GRAPH_CLIENT_SECRET"
+    scope: "tenant"
+    description: "Client secret used for Graph access tokens."
+  - name: "MS_GRAPH_REFRESH_TOKEN"
+    scope: "tenant"
+    description: "Refresh token used when invoking refresh_token grant."
+
+dependencies: []
+
+assets: []

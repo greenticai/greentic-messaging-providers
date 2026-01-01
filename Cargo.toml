@@ -7,7 +7,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2024"
-version = "0.4.7"
+version = "0.4.8"
 license = "MIT"
 
 [workspace.dependencies]
@@ -19,6 +19,7 @@ hmac = "0.12"
 sha2 = "0.10"
 urlencoding = "2"
 greentic-interfaces-wasmtime = "0.4"
+greentic-types = "0.4.27"
 anyhow = "1"
 tempfile = "3"
 zip = "7"

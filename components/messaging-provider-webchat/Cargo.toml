@@ -1,0 +1,28 @@
+[package]
+name = "messaging-provider-webchat"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+greentic-types.workspace = true
+sha2.workspace = true
+wit-bindgen.workspace = true
+
+[package.metadata.component]
+package = "greentic:messaging-provider-webchat-core"
+
+[package.metadata.component.target]
+path = "wit/messaging-provider-webchat"
+world = "messaging-provider-webchat"
+
+[package.metadata.component.target.dependencies]
+"greentic:state" = { path = "wit/messaging-provider-webchat/deps/state" }
+"greentic:interfaces-types" = { path = "wit/messaging-provider-webchat/deps/interfaces-types" }
+"greentic:provider-schema-core" = { path = "wit/messaging-provider-webchat/deps/provider-schema-core" }
