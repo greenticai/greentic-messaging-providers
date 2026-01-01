@@ -5,6 +5,7 @@ publisher: Greentic
 
 components:
   - id: "messaging-provider-webchat"
+    kind: messaging
     version: 0.4.8
     world: "greentic:provider-schema-core/schema-core@1.0.0"
     supports: ["messaging"]

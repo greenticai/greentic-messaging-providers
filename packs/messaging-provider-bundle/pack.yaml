@@ -14,6 +14,7 @@ x-provider-runtime-config:
 
 components:
   - id: "messaging-provider-bundle.slack"
+    kind: messaging
     version: 0.4.8
     world: "provider:slack/slack"
     supports: ["messaging"]
@@ -26,6 +27,7 @@ components:
     wasm: "components/slack.wasm"
 
   - id: "messaging-provider-bundle.teams"
+    kind: messaging
     version: 0.4.8
     world: "provider:teams/teams"
     supports: ["messaging"]
@@ -38,6 +40,7 @@ components:
     wasm: "components/teams.wasm"
 
   - id: "messaging-provider-bundle.telegram"
+    kind: messaging
     version: 0.4.8
     world: "provider:telegram/telegram"
     supports: ["messaging"]
@@ -50,6 +53,7 @@ components:
     wasm: "components/telegram.wasm"
 
   - id: "messaging-provider-bundle.webchat"
+    kind: messaging
     version: 0.4.8
     world: "provider:webchat/webchat"
     supports: ["messaging"]
@@ -62,6 +66,7 @@ components:
     wasm: "components/webchat.wasm"
 
   - id: "messaging-provider-bundle.webex"
+    kind: messaging
     version: 0.4.8
     world: "provider:webex/webex"
     supports: ["messaging"]
@@ -74,6 +79,7 @@ components:
     wasm: "components/webex.wasm"
 
   - id: "messaging-provider-bundle.whatsapp"
+    kind: messaging
     version: 0.4.8
     world: "provider:whatsapp/whatsapp"
     supports: ["messaging"]
