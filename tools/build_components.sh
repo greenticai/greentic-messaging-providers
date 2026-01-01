@@ -6,6 +6,8 @@ TARGET_DIR="${ROOT_DIR}/target/components"
 BUILD_TARGET="wasm32-wasip2"
 TARGET_DIR_OVERRIDE="${ROOT_DIR}/target/${BUILD_TARGET}"
 PACKAGES=("secrets-probe" "slack" "teams" "telegram" "webchat" "webex" "whatsapp" "messaging-provider-dummy" "messaging-provider-telegram" "messaging-provider-teams" "messaging-provider-email" "messaging-provider-slack" "messaging-provider-webex" "messaging-provider-whatsapp" "messaging-provider-webchat")
+WASM_TOOLS_BIN="${WASM_TOOLS_BIN:-wasm-tools}"
+HAS_WASM_TOOLS=0
 
 if ! rustup target list --installed | grep -q "${BUILD_TARGET}"; then
   echo "Installing Rust target ${BUILD_TARGET}..."
@@ -15,6 +17,26 @@ fi
 if ! command -v cargo-component >/dev/null 2>&1; then
   echo "cargo-component not found; installing..."
   cargo install cargo-component --locked
+fi
+
+if command -v "${WASM_TOOLS_BIN}" >/dev/null 2>&1; then
+  HAS_WASM_TOOLS=1
+else
+  echo "wasm-tools not found; installing via cargo-binstall (fallback to cargo install if needed)..."
+  if command -v cargo-binstall >/dev/null 2>&1; then
+    cargo binstall --no-confirm --locked wasm-tools || true
+  fi
+  if command -v "${WASM_TOOLS_BIN}" >/dev/null 2>&1; then
+    HAS_WASM_TOOLS=1
+  else
+    echo "cargo-binstall not available or wasm-tools still missing; attempting cargo install..."
+    cargo install wasm-tools --locked || true
+    if command -v "${WASM_TOOLS_BIN}" >/dev/null 2>&1; then
+      HAS_WASM_TOOLS=1
+    else
+      echo "wasm-tools still not found; skipping WASI preview 2 validation checks (install wasm-tools to enable)" >&2
+    fi
+  fi
 fi
 
 mkdir -p "${TARGET_DIR}"
@@ -37,13 +59,12 @@ for PACKAGE_NAME in "${PACKAGES[@]}"; do
   fi
 
   cp "${ARTIFACT_PATH}" "${TARGET_DIR}/${PACKAGE_NAME}.wasm"
-  if command -v wasm-tools >/dev/null 2>&1; then
-    if ! wasm-tools component wit "${TARGET_DIR}/${PACKAGE_NAME}.wasm" | grep -q "wasi:cli/"; then
+  if [ "${HAS_WASM_TOOLS}" -eq 1 ]; then
+    if ! "${WASM_TOOLS_BIN}" component wit "${TARGET_DIR}/${PACKAGE_NAME}.wasm" | grep -q "wasi:cli/"; then
       echo "Artifact ${PACKAGE_NAME} does not appear to target WASI preview 2 (missing wasi:cli import)" >&2
       exit 1
     fi
-  else
-    echo "wasm-tools not found; skipping WASI preview 2 check for ${PACKAGE_NAME}" >&2
+    "${WASM_TOOLS_BIN}" validate "${TARGET_DIR}/${PACKAGE_NAME}.wasm" >/dev/null
   fi
   echo "Built ${TARGET_DIR}/${PACKAGE_NAME}.wasm"
 done
