@@ -1,6 +1,6 @@
 pack_id: messaging-provider-bundle
 version: 0.4.8
-kind: application
+kind: messaging
 publisher: Greentic
 
 # Host-injected (non-secret) runtime config blob for all provider components.

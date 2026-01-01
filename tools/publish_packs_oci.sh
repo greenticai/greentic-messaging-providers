@@ -138,8 +138,7 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   generate_pack_manifest "${dir}" "${secrets_out}"
   update_pack_yaml_version "${dir}"
 
-  # Determine components from the aggregated manifest for staging.
-  IFS=$'\n' read -r -d '' -a components < <(jq -r '.components[]' "${dir}/pack.manifest.json" && printf '\0')
+  IFS=$'\n' read -r -d '' -a components < <(jq -r '.components[] | (.id // .)' "${dir}/pack.manifest.json" && printf '\0')
   ensure_components_artifacts "${components[@]}"
   stage_components_into_pack "${dir}" "${components[@]}"
 
@@ -167,7 +166,6 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   fi
   mv "${local_out_dir}/${pack_name}.gtpack" "${pack_out}"
 
-  # Reject legacy pack-v1 outputs; requires greentic-pack schema to carry messaging adapters.
   pack_version="$("${PACKC_BIN}" inspect --json --pack "${pack_out}" | jq -r '.meta.packVersion // ""')"
   if [ "${pack_version}" = "1" ] || [ -z "${pack_version}" ]; then
     echo "packc produced legacy pack-v1 manifest for ${pack_name}; upgrade greentic-pack/packc to a version that emits the greentic-pack schema with meta.messaging" >&2
@@ -198,21 +196,17 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     --arg file "${OUT_DIR}/${pack_name}.gtpack" \
     --arg ref "${oci_ref}" \
     --arg digest "${digest}" \
-    '{name:$name, file:$file, oci_ref:$ref, digest:$digest}')
+    --arg timestamp "${timestamp}" \
+    '{
+      name: $name,
+      file: $file,
+      ref: $ref,
+      digest: $digest,
+      built_at: $timestamp
+    }')
 
-  packs_json=$(jq -n --argjson arr "${packs_json}" --argjson p "${pack_entry}" '$arr + [$p]')
+  packs_json=$(echo "${packs_json}" | jq --argjson entry "${pack_entry}" '. + [$entry]')
 done
 
-lockfile="${ROOT_DIR}/packs.lock.json"
-jq -n \
-  --arg version "${PACK_VERSION}" \
-  --arg generated_at "${timestamp}" \
-  --arg git_sha "${git_sha}" \
-  --arg registry "${OCI_REGISTRY}" \
-  --arg org "${OCI_ORG}" \
-  --arg repo "${OCI_REPO}" \
-  --argjson packs "${packs_json}" \
-  '{version:$version, generated_at:$generated_at, git_sha:$git_sha, registry:$registry, org:$org, repo:$repo, packs:$packs}' \
-  > "${lockfile}"
-
-echo "Wrote ${lockfile}"
+echo "${packs_json}" | jq '{ packs: . }' > "${ROOT_DIR}/packs.lock.json"
+echo "Wrote packs.lock.json"

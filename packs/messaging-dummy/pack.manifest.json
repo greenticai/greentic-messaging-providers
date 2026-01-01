@@ -11,7 +11,26 @@
     }
   },
   "components": [
-    "messaging-provider-dummy"
+    {
+      "id": "messaging-provider-dummy",
+      "kind": "messaging",
+      "version": "0.4.8",
+      "world": "greentic:provider-schema-core/schema-core@1.0.0",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {},
+        "host": {}
+      },
+      "wasm": "components/messaging-provider-dummy.wasm"
+    }
   ],
   "extensions": {
     "greentic.ext.provider": {
