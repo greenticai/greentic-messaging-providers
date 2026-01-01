@@ -18,6 +18,7 @@ jobs:
       OCI_REGISTRY: ghcr.io
       OCI_ORG: ${{ github.repository_owner }}
       OCI_REPO: greentic-packs
+      GREENTIC_GITHUB_TOKEN: ${{ secrets.GREENTIC_GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,12 +31,20 @@ jobs:
       - name: Install cargo-component
         run: cargo install cargo-component --locked
 
+      - name: Configure git auth for greentic-pack
+        if: env.GREENTIC_GITHUB_TOKEN != ''
+        run: |
+          git config --global url."https://${GREENTIC_GITHUB_TOKEN}:x-oauth-basic@github.com/".insteadOf https://github.com/
+          git config --global url."https://${GREENTIC_GITHUB_TOKEN}:x-oauth-basic@github.com/".insteadOf ssh://git@github.com/
+
       - name: Install oras
         uses: oras-project/setup-oras@v1
         with:
           version: 1.1.0
 
       - name: Install packc (greentic-pack)
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
         run: cargo install packc --locked --git https://github.com/greentic/greentic-pack --tag v0.4.28
 
       - name: Login to GHCR

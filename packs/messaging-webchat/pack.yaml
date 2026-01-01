@@ -7,7 +7,7 @@ components:
   - id: "messaging-provider-webchat"
     version: 0.4.8
     world: "greentic:provider-schema-core/schema-core@1.0.0"
-    supports: ["provider"]
+    supports: ["messaging"]
     profiles:
       default: "default"
       supported: ["default"]
