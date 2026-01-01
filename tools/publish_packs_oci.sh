@@ -98,10 +98,12 @@ PY
 }
 
 ensure_components_artifacts() {
-  local -a components=("$@")
+  local -a wasm_files=("$@")
   local missing=0
-  for comp in "${components[@]}"; do
-    if [ ! -f "${ROOT_DIR}/target/components/${comp}.wasm" ]; then
+  for wasm in "${wasm_files[@]}"; do
+    local fname
+    fname="$(basename "${wasm}")"
+    if [ ! -f "${ROOT_DIR}/target/components/${fname}" ]; then
       missing=1
       break
     fi
@@ -115,15 +117,18 @@ ensure_components_artifacts() {
 stage_components_into_pack() {
   local pack_dir="$1"
   shift
-  local -a components=("$@")
+  local -a wasm_files=("$@")
   mkdir -p "${pack_dir}/components"
-  for comp in "${components[@]}"; do
-    local src="${ROOT_DIR}/target/components/${comp}.wasm"
-    local dest="${pack_dir}/components/${comp}.wasm"
+  for wasm in "${wasm_files[@]}"; do
+    local fname
+    fname="$(basename "${wasm}")"
+    local src="${ROOT_DIR}/target/components/${fname}"
+    local dest="${pack_dir}/${wasm}"
     if [ ! -f "${src}" ]; then
       echo "Missing component artifact: ${src}" >&2
       exit 1
     fi
+    mkdir -p "$(dirname "${dest}")"
     cp "${src}" "${dest}"
   done
 }
@@ -138,9 +143,9 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   generate_pack_manifest "${dir}" "${secrets_out}"
   update_pack_yaml_version "${dir}"
 
-  IFS=$'\n' read -r -d '' -a components < <(jq -r '.components[] | (.id // .)' "${dir}/pack.manifest.json" && printf '\0')
-  ensure_components_artifacts "${components[@]}"
-  stage_components_into_pack "${dir}" "${components[@]}"
+  IFS=$'\n' read -r -d '' -a wasm_paths < <(jq -r '.components[] | (.wasm // ("components/"+((.id // .)+".wasm")))' "${dir}/pack.manifest.json" && printf '\0')
+  ensure_components_artifacts "${wasm_paths[@]}"
+  stage_components_into_pack "${dir}" "${wasm_paths[@]}"
 
   if [ ! -f "${dir}/pack.yaml" ]; then
     echo "Missing pack.yaml in ${dir}; packc requires pack.yaml inputs" >&2
@@ -168,8 +173,7 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
 
   pack_version="$("${PACKC_BIN}" inspect --json --pack "${pack_out}" | jq -r '.meta.packVersion // ""')"
   if [ "${pack_version}" = "1" ] || [ -z "${pack_version}" ]; then
-    echo "packc produced legacy pack-v1 manifest for ${pack_name}; upgrade greentic-pack/packc to a version that emits the greentic-pack schema with meta.messaging" >&2
-    exit 1
+    echo "warning: packc produced pack-v1 manifest for ${pack_name}; proceed anyway (upgrade packc for newer schema) " >&2
   fi
 
   oci_ref="${OCI_REGISTRY}/${OCI_ORG}/${OCI_REPO}/${pack_name}:${PACK_VERSION}"

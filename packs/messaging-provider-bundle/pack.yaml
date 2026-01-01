@@ -1,6 +1,6 @@
 pack_id: messaging-provider-bundle
 version: 0.4.8
-kind: messaging
+kind: application
 publisher: Greentic
 
 # Host-injected (non-secret) runtime config blob for all provider components.
@@ -13,9 +13,9 @@ x-provider-runtime-config:
   init_export: init-runtime-config
 
 components:
-  - id: "messaging-provider-bundle.slack"
+  - id: "slack"
     kind: messaging
-    version: 0.4.8
+    version: 0.0.0
     world: "provider:slack/slack"
     supports: ["messaging"]
     profiles:
@@ -26,9 +26,9 @@ components:
       host: {}
     wasm: "components/slack.wasm"
 
-  - id: "messaging-provider-bundle.teams"
+  - id: "teams"
     kind: messaging
-    version: 0.4.8
+    version: 0.0.0
     world: "provider:teams/teams"
     supports: ["messaging"]
     profiles:
@@ -39,9 +39,9 @@ components:
       host: {}
     wasm: "components/teams.wasm"
 
-  - id: "messaging-provider-bundle.telegram"
+  - id: "telegram"
     kind: messaging
-    version: 0.4.8
+    version: 0.0.0
     world: "provider:telegram/telegram"
     supports: ["messaging"]
     profiles:
@@ -52,9 +52,9 @@ components:
       host: {}
     wasm: "components/telegram.wasm"
 
-  - id: "messaging-provider-bundle.webchat"
+  - id: "webchat"
     kind: messaging
-    version: 0.4.8
+    version: 0.0.0
     world: "provider:webchat/webchat"
     supports: ["messaging"]
     profiles:
@@ -65,9 +65,9 @@ components:
       host: {}
     wasm: "components/webchat.wasm"
 
-  - id: "messaging-provider-bundle.webex"
+  - id: "webex"
     kind: messaging
-    version: 0.4.8
+    version: 0.0.0
     world: "provider:webex/webex"
     supports: ["messaging"]
     profiles:
@@ -78,9 +78,9 @@ components:
       host: {}
     wasm: "components/webex.wasm"
 
-  - id: "messaging-provider-bundle.whatsapp"
+  - id: "whatsapp"
     kind: messaging
-    version: 0.4.8
+    version: 0.0.0
     world: "provider:whatsapp/whatsapp"
     supports: ["messaging"]
     profiles:
@@ -94,7 +94,7 @@ components:
 flows:
   - id: main
     kind: job
-    version: 0.4.8
+    version: 0.0.0
     file: flows/main.ygtc
     tags: [default]
     entrypoints: [default]
@@ -103,32 +103,32 @@ messaging:
   adapters:
     - name: Slack
       kind: slack
-      component: messaging-provider-bundle.slack
+      component: slack
       default_flow: main
       custom_flow: null
     - name: Teams
       kind: teams
-      component: messaging-provider-bundle.teams
+      component: teams
       default_flow: main
       custom_flow: null
     - name: Telegram
       kind: telegram
-      component: messaging-provider-bundle.telegram
+      component: telegram
       default_flow: main
       custom_flow: null
     - name: WebChat
       kind: webchat
-      component: messaging-provider-bundle.webchat
+      component: webchat
       default_flow: main
       custom_flow: null
     - name: Webex
       kind: webex
-      component: messaging-provider-bundle.webex
+      component: webex
       default_flow: main
       custom_flow: null
     - name: WhatsApp
       kind: whatsapp
-      component: messaging-provider-bundle.whatsapp
+      component: whatsapp
       default_flow: main
       custom_flow: null
 

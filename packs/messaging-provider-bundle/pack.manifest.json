@@ -2,7 +2,7 @@
   "name": "messaging-provider-bundle",
   "version": "0.4.8",
   "description": "Bundle of messaging provider components.",
-  "kind": "messaging",
+  "kind": "application",
   "publisher": "Greentic",
   "config_schema": {
     "provider_runtime_config": {
@@ -60,126 +60,12 @@
     }
   },
   "components": [
-    {
-      "id": "messaging-provider-bundle.slack",
-      "kind": "messaging",
-      "version": "0.4.8",
-      "world": "provider:slack/slack",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {},
-        "host": {}
-      },
-      "wasm": "components/slack.wasm"
-    },
-    {
-      "id": "messaging-provider-bundle.teams",
-      "kind": "messaging",
-      "version": "0.4.8",
-      "world": "provider:teams/teams",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {},
-        "host": {}
-      },
-      "wasm": "components/teams.wasm"
-    },
-    {
-      "id": "messaging-provider-bundle.telegram",
-      "kind": "messaging",
-      "version": "0.4.8",
-      "world": "provider:telegram/telegram",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {},
-        "host": {}
-      },
-      "wasm": "components/telegram.wasm"
-    },
-    {
-      "id": "messaging-provider-bundle.webchat",
-      "kind": "messaging",
-      "version": "0.4.8",
-      "world": "provider:webchat/webchat",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {},
-        "host": {}
-      },
-      "wasm": "components/webchat.wasm"
-    },
-    {
-      "id": "messaging-provider-bundle.webex",
-      "kind": "messaging",
-      "version": "0.4.8",
-      "world": "provider:webex/webex",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {},
-        "host": {}
-      },
-      "wasm": "components/webex.wasm"
-    },
-    {
-      "id": "messaging-provider-bundle.whatsapp",
-      "kind": "messaging",
-      "version": "0.4.8",
-      "world": "provider:whatsapp/whatsapp",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {},
-        "host": {}
-      },
-      "wasm": "components/whatsapp.wasm"
-    }
+    "slack",
+    "teams",
+    "telegram",
+    "webchat",
+    "webex",
+    "whatsapp"
   ],
   "secret_requirements": [
     {

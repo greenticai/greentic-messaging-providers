@@ -162,18 +162,7 @@ def main() -> int:
             comp_id = comp.get("id")
             if not comp_id:
                 continue
-            components.append(
-                {
-                    "id": comp_id,
-                    "kind": comp.get("kind") or manifest.get("kind", "application"),
-                    "version": comp.get("version", manifest.get("version", "0.0.0")),
-                    "world": comp.get("world"),
-                    "supports": comp.get("supports", []),
-                    "profiles": comp.get("profiles", {}),
-                    "capabilities": comp.get("capabilities", {}),
-                    "wasm": comp.get("wasm"),
-                }
-            )
+            components.append(comp_id)
         if components:
             manifest["components"] = components
 

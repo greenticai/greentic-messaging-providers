@@ -2,7 +2,7 @@
   "name": "messaging-email",
   "version": "0.4.8",
   "description": "Provider-core SMTP email sender pack (simulated send).",
-  "kind": "messaging",
+  "kind": "application",
   "publisher": "Greentic",
   "config_schema": {
     "provider_config": {
@@ -11,31 +11,12 @@
     }
   },
   "components": [
-    {
-      "id": "messaging-provider-email",
-      "kind": "messaging",
-      "version": "0.4.8",
-      "world": "greentic:provider/schema-core@1.0.0",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {},
-        "host": {}
-      },
-      "wasm": "components/messaging-provider-email.wasm"
-    }
+    "messaging-provider-email"
   ],
   "extensions": {
     "greentic.ext.provider": {
       "kind": "greentic.ext.provider",
-      "version": "1.0.0",
+      "version": "0.0.0",
       "inline": {
         "providers": [
           {

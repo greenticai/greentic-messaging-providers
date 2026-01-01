@@ -1,12 +1,12 @@
 pack_id: messaging-webex
 version: 0.4.8
-kind: messaging
+kind: application
 publisher: Greentic
 
 components:
   - id: "messaging-provider-webex"
     kind: messaging
-    version: 0.4.8
+    version: 0.0.0
     world: "greentic:provider/schema-core@1.0.0"
     supports: ["messaging"]
     profiles:
@@ -20,7 +20,7 @@ components:
 extensions:
   greentic.ext.provider:
     kind: greentic.ext.provider
-    version: "1.0.0"
+    version: 0.0.0
     inline:
       providers:
         - provider_type: "messaging.webex.bot"
@@ -36,7 +36,7 @@ extensions:
 
 schemas:
   - kind: config
-    version: 0.4.8
+    version: 0.0.0
     path: "schemas/messaging/webex/config.schema.json"
 
 secret_requirements:

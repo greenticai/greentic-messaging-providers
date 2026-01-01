@@ -2,7 +2,7 @@
   "name": "messaging-telegram",
   "version": "0.4.8",
   "description": "Provider-core Telegram messaging provider pack.",
-  "kind": "messaging",
+  "kind": "application",
   "publisher": "Greentic",
   "config_schema": {
     "provider_config": {
@@ -11,31 +11,12 @@
     }
   },
   "components": [
-    {
-      "id": "messaging-provider-telegram",
-      "kind": "messaging",
-      "version": "0.4.8",
-      "world": "greentic:provider/schema-core@1.0.0",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {},
-        "host": {}
-      },
-      "wasm": "components/messaging-provider-telegram.wasm"
-    }
+    "messaging-provider-telegram"
   ],
   "extensions": {
     "greentic.ext.provider": {
       "kind": "greentic.ext.provider",
-      "version": "1.0.0",
+      "version": "0.0.0",
       "inline": {
         "providers": [
           {
