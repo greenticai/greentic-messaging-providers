@@ -20,8 +20,11 @@ jobs:
         with:
           targets: wasm32-wasip2
 
+      - name: Install cargo-binstall
+        run: cargo install cargo-binstall --locked
+
       - name: Install cargo-component
-        run: cargo install cargo-component --locked
+        run: cargo binstall cargo-component --no-confirm --locked
 
       - name: Install packc (optional)
         run: |
@@ -30,7 +33,6 @@ jobs:
             echo "packc already available"
             exit 0
           fi
-          cargo install cargo-binstall --locked
           if cargo binstall packc --version 0.4.29 --no-confirm --locked; then
             echo "packc installed via cargo-binstall"
           else
