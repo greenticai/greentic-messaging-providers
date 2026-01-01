@@ -1,5 +1,5 @@
 pack_id: messaging-provider-bundle
-version: 0.0.0
+version: 0.4.8
 kind: application
 publisher: Greentic
 
@@ -14,7 +14,7 @@ x-provider-runtime-config:
 
 components:
   - id: "messaging-provider-bundle.slack"
-    version: 0.0.0
+    version: 0.4.8
     world: "provider:slack/slack"
     supports: ["messaging"]
     profiles:
@@ -26,7 +26,7 @@ components:
     wasm: "components/slack.wasm"
 
   - id: "messaging-provider-bundle.teams"
-    version: 0.0.0
+    version: 0.4.8
     world: "provider:teams/teams"
     supports: ["messaging"]
     profiles:
@@ -38,7 +38,7 @@ components:
     wasm: "components/teams.wasm"
 
   - id: "messaging-provider-bundle.telegram"
-    version: 0.0.0
+    version: 0.4.8
     world: "provider:telegram/telegram"
     supports: ["messaging"]
     profiles:
@@ -50,7 +50,7 @@ components:
     wasm: "components/telegram.wasm"
 
   - id: "messaging-provider-bundle.webchat"
-    version: 0.0.0
+    version: 0.4.8
     world: "provider:webchat/webchat"
     supports: ["messaging"]
     profiles:
@@ -62,7 +62,7 @@ components:
     wasm: "components/webchat.wasm"
 
   - id: "messaging-provider-bundle.webex"
-    version: 0.0.0
+    version: 0.4.8
     world: "provider:webex/webex"
     supports: ["messaging"]
     profiles:
@@ -74,7 +74,7 @@ components:
     wasm: "components/webex.wasm"
 
   - id: "messaging-provider-bundle.whatsapp"
-    version: 0.0.0
+    version: 0.4.8
     world: "provider:whatsapp/whatsapp"
     supports: ["messaging"]
     profiles:
@@ -90,6 +90,39 @@ flows:
     file: flows/main.ygtc
     tags: [default]
     entrypoints: [default]
+
+messaging:
+  adapters:
+    - name: Slack
+      kind: slack
+      component: messaging-provider-bundle.slack
+      default_flow: main
+      custom_flow: null
+    - name: Teams
+      kind: teams
+      component: messaging-provider-bundle.teams
+      default_flow: main
+      custom_flow: null
+    - name: Telegram
+      kind: telegram
+      component: messaging-provider-bundle.telegram
+      default_flow: main
+      custom_flow: null
+    - name: WebChat
+      kind: webchat
+      component: messaging-provider-bundle.webchat
+      default_flow: main
+      custom_flow: null
+    - name: Webex
+      kind: webex
+      component: messaging-provider-bundle.webex
+      default_flow: main
+      custom_flow: null
+    - name: WhatsApp
+      kind: whatsapp
+      component: messaging-provider-bundle.whatsapp
+      default_flow: main
+      custom_flow: null
 
 dependencies: []
 

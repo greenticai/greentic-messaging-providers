@@ -5,6 +5,10 @@
 - Targets Rust 2024 edition; components bind to host-provided HTTP, secrets, state, and telemetry interfaces via WIT.
 
 ## 2. Main Components and Functionality
+- **Path:** `wit/provider-core`
+  - **Role:** Provider-core WIT surface (`greentic:provider-schema-core@1.0.0`).
+  - **Key functionality:** Defines the schema-core world with JSON-centric `describe`, `validate-config`, `healthcheck`, and `invoke` operations for provider runtimes.
+  - **Key dependencies / integration points:** Used by provider-core components/packs to pin runtime world IDs.
 - **Path:** `crates/messaging-core`
   - **Role:** Shared message model crate.
   - **Key functionality:** Defines `Message` struct with `id` and `content` fields, serde serialize/deserialize derives, and a convenience constructor.
@@ -13,10 +17,46 @@
   - **Role:** Common provider utilities.
   - **Key functionality:** Defines `ProviderError` enum (`Validation`, `Transport`, `Other`) with `thiserror` display strings, serde serialization, and helper constructors.
   - **Key dependencies / integration points:** Relies on `serde` and `thiserror`; intended for reuse across provider components.
+- **Path:** `crates/provider-runtime-config`
+  - **Role:** Runtime configuration model for provider components.
+  - **Key functionality:** Defines `ProviderRuntimeConfig` (schema versioned JSON), telemetry/network/runtime settings, and validation helpers.
+  - **Key dependencies / integration points:** Used by legacy provider components that expose `init-runtime-config`.
+- **Path:** `components/messaging-provider-dummy`
+  - **Role:** Deterministic provider-core messaging provider for CI and smoke tests.
+  - **Key functionality:** Implements provider-core `describe` (emits `ProviderManifest` for `messaging.dummy`), `validate-config` (accepts any JSON), `healthcheck`, and `invoke` (`send`/`reply` return deterministic `message_id`/`provider_message_id` based on hashed input and set status to sent/replied). Ships config schema under `schemas/messaging/dummy/config.schema.json` and manifest with empty `secret_requirements`.
+  - **Key dependencies / integration points:** Uses `greentic-types` for manifest serialization, `sha2` for hashing; WIT world `greentic:provider-schema-core/schema-core@1.0.0`.
+- **Path:** `components/messaging-provider-telegram`
+  - **Role:** Provider-core Telegram messaging provider (send-only) that talks to the host HTTP + secrets interfaces.
+  - **Key functionality:** Exports provider-core surface; `invoke("send")` builds a Telegram `sendMessage` POST using config/default chat ID, fetches the bot token from secrets store (default key `TELEGRAM_BOT_TOKEN`), and returns sent status plus provider/message IDs from the response. Includes JSON config validation and a healthcheck.
+  - **Key dependencies / integration points:** Imports `greentic:http/http-client@1.0.0`, `greentic:secrets-store@1.0.0`, and uses `greentic:provider-schema-core/schema-core@1.0.0` for exports; config schema lives at `schemas/messaging/telegram/config.schema.json`.
+- **Path:** `components/messaging-provider-teams`
+  - **Role:** Provider-core Microsoft Teams provider for sending messages via Graph.
+  - **Key functionality:** Implements provider-core `describe`/`validate-config`/`healthcheck`/`invoke("send")`; acquires Graph access tokens via client-credentials or refresh-token grants using secrets, posts message bodies to the Teams channel endpoint, and returns sent status with provider/message IDs.
+  - **Key dependencies / integration points:** Imports `greentic:http/http-client@1.0.0` and `greentic:secrets-store@1.0.0`, exports `greentic:provider-schema-core/schema-core@1.0.0`; config schema at `schemas/messaging/teams/config.schema.json`.
+- **Path:** `components/messaging-provider-email`
+  - **Role:** Provider-core SMTP email sender (simulated, deterministic).
+  - **Key functionality:** Implements provider-core surface; `invoke("send")` validates SMTP config and email payload, hashes payload to emit deterministic `message_id`/`provider_message_id`, and echoes a structured payload. Used for offline/testing email flows.
+  - **Key dependencies / integration points:** Uses `greentic:provider-schema-core/schema-core@1.0.0`; config schema at `schemas/messaging/email/config.schema.json`.
+- **Path:** `components/messaging-provider-slack`
+  - **Role:** Provider-core Slack messaging provider (send/reply via chat.postMessage).
+  - **Key functionality:** Implements provider-core `describe`/`validate-config`/`healthcheck`/`invoke("send"|"reply")`; builds chat.postMessage payloads (channel/user id, text, optional blocks, thread_ts for replies), fetches the bot token from secrets, and returns sent/replied status with Slack ts-based IDs.
+  - **Key dependencies / integration points:** Imports `greentic:http/http-client@1.0.0` and `greentic:secrets-store@1.0.0`, exports `greentic:provider-schema-core/schema-core@1.0.0`; config schema at `schemas/messaging/slack/config.schema.json`.
+- **Path:** `components/messaging-provider-webex`
+  - **Role:** Provider-core Webex messaging provider for posting messages via the Webex Messages API.
+  - **Key functionality:** Implements provider-core `describe`/`validate-config`/`healthcheck`/`invoke("send")`; builds Webex message payloads for room or person destinations, rejects unsupported attachments, fetches bot token from secrets, and returns sent status with Webex message IDs.
+  - **Key dependencies / integration points:** Imports `greentic:http/http-client@1.0.0` and `greentic:secrets-store@1.0.0`, exports `greentic:provider-schema-core/schema-core@1.0.0`; config schema at `schemas/messaging/webex/config.schema.json`.
+- **Path:** `components/messaging-provider-whatsapp`
+  - **Role:** Provider-core WhatsApp Cloud API sender (text send with HTTP mock support).
+  - **Key functionality:** Implements provider-core `describe`/`validate-config`/`healthcheck`/`invoke("send")`; builds WhatsApp messages POST payloads using phone number id + text, pulls bearer token from secrets, and returns sent status with deterministic IDs.
+  - **Key dependencies / integration points:** Imports `greentic:http/http-client@1.0.0` and `greentic:secrets-store@1.0.0`, exports `greentic:provider-schema-core/schema-core@1.0.0`; config schema at `schemas/messaging/whatsapp/config.schema.json`.
+- **Path:** `components/messaging-provider-webchat`
+  - **Role:** Provider-core WebChat provider for Greentic’s web UI/chat surfaces (send + ingest).
+  - **Key functionality:** Implements provider-core `describe`/`validate-config`/`healthcheck`/`invoke("send"|"ingest")`; send writes deterministic payloads to state-store and returns hashed IDs; ingest normalizes inbound webchat payloads into envelopes.
+  - **Key dependencies / integration points:** Imports `greentic:state/state-store@1.0.0`, exports `greentic:provider-schema-core/schema-core@1.0.0`; config schema at `schemas/messaging/webchat/config.schema.json`.
 - **Path:** `components/secrets-probe`
   - **Role:** Minimal WASM component that probes the `greentic:secrets-store@1.0.0` interface.
   - **Key functionality:** Exports `run()` which calls `secrets_store::get("TEST_API_KEY")` and returns JSON `{"ok":true,"key_present":true}` when the secret is present; returns `{"ok":false,"key_present":false}` on missing/failed lookups.
-  - **Key dependencies / integration points:** Uses `wit-bindgen` 0.26 with WIT definitions under `components/secrets-probe/wit/`; imports canonical `greentic:secrets-store` package via local WIT files (now resolved by `cargo component`).
+  - **Key dependencies / integration points:** Uses `wit-bindgen` with WIT definitions under `components/secrets-probe/wit/`; imports canonical `greentic:secrets-store` package via local WIT files (resolved by `cargo component`).
 - **Path:** `components/teams`
   - **Role:** Microsoft Teams provider component with egress, ingress, refresh stub, and formatting.
   - **Key functionality:** Exports WIT world with `send_message` (POST to Graph channel messages using destination JSON), `handle_webhook` (wraps incoming payload), `refresh` (no-op JSON), and `format_message` (returns Graph message payload JSON). Includes basic unit tests for destination parsing and formatting.
@@ -41,9 +81,45 @@
   - **Role:** Slack provider component with egress, ingress, refresh stub, and formatting.
   - **Key functionality:** Exports WIT world with `send_message` (POST to Slack `chat.postMessage` via imported HTTP client), `handle_webhook` (optional signature verification using HMAC-SHA256 and signing secret), `refresh` (no-op JSON), and `format_message` (returns chat.postMessage payload JSON). Includes unit tests for formatting and signature verification.
   - **Key dependencies / integration points:** Uses canonical Greentic WIT packages for HTTP, secrets, state, telemetry, and interfaces-types (all co-located under `components/slack/wit/slack/deps`); secrets fetched via `greentic:secrets-store`, HTTP via `greentic:http/http-client`.
+- **Path:** `packs/messaging-provider-bundle`
+  - **Role:** Bundled pack containing messaging provider WASM components.
+  - **Key functionality:** `pack.yaml`/`pack.manifest.json` aggregate provider components (Slack/Teams/Telegram/Webchat/Webex/WhatsApp), messaging adapter metadata, and cached capabilities, with component artifacts under `components/`.
+  - **Key dependencies / integration points:** Built via `packc` through `tools/publish_packs_oci.sh`; uses `tools/generate_pack_metadata.py` to aggregate secret requirements.
+- **Path:** `packs/messaging-dummy`
+  - **Role:** Provider-core pack fixture for the dummy messaging provider.
+  - **Key functionality:** Inline `greentic.ext.provider` extension targeting `messaging.dummy`, runtime world pinned to `greentic:provider-schema-core/schema-core@1.0.0`, embeds config schema (`schemas/messaging/dummy/config.schema.json`), and includes the built `messaging-provider-dummy.wasm` under `components/`.
+  - **Key dependencies / integration points:** Uses the shared schema under `schemas/` and is compatible with `tools/publish_packs_oci.sh` for pack builds.
+- **Path:** `packs/messaging-telegram`
+  - **Role:** Provider-core pack fixture for the Telegram bot provider.
+  - **Key functionality:** Inline `greentic.ext.provider` entry for `messaging.telegram.bot` pointing at the provider-core world (`greentic:provider-schema-core/schema-core@1.0.0`), ships the Telegram config schema under `schemas/messaging/telegram/config.schema.json`, and references the `messaging-provider-telegram.wasm` component.
+  - **Key dependencies / integration points:** Relies on the Telegram provider-core component artifact and is consumable by `tools/publish_packs_oci.sh` for pack builds or OCI pushes.
+- **Path:** `packs/messaging-teams`
+  - **Role:** Provider-core pack fixture for Microsoft Teams/Graph.
+  - **Key functionality:** Inline `greentic.ext.provider` for `messaging.teams.graph` pinned to the provider-core world, bundles the Teams config schema (`schemas/messaging/teams/config.schema.json`), and references the `messaging-provider-teams.wasm` component artifact.
+  - **Key dependencies / integration points:** Depends on the Teams provider-core component and can be built/published via `tools/publish_packs_oci.sh`.
+- **Path:** `packs/messaging-email`
+  - **Role:** Provider-core pack for SMTP email (simulated send).
+  - **Key functionality:** Inline `greentic.ext.provider` for `messaging.email.smtp` targeting provider-core world, ships the email config schema (`schemas/messaging/email/config.schema.json`), and includes the `messaging-provider-email.wasm` artifact.
+  - **Key dependencies / integration points:** Uses the email provider-core component and is consumable by pack build/publish tooling.
+- **Path:** `packs/messaging-slack`
+  - **Role:** Provider-core pack for Slack messaging (send/reply).
+  - **Key functionality:** Inline `greentic.ext.provider` entry for `messaging.slack.api` pinned to the provider-core world, bundles the Slack config schema (`schemas/messaging/slack/config.schema.json`), and references the `messaging-provider-slack.wasm` component.
+  - **Key dependencies / integration points:** Depends on the Slack provider-core component and is compatible with pack build/publish tooling.
+- **Path:** `packs/messaging-webex`
+  - **Role:** Provider-core pack for Webex messaging.
+  - **Key functionality:** Inline `greentic.ext.provider` entry for `messaging.webex.bot` targeting the provider-core world, ships the Webex config schema (`schemas/messaging/webex/config.schema.json`), and references the `messaging-provider-webex.wasm` component.
+  - **Key dependencies / integration points:** Depends on the Webex provider-core component and works with pack build/publish tooling.
+- **Path:** `packs/messaging-whatsapp`
+  - **Role:** Provider-core pack for WhatsApp Cloud messaging.
+  - **Key functionality:** Inline `greentic.ext.provider` entry for `messaging.whatsapp.cloud` pinned to provider-core world, bundles the WhatsApp config schema (`schemas/messaging/whatsapp/config.schema.json`), and references the `messaging-provider-whatsapp.wasm` artifact.
+  - **Key dependencies / integration points:** Depends on the WhatsApp provider-core component and is compatible with pack build/publish tooling.
+- **Path:** `packs/messaging-webchat`
+  - **Role:** Provider-core pack for Greentic WebChat (send + ingest).
+  - **Key functionality:** Inline `greentic.ext.provider` entry for `messaging.webchat` targeting provider-core world, ships the WebChat config schema (`schemas/messaging/webchat/config.schema.json`), and references the `messaging-provider-webchat.wasm` component.
+  - **Key dependencies / integration points:** Depends on the WebChat provider-core component and can be built/published via pack tooling.
 - **Path:** `tools/build_components.sh`
   - **Role:** Builds components to `target/components/*.wasm`.
-  - **Key functionality:** Runs `cargo component build --target wasm32-wasip2` for each component using an explicit target-dir, falling back to `cargo build` only if necessary; currently `cargo component` succeeds for both components and copies WASM artifacts into `target/components/`, then cleans nested target directories.
+  - **Key functionality:** Runs `cargo component build --target wasm32-wasip2` for each component using an explicit target-dir, falling back to `cargo build` only if necessary; copies WASM artifacts into `target/components/`, then cleans nested target directories.
 - **Path:** `ci/local_check.sh`
   - **Role:** CI convenience wrapper.
   - **Key functionality:** Runs `cargo fmt --check`, `cargo test --workspace`, and `tools/build_components.sh`.
@@ -55,23 +131,19 @@
   - **Key functionality:** On tags (`v*`), installs toolchain + `cargo-component` + `oras`, runs fmt/test/build, logs into GHCR, publishes component WASM artifacts via `tools/publish_oci.sh`, and uploads `components.lock.json`.
 - **Path:** `tools/publish_oci.sh`
   - **Role:** Publish built WASM components to OCI and emit a lockfile.
-  - **Key functionality:** Requires `OCI_REGISTRY`, `OCI_NAMESPACE`, and `VERSION`; pushes `target/components/*.wasm` with `oras` and writes `components.lock.json` recording references and digests.
-- **Path:** `tests/provider_conformance.rs`
-  - **Role:** Conformance checks across components.
-  - **Key functionality:** Verifies each component has a manifest with `secret_requirements`, exports expected WIT functions, and does not use environment variables (ensures secrets come from the secrets-store).
-- **Path:** `.github/workflows/build.yml`
-  - **Role:** CI workflow for pushes/PRs.
-  - **Key functionality:** Checks out the repo, installs Rust with `wasm32-wasip2`, installs `cargo-component`, runs fmt/test, builds components, and uploads `target/components/*.wasm` as artifacts.
+  - **Key dependencies / integration points:** Requires `OCI_REGISTRY`, `OCI_NAMESPACE`, and `VERSION`; pushes `target/components/*.wasm` with `oras` and writes `components.lock.json` recording references and digests.
+- **Path:** `tools/publish_packs_oci.sh`
+  - **Role:** Build and optionally publish pack `.gtpack` artifacts.
+  - **Key functionality:** Uses `packc` to build packs in `packs/`, stages component artifacts, writes `packs.lock.json`, and (optionally) pushes to OCI when not in dry-run mode.
+- **Path:** `tests/provider_conformance.rs` and `crates/provider-tests/tests/provider_core_dummy.rs`
+  - **Role:** Conformance/integration checks across components.
+  - **Key functionality:** Ensure manifests carry `secret_requirements`, expected WIT exports exist, env vars are unused; provider-core dummy test builds/loads the dummy WASM, validates pack metadata, and smokes `invoke("send")` via Wasmtime.
 
 ## 3. Work In Progress, TODOs, and Stubs
-- Six components exist; remaining planned providers (if any) not yet added.
-- `wit_bindgen` macros carry `unsafe_op_in_unsafe_fn` allowances to silence Rust 2024 compatibility warnings; revisit once upstream generates safe wrappers.
-- Build artifacts target `wasm32-wasip2`; the build script now removes nested component target directories after copying artifacts.
+- None noted.
 
 ## 4. Broken, Failing, or Conflicting Areas
-- No failing tests or build errors; `ci/local_check.sh` passes and produces WASM artifacts for all components (cargo-component emits nested `wasm32-wasip1` dirs but artifacts are copied).
+- `ci/local_check.sh` passes (fmt + component builds + workspace tests). `cargo-component` still emits nested `wasm32-wasip1` dirs during builds, but the script cleans them.
 
 ## 5. Notes for Future Work
-- Extend provider implementations (Teams, Telegram, Webchat, Webex, WhatsApp) per planned PRs using shared Greentic interfaces where available.
-- Consider revisiting the `wit_bindgen` unsafe lint allowances if lint levels are tightened.
-- Align on a single WASM target (wasip1 vs wasip2) if host expectations require consistency.
+- None noted.

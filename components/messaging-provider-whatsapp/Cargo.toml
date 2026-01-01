@@ -1,0 +1,28 @@
+[package]
+name = "messaging-provider-whatsapp"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+greentic-types.workspace = true
+wit-bindgen.workspace = true
+
+[package.metadata.component]
+package = "greentic:messaging-provider-whatsapp-core"
+
+[package.metadata.component.target]
+path = "wit/messaging-provider-whatsapp"
+world = "messaging-provider-whatsapp"
+
+[package.metadata.component.target.dependencies]
+"greentic:http" = { path = "wit/messaging-provider-whatsapp/deps/http" }
+"greentic:secrets-store" = { path = "wit/messaging-provider-whatsapp/deps/secrets-store" }
+"greentic:interfaces-types" = { path = "wit/messaging-provider-whatsapp/deps/interfaces-types" }
+"greentic:provider-schema-core" = { path = "wit/messaging-provider-whatsapp/deps/provider-schema-core" }

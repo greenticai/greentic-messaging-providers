@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET_DIR="${ROOT_DIR}/target/components"
 BUILD_TARGET="wasm32-wasip2"
 TARGET_DIR_OVERRIDE="${ROOT_DIR}/target/${BUILD_TARGET}"
-PACKAGES=("secrets-probe" "slack" "teams" "telegram" "webchat" "webex" "whatsapp")
+PACKAGES=("secrets-probe" "slack" "teams" "telegram" "webchat" "webex" "whatsapp" "messaging-provider-dummy" "messaging-provider-telegram" "messaging-provider-teams" "messaging-provider-email" "messaging-provider-slack" "messaging-provider-webex" "messaging-provider-whatsapp" "messaging-provider-webchat")
 
 if ! rustup target list --installed | grep -q "${BUILD_TARGET}"; then
   echo "Installing Rust target ${BUILD_TARGET}..."
@@ -37,6 +37,14 @@ for PACKAGE_NAME in "${PACKAGES[@]}"; do
   fi
 
   cp "${ARTIFACT_PATH}" "${TARGET_DIR}/${PACKAGE_NAME}.wasm"
+  if command -v wasm-tools >/dev/null 2>&1; then
+    if ! wasm-tools component wit "${TARGET_DIR}/${PACKAGE_NAME}.wasm" | grep -q "wasi:cli/"; then
+      echo "Artifact ${PACKAGE_NAME} does not appear to target WASI preview 2 (missing wasi:cli import)" >&2
+      exit 1
+    fi
+  else
+    echo "wasm-tools not found; skipping WASI preview 2 check for ${PACKAGE_NAME}" >&2
+  fi
   echo "Built ${TARGET_DIR}/${PACKAGE_NAME}.wasm"
 done
 

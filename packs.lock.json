@@ -1,7 +1,7 @@
 {
   "version": "0.0.0",
-  "generated_at": "2025-12-20T06:57:57Z",
-  "git_sha": "067d933",
+  "generated_at": "2025-12-28T10:25:00Z",
+  "git_sha": "fc7d673",
   "registry": "ghcr.io",
   "org": "greentic",
   "repo": "greentic-packs",
@@ -10,7 +10,7 @@
       "name": "messaging-provider-bundle",
       "file": "dist/packs/messaging-provider-bundle.gtpack",
       "oci_ref": "ghcr.io/greentic/greentic-packs/messaging-provider-bundle:0.0.0",
-      "digest": "sha256:1bbf72e70e0c28bd91c94a3b6fea9210c5065b0e64b445448ac7a2feb4c6dcdc"
+      "digest": "sha256:ea9569e67617061b46ea21e0cbbf10acc42ed6441d228354bd509abba536fa0a"
     }
   ]
 }

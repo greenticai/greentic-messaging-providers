@@ -4,8 +4,11 @@ Workspace for building messaging provider components that can be packaged and di
 
 Current layout:
 - `crates/`: shared libraries for message types and provider utilities.
-- `components/`: provider WASM components. Includes `secrets-probe`, `slack`, `teams`, `telegram`, `webchat`, `webex`, and `whatsapp`.
+- `components/`: provider WASM components. Includes `secrets-probe`, `slack`, `teams`, `telegram`, `webchat`, `webex`, `whatsapp`, and the provider-core `messaging-provider-dummy`.
+- `schemas/`: JSON Schemas for provider configuration (e.g., `schemas/messaging/dummy/config.schema.json`).
 - `tools/`: build/publishing helpers (e.g., `tools/build_components.sh`).
+- To resync pack metadata/schemas and stage fresh artifacts locally, run `./tools/sync_packs.sh` (uses workspace version by default, or `PACK_VERSION` override).
+- `packs/`: pack sources (bundled providers and fixtures such as `messaging-dummy`).
 - `.github/workflows/`: CI pipelines (build/test + component artifacts).
 
 ## Building locally
@@ -28,13 +31,14 @@ Current layout:
   - declares `config_schema.provider_runtime_config` (schema v1, JSON) for host injection as `provider_runtime_config.json`.
 
 ## Packs (.gtpack) publishing
-- Pack sources live under `packs/` (placeholder `messaging-provider-bundle` exists). Packs are built with `tools/publish_packs_oci.sh`, which prefers `packc` when available and falls back to zipping the pack directory.
+- Pack sources live under `packs/` (placeholder `messaging-provider-bundle` exists). Packs are built with `packc` from the `greentic-pack` toolchain via `tools/publish_packs_oci.sh`, which emits the current greentic-pack manifest schema (including `meta.messaging.adapters`) into the `.gtpack`.
 - Publishing script defaults: `OCI_REGISTRY=ghcr.io`, `OCI_ORG=${GITHUB_REPOSITORY_OWNER}`, `OCI_REPO=greentic-packs`, `PACK_VERSION` from the tag (or override), `PACKS_DIR=packs`, `OUT_DIR=dist/packs`; media type `application/vnd.greentic.gtpack.v1+zip` is used for pushes.
 - Release tags (`v*`) run `.github/workflows/publish_packs.yml` to push `.gtpack` artifacts to `ghcr.io/<org>/greentic-packs/<pack>:<version>` (no `latest` tag by default). `PACK_VERSION` is the tag without the leading `v`.
 - `DRY_RUN=1 tools/publish_packs_oci.sh` builds packs and writes `packs.lock.json` with digests set to `DRY_RUN` without pushing; the build workflow runs this check on every branch/PR.
 - `packs.lock.json` records registry/org/repo, pack file paths, refs, and digests so downstream tools can pin exact OCI blobs.
 - `tools/generate_pack_metadata.py` aggregates `secret_requirements` from each referenced component into `pack.manifest.json` before the pack is zipped, so `.gtpack` metadata contains everything `greentic-secrets` needs.
 - Pull example: `oras pull ghcr.io/<org>/greentic-packs/messaging-provider-bundle:1.2.3` (use the digest from `packs.lock.json` for pinning in consumers such as `greentic-messaging` or `greentic-distributor-client`).
+- Pack builds require `packc >= 0.4.28`; set `PACKC_BUILD_FLAGS="--offline"` if you need an offline build.
 
 ## Secrets workflow
 - Runtime secrets are resolved only through the `greentic:secrets-store@1.0.0` host bindings; provider code never reads environment variables or filesystem trees.
@@ -112,3 +116,14 @@ Secrets (from `greentic:secrets-store@1.0.0`):
 - `WHATSAPP_TOKEN`
 - `WHATSAPP_PHONE_NUMBER_ID`
 - `WHATSAPP_VERIFY_TOKEN` (webhook validation)
+
+## Dummy provider-core component
+Exports (world `greentic:provider-schema-core/schema-core@1.0.0`):
+- `describe() -> bytes` (JSON `ProviderManifest` with `provider_type` = `messaging.dummy`)
+- `validate-config(config_json: bytes) -> bytes` (accepts any JSON, returns `{ok:true}` + echo)
+- `healthcheck() -> bytes` (returns `{status:"ok"}`)
+- `invoke(op, input_json) -> bytes`:
+  - `send`/`reply` return deterministic payload with `message_id` derived from the input hash, `provider_message_id = "dummy:<hash>"`, and `status = "sent"` (or `replied`).
+
+Pack fixture:
+- `packs/messaging-dummy`: provider-core pack with inline `greentic.ext.provider` extension, config schema at `schemas/messaging/dummy/config.schema.json`, and the built `messaging-provider-dummy.wasm` artifact.

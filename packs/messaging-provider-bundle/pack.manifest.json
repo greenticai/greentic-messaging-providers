@@ -1,12 +1,62 @@
 {
   "name": "messaging-provider-bundle",
-  "version": "0.0.0",
+  "version": "0.4.8",
   "description": "Bundle of messaging provider components.",
+  "kind": "application",
+  "publisher": "Greentic",
   "config_schema": {
     "provider_runtime_config": {
       "schema_version": 1,
       "format": "json",
       "injected_as": "provider_runtime_config.json"
+    }
+  },
+  "meta": {
+    "messaging": {
+      "adapters": [
+        {
+          "name": "Slack",
+          "kind": "slack",
+          "component": "messaging-provider-bundle.slack",
+          "default_flow": "main",
+          "custom_flow": null
+        },
+        {
+          "name": "Teams",
+          "kind": "teams",
+          "component": "messaging-provider-bundle.teams",
+          "default_flow": "main",
+          "custom_flow": null
+        },
+        {
+          "name": "Telegram",
+          "kind": "telegram",
+          "component": "messaging-provider-bundle.telegram",
+          "default_flow": "main",
+          "custom_flow": null
+        },
+        {
+          "name": "WebChat",
+          "kind": "webchat",
+          "component": "messaging-provider-bundle.webchat",
+          "default_flow": "main",
+          "custom_flow": null
+        },
+        {
+          "name": "Webex",
+          "kind": "webex",
+          "component": "messaging-provider-bundle.webex",
+          "default_flow": "main",
+          "custom_flow": null
+        },
+        {
+          "name": "WhatsApp",
+          "kind": "whatsapp",
+          "component": "messaging-provider-bundle.whatsapp",
+          "default_flow": "main",
+          "custom_flow": null
+        }
+      ]
     }
   },
   "components": [

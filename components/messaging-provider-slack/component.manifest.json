@@ -1,0 +1,22 @@
+{
+  "name": "messaging-provider-slack",
+  "description": "Provider-core Slack messaging provider (chat.postMessage).",
+  "config_schema": {
+    "provider_config": {
+      "format": "json",
+      "path": "schemas/messaging/slack/config.schema.json"
+    }
+  },
+  "secret_requirements": [
+    {
+      "name": "SLACK_BOT_TOKEN",
+      "scope": "tenant",
+      "description": "Slack bot token used for chat.postMessage calls."
+    },
+    {
+      "name": "SLACK_SIGNING_SECRET",
+      "scope": "tenant",
+      "description": "Slack signing secret (optional for future webhook validation)."
+    }
+  ]
+}

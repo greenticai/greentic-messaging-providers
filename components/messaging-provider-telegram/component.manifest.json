@@ -1,0 +1,17 @@
+{
+  "name": "messaging-provider-telegram",
+  "description": "Provider-core Telegram messaging provider.",
+  "config_schema": {
+    "provider_config": {
+      "format": "json",
+      "path": "schemas/messaging/telegram/config.schema.json"
+    }
+  },
+  "secret_requirements": [
+    {
+      "name": "TELEGRAM_BOT_TOKEN",
+      "scope": "tenant",
+      "description": "Telegram bot token used for sendMessage requests."
+    }
+  ]
+}

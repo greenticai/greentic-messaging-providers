@@ -1,0 +1,17 @@
+{
+  "name": "messaging-provider-email",
+  "description": "Provider-core SMTP email sender (simulated).",
+  "config_schema": {
+    "provider_config": {
+      "format": "json",
+      "path": "schemas/messaging/email/config.schema.json"
+    }
+  },
+  "secret_requirements": [
+    {
+      "name": "EMAIL_PASSWORD",
+      "scope": "tenant",
+      "description": "SMTP password secret key"
+    }
+  ]
+}

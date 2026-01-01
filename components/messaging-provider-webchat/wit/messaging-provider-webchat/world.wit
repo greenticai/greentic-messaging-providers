@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: MIT
+
+package greentic:messaging-provider-webchat-core@0.0.1;
+
+use greentic:state/state-store@1.0.0;
+use greentic:provider-schema-core/schema-core-api@1.0.0;
+
+world messaging-provider-webchat {
+    import state-store;
+    export schema-core-api;
+}

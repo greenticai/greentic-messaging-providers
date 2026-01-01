@@ -1,4 +1,0 @@
-name = "messaging-provider-bundle"
-version = "0.0.0"
-description = "Bundle of messaging provider components."
-components = ["slack", "teams", "telegram", "webchat", "webex", "whatsapp"]

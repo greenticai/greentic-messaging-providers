@@ -12,6 +12,8 @@ provider-common = { path = "../provider-common" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 greentic-interfaces-wasmtime = { workspace = true }
+greentic-types = { workspace = true }
+anyhow = { workspace = true }
 insta = { workspace = true }
-wasmtime = { version = "40", features = ["component-model"] }
+wasmtime = { version = "40", features = ["component-model", "cache"] }
 wasmtime-wasi = "40"

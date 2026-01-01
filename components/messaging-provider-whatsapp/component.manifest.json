@@ -1,0 +1,17 @@
+{
+  "name": "messaging-provider-whatsapp",
+  "description": "Provider-core WhatsApp Cloud messaging provider.",
+  "config_schema": {
+    "provider_config": {
+      "format": "json",
+      "path": "schemas/messaging/whatsapp/config.schema.json"
+    }
+  },
+  "secret_requirements": [
+    {
+      "name": "WHATSAPP_TOKEN",
+      "scope": "tenant",
+      "description": "WhatsApp Cloud API access token."
+    }
+  ]
+}
