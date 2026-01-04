@@ -1,12 +1,12 @@
 pack_id: messaging-dummy
-version: 0.0.0
+version: 0.4.9
 kind: application
 publisher: Greentic
 
 components:
   - id: "messaging-provider-dummy"
     kind: messaging
-    version: 0.0.0
+    version: 0.4.9
     world: "greentic:provider/schema-core@1.0.0"
     supports: ["messaging"]
     profiles:
@@ -18,9 +18,9 @@ components:
     wasm: "components/messaging-provider-dummy.wasm"
 
 extensions:
-  greentic.ext.provider:
-    kind: greentic.ext.provider
-    version: 0.0.0
+  greentic.provider-extension.v1:
+    kind: greentic.provider-extension.v1
+    version: 0.4.9
     inline:
       providers:
         - kind: messaging
@@ -37,7 +37,7 @@ extensions:
 
 schemas:
   - kind: config
-    version: 0.0.0
+    version: 0.4.9
     path: "schemas/messaging/dummy/config.schema.json"
 
 dependencies: []

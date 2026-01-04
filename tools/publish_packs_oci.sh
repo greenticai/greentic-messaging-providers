@@ -171,13 +171,25 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   fi
   mv "${local_out_dir}/${pack_name}.gtpack" "${pack_out}"
 
+  python3 "${ROOT_DIR}/tools/validate_pack_extensions.py" "${pack_out}"
+
   pack_version="$("${PACKC_BIN}" inspect --json --pack "${pack_out}" | jq -r '.meta.packVersion // ""')"
   if [ "${pack_version}" = "1" ] || [ -z "${pack_version}" ]; then
     echo "warning: packc produced pack-v1 manifest for ${pack_name}; proceed anyway (upgrade packc for newer schema) " >&2
   fi
 
   oci_ref="${OCI_REGISTRY}/${OCI_ORG}/${OCI_REPO}/${pack_name}:${PACK_VERSION}"
-  digest="DRY_RUN"
+  # Compute local content digest (used for dry-run and lockfile regardless of push).
+  digest="$(python3 - <<'PY' "${pack_out}"
+import hashlib, sys
+path = sys.argv[1]
+h = hashlib.sha256()
+with open(path, "rb") as f:
+    for chunk in iter(lambda: f.read(8192), b""):
+        h.update(chunk)
+print("sha256:" + h.hexdigest())
+PY
+)"
 
   if [ "${DRY_RUN}" -eq 0 ]; then
     digest="$(

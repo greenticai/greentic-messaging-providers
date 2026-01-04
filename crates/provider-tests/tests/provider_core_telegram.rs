@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Context, Result};
-use greentic_types::ProviderManifest;
+use greentic_types::{ProviderManifest, provider::PROVIDER_EXTENSION_ID};
 use serde_json::{Value, json};
 use wasmtime::component::{
     Component, ComponentExportIndex, HasSelf, Linker, ResourceTable, TypedFunc,
@@ -211,10 +211,20 @@ fn pack_has_extension_and_schema() -> Result<()> {
         serde_json::from_slice(&fs::read(&manifest_path).context("reading pack.manifest.json")?)
             .context("parsing pack.manifest.json")?;
 
-    let providers = manifest
+    let provider_ext = manifest
         .get("extensions")
-        .and_then(|ext| ext.get("greentic.ext.provider"))
-        .and_then(|ext| ext.get("inline"))
+        .and_then(|ext| ext.get(PROVIDER_EXTENSION_ID))
+        .expect("pack should include provider extension");
+    assert_eq!(
+        provider_ext
+            .get("kind")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default(),
+        PROVIDER_EXTENSION_ID
+    );
+
+    let providers = provider_ext
+        .get("inline")
         .and_then(|inline| inline.get("providers"))
         .and_then(|p| p.as_array())
         .cloned()

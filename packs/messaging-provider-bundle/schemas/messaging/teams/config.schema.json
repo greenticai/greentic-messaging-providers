@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Teams Provider-Core Config",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "Azure AD tenant ID for Graph auth."
+    },
+    "client_id": {
+      "type": "string",
+      "description": "App registration client ID."
+    },
+    "client_secret_key": {
+      "type": "string",
+      "description": "Secret store key for the client secret (client_credentials grant).",
+      "x-secret": true,
+      "default": "MS_GRAPH_CLIENT_SECRET"
+    },
+    "refresh_token_key": {
+      "type": "string",
+      "description": "Secret store key for refresh token (refresh_token grant).",
+      "x-secret": true,
+      "default": "MS_GRAPH_REFRESH_TOKEN"
+    },
+    "team_id": {
+      "type": "string",
+      "description": "Default team ID if not provided in invocation."
+    },
+    "channel_id": {
+      "type": "string",
+      "description": "Default channel ID if not provided in invocation."
+    },
+    "graph_base_url": {
+      "type": "string",
+      "description": "Graph API base URL.",
+      "default": "https://graph.microsoft.com/v1.0"
+    },
+    "auth_base_url": {
+      "type": "string",
+      "description": "AAD authority base URL.",
+      "default": "https://login.microsoftonline.com"
+    },
+    "token_scope": {
+      "type": "string",
+      "description": "OAuth scope for access tokens.",
+      "default": "https://graph.microsoft.com/.default"
+    }
+  },
+  "required": ["tenant_id", "client_id"],
+  "additionalProperties": false
+}

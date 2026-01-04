@@ -2,6 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
+use greentic_types::provider::PROVIDER_EXTENSION_ID;
 use serde_json::Value;
 
 fn workspace_root() -> PathBuf {
@@ -84,10 +85,30 @@ fn packs_have_consistent_manifests_and_artifacts() -> Result<()> {
         }
 
         // Provider extension config schemas must exist in pack and workspace.
-        if let Some(providers) = manifest
+        let provider_ext = manifest
             .get("extensions")
-            .and_then(|ext| ext.get("greentic.ext.provider"))
-            .and_then(|ext| ext.get("inline"))
+            .and_then(|ext| ext.get(PROVIDER_EXTENSION_ID))
+            .unwrap_or_else(|| {
+                panic!(
+                    "pack {} missing provider extension {}",
+                    pack_dir.display(),
+                    PROVIDER_EXTENSION_ID
+                )
+            });
+
+        let kind = provider_ext
+            .get("kind")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        assert_eq!(
+            kind,
+            PROVIDER_EXTENSION_ID,
+            "pack {} provider extension kind mismatch",
+            pack_dir.display()
+        );
+
+        if let Some(providers) = provider_ext
+            .get("inline")
             .and_then(|inline| inline.get("providers"))
             .and_then(Value::as_array)
         {

@@ -126,4 +126,4 @@ Exports (world `greentic:provider-schema-core/schema-core@1.0.0`):
   - `send`/`reply` return deterministic payload with `message_id` derived from the input hash, `provider_message_id = "dummy:<hash>"`, and `status = "sent"` (or `replied`).
 
 Pack fixture:
-- `packs/messaging-dummy`: provider-core pack with inline `greentic.ext.provider` extension, config schema at `schemas/messaging/dummy/config.schema.json`, and the built `messaging-provider-dummy.wasm` artifact.
+- `packs/messaging-dummy`: provider-core pack with inline `greentic.provider-extension.v1` extension, config schema at `schemas/messaging/dummy/config.schema.json`, and the built `messaging-provider-dummy.wasm` artifact.

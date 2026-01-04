@@ -1,6 +1,6 @@
 {
   "name": "messaging-dummy",
-  "version": "0.0.0",
+  "version": "0.4.9",
   "description": "Deterministic provider-core messaging provider for CI and integration tests.",
   "kind": "application",
   "publisher": "Greentic",
@@ -14,9 +14,9 @@
     "messaging-provider-dummy"
   ],
   "extensions": {
-    "greentic.ext.provider": {
-      "kind": "greentic.ext.provider",
-      "version": "0.0.0",
+    "greentic.provider-extension.v1": {
+      "kind": "greentic.provider-extension.v1",
+      "version": "0.4.9",
       "inline": {
         "providers": [
           {

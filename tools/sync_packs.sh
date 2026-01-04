@@ -103,7 +103,7 @@ for dir in "${PACKS_DIR}"/*; do
     copy_schema "${dir}" "${schema}"
   done < <(jq -r '
     [
-      (.extensions["greentic.ext.provider"].inline.providers[]?.config_schema_ref // empty),
+      (.extensions["greentic.provider-extension.v1"].inline.providers[]?.config_schema_ref // empty),
       (.config_schema.provider_config.path // empty)
     ] | flatten | .[]? ' "${dir}/pack.manifest.json")
 done

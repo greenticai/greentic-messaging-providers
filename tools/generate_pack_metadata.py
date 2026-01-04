@@ -19,6 +19,8 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 import yaml
 
+PROVIDER_EXTENSION_ID = "greentic.provider-extension.v1"
+
 def load_json(path: Path) -> dict:
     try:
         return json.loads(path.read_text())
@@ -69,6 +71,30 @@ def aggregate_requirements(pack_dir: Path, components_dir: Path) -> List[dict]:
     reqs.extend(manifest.get("secret_requirements") or [])
     return dedupe_requirements(reqs)
 
+
+def normalize_provider_extension(manifest: dict) -> None:
+    """
+    Ensure the provider extension uses the canonical greentic-types identifier.
+    """
+    extensions = manifest.get("extensions") or {}
+    if not isinstance(extensions, dict):
+        return
+
+    def coerce_kind(entry: dict) -> None:
+        if isinstance(entry, dict):
+            entry["kind"] = PROVIDER_EXTENSION_ID
+
+    if PROVIDER_EXTENSION_ID in extensions:
+        coerce_kind(extensions[PROVIDER_EXTENSION_ID])
+        manifest["extensions"] = extensions
+        return
+
+    legacy_keys = [k for k in extensions.keys() if isinstance(k, str) and k.startswith("greentic.ext.provider")]
+    if legacy_keys:
+        legacy_key = legacy_keys[0]
+        extensions[PROVIDER_EXTENSION_ID] = extensions.pop(legacy_key)
+        coerce_kind(extensions[PROVIDER_EXTENSION_ID])
+        manifest["extensions"] = extensions
 
 def write_manifest(manifest_path: Path, manifest: dict) -> None:
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
@@ -179,6 +205,7 @@ def main() -> int:
                         }
                     }
 
+    normalize_provider_extension(manifest)
     manifest["secret_requirements"] = secret_requirements
 
     if args.include_capabilities_cache:
