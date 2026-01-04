@@ -1,0 +1,43 @@
+id: setup_default
+title: Email SMTP setup (default)
+description: Minimal SMTP onboarding with host/port/auth and sender identity.
+type: job
+start: collect
+
+nodes:
+  collect:
+    templating.handlebars:
+      text: |
+        Collect:
+        - smtp_host, smtp_port
+        - username, password
+        - from_address (and optional display_name)
+        - use_tls (default true)
+        Payload example:
+        {"smtp_host":"smtp.example.com","smtp_port":587,"username":"user","password":"pass","from_address":"noreply@example.com","use_tls":true,"test_email":false,"test_recipient":"ops@example.com"}
+    routing:
+      - to: validate
+
+  validate:
+    templating.handlebars:
+      text: |
+        - Attempt TCP connect to smtp_host:smtp_port with STARTTLS or TLS per use_tls.
+        - Authenticate with username/password.
+        - If test_email=true, send a small test email to test_recipient.
+    routing:
+      - to: apply
+
+  apply:
+    templating.handlebars:
+      text: |
+        - Store secrets SMTP_USERNAME/SMTP_PASSWORD (or provider-specific keys) via greentic-secrets.
+        - Persist config: smtp_host, smtp_port, use_tls, from_address/display_name.
+        - Idempotent: overwrite existing config; mark last_applied.
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: "SMTP setup_default complete; rerun diagnostics to confirm deliverability."
+    routing:
+      - out: true

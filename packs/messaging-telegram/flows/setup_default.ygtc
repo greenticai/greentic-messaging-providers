@@ -1,0 +1,48 @@
+id: setup_default
+title: Telegram setup (default)
+description: Minimal onboarding for Telegram bot with token and optional chat allowlist.
+type: job
+start: collect
+
+nodes:
+  collect:
+    templating.handlebars:
+      text: |
+        Interactive prompts:
+        - bot_token (required)
+        - default_chat_id (optional)
+        - allowed_chat_ids (optional list)
+
+        Non-interactive payload:
+        {
+          "bot_token": "1234:ABCD",
+          "default_chat_id": "12345",
+          "allowed_chat_ids": ["12345", "67890"],
+          "test_message": false
+        }
+    routing:
+      - to: validate
+
+  validate:
+    templating.handlebars:
+      text: |
+        - Call getMe with bot_token to confirm identity.
+        - Call getWebhookInfo to understand current webhook status.
+        - If default_chat_id present and test_message true, sendMessage with a dry-run flag if supported.
+    routing:
+      - to: apply
+
+  apply:
+    templating.handlebars:
+      text: |
+        - Store bot_token via greentic-secrets.
+        - Persist config: default_chat_id, allowed_chat_ids, mode (webhook|polling, default webhook if host provides URL).
+        - Idempotent: overwrite existing secrets/config; record last_applied.
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: "Telegram setup_default complete. Run diagnostics to verify webhook/polling health."
+    routing:
+      - out: true

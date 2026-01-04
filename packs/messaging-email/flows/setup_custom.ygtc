@@ -1,0 +1,42 @@
+id: setup_custom
+title: Email SMTP setup (custom)
+description: Advanced SMTP onboarding with TLS, timeouts, retries, and optional inbound note.
+type: job
+start: collect
+
+nodes:
+  collect:
+    templating.handlebars:
+      text: |
+        Collect:
+        - smtp_host, smtp_port, username, password
+        - tls_mode: starttls | implicit | none
+        - connection_timeout_ms, send_timeout_ms
+        - retry_policy (attempts/backoff)
+        - from_address/display_name
+        - inbound_support: false (egress-only)
+    routing:
+      - to: validate
+
+  validate:
+    templating.handlebars:
+      text: |
+        - Connect/auth with provided creds and TLS mode.
+        - If test_email true, send to provided recipient; respect timeout/retry settings.
+    routing:
+      - to: apply
+
+  apply:
+    templating.handlebars:
+      text: |
+        - Save secrets (username/password) and TLS preference.
+        - Persist config: timeouts, retry_policy, from_address, egress-only flag.
+        - Idempotent updates allowed.
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: "SMTP setup_custom applied with tls_mode {{payload.tls_mode}}."
+    routing:
+      - out: true

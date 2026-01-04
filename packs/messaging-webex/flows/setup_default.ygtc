@@ -1,0 +1,40 @@
+id: setup_default
+title: Webex setup (default)
+description: Minimal onboarding for Webex bot.
+type: job
+start: collect
+
+nodes:
+  collect:
+    templating.handlebars:
+      text: |
+        Collect:
+        - bot_access_token (required)
+        - default_room_id (optional)
+        - webhook_url (optional)
+    routing:
+      - to: validate
+
+  validate:
+    templating.handlebars:
+      text: |
+        - Call Webex /people/me to validate token and bot identity.
+        - If default_room_id set, verify membership and postability.
+        - If webhook_url provided, ensure signature secret present.
+    routing:
+      - to: apply
+
+  apply:
+    templating.handlebars:
+      text: |
+        - Store access token via greentic-secrets.
+        - Persist config: default_room_id, webhook_url, secret, inbound enabled flag.
+        - Idempotent overwrite of previous values.
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: "Webex setup_default complete."
+    routing:
+      - out: true

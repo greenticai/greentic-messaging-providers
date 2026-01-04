@@ -1,0 +1,39 @@
+id: setup_default
+title: Webchat setup (default)
+description: Onboards webchat with JWT signing secret and basic channel defaults.
+type: job
+start: collect
+
+nodes:
+  collect:
+    templating.handlebars:
+      text: |
+        Collect:
+        - signing_secret (required)
+        - channel_token/public_config (optional)
+        - default_audience or room (optional)
+    routing:
+      - to: validate
+
+  validate:
+    templating.handlebars:
+      text: |
+        - Perform local HMAC/signing with signing_secret to ensure format.
+        - If channel_token provided, verify shape/expiration.
+    routing:
+      - to: apply
+
+  apply:
+    templating.handlebars:
+      text: |
+        - Store signing_secret via greentic-secrets.
+        - Persist config: default_audience, channel options.
+        - Idempotent: overwrite secrets/config.
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: "Webchat setup_default complete."
+    routing:
+      - out: true

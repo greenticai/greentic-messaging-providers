@@ -1,0 +1,12 @@
+id: diagnostics
+title: Dummy diagnostics
+description: Confirms dummy provider wiring and placeholders.
+type: job
+start: summary
+
+nodes:
+  summary:
+    templating.handlebars:
+      text: "Dummy diagnostics completed; no external checks required."
+    routing:
+      - out: true

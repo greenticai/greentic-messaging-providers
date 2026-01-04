@@ -1,0 +1,17 @@
+id: verify_webhooks
+title: Slack verify webhooks
+description: Confirms Slack events/webhook endpoint is registered and receiving traffic.
+type: job
+start: describe
+
+nodes:
+  describe:
+    templating.handlebars:
+      text: |
+        Steps:
+        - Fetch current event subscriptions from Slack API.
+        - Ensure request_url matches the host-provided ingress endpoint.
+        - Send a challenge (or expect Slack's challenge) and verify signature using signing secret.
+        - Mark verification timestamp in config for idempotent runs.
+    routing:
+      - out: true

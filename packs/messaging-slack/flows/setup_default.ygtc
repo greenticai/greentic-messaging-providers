@@ -1,0 +1,55 @@
+id: setup_default
+title: Slack setup (default)
+description: Collects the minimal inputs to bring Slack online, validates auth, and writes secrets/config idempotently.
+type: job
+start: collect_inputs
+
+nodes:
+  collect_inputs:
+    templating.handlebars:
+      text: |
+        Interactive wizard should prompt for:
+        - bot_token (required)
+        - signing_secret (optional, recommended for inbound)
+        - default_channel (optional)
+        - team_id/workspace_hint (optional)
+
+        Non-interactive payload example:
+        {
+          "bot_token": "xoxb-...",
+          "signing_secret": "...",
+          "default_channel": "#general",
+          "team_id": "T123",
+          "test_message": false
+        }
+
+        Idempotent behavior: re-running overwrites stored secrets/config for the same tenant.
+    routing:
+      - to: validate_token
+
+  validate_token:
+    templating.handlebars:
+      text: |
+        Validation steps:
+        - Call Slack auth.test with the provided bot_token to verify scopes and workspace.
+        - If signing_secret is provided, verify HMAC against a sample payload to ensure format is correct.
+        - If default_channel is set, call conversations.info to ensure the bot can post there.
+    routing:
+      - to: apply_config
+
+  apply_config:
+    templating.handlebars:
+      text: |
+        Apply configuration using greentic-secrets/greentic-config:
+        - secrets: SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET (optional)
+        - config: default_channel, team_id, inbound_mode (defaults to events), webhook request URL if host supplies one
+        Ensure secrets are written idempotently (overwrite existing keys) and mark config version/last_applied.
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: |
+        Slack setup_default complete. Stored bot token and defaults. Next: run diagnostics to validate channel posting and webhook status.
+    routing:
+      - out: true

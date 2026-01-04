@@ -1,0 +1,45 @@
+id: setup_default
+title: Messaging bundle setup (default)
+description: Applies minimal setup for all bundled providers (Slack, Teams, Telegram, Webchat, Webex, WhatsApp).
+type: job
+start: overview
+
+nodes:
+  overview:
+    templating.handlebars:
+      text: |
+        Payload structure (per provider):
+        - slack: bot_token, signing_secret, default_channel
+        - teams: tenant_id, client_id, client_secret, default_channel
+        - telegram: bot_token, default_chat_id
+        - webchat: signing_secret
+        - webex: access_token, default_room_id
+        - whatsapp: access_token, phone_number_id, business_account_id, verify_token
+
+        Interactive runners should prompt provider-by-provider and allow skipping providers not in use.
+    routing:
+      - to: validate
+
+  validate:
+    templating.handlebars:
+      text: |
+        For each provider with inputs:
+        - Call provider identity endpoint (auth.test, Graph token, getMe, people/me, Graph phone) to validate credentials.
+        - Confirm optional default destinations exist.
+    routing:
+      - to: apply
+
+  apply:
+    templating.handlebars:
+      text: |
+        - Write secrets per provider using greentic-secrets.
+        - Persist config defaults (channels/rooms/chats).
+        - Idempotent: reruns reconcile and overwrite safely.
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: "Bundle setup_default complete for provided providers. Run diagnostics to verify each channel."
+    routing:
+      - out: true

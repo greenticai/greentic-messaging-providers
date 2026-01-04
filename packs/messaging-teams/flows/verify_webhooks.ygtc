@@ -1,0 +1,15 @@
+id: verify_webhooks
+title: Teams verify webhooks
+description: Confirms Teams/Graph subscriptions are pointed at the correct webhook endpoint.
+type: job
+start: verify
+
+nodes:
+  verify:
+    templating.handlebars:
+      text: |
+        - List Graph subscriptions for the app.
+        - Ensure resource filters match configured channels and notification URL matches host ingress.
+        - Renew or recreate subscriptions if missing/expired; write back expiration timestamps for idempotency.
+    routing:
+      - out: true

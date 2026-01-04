@@ -1,0 +1,20 @@
+id: diagnostics
+title: Messaging bundle diagnostics
+description: Runs provider checks for all configured providers.
+type: job
+start: checks
+
+nodes:
+  checks:
+    templating.handlebars:
+      text: |
+        For each configured provider:
+        - Slack: auth.test + optional test message.
+        - Teams: token acquisition + channel reachability.
+        - Telegram: getMe + webhook/polling health.
+        - Webchat: signing secret roundtrip.
+        - Webex: /people/me + room check.
+        - WhatsApp: Graph phone lookup + optional test message.
+        Summarize results and fail early if any provider is misconfigured.
+    routing:
+      - out: true

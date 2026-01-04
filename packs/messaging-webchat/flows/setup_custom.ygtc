@@ -1,0 +1,40 @@
+id: setup_custom
+title: Webchat setup (custom)
+description: Advanced webchat onboarding with token TTL, allowed origins, and rate limits.
+type: job
+start: collect
+
+nodes:
+  collect:
+    templating.handlebars:
+      text: |
+        Collect:
+        - signing_secret
+        - token_ttl_seconds
+        - allowed_origins
+        - rate_limits (messages/sec)
+        - default_audience/channel
+    routing:
+      - to: validate
+
+  validate:
+    templating.handlebars:
+      text: |
+        - Validate signing_secret by generating/validating a sample JWT.
+        - Ensure token_ttl_seconds within safe bounds (>= 60).
+    routing:
+      - to: apply
+
+  apply:
+    templating.handlebars:
+      text: |
+        - Store signing_secret; persist TTL/origins/rate limits.
+        - Record last_applied for idempotent reruns.
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: "Webchat setup_custom applied with TTL {{payload.token_ttl_seconds}}."
+    routing:
+      - out: true

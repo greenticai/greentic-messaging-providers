@@ -1,0 +1,40 @@
+id: setup_default
+title: WhatsApp setup (default)
+description: Onboards WhatsApp Cloud API with access token and IDs.
+type: job
+start: collect
+
+nodes:
+  collect:
+    templating.handlebars:
+      text: |
+        Collect:
+        - access_token
+        - phone_number_id
+        - business_account_id
+        - verify_token (for webhook)
+    routing:
+      - to: validate
+
+  validate:
+    templating.handlebars:
+      text: |
+        - Call Graph API /{phone_number_id}?fields=id to verify token and phone binding.
+        - If webhook URL provided by host, ensure verify_token matches.
+    routing:
+      - to: apply
+
+  apply:
+    templating.handlebars:
+      text: |
+        - Store secrets: WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_VERIFY_TOKEN, WHATSAPP_BUSINESS_ACCOUNT_ID.
+        - Persist config: webhook_url (if available), default recipients.
+        - Idempotent overwrite.
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: "WhatsApp setup_default complete."
+    routing:
+      - out: true

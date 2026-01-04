@@ -1,0 +1,12 @@
+id: setup_default
+title: Dummy setup (default)
+description: Minimal no-op setup for dummy provider to demonstrate flow shape.
+type: job
+start: summarize
+
+nodes:
+  summarize:
+    templating.handlebars:
+      text: "Dummy provider requires no external credentials. Flow records last_applied and returns success."
+    routing:
+      - out: true

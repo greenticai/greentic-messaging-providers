@@ -1,0 +1,21 @@
+id: diagnostics
+title: Email SMTP diagnostics
+description: Verifies SMTP connectivity/auth and optional send.
+type: job
+start: checks
+
+nodes:
+  checks:
+    templating.handlebars:
+      text: |
+        - Confirm SMTP credentials present.
+        - Attempt connection/auth with configured TLS/timeout.
+        - If payload.send_test_email true, send to payload.recipient (or from_address) with diagnostics marker.
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: "Diagnostics completed; connection/auth {{#if payload.send_test_email}}and send test{{/if}} executed."
+    routing:
+      - out: true

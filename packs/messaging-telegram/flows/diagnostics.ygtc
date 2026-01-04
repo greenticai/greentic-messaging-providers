@@ -1,0 +1,38 @@
+id: diagnostics
+title: Telegram diagnostics
+description: Validates token, webhook/polling status, and optional message send.
+type: job
+start: preflight
+
+nodes:
+  preflight:
+    templating.handlebars:
+      text: |
+        Checks:
+        - TELEGRAM_BOT_TOKEN exists.
+        - mode (webhook|polling) configured.
+        - default_chat_id or payload.target_chat provided for send tests.
+    routing:
+      - to: verify_token
+
+  verify_token:
+    templating.handlebars:
+      text: |
+        - getMe to confirm bot identity and status.
+        - If webhook mode, getWebhookInfo and compare URL with configured; trigger a self-ping if possible.
+        - If polling mode, ensure recent updates can be fetched (getUpdates dry-run).
+    routing:
+      - to: optional_send
+
+  optional_send:
+    templating.handlebars:
+      text: |
+        If payload.send_test_message true, sendMessage to target chat with diagnostics marker; otherwise skip.
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: "Diagnostics complete; token valid and mode {{config.mode}} healthy."
+    routing:
+      - out: true

@@ -1,0 +1,15 @@
+id: verify_webhooks
+title: Telegram verify webhooks
+description: Ensures webhook URL is registered and receiving callbacks.
+type: job
+start: steps
+
+nodes:
+  steps:
+    templating.handlebars:
+      text: |
+        - Read configured webhook_url from config and compare with Telegram getWebhookInfo.
+        - If mismatched, setWebhook to desired URL with allowed_updates.
+        - Trigger a test update (e.g., send a message to the bot) and confirm delivery.
+    routing:
+      - out: true

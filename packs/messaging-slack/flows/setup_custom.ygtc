@@ -1,0 +1,55 @@
+id: setup_custom
+title: Slack setup (custom)
+description: Advanced onboarding for Slack with inbound mode, events, and formatting choices.
+type: job
+start: collect_inputs
+
+nodes:
+  collect_inputs:
+    templating.handlebars:
+      text: |
+        Interactive prompts should collect:
+        - bot_token (required) and signing_secret (optional)
+        - inbound_mode: events_api | socket_mode (default events_api)
+        - events: minimal set (message.channels, app_mention, reaction_added) unless overridden
+        - default_channel / fallback DM target
+        - formatting defaults (link_names, unfurl settings)
+        - test_message (bool)
+
+        Payload example:
+        {
+          "bot_token": "xoxb-...",
+          "signing_secret": "...",
+          "inbound_mode": "events_api",
+          "events": ["message.channels", "app_mention"],
+          "default_channel": "#alerts",
+          "test_message": true
+        }
+    routing:
+      - to: validate
+
+  validate:
+    templating.handlebars:
+      text: |
+        - Run auth.test to confirm token and workspace.
+        - Verify conversations.join/postability for default_channel if provided.
+        - For events_api: ensure request URL is known; if host provided, register event subscriptions.
+        - For socket_mode: confirm app-level token present if needed.
+    routing:
+      - to: apply
+
+  apply:
+    templating.handlebars:
+      text: |
+        - Write secrets (SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SOCKET_APP_TOKEN if applicable) via greentic-secrets.
+        - Persist config: inbound_mode, events list, default_channel, team_id, formatting prefs, webhook URL if used.
+        - Mark config version/last_applied for idempotent re-runs.
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: |
+        Slack setup_custom applied with inbound mode {{payload.inbound_mode}}. Rerun anytime to update subscriptions or defaults.
+    routing:
+      - out: true

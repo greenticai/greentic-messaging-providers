@@ -1,0 +1,15 @@
+id: verify_webhooks
+title: WhatsApp verify webhooks
+description: Confirms webhook registration and verify_token handling.
+type: job
+start: steps
+
+nodes:
+  steps:
+    templating.handlebars:
+      text: |
+        - Ensure webhook URL registered in Meta app dashboard for phone_number_id.
+        - Perform verification by responding with hub.challenge using verify_token.
+        - Record verification timestamp for idempotent reruns.
+    routing:
+      - out: true

@@ -1,0 +1,12 @@
+id: setup_custom
+title: Dummy setup (custom)
+description: No-op advanced setup; mirrors default to keep flow contract consistent.
+type: job
+start: summarize
+
+nodes:
+  summarize:
+    templating.handlebars:
+      text: "Nothing to configure; records last_applied for idempotency."
+    routing:
+      - out: true

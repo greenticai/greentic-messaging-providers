@@ -1,0 +1,27 @@
+id: diagnostics
+title: Webchat diagnostics
+description: Validates signing secret and optional loopback test.
+type: job
+start: check_secret
+
+nodes:
+  check_secret:
+    templating.handlebars:
+      text: |
+        - Confirm signing_secret present.
+        - Generate+verify a sample JWT for the configured audience.
+    routing:
+      - to: optional_loopback
+
+  optional_loopback:
+    templating.handlebars:
+      text: |
+        If payload.run_loopback true, generate a token and perform a loopback send/receive via the webchat channel (if host supports).
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: "Diagnostics complete for webchat."
+    routing:
+      - out: true

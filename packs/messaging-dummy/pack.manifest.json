@@ -39,7 +39,56 @@
           }
         ]
       }
+    },
+    "messaging.provider_flow_hints": {
+      "kind": "messaging.provider_flow_hints",
+      "version": "0.4.9",
+      "inline": {
+        "messaging.dummy": {
+          "setup_default": "setup_default",
+          "setup_custom": "setup_custom",
+          "diagnostics": "diagnostics"
+        }
+      }
     }
   },
-  "secret_requirements": []
+  "secret_requirements": [],
+  "flows": [
+    {
+      "id": "setup_default",
+      "kind": "job",
+      "version": "0.4.9",
+      "file": "flows/setup_default.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "setup"
+      ]
+    },
+    {
+      "id": "setup_custom",
+      "kind": "job",
+      "version": "0.4.9",
+      "file": "flows/setup_custom.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "setup"
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "kind": "job",
+      "version": "0.4.9",
+      "file": "flows/diagnostics.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "diagnostics"
+      ]
+    }
+  ]
 }

@@ -1,0 +1,42 @@
+id: setup_custom
+title: Teams setup (custom)
+description: Advanced Teams onboarding with subscription selection and channel defaults.
+type: job
+start: collect
+
+nodes:
+  collect:
+    templating.handlebars:
+      text: |
+        Collect:
+        - tenant_id, client_id, client_secret/cert
+        - bot/service principal ids
+        - channels: list of team_id/channel_id targets
+        - subscription_types (message, reactions) for webhook callbacks
+        - retry/timeouts, test_message flag
+    routing:
+      - to: validate
+
+  validate:
+    templating.handlebars:
+      text: |
+        - Acquire token and validate Graph scopes.
+        - For each channel, confirm postMessage permission.
+        - For subscriptions, ensure webhook endpoint available; create/update subscriptions as needed.
+    routing:
+      - to: apply
+
+  apply:
+    templating.handlebars:
+      text: |
+        - Save credentials and channel list.
+        - Persist subscriptions metadata (resource, expiration, webhook URL) for idempotent reconciliation.
+        - Optionally send test message if requested.
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: "Teams setup_custom applied with {{payload.subscription_types}} subscriptions."
+    routing:
+      - out: true

@@ -1,0 +1,42 @@
+id: setup_custom
+title: Webex setup (custom)
+description: Advanced onboarding for Webex with webhook subscriptions.
+type: job
+start: collect
+
+nodes:
+  collect:
+    templating.handlebars:
+      text: |
+        Collect:
+        - bot_access_token
+        - rooms: list of room_ids
+        - webhook_url and secret (if inbound)
+        - events to subscribe (messages/attachmentActions)
+        - test_message flag
+    routing:
+      - to: validate
+
+  validate:
+    templating.handlebars:
+      text: |
+        - Validate token via /people/me.
+        - For each room, verify membership/post rights.
+        - If webhook_url provided, create/update webhooks and confirm status.
+    routing:
+      - to: apply
+
+  apply:
+    templating.handlebars:
+      text: |
+        - Save token and webhook secret.
+        - Persist room list, webhook ids, last reconciliation timestamp for idempotent reruns.
+        - Optionally send test message if requested.
+    routing:
+      - to: summary
+
+  summary:
+    templating.handlebars:
+      text: "Webex setup_custom applied with webhook target {{payload.webhook_url}}."
+    routing:
+      - out: true

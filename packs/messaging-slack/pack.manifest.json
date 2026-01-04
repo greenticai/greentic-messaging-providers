@@ -40,6 +40,19 @@
           }
         ]
       }
+    },
+    "messaging.provider_flow_hints": {
+      "kind": "messaging.provider_flow_hints",
+      "version": "0.4.9",
+      "inline": {
+        "messaging.slack.api": {
+          "setup_default": "setup_default",
+          "setup_custom": "setup_custom",
+          "diagnostics": "diagnostics",
+          "verify_webhooks": "verify_webhooks",
+          "rotate_credentials": "rotate_credentials"
+        }
+      }
     }
   },
   "secret_requirements": [
@@ -52,6 +65,68 @@
       "name": "SLACK_SIGNING_SECRET",
       "scope": "tenant",
       "description": "Slack signing secret (optional for future webhook validation)."
+    }
+  ],
+  "flows": [
+    {
+      "id": "setup_default",
+      "kind": "job",
+      "version": "0.4.9",
+      "file": "flows/setup_default.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "setup"
+      ]
+    },
+    {
+      "id": "setup_custom",
+      "kind": "job",
+      "version": "0.4.9",
+      "file": "flows/setup_custom.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "setup"
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "kind": "job",
+      "version": "0.4.9",
+      "file": "flows/diagnostics.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "verify_webhooks",
+      "kind": "job",
+      "version": "0.4.9",
+      "file": "flows/verify_webhooks.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "rotate_credentials",
+      "kind": "job",
+      "version": "0.4.9",
+      "file": "flows/rotate_credentials.ygtc",
+      "tags": [
+        "maintenance"
+      ],
+      "entrypoints": [
+        "maintenance"
+      ]
     }
   ]
 }

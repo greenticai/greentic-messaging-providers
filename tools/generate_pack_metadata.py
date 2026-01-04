@@ -204,6 +204,9 @@ def main() -> int:
                             "path": schema.get("path"),
                         }
                     }
+        flows = pack_yaml.get("flows")
+        if isinstance(flows, list) and flows:
+            manifest["flows"] = flows
 
     normalize_provider_extension(manifest)
     manifest["secret_requirements"] = secret_requirements

@@ -163,6 +163,40 @@ extensions:
             export: "schema-core-api"
             world: "greentic:provider/schema-core@1.0.0"
           docs_ref: ""
+  messaging.provider_flow_hints:
+    kind: messaging.provider_flow_hints
+    version: 0.4.9
+    inline:
+      messaging.slack.api:
+        setup_default: setup_default
+        setup_custom: setup_custom
+        diagnostics: diagnostics
+        verify_webhooks: verify_webhooks
+      messaging.teams.graph:
+        setup_default: setup_default
+        setup_custom: setup_custom
+        diagnostics: diagnostics
+        verify_webhooks: verify_webhooks
+      messaging.telegram.bot:
+        setup_default: setup_default
+        setup_custom: setup_custom
+        diagnostics: diagnostics
+        verify_webhooks: verify_webhooks
+      messaging.webchat:
+        setup_default: setup_default
+        setup_custom: setup_custom
+        diagnostics: diagnostics
+        verify_webhooks: verify_webhooks
+      messaging.webex.bot:
+        setup_default: setup_default
+        setup_custom: setup_custom
+        diagnostics: diagnostics
+        verify_webhooks: verify_webhooks
+      messaging.whatsapp.cloud:
+        setup_default: setup_default
+        setup_custom: setup_custom
+        diagnostics: diagnostics
+        verify_webhooks: verify_webhooks
 
 flows:
   - id: main
@@ -171,6 +205,30 @@ flows:
     file: flows/main.ygtc
     tags: [default]
     entrypoints: [default]
+  - id: setup_default
+    kind: job
+    version: 0.4.9
+    file: flows/setup_default.ygtc
+    tags: [setup]
+    entrypoints: [setup]
+  - id: setup_custom
+    kind: job
+    version: 0.4.9
+    file: flows/setup_custom.ygtc
+    tags: [setup]
+    entrypoints: [setup]
+  - id: diagnostics
+    kind: job
+    version: 0.4.9
+    file: flows/diagnostics.ygtc
+    tags: [diagnostics]
+    entrypoints: [diagnostics]
+  - id: verify_webhooks
+    kind: job
+    version: 0.4.9
+    file: flows/verify_webhooks.ygtc
+    tags: [maintenance]
+    entrypoints: [diagnostics]
 
 messaging:
   adapters:

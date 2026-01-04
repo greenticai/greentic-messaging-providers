@@ -20,6 +20,7 @@
       "inline": {
         "providers": [
           {
+            "kind": "messaging",
             "provider_type": "messaging.teams.graph",
             "capabilities": [
               "messaging"
@@ -39,6 +40,18 @@
           }
         ]
       }
+    },
+    "messaging.provider_flow_hints": {
+      "kind": "messaging.provider_flow_hints",
+      "version": "0.4.9",
+      "inline": {
+        "messaging.teams.graph": {
+          "setup_default": "setup_default",
+          "setup_custom": "setup_custom",
+          "diagnostics": "diagnostics",
+          "verify_webhooks": "verify_webhooks"
+        }
+      }
     }
   },
   "secret_requirements": [
@@ -51,6 +64,56 @@
       "name": "MS_GRAPH_REFRESH_TOKEN",
       "scope": "tenant",
       "description": "Refresh token used when auth_mode selects refresh_token grant."
+    }
+  ],
+  "flows": [
+    {
+      "id": "setup_default",
+      "kind": "job",
+      "version": "0.4.9",
+      "file": "flows/setup_default.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "setup"
+      ]
+    },
+    {
+      "id": "setup_custom",
+      "kind": "job",
+      "version": "0.4.9",
+      "file": "flows/setup_custom.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "setup"
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "kind": "job",
+      "version": "0.4.9",
+      "file": "flows/diagnostics.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "verify_webhooks",
+      "kind": "job",
+      "version": "0.4.9",
+      "file": "flows/verify_webhooks.ygtc",
+      "tags": [
+        "maintenance"
+      ],
+      "entrypoints": [
+        "diagnostics"
+      ]
     }
   ]
 }
