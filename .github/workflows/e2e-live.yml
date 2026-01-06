@@ -53,14 +53,14 @@ jobs:
           cargo binstall greentic-messaging-test --no-confirm --locked
           cargo binstall greentic-secrets --no-confirm --locked
 
-      - name: Guard: deny prod environment
+      - name: "Guard: deny prod environment"
         run: |
           if [ "${GREENTIC_ENV}" = "prod" ] || [ "${GREENTIC_ENV}" = "production" ]; then
             echo "Refusing to run live tests against prod environment"
             exit 1
           fi
 
-      - name: Guard: required environment secrets
+      - name: "Guard: required environment secrets"
         run: |
           set -euo pipefail
           packs=(messaging-slack messaging-telegram messaging-email messaging-teams messaging-webchat messaging-webex messaging-whatsapp messaging-provider-bundle)
