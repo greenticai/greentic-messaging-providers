@@ -1,0 +1,68 @@
+name: E2E Dry-Run Providers
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GREENTIC_ENV: dev
+  GREENTIC_TENANT: ci
+  GREENTIC_TEAM: ci
+
+jobs:
+  e2e-dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: e2e-dry-run
+
+      - name: Install cargo-binstall
+        run: cargo install cargo-binstall --locked
+
+      - name: Install cargo-component
+        run: cargo binstall cargo-component --no-confirm --locked
+
+      - name: Install packc (greentic-pack)
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+        run: cargo binstall packc --version 0.4.31 --no-confirm --locked
+
+      - name: Install greentic-messaging-test
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+        run: |
+          cargo binstall greentic-messaging-test --no-confirm --locked
+
+      - name: Build components
+        run: ./tools/build_components.sh
+
+      - name: Sync packs
+        run: ./tools/sync_packs.sh
+
+      - name: Build packs (dry run)
+        env:
+          DRY_RUN: "1"
+        run: ./tools/publish_packs_oci.sh
+
+      - name: Run greentic-messaging-test (dry run)
+        run: |
+          greentic-messaging-test packs all \
+            --packs dist/packs \
+            --glob 'messaging-*.gtpack' \
+            --env "${GREENTIC_ENV}" \
+            --tenant "${GREENTIC_TENANT}" \
+            --team "${GREENTIC_TEAM}" \
+            --dry-run

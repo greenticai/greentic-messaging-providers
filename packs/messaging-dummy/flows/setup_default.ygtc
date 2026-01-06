@@ -6,7 +6,7 @@ start: summarize
 
 nodes:
   summarize:
-    templating.handlebars:
+    templates.handlebars:
       text: "Dummy provider requires no external credentials. Flow records last_applied and returns success."
     routing:
       - out: true

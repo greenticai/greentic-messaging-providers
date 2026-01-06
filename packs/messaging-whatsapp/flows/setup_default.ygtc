@@ -6,7 +6,7 @@ start: collect
 
 nodes:
   collect:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Collect:
         - access_token
@@ -17,7 +17,7 @@ nodes:
       - to: validate
 
   validate:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Call Graph API /{phone_number_id}?fields=id to verify token and phone binding.
         - If webhook URL provided by host, ensure verify_token matches.
@@ -25,7 +25,7 @@ nodes:
       - to: apply
 
   apply:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Store secrets: WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_VERIFY_TOKEN, WHATSAPP_BUSINESS_ACCOUNT_ID.
         - Persist config: webhook_url (if available), default recipients.
@@ -34,7 +34,7 @@ nodes:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "WhatsApp setup_default complete."
     routing:
       - out: true

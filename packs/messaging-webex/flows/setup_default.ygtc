@@ -6,7 +6,7 @@ start: collect
 
 nodes:
   collect:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Collect:
         - bot_access_token (required)
@@ -16,7 +16,7 @@ nodes:
       - to: validate
 
   validate:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Call Webex /people/me to validate token and bot identity.
         - If default_room_id set, verify membership and postability.
@@ -25,7 +25,7 @@ nodes:
       - to: apply
 
   apply:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Store access token via greentic-secrets.
         - Persist config: default_room_id, webhook_url, secret, inbound enabled flag.
@@ -34,7 +34,7 @@ nodes:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "Webex setup_default complete."
     routing:
       - out: true

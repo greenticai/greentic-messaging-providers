@@ -6,7 +6,7 @@ start: overview
 
 nodes:
   overview:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Collect advanced settings:
         - slack: inbound_mode, events, default_channel, signing_secret
@@ -19,7 +19,7 @@ nodes:
       - to: validate
 
   validate:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Validate credentials per provider.
         - Reconcile webhook/subscription state where applicable.
@@ -27,7 +27,7 @@ nodes:
       - to: apply
 
   apply:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Write secrets/config across providers with last_applied markers.
         - Create/update webhook subscriptions idempotently.
@@ -35,7 +35,7 @@ nodes:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "Bundle setup_custom applied; rerun diagnostics for provider health."
     routing:
       - out: true

@@ -22,6 +22,7 @@ echo "Using version: ${VERSION}"
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 command -v python3 >/dev/null 2>&1 || { echo "python3 is required" >&2; exit 1; }
+command -v oras >/dev/null 2>&1 || { echo "oras is required for fetching OCI components" >&2; exit 1; }
 
 if [ ! -d "${TARGET_COMPONENTS}" ]; then
   echo "Building components..."
@@ -68,6 +69,42 @@ copy_schema() {
   fi
 }
 
+fetch_oci_component() {
+  local image="$1"
+  local digest="$2"
+  local artifact="$3"
+  local dest_wasm="$4"
+  local manifest_name="$5"
+  local dest_manifest="$6"
+
+  local ref="${image}"
+  if [ -n "${digest}" ]; then
+    ref="${image}@${digest}"
+  fi
+
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+  echo "Fetching OCI component ${ref}..."
+  oras pull --output "${tmpdir}" "${ref}"
+  local src_path="${tmpdir}/${artifact}"
+  if [ ! -f "${src_path}" ]; then
+    echo "OCI component artifact ${artifact} not found in ${tmpdir}" >&2
+    rm -rf "${tmpdir}"
+    exit 1
+  fi
+  mkdir -p "$(dirname "${dest_wasm}")"
+  cp "${src_path}" "${dest_wasm}"
+
+  if [ -n "${manifest_name:-}" ] && [ -n "${dest_manifest:-}" ]; then
+    local manifest_src="${tmpdir}/${manifest_name}"
+    if [ -f "${manifest_src}" ]; then
+      mkdir -p "$(dirname "${dest_manifest}")"
+      cp "${manifest_src}" "${dest_manifest}"
+    fi
+  fi
+  rm -rf "${tmpdir}"
+}
+
 for dir in "${PACKS_DIR}"/*; do
   [ -d "${dir}" ] || continue
   if [ ! -f "${dir}/pack.manifest.json" ]; then
@@ -84,19 +121,33 @@ for dir in "${PACKS_DIR}"/*; do
     --include-capabilities-cache
 
   mkdir -p "${dir}/components"
-  while IFS=$'\t' read -r comp wasm_path; do
+  while IFS=$'\t' read -r comp wasm_path oci_image oci_digest oci_artifact manifest_rel oci_manifest; do
     [ -z "${comp}" ] && continue
     wasm_rel="${wasm_path:-components/${comp}.wasm}"
     wasm_file="$(basename "${wasm_rel}")"
     src="${TARGET_COMPONENTS}/${wasm_file}"
     dest="${dir}/${wasm_rel}"
+    manifest_src=""
+    manifest_dest=""
+    if [ -n "${manifest_rel}" ]; then
+      manifest_dest="${dir}/${manifest_rel}"
+      manifest_src="${TARGET_COMPONENTS}/$(basename "${manifest_rel}")"
+    fi
     mkdir -p "$(dirname "${dest}")"
-    if [ ! -f "${src}" ]; then
-      echo "Missing component artifact: ${src}" >&2
-      exit 1
+    if [ ! -f "${src}" ] || { [ -n "${manifest_rel}" ] && [ ! -f "${manifest_src}" ]; }; then
+      if [ -n "${oci_image}" ] && [ -n "${oci_artifact}" ]; then
+        fetch_oci_component "${oci_image}" "${oci_digest}" "${oci_artifact}" "${src}" "${oci_manifest}" "${manifest_src}"
+      else
+        echo "Missing component artifact: ${src}" >&2
+        exit 1
+      fi
     fi
     cp "${src}" "${dest}"
-  done < <(jq -r '.components[] | if type=="string" then [.,"components/"+.+".wasm"] else [.id, .wasm // "components/"+.id+".wasm"] end | @tsv' "${dir}/pack.manifest.json")
+    if [ -n "${manifest_rel}" ] && [ -f "${manifest_src}" ]; then
+      mkdir -p "$(dirname "${manifest_dest}")"
+      cp "${manifest_src}" "${manifest_dest}"
+    fi
+  done < <(jq -r '(.component_sources // .components // [])[] | if type=="string" then {id: ., wasm: ("components/" + . + ".wasm")} else {id: .id, wasm: (.wasm // ("components/" + .id + ".wasm")), manifest: (.manifest // ""), oci: (.oci // {})} end | [.id, .wasm, (.oci.image // ""), (.oci.digest // ""), (.oci.artifact // ""), (.manifest // ""), (.oci.manifest // "")] | @tsv' "${dir}/pack.manifest.json")
 
   while IFS= read -r schema; do
     [ -z "${schema}" ] && continue

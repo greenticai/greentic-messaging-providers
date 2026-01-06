@@ -6,7 +6,7 @@ start: steps
 
 nodes:
   steps:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Generate a signed token with signing_secret.
         - Send it through the inbound webhook/ingress and expect acceptance.

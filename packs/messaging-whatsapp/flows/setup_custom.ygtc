@@ -6,7 +6,7 @@ start: collect
 
 nodes:
   collect:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Collect:
         - access_token, phone_number_id, business_account_id
@@ -18,7 +18,7 @@ nodes:
       - to: validate
 
   validate:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Call Graph API me/product_catalog or phone_number lookup to ensure permissions.
         - If webhook configured, call GET {webhook_url}?hub.verify_token flow.
@@ -27,7 +27,7 @@ nodes:
       - to: apply
 
   apply:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Write secrets and verify_token.
         - Persist allowed_numbers, template_defaults, webhook target and status.
@@ -36,7 +36,7 @@ nodes:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "WhatsApp setup_custom applied."
     routing:
       - out: true

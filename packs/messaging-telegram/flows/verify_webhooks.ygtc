@@ -6,7 +6,7 @@ start: steps
 
 nodes:
   steps:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Read configured webhook_url from config and compare with Telegram getWebhookInfo.
         - If mismatched, setWebhook to desired URL with allowed_updates.

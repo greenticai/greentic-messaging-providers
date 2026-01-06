@@ -6,7 +6,7 @@ start: verify
 
 nodes:
   verify:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - List Graph subscriptions for the app.
         - Ensure resource filters match configured channels and notification URL matches host ingress.

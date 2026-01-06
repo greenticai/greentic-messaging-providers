@@ -6,7 +6,7 @@ start: collect
 
 nodes:
   collect:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Collect:
         - smtp_host, smtp_port
@@ -19,7 +19,7 @@ nodes:
       - to: validate
 
   validate:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Attempt TCP connect to smtp_host:smtp_port with STARTTLS or TLS per use_tls.
         - Authenticate with username/password.
@@ -28,7 +28,7 @@ nodes:
       - to: apply
 
   apply:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Store secrets SMTP_USERNAME/SMTP_PASSWORD (or provider-specific keys) via greentic-secrets.
         - Persist config: smtp_host, smtp_port, use_tls, from_address/display_name.
@@ -37,7 +37,7 @@ nodes:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "SMTP setup_default complete; rerun diagnostics to confirm deliverability."
     routing:
       - out: true

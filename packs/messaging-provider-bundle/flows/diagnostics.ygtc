@@ -6,7 +6,7 @@ start: checks
 
 nodes:
   checks:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         For each configured provider:
         - Slack: auth.test + optional test message.

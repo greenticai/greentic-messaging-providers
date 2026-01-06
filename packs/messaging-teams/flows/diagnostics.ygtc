@@ -6,7 +6,7 @@ start: token_check
 
 nodes:
   token_check:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Ensure credentials present.
         - Acquire access token from Azure AD.
@@ -15,21 +15,21 @@ nodes:
       - to: channel_check
 
   channel_check:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - For default channel (or payload.target), attempt dry-run post or channel info lookup.
     routing:
       - to: subscription_check
 
   subscription_check:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - If subscriptions configured, list existing subscriptions and ensure they target the desired webhook URL; renew if expiring soon.
     routing:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "Diagnostics complete; token valid, channel reachable, subscriptions reconciled."
     routing:
       - out: true

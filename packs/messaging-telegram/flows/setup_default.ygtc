@@ -6,7 +6,7 @@ start: collect
 
 nodes:
   collect:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Interactive prompts:
         - bot_token (required)
@@ -24,7 +24,7 @@ nodes:
       - to: validate
 
   validate:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Call getMe with bot_token to confirm identity.
         - Call getWebhookInfo to understand current webhook status.
@@ -33,7 +33,7 @@ nodes:
       - to: apply
 
   apply:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Store bot_token via greentic-secrets.
         - Persist config: default_chat_id, allowed_chat_ids, mode (webhook|polling, default webhook if host provides URL).
@@ -42,7 +42,7 @@ nodes:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "Telegram setup_default complete. Run diagnostics to verify webhook/polling health."
     routing:
       - out: true

@@ -1,5 +1,5 @@
 pack_id: messaging-provider-bundle
-version: 0.4.9
+version: 0.4.10
 kind: application
 publisher: Greentic
 
@@ -15,7 +15,7 @@ x-provider-runtime-config:
 components:
   - id: "slack"
     kind: messaging
-    version: 0.4.9
+    version: 0.4.10
     world: "provider:slack/slack"
     supports: ["messaging"]
     profiles:
@@ -28,7 +28,7 @@ components:
 
   - id: "teams"
     kind: messaging
-    version: 0.4.9
+    version: 0.4.10
     world: "provider:teams/teams"
     supports: ["messaging"]
     profiles:
@@ -41,7 +41,7 @@ components:
 
   - id: "telegram"
     kind: messaging
-    version: 0.4.9
+    version: 0.4.10
     world: "provider:telegram/telegram"
     supports: ["messaging"]
     profiles:
@@ -54,7 +54,7 @@ components:
 
   - id: "webchat"
     kind: messaging
-    version: 0.4.9
+    version: 0.4.10
     world: "provider:webchat/webchat"
     supports: ["messaging"]
     profiles:
@@ -67,7 +67,7 @@ components:
 
   - id: "webex"
     kind: messaging
-    version: 0.4.9
+    version: 0.4.10
     world: "provider:webex/webex"
     supports: ["messaging"]
     profiles:
@@ -80,7 +80,7 @@ components:
 
   - id: "whatsapp"
     kind: messaging
-    version: 0.4.9
+    version: 0.4.10
     world: "provider:whatsapp/whatsapp"
     supports: ["messaging"]
     profiles:
@@ -91,10 +91,29 @@ components:
       host: {}
     wasm: "components/whatsapp.wasm"
 
+  - id: "templates"
+    kind: utility
+    version: 0.4.10
+    world: "greentic:component/component@0.5.0"
+    supports: ["messaging"]
+    profiles:
+      default: "stateless"
+      supported: ["stateless"]
+    capabilities:
+      wasi: {}
+      host: {}
+    wasm: "components/templates.wasm"
+    manifest: "components/templates.manifest.json"
+    oci:
+      image: "ghcr.io/greentic-ai/components/templates"
+      digest: "sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+      artifact: "component_templates.wasm"
+      manifest: "component.publish.manifest.json"
+
 extensions:
   greentic.provider-extension.v1:
     kind: greentic.provider-extension.v1
-    version: 0.4.9
+    version: 0.4.10
     inline:
       providers:
         - kind: messaging
@@ -165,7 +184,7 @@ extensions:
           docs_ref: ""
   messaging.provider_flow_hints:
     kind: messaging.provider_flow_hints
-    version: 0.4.9
+    version: 0.4.10
     inline:
       messaging.slack.api:
         setup_default: setup_default
@@ -201,31 +220,31 @@ extensions:
 flows:
   - id: main
     kind: job
-    version: 0.4.9
+    version: 0.4.10
     file: flows/main.ygtc
     tags: [default]
     entrypoints: [default]
   - id: setup_default
     kind: job
-    version: 0.4.9
+    version: 0.4.10
     file: flows/setup_default.ygtc
     tags: [setup]
     entrypoints: [setup]
   - id: setup_custom
     kind: job
-    version: 0.4.9
+    version: 0.4.10
     file: flows/setup_custom.ygtc
     tags: [setup]
     entrypoints: [setup]
   - id: diagnostics
     kind: job
-    version: 0.4.9
+    version: 0.4.10
     file: flows/diagnostics.ygtc
     tags: [diagnostics]
     entrypoints: [diagnostics]
   - id: verify_webhooks
     kind: job
-    version: 0.4.9
+    version: 0.4.10
     file: flows/verify_webhooks.ygtc
     tags: [maintenance]
     entrypoints: [diagnostics]

@@ -1,0 +1,146 @@
+name: E2E Live Providers
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *" # nightly
+
+permissions:
+  contents: read
+
+env:
+  GREENTIC_ENV: dev
+  GREENTIC_TENANT: ci
+  GREENTIC_TEAM: ci
+  SECRETS_ROOT: ${{ runner.temp }}/greentic-secrets
+  GREENTIC_SECRETS_DIR: ${{ runner.temp }}/greentic-secrets
+  PACK_GLOB: 'messaging-*.gtpack'
+  PACKS_DIR: dist/packs
+
+jobs:
+  e2e-live:
+    runs-on: ubuntu-latest
+    environment: e2e-live
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: e2e-live
+
+      - name: Install cargo-binstall
+        run: cargo install cargo-binstall --locked
+
+      - name: Install cargo-component
+        run: cargo binstall cargo-component --no-confirm --locked
+
+      - name: Install packc (greentic-pack)
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+        run: cargo binstall packc --version 0.4.31 --no-confirm --locked
+
+      - name: Install greentic CLIs
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+        run: |
+          cargo binstall greentic-messaging-test --no-confirm --locked
+          cargo binstall greentic-secrets --no-confirm --locked
+
+      - name: Guard: deny prod environment
+        run: |
+          if [ "${GREENTIC_ENV}" = "prod" ] || [ "${GREENTIC_ENV}" = "production" ]; then
+            echo "Refusing to run live tests against prod environment"
+            exit 1
+          fi
+
+      - name: Guard: required environment secrets
+        run: |
+          set -euo pipefail
+          packs=(messaging-slack messaging-telegram messaging-email messaging-teams messaging-webchat messaging-webex messaging-whatsapp messaging-provider-bundle)
+          for pack in "${packs[@]}"; do
+            case "${pack}" in
+              messaging-slack)
+                vars=(E2E_SLACK_BOT_TOKEN E2E_SLACK_CHANNEL)
+                ;;
+              messaging-telegram)
+                vars=(E2E_TELEGRAM_BOT_TOKEN E2E_TELEGRAM_CHAT_ID)
+                ;;
+              messaging-email)
+                vars=(E2E_SMTP_HOST E2E_SMTP_PORT E2E_SMTP_USERNAME E2E_SMTP_PASSWORD E2E_SMTP_FROM E2E_SMTP_TO)
+                ;;
+              messaging-teams)
+                vars=(E2E_MS_TENANT_ID E2E_MS_CLIENT_ID E2E_MS_CLIENT_SECRET E2E_TEAMS_CHANNEL_ID)
+                ;;
+              messaging-webchat)
+                vars=(E2E_WEBCHAT_SIGNING_SECRET)
+                ;;
+              messaging-webex)
+                vars=(E2E_WEBEX_BOT_TOKEN E2E_WEBEX_ROOM_ID)
+                ;;
+              messaging-whatsapp)
+                vars=(E2E_WHATSAPP_TOKEN E2E_WHATSAPP_PHONE_NUMBER_ID E2E_WHATSAPP_BUSINESS_ACCOUNT_ID E2E_WHATSAPP_RECIPIENT)
+                ;;
+              messaging-provider-bundle)
+                vars=(E2E_SLACK_BOT_TOKEN E2E_SLACK_CHANNEL E2E_MS_TENANT_ID E2E_MS_CLIENT_ID E2E_MS_CLIENT_SECRET E2E_TEAMS_CHANNEL_ID E2E_TELEGRAM_BOT_TOKEN E2E_TELEGRAM_CHAT_ID E2E_WEBEX_BOT_TOKEN E2E_WEBEX_ROOM_ID E2E_WEBCHAT_SIGNING_SECRET E2E_WHATSAPP_TOKEN E2E_WHATSAPP_PHONE_NUMBER_ID E2E_WHATSAPP_BUSINESS_ACCOUNT_ID E2E_WHATSAPP_RECIPIENT E2E_SMTP_HOST E2E_SMTP_PORT E2E_SMTP_USERNAME E2E_SMTP_PASSWORD E2E_SMTP_FROM E2E_SMTP_TO)
+                ;;
+              *)
+                vars=()
+                ;;
+            esac
+            for v in "${vars[@]}"; do
+              if [ -z "${!v:-}" ]; then
+                echo "Missing required env var ${v} for ${pack}"
+                exit 1
+              fi
+            done
+          done
+
+      - name: Build components
+        run: ./tools/build_components.sh
+
+      - name: Sync packs
+        run: ./tools/sync_packs.sh
+
+      - name: Build packs (dry run)
+        env:
+          DRY_RUN: "1"
+        run: ./tools/publish_packs_oci.sh
+
+      - name: Init secrets from env
+        run: |
+          set -euo pipefail
+          export SECRETS_ROOT="${SECRETS_ROOT}"
+          export GREENTIC_SECRETS_DIR="${GREENTIC_SECRETS_DIR}"
+          packs=(slack telegram email teams webchat webex whatsapp provider-bundle dummy)
+          for name in "${packs[@]}"; do
+            secrets_pack="ci/secrets/${name}.secrets-pack.yaml"
+            if [ ! -f "${secrets_pack}" ]; then
+              echo "Missing secrets pack ${secrets_pack}"
+              exit 1
+            fi
+            greentic-secrets init --pack "${secrets_pack}" --env "${GREENTIC_ENV}" --tenant "${GREENTIC_TENANT}" --team "${GREENTIC_TEAM}" --non-interactive
+          done
+
+      - name: Run greentic-messaging-test (live)
+        run: |
+          set -euo pipefail
+          export SECRETS_ROOT="${SECRETS_ROOT}"
+          export GREENTIC_SECRETS_DIR="${GREENTIC_SECRETS_DIR}"
+          greentic-messaging-test packs all \
+            --packs "${PACKS_DIR}" \
+            --glob "${PACK_GLOB}" \
+            --env "${GREENTIC_ENV}" \
+            --tenant "${GREENTIC_TENANT}" \
+            --team "${GREENTIC_TEAM}" \
+            --flow smoke
+
+      - name: Cleanup secrets
+        if: always()
+        run: rm -rf "${SECRETS_ROOT}" "${GREENTIC_SECRETS_DIR}"

@@ -6,7 +6,7 @@ start: collect_inputs
 
 nodes:
   collect_inputs:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Interactive prompts should collect:
         - bot_token (required) and signing_secret (optional)
@@ -29,7 +29,7 @@ nodes:
       - to: validate
 
   validate:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Run auth.test to confirm token and workspace.
         - Verify conversations.join/postability for default_channel if provided.
@@ -39,7 +39,7 @@ nodes:
       - to: apply
 
   apply:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Write secrets (SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SOCKET_APP_TOKEN if applicable) via greentic-secrets.
         - Persist config: inbound_mode, events list, default_channel, team_id, formatting prefs, webhook URL if used.
@@ -48,7 +48,7 @@ nodes:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Slack setup_custom applied with inbound mode {{payload.inbound_mode}}. Rerun anytime to update subscriptions or defaults.
     routing:

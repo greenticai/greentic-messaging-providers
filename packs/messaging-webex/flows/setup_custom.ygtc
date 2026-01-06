@@ -6,7 +6,7 @@ start: collect
 
 nodes:
   collect:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Collect:
         - bot_access_token
@@ -18,7 +18,7 @@ nodes:
       - to: validate
 
   validate:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Validate token via /people/me.
         - For each room, verify membership/post rights.
@@ -27,7 +27,7 @@ nodes:
       - to: apply
 
   apply:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Save token and webhook secret.
         - Persist room list, webhook ids, last reconciliation timestamp for idempotent reruns.
@@ -36,7 +36,7 @@ nodes:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "Webex setup_custom applied with webhook target {{payload.webhook_url}}."
     routing:
       - out: true

@@ -56,10 +56,20 @@ def dedupe_requirements(requirements: Iterable[dict]) -> List[dict]:
 
 def aggregate_requirements(pack_dir: Path, components_dir: Path) -> List[dict]:
     manifest = load_json(pack_dir / "pack.manifest.json")
-    components = manifest.get("components") or []
+    components = (
+        manifest.get("component_sources")
+        or manifest.get("components")
+        or []
+    )
     reqs: List[dict] = []
     for component in components:
-        comp_id = component.get("id") if isinstance(component, dict) else component
+        if isinstance(component, dict):
+            comp_id = component.get("id")
+            # Skip remote/OCI components when we don't have a local manifest copy.
+            if not comp_id or component.get("oci"):
+                continue
+        else:
+            comp_id = component
         comp_manifest = components_dir / comp_id / "component.manifest.json"
         if not comp_manifest.exists():
             sys.stderr.write(f"warning: component manifest not found for {comp_id} at {comp_manifest}\n")
@@ -181,16 +191,24 @@ def main() -> int:
         if pack_yaml.get("extensions"):
             manifest["extensions"] = pack_yaml.get("extensions", {})
 
-        components = []
+        component_ids = []
+        component_sources = []
         for comp in pack_yaml.get("components", []) or []:
             if not isinstance(comp, dict):
                 continue
             comp_id = comp.get("id")
             if not comp_id:
                 continue
-            components.append(comp_id)
-        if components:
-            manifest["components"] = components
+            comp_copy = dict(comp)
+            comp_copy.setdefault("wasm", f"components/{comp_id}.wasm")
+            component_sources.append(comp_copy)
+            # Only include components without an OCI reference in the manifest's
+            # top-level components list (legacy consumers expect local manifests).
+            if not comp_copy.get("oci"):
+                component_ids.append(comp_id)
+        if component_ids:
+            manifest["components"] = component_ids
+            manifest["component_sources"] = component_sources
 
         schemas = pack_yaml.get("schemas") or []
         if isinstance(schemas, list):

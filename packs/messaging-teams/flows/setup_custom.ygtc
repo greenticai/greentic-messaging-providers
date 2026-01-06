@@ -6,7 +6,7 @@ start: collect
 
 nodes:
   collect:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Collect:
         - tenant_id, client_id, client_secret/cert
@@ -18,7 +18,7 @@ nodes:
       - to: validate
 
   validate:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Acquire token and validate Graph scopes.
         - For each channel, confirm postMessage permission.
@@ -27,7 +27,7 @@ nodes:
       - to: apply
 
   apply:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Save credentials and channel list.
         - Persist subscriptions metadata (resource, expiration, webhook URL) for idempotent reconciliation.
@@ -36,7 +36,7 @@ nodes:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "Teams setup_custom applied with {{payload.subscription_types}} subscriptions."
     routing:
       - out: true

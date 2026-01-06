@@ -6,7 +6,7 @@ start: describe
 
 nodes:
   describe:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Steps:
         - Fetch current event subscriptions from Slack API.
