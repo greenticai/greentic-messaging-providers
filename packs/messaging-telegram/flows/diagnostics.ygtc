@@ -6,7 +6,7 @@ start: preflight
 
 nodes:
   preflight:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Checks:
         - TELEGRAM_BOT_TOKEN exists.
@@ -16,7 +16,7 @@ nodes:
       - to: verify_token
 
   verify_token:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - getMe to confirm bot identity and status.
         - If webhook mode, getWebhookInfo and compare URL with configured; trigger a self-ping if possible.
@@ -25,14 +25,14 @@ nodes:
       - to: optional_send
 
   optional_send:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         If payload.send_test_message true, sendMessage to target chat with diagnostics marker; otherwise skip.
     routing:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "Diagnostics complete; token valid and mode {{config.mode}} healthy."
     routing:
       - out: true

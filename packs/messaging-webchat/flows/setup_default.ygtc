@@ -6,7 +6,7 @@ start: collect
 
 nodes:
   collect:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Collect:
         - signing_secret (required)
@@ -16,7 +16,7 @@ nodes:
       - to: validate
 
   validate:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Perform local HMAC/signing with signing_secret to ensure format.
         - If channel_token provided, verify shape/expiration.
@@ -24,7 +24,7 @@ nodes:
       - to: apply
 
   apply:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Store signing_secret via greentic-secrets.
         - Persist config: default_audience, channel options.
@@ -33,7 +33,7 @@ nodes:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "Webchat setup_default complete."
     routing:
       - out: true

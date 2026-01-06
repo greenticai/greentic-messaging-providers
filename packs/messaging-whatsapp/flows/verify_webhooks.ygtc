@@ -6,7 +6,7 @@ start: steps
 
 nodes:
   steps:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Ensure webhook URL registered in Meta app dashboard for phone_number_id.
         - Perform verification by responding with hub.challenge using verify_token.

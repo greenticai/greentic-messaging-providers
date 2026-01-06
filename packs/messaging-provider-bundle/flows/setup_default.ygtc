@@ -6,7 +6,7 @@ start: overview
 
 nodes:
   overview:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Payload structure (per provider):
         - slack: bot_token, signing_secret, default_channel
@@ -21,7 +21,7 @@ nodes:
       - to: validate
 
   validate:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         For each provider with inputs:
         - Call provider identity endpoint (auth.test, Graph token, getMe, people/me, Graph phone) to validate credentials.
@@ -30,7 +30,7 @@ nodes:
       - to: apply
 
   apply:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Write secrets per provider using greentic-secrets.
         - Persist config defaults (channels/rooms/chats).
@@ -39,7 +39,7 @@ nodes:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "Bundle setup_default complete for provided providers. Run diagnostics to verify each channel."
     routing:
       - out: true

@@ -6,7 +6,7 @@ start: summary
 
 nodes:
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "Dummy diagnostics completed; no external checks required."
     routing:
       - out: true

@@ -6,7 +6,7 @@ start: summarize
 
 nodes:
   summarize:
-    templating.handlebars:
+    templates.handlebars:
       text: "Nothing to configure; records last_applied for idempotency."
     routing:
       - out: true

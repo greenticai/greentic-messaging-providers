@@ -24,9 +24,7 @@ git_sha="$(cd "${ROOT_DIR}" && git rev-parse --short HEAD 2>/dev/null || echo "u
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required"; exit 1; }
 command -v zip >/dev/null 2>&1 || { echo "zip is required"; exit 1; }
-if [ "${DRY_RUN}" -eq 0 ]; then
-  command -v oras >/dev/null 2>&1 || { echo "oras is required"; exit 1; }
-fi
+command -v oras >/dev/null 2>&1 || { echo "oras is required"; exit 1; }
 command -v python3 >/dev/null 2>&1 || { echo "python3 is required"; exit 1; }
 if ! command -v "${PACKC_BIN}" >/dev/null 2>&1; then
   echo "packc (from greentic-pack) is required for building gtpack artifacts" >&2
@@ -97,40 +95,44 @@ path.write_text("\n".join(out) + "\n")
 PY
 }
 
-ensure_components_artifacts() {
-  local -a wasm_files=("$@")
-  local missing=0
-  for wasm in "${wasm_files[@]}"; do
-    local fname
-    fname="$(basename "${wasm}")"
-    if [ ! -f "${ROOT_DIR}/target/components/${fname}" ]; then
-      missing=1
-      break
-    fi
-  done
-  if [ "${missing}" -eq 1 ]; then
-    echo "Building components because wasm artifacts are missing..."
-    "${ROOT_DIR}/tools/build_components.sh"
+fetch_oci_component() {
+  local image="$1"
+  local digest="$2"
+  local artifact="$3"
+  local dest_wasm="$4"
+  local manifest_name="$5"
+  local dest_manifest="$6"
+
+  local ref="${image}"
+  if [ -n "${digest}" ]; then
+    ref="${image}@${digest}"
   fi
+
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+  echo "Fetching OCI component ${ref}..."
+  oras pull --output "${tmpdir}" "${ref}"
+  local src_path="${tmpdir}/${artifact}"
+  if [ ! -f "${src_path}" ]; then
+    echo "OCI component artifact ${artifact} not found in ${tmpdir}" >&2
+    rm -rf "${tmpdir}"
+    exit 1
+  fi
+  mkdir -p "$(dirname "${dest_wasm}")"
+  cp "${src_path}" "${dest_wasm}"
+  if [ -n "${manifest_name:-}" ] && [ -n "${dest_manifest:-}" ]; then
+    local manifest_src="${tmpdir}/${manifest_name}"
+    if [ -f "${manifest_src}" ]; then
+      mkdir -p "$(dirname "${dest_manifest}")"
+      cp "${manifest_src}" "${dest_manifest}"
+    fi
+  fi
+  rm -rf "${tmpdir}"
 }
 
-stage_components_into_pack() {
-  local pack_dir="$1"
-  shift
-  local -a wasm_files=("$@")
-  mkdir -p "${pack_dir}/components"
-  for wasm in "${wasm_files[@]}"; do
-    local fname
-    fname="$(basename "${wasm}")"
-    local src="${ROOT_DIR}/target/components/${fname}"
-    local dest="${pack_dir}/${wasm}"
-    if [ ! -f "${src}" ]; then
-      echo "Missing component artifact: ${src}" >&2
-      exit 1
-    fi
-    mkdir -p "$(dirname "${dest}")"
-    cp "${src}" "${dest}"
-  done
+read_components() {
+  local manifest="$1"
+  jq -c '(.component_sources // .components // [])[] | if type=="string" then {id: ., wasm: ("components/" + . + ".wasm"), manifest: "", oci: {}} else {id: .id, wasm: (.wasm // ("components/" + .id + ".wasm")), manifest: (.manifest // ""), oci: (.oci // {})} end' "${manifest}"
 }
 
 for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
@@ -143,9 +145,62 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   generate_pack_manifest "${dir}" "${secrets_out}"
   update_pack_yaml_version "${dir}"
 
-  IFS=$'\n' read -r -d '' -a wasm_paths < <(jq -r '.components[] | if type=="object" then (.wasm // ("components/"+((.id // "")+".wasm"))) else ("components/"+(. + ".wasm")) end' "${dir}/pack.manifest.json" && printf '\0')
-  ensure_components_artifacts "${wasm_paths[@]}"
-  stage_components_into_pack "${dir}" "${wasm_paths[@]}"
+  components=()
+  while IFS= read -r comp_line; do
+    [ -z "${comp_line}" ] && continue
+    components+=("${comp_line}")
+  done < <(read_components "${dir}/pack.manifest.json")
+
+  missing_local=0
+  for comp_json in "${components[@]}"; do
+    oci_image="$(jq -r '.oci.image // empty' <<<"${comp_json}")"
+    wasm_path="$(jq -r '.wasm' <<<"${comp_json}")"
+    fname="$(basename "${wasm_path}")"
+    if [ -z "${oci_image}" ] && [ ! -f "${ROOT_DIR}/target/components/${fname}" ]; then
+      missing_local=1
+      break
+    fi
+  done
+  if [ "${missing_local}" -eq 1 ]; then
+    echo "Building components because wasm artifacts are missing..."
+    "${ROOT_DIR}/tools/build_components.sh"
+  fi
+
+  mkdir -p "${dir}/components"
+  for comp_json in "${components[@]}"; do
+    comp_id="$(jq -r '.id' <<<"${comp_json}")"
+    wasm_path="$(jq -r '.wasm' <<<"${comp_json}")"
+    fname="$(basename "${wasm_path}")"
+    oci_image="$(jq -r '.oci.image // empty' <<<"${comp_json}")"
+    oci_digest="$(jq -r '.oci.digest // empty' <<<"${comp_json}")"
+    oci_artifact="$(jq -r '.oci.artifact // empty' <<<"${comp_json}")"
+    manifest_rel="$(jq -r '.manifest // empty' <<<"${comp_json}")"
+    oci_manifest="$(jq -r '.oci.manifest // empty' <<<"${comp_json}")"
+
+    manifest_src=""
+    manifest_dest=""
+    if [ -n "${manifest_rel}" ]; then
+      manifest_src="${ROOT_DIR}/target/components/$(basename "${manifest_rel}")"
+      manifest_dest="${dir}/${manifest_rel}"
+    fi
+
+    src="${ROOT_DIR}/target/components/${fname}"
+    dest="${dir}/${wasm_path}"
+    if [ ! -f "${src}" ] || { [ -n "${manifest_rel}" ] && [ ! -f "${manifest_src}" ]; }; then
+      if [ -n "${oci_image}" ] && [ -n "${oci_artifact}" ]; then
+        fetch_oci_component "${oci_image}" "${oci_digest}" "${oci_artifact}" "${src}" "${oci_manifest}" "${manifest_src}"
+      else
+        echo "Missing component artifact: ${src} (component ${comp_id})" >&2
+        exit 1
+      fi
+    fi
+    mkdir -p "$(dirname "${dest}")"
+    cp "${src}" "${dest}"
+    if [ -n "${manifest_rel}" ] && [ -f "${manifest_src}" ]; then
+      mkdir -p "$(dirname "${manifest_dest}")"
+      cp "${manifest_src}" "${manifest_dest}"
+    fi
+  done
 
   if [ ! -f "${dir}/pack.yaml" ]; then
     echo "Missing pack.yaml in ${dir}; packc requires pack.yaml inputs" >&2

@@ -6,7 +6,7 @@ start: token_check
 
 nodes:
   token_check:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Ensure access token exists.
         - Call /people/me to confirm validity.
@@ -14,21 +14,21 @@ nodes:
       - to: room_check
 
   room_check:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - If default or configured rooms exist, ensure membership and postability (dry-run or actual message if requested).
     routing:
       - to: webhook_check
 
   webhook_check:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - If webhook configured, list webhooks and ensure target URL matches; renew if needed.
     routing:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "Diagnostics complete; token valid, rooms reachable, webhook {{#if payload.verify_webhook}}checked{{else}}not requested{{/if}}."
     routing:
       - out: true

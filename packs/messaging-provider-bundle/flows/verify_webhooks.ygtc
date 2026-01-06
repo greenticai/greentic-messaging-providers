@@ -6,7 +6,7 @@ start: steps
 
 nodes:
   steps:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Slack: confirm events API/socket subscriptions and signing secret validation.
         - Teams: list/renew Graph subscriptions for channels.

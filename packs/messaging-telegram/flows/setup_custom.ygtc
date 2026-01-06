@@ -6,7 +6,7 @@ start: collect
 
 nodes:
   collect:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         Collect:
         - bot_token (required)
@@ -19,7 +19,7 @@ nodes:
       - to: validate
 
   validate:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - getMe to confirm token.
         - If webhook mode, setWebhook to provided URL with a secret token if supplied.
@@ -29,7 +29,7 @@ nodes:
       - to: apply
 
   apply:
-    templating.handlebars:
+    templates.handlebars:
       text: |
         - Write secrets: TELEGRAM_BOT_TOKEN.
         - Persist config: mode, webhook_url/polling_interval_ms, chats, commands.
@@ -38,7 +38,7 @@ nodes:
       - to: summary
 
   summary:
-    templating.handlebars:
+    templates.handlebars:
       text: "Telegram setup_custom applied. Commands/webhook state updated."
     routing:
       - out: true

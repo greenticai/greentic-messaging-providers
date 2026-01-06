@@ -6,7 +6,7 @@ start: start
 
 nodes:
   start:
-    templating.handlebars:
+    templates.handlebars:
       text: "Greentic messaging providers pack is installed."
     routing:
       - out: true
