@@ -1,0 +1,116 @@
+name: Build, Test, and Publish Packs
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  PACK_VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('0.0.0-{0}', github.sha) }}
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: build-test-publish
+
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
+
+      - name: Install cargo-binstall
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
+
+      - name: Install cargo-component
+        run: |
+          if ! command -v cargo-component >/dev/null 2>&1; then
+            cargo binstall cargo-component --no-confirm --locked || cargo install cargo-component --locked
+          fi
+
+      - name: Install greentic-pack
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+        run: |
+          if ! command -v greentic-pack >/dev/null 2>&1; then
+            cargo binstall greentic-pack --no-confirm --locked || cargo install greentic-pack --locked
+          fi
+          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+          greentic-pack --version
+
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+
+      - name: Build components
+        run: ./tools/build_components.sh
+
+      - name: Cargo fmt
+        run: cargo fmt --check
+
+      - name: Cargo test
+        run: cargo test --workspace
+
+      - name: Sync packs
+        run: ./tools/sync_packs.sh
+
+      - name: Pack dry-run (no push)
+        env:
+          DRY_RUN: "1"
+          PACK_VERSION: "0.0.0-dev"
+        run: ./tools/publish_packs_oci.sh
+
+      - name: Upload component artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: components-wasm
+          path: target/components/*.wasm
+          if-no-files-found: error
+
+      - name: Upload packs lockfile (dry-run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: packs-lockfile-dryrun
+          path: packs.lock.json
+          if-no-files-found: error
+
+      - name: Login to GHCR
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Publish packs
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
+        env:
+          PACK_VERSION: ${{ env.PACK_VERSION }}
+        run: ./tools/publish_packs_oci.sh
+
+      - name: Upload built packs
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
+        uses: actions/upload-artifact@v4
+        with:
+          name: gtpack-artifacts
+          path: dist/packs/*.gtpack
+          if-no-files-found: error
