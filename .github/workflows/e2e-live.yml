@@ -42,10 +42,12 @@ jobs:
       - name: Install greentic-pack
         env:
           CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-        run: cargo binstall greentic-pack --version 0.4.42 --no-confirm --locked
-
-      - name: Verify greentic-pack on PATH
         run: |
+          set -euo pipefail
+          if ! cargo binstall greentic-pack --no-confirm --locked; then
+            echo "binstall failed; falling back to cargo install" >&2
+            cargo install greentic-pack --locked
+          fi
           echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
           greentic-pack --version
 
