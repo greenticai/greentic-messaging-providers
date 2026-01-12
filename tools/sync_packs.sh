@@ -24,6 +24,12 @@ command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 command -v python3 >/dev/null 2>&1 || { echo "python3 is required" >&2; exit 1; }
 command -v oras >/dev/null 2>&1 || { echo "oras is required for fetching OCI components" >&2; exit 1; }
 
+# Default OCI location for the shared templates component used by many packs.
+DEFAULT_TEMPLATES_IMAGE="ghcr.io/greentic-ai/components/templates"
+DEFAULT_TEMPLATES_DIGEST="sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+DEFAULT_TEMPLATES_ARTIFACT="component_templates.wasm"
+DEFAULT_TEMPLATES_MANIFEST="component.publish.manifest.json"
+
 if [ ! -d "${TARGET_COMPONENTS}" ]; then
   echo "Building components..."
   "${ROOT_DIR}/tools/build_components.sh"
@@ -132,6 +138,13 @@ for dir in "${PACKS_DIR}"/*; do
     if [ -n "${manifest_rel}" ]; then
       manifest_dest="${dir}/${manifest_rel}"
       manifest_src="${TARGET_COMPONENTS}/$(basename "${manifest_rel}")"
+    fi
+    # Fill in default OCI metadata for template components when missing.
+    if [ -z "${oci_image}" ] && { [ "${comp}" = "templates" ] || [ "${comp}" = "ai.greentic.component-templates" ]; }; then
+      oci_image="${DEFAULT_TEMPLATES_IMAGE}"
+      oci_digest="${DEFAULT_TEMPLATES_DIGEST}"
+      oci_artifact="${DEFAULT_TEMPLATES_ARTIFACT}"
+      oci_manifest="${DEFAULT_TEMPLATES_MANIFEST}"
     fi
     mkdir -p "$(dirname "${dest}")"
     if [ ! -f "${src}" ] || { [ -n "${manifest_rel}" ] && [ ! -f "${manifest_src}" ]; }; then
