@@ -26,18 +26,18 @@ jobs:
       - name: Install cargo-component
         run: cargo binstall cargo-component --no-confirm --locked
 
-      - name: Install packc (optional)
+      - name: Install greentic-pack
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
         run: |
-          set -euo pipefail
-          if command -v packc >/dev/null 2>&1; then
-            echo "packc already available"
-            exit 0
-          fi
-          if cargo binstall packc --version 0.4.29 --no-confirm --locked; then
-            echo "packc installed via cargo-binstall"
-          else
-            echo "packc install failed; dry-run will fall back to zip" >&2
-          fi
+          cargo binstall greentic-pack --version 0.4.42 --no-confirm --locked
+          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+          greentic-pack --version
+
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
 
       - name: Build components
         run: ./tools/build_components.sh

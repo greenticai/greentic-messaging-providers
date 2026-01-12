@@ -39,10 +39,24 @@ jobs:
       - name: Install cargo-component
         run: cargo binstall cargo-component --no-confirm --locked
 
-      - name: Install packc (greentic-pack)
+      - name: Install greentic-pack
         env:
           CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-        run: cargo binstall packc --version 0.4.31 --no-confirm --locked
+        run: cargo binstall greentic-pack --version 0.4.42 --no-confirm --locked
+
+      - name: Verify greentic-pack on PATH
+        run: |
+          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+          greentic-pack --version
+
+      - name: Install oras
+        run: |
+          set -euo pipefail
+          ORAS_VERSION=1.2.0
+          curl -sL "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz oras
+          sudo install oras /usr/local/bin/oras
+          oras version
 
       - name: Install greentic CLIs
         env:
