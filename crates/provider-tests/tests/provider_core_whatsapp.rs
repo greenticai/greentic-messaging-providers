@@ -227,6 +227,18 @@ fn pack_has_extension_and_schema() -> Result<()> {
             .exists(),
         "workspace schema should exist"
     );
+
+    let ingress_ext = manifest
+        .get("extensions")
+        .and_then(|ext| ext.get("messaging.provider_ingress.v1"))
+        .expect("pack should include ingress extension");
+    assert_eq!(
+        ingress_ext
+            .get("inline")
+            .and_then(|inline| inline.get("component_ref"))
+            .and_then(|v| v.as_str()),
+        Some("messaging-ingress-whatsapp")
+    );
     Ok(())
 }
 

@@ -17,3 +17,5 @@ anyhow = { workspace = true }
 insta = { workspace = true }
 wasmtime = { version = "40", features = ["component-model", "cache"] }
 wasmtime-wasi = "40"
+hmac = { workspace = true }
+sha2 = { workspace = true }

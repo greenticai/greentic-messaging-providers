@@ -13,6 +13,7 @@
   "components": [
     "ai.greentic.component-templates",
     "messaging-provider-whatsapp",
+    "messaging-ingress-whatsapp",
     "templates"
   ],
   "extensions": {
@@ -53,6 +54,21 @@
           "verify_webhooks": "verify_webhooks"
         }
       }
+    },
+    "messaging.provider_ingress.v1": {
+      "kind": "messaging.provider_ingress.v1",
+      "version": "0.4.11",
+      "inline": {
+        "component_ref": "messaging-ingress-whatsapp",
+        "export": "handle-webhook",
+        "world": "greentic:messaging-ingress-whatsapp/messaging-ingress-whatsapp@0.0.1",
+        "capabilities": {
+          "supports_webhook_validation": true,
+          "content_types": [
+            "application/json"
+          ]
+        }
+      }
     }
   },
   "secret_requirements": [
@@ -60,6 +76,11 @@
       "name": "WHATSAPP_TOKEN",
       "scope": "tenant",
       "description": "WhatsApp Cloud API access token."
+    },
+    {
+      "name": "WHATSAPP_VERIFY_TOKEN",
+      "scope": "tenant",
+      "description": "Verify token used for WhatsApp webhook validation (if configured)."
     }
   ],
   "flows": [
@@ -148,6 +169,28 @@
         "host": {}
       },
       "wasm": "components/messaging-provider-whatsapp.wasm"
+    },
+    {
+      "id": "messaging-ingress-whatsapp",
+      "version": "0.4.11",
+      "world": "greentic:messaging-ingress-whatsapp/messaging-ingress-whatsapp@0.0.1",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/messaging-ingress-whatsapp.wasm"
     },
     {
       "id": "templates",

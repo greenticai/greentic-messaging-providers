@@ -11,10 +11,12 @@ Provider-core WhatsApp Cloud messaging pack.
 ## Components
 - `ai.greentic.component-templates`
 - `messaging-provider-whatsapp`
+- `messaging-ingress-whatsapp`
 - `templates`
 
 ## Secrets
 - `WHATSAPP_TOKEN` (tenant): WhatsApp Cloud API access token.
+- `WHATSAPP_VERIFY_TOKEN` (tenant): Verify token used for WhatsApp webhook validation (if configured).
 
 ## Flows
 - `diagnostics`

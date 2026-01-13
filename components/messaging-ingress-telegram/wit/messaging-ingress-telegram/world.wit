@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: MIT
+
+package greentic:messaging-ingress-telegram@0.0.1;
+
+use greentic:http/http-client@1.0.0;
+use greentic:secrets-store/secrets-store@1.0.0;
+use greentic:state/state-store@1.0.0;
+use greentic:telemetry/logger-api@1.0.0;
+use provider:common/ingress@0.0.2;
+
+world messaging-ingress-telegram {
+    import http-client;
+    import secrets-store;
+    import state-store;
+    import logger-api;
+
+    export ingress;
+}

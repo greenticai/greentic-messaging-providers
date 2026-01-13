@@ -1,0 +1,11 @@
+{
+  "name": "messaging-ingress-whatsapp",
+  "description": "Ingress-only WhatsApp component for webhook validation and normalization.",
+  "secret_requirements": [
+    {
+      "name": "WHATSAPP_VERIFY_TOKEN",
+      "scope": "tenant",
+      "description": "Verify token used for WhatsApp webhook validation (if configured)."
+    }
+  ]
+}

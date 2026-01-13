@@ -11,6 +11,7 @@ Provider-core Telegram messaging provider pack.
 ## Components
 - `ai.greentic.component-templates`
 - `messaging-provider-telegram`
+- `messaging-ingress-telegram`
 - `templates`
 
 ## Secrets
