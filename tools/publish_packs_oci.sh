@@ -7,6 +7,17 @@ set -euo pipefail
 OCI_REGISTRY="${OCI_REGISTRY:-ghcr.io}"
 OCI_ORG="${OCI_ORG:-${GITHUB_REPOSITORY_OWNER:-greentic}}"
 OCI_REPO="${OCI_REPO:-greentic-packs}"
+PACK_VERSION="${PACK_VERSION:-}"
+if [ -z "${PACK_VERSION}" ]; then
+  command -v python3 >/dev/null 2>&1 || { echo "python3 is required"; exit 1; }
+  PACK_VERSION="$(python3 - <<'PY'
+from pathlib import Path
+import tomllib
+data = tomllib.loads(Path("Cargo.toml").read_text())
+print(data.get("workspace", {}).get("package", {}).get("version", ""))
+PY
+)"
+fi
 PACK_VERSION="${PACK_VERSION:-${GITHUB_REF_NAME:-0.0.0}}"
 PACK_VERSION="${PACK_VERSION#v}"
 PACKS_DIR="${PACKS_DIR:-packs}"
@@ -21,6 +32,12 @@ mkdir -p "${ROOT_DIR}/${OUT_DIR}"
 
 timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 git_sha="$(cd "${ROOT_DIR}" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")"
+
+# Default OCI location for the shared templates component used by many packs.
+DEFAULT_TEMPLATES_IMAGE="ghcr.io/greentic-ai/components/templates"
+DEFAULT_TEMPLATES_DIGEST="sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+DEFAULT_TEMPLATES_ARTIFACT="component_templates.wasm"
+DEFAULT_TEMPLATES_MANIFEST="component.publish.manifest.json"
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required"; exit 1; }
 command -v zip >/dev/null 2>&1 || { echo "zip is required"; exit 1; }
@@ -154,6 +171,10 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   missing_local=0
   for comp_json in "${components[@]}"; do
     oci_image="$(jq -r '.oci.image // empty' <<<"${comp_json}")"
+    comp_id="$(jq -r '.id' <<<"${comp_json}")"
+    if [ -z "${oci_image}" ] && { [ "${comp_id}" = "templates" ] || [ "${comp_id}" = "ai.greentic.component-templates" ]; }; then
+      oci_image="${DEFAULT_TEMPLATES_IMAGE}"
+    fi
     wasm_path="$(jq -r '.wasm' <<<"${comp_json}")"
     fname="$(basename "${wasm_path}")"
     if [ -z "${oci_image}" ] && [ ! -f "${ROOT_DIR}/target/components/${fname}" ]; then
@@ -176,6 +197,13 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     oci_artifact="$(jq -r '.oci.artifact // empty' <<<"${comp_json}")"
     manifest_rel="$(jq -r '.manifest // empty' <<<"${comp_json}")"
     oci_manifest="$(jq -r '.oci.manifest // empty' <<<"${comp_json}")"
+
+    if [ -z "${oci_image}" ] && { [ "${comp_id}" = "templates" ] || [ "${comp_id}" = "ai.greentic.component-templates" ]; }; then
+      oci_image="${DEFAULT_TEMPLATES_IMAGE}"
+      oci_digest="${DEFAULT_TEMPLATES_DIGEST}"
+      oci_artifact="${DEFAULT_TEMPLATES_ARTIFACT}"
+      oci_manifest="${DEFAULT_TEMPLATES_MANIFEST}"
+    fi
 
     manifest_src=""
     manifest_dest=""
