@@ -1,0 +1,29 @@
+[package]
+name = "messaging-ingress-whatsapp"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+wit-bindgen.workspace = true
+
+[package.metadata.component]
+package = "greentic:messaging-ingress-whatsapp"
+
+[package.metadata.component.target]
+path = "wit/messaging-ingress-whatsapp"
+world = "messaging-ingress-whatsapp"
+
+[package.metadata.component.target.dependencies]
+"greentic:http" = { path = "wit/messaging-ingress-whatsapp/deps/http" }
+"greentic:secrets-store" = { path = "wit/messaging-ingress-whatsapp/deps/secrets-store" }
+"greentic:state" = { path = "wit/messaging-ingress-whatsapp/deps/state" }
+"greentic:telemetry" = { path = "wit/messaging-ingress-whatsapp/deps/telemetry" }
+"greentic:interfaces-types" = { path = "wit/messaging-ingress-whatsapp/deps/interfaces-types" }
+"provider:common" = { path = "wit/messaging-ingress-whatsapp/deps/provider-common" }

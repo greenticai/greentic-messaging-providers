@@ -13,6 +13,7 @@
   "components": [
     "ai.greentic.component-templates",
     "messaging-provider-telegram",
+    "messaging-ingress-telegram",
     "templates"
   ],
   "extensions": {
@@ -51,6 +52,21 @@
           "setup_custom": "setup_custom",
           "setup_default": "setup_default",
           "verify_webhooks": "verify_webhooks"
+        }
+      }
+    },
+    "messaging.provider_ingress.v1": {
+      "kind": "messaging.provider_ingress.v1",
+      "version": "0.4.11",
+      "inline": {
+        "component_ref": "messaging-ingress-telegram",
+        "export": "handle-webhook",
+        "world": "greentic:messaging-ingress-telegram/messaging-ingress-telegram@0.0.1",
+        "capabilities": {
+          "supports_webhook_validation": true,
+          "content_types": [
+            "application/json"
+          ]
         }
       }
     }
@@ -148,6 +164,28 @@
         "host": {}
       },
       "wasm": "components/messaging-provider-telegram.wasm"
+    },
+    {
+      "id": "messaging-ingress-telegram",
+      "version": "0.4.11",
+      "world": "greentic:messaging-ingress-telegram/messaging-ingress-telegram@0.0.1",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/messaging-ingress-telegram.wasm"
     },
     {
       "id": "templates",

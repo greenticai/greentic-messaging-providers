@@ -1,0 +1,11 @@
+{
+  "name": "messaging-ingress-slack",
+  "description": "Ingress-only Slack messaging component for webhook validation and normalization.",
+  "secret_requirements": [
+    {
+      "name": "SLACK_SIGNING_SECRET",
+      "scope": "tenant",
+      "description": "Slack signing secret used to verify webhook signatures (optional)."
+    }
+  ]
+}

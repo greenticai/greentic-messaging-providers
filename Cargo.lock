@@ -1391,14 +1391,53 @@ dependencies = [
 
 [[package]]
 name = "messaging-core"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "serde",
 ]
 
 [[package]]
+name = "messaging-ingress-slack"
+version = "0.4.12"
+dependencies = [
+ "hmac",
+ "serde",
+ "serde_json",
+ "sha2",
+ "wit-bindgen 0.50.0",
+]
+
+[[package]]
+name = "messaging-ingress-teams"
+version = "0.4.12"
+dependencies = [
+ "serde",
+ "serde_json",
+ "urlencoding",
+ "wit-bindgen 0.50.0",
+]
+
+[[package]]
+name = "messaging-ingress-telegram"
+version = "0.4.12"
+dependencies = [
+ "serde",
+ "serde_json",
+ "wit-bindgen 0.50.0",
+]
+
+[[package]]
+name = "messaging-ingress-whatsapp"
+version = "0.4.12"
+dependencies = [
+ "serde",
+ "serde_json",
+ "wit-bindgen 0.50.0",
+]
+
+[[package]]
 name = "messaging-provider-dummy"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "greentic-types",
  "serde",
@@ -1409,7 +1448,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-email"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "greentic-types",
  "serde",
@@ -1420,7 +1459,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-slack"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "greentic-types",
  "serde",
@@ -1430,7 +1469,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-teams"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "greentic-types",
  "serde",
@@ -1441,7 +1480,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-telegram"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "greentic-types",
  "serde",
@@ -1451,7 +1490,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webchat"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "greentic-types",
  "serde",
@@ -1462,7 +1501,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webex"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "greentic-types",
  "serde",
@@ -1472,7 +1511,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-whatsapp"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "greentic-types",
  "serde",
@@ -1641,7 +1680,7 @@ dependencies = [
 
 [[package]]
 name = "provider-common"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "anyhow",
  "schemars",
@@ -1655,7 +1694,7 @@ dependencies = [
 
 [[package]]
 name = "provider-runtime-config"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "serde",
  "serde_json",
@@ -1663,15 +1702,17 @@ dependencies = [
 
 [[package]]
 name = "provider-tests"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "anyhow",
  "greentic-interfaces-wasmtime",
  "greentic-types",
+ "hmac",
  "insta",
  "provider-common",
  "serde",
  "serde_json",
+ "sha2",
  "wasmtime",
  "wasmtime-wasi",
 ]
@@ -1914,7 +1955,7 @@ dependencies = [
 
 [[package]]
 name = "secrets-probe"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "wit-bindgen 0.50.0",
 ]
@@ -2090,7 +2131,7 @@ checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
 
 [[package]]
 name = "slack"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "hmac",
  "provider-common",
@@ -2184,7 +2225,7 @@ checksum = "b1dd07eb858a2067e2f3c7155d54e929265c264e6f37efe3ee7a8d1b5a1dd0ba"
 
 [[package]]
 name = "teams"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -2196,7 +2237,7 @@ dependencies = [
 
 [[package]]
 name = "telegram"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "htmlescape",
  "provider-common",
@@ -2960,7 +3001,7 @@ dependencies = [
 
 [[package]]
 name = "webchat"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -2971,7 +3012,7 @@ dependencies = [
 
 [[package]]
 name = "webex"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -2982,7 +3023,7 @@ dependencies = [
 
 [[package]]
 name = "whatsapp"
-version = "0.4.11"
+version = "0.4.12"
 dependencies = [
  "provider-common",
  "provider-runtime-config",

@@ -33,6 +33,21 @@ components:
       clocks: false
     host: {}
   wasm: components/messaging-provider-slack.wasm
+- id: messaging-ingress-slack
+  version: 0.4.11
+  world: greentic:messaging-ingress-slack/messaging-ingress-slack@0.0.1
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/messaging-ingress-slack.wasm
 - id: templates
   version: 0.4.11
   world: greentic:component/component@0.5.0
@@ -110,3 +125,29 @@ extensions:
         setup_custom: setup_custom
         setup_default: setup_default
         verify_webhooks: verify_webhooks
+  messaging.provider_ingress.v1:
+    kind: messaging.provider_ingress.v1
+    version: 0.4.11
+    inline:
+      component_ref: messaging-ingress-slack
+      export: handle-webhook
+      world: greentic:messaging-ingress-slack/messaging-ingress-slack@0.0.1
+      capabilities:
+        supports_webhook_validation: true
+        content_types:
+        - application/json
+  messaging.oauth.v1:
+    kind: messaging.oauth.v1
+    version: 0.4.11
+    inline:
+      provider_id: slack
+      auth_type: oauth2
+      authorize_url: https://slack.com/oauth/v2/authorize
+      token_url: https://slack.com/api/oauth.v2.access
+      scopes:
+      - chat:write
+      - channels:read
+      - channels:history
+      redirect_path: /oauth/callback/slack
+      secret_keys:
+      - SLACK_BOT_TOKEN

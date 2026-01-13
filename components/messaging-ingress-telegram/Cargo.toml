@@ -1,0 +1,29 @@
+[package]
+name = "messaging-ingress-telegram"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+wit-bindgen.workspace = true
+
+[package.metadata.component]
+package = "greentic:messaging-ingress-telegram"
+
+[package.metadata.component.target]
+path = "wit/messaging-ingress-telegram"
+world = "messaging-ingress-telegram"
+
+[package.metadata.component.target.dependencies]
+"greentic:http" = { path = "wit/messaging-ingress-telegram/deps/http" }
+"greentic:secrets-store" = { path = "wit/messaging-ingress-telegram/deps/secrets-store" }
+"greentic:state" = { path = "wit/messaging-ingress-telegram/deps/state" }
+"greentic:telemetry" = { path = "wit/messaging-ingress-telegram/deps/telemetry" }
+"greentic:interfaces-types" = { path = "wit/messaging-ingress-telegram/deps/interfaces-types" }
+"provider:common" = { path = "wit/messaging-ingress-telegram/deps/provider-common" }

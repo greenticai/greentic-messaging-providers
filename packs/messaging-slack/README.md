@@ -11,6 +11,7 @@ Provider-core Slack messaging pack (chat.postMessage).
 ## Components
 - `ai.greentic.component-templates`
 - `messaging-provider-slack`
+- `messaging-ingress-slack`
 - `templates`
 
 ## Secrets

@@ -1,0 +1,5 @@
+{
+  "name": "messaging-ingress-telegram",
+  "description": "Ingress-only Telegram component for webhook normalization.",
+  "secret_requirements": []
+}

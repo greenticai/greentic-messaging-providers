@@ -11,6 +11,7 @@ Provider-core Microsoft Teams messaging pack (Graph send).
 ## Components
 - `ai.greentic.component-templates`
 - `messaging-provider-teams`
+- `messaging-ingress-teams`
 - `templates`
 
 ## Secrets

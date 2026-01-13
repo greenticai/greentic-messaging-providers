@@ -13,6 +13,7 @@
   "components": [
     "ai.greentic.component-templates",
     "messaging-provider-teams",
+    "messaging-ingress-teams",
     "templates"
   ],
   "extensions": {
@@ -52,6 +53,52 @@
           "setup_default": "setup_default",
           "verify_webhooks": "verify_webhooks"
         }
+      }
+    },
+    "messaging.provider_ingress.v1": {
+      "kind": "messaging.provider_ingress.v1",
+      "version": "0.4.11",
+      "inline": {
+        "component_ref": "messaging-ingress-teams",
+        "export": "handle-webhook",
+        "world": "greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1",
+        "capabilities": {
+          "supports_webhook_validation": false,
+          "content_types": [
+            "application/json"
+          ]
+        }
+      }
+    },
+    "messaging.subscriptions.v1": {
+      "kind": "messaging.subscriptions.v1",
+      "version": "0.4.11",
+      "inline": {
+        "component_ref": "messaging-ingress-teams",
+        "export": "sync-subscriptions",
+        "world": "greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1",
+        "resources": [
+          "message",
+          "reaction"
+        ],
+        "renewal_window_hours": 24
+      }
+    },
+    "messaging.oauth.v1": {
+      "kind": "messaging.oauth.v1",
+      "version": "0.4.11",
+      "inline": {
+        "provider_id": "teams",
+        "auth_type": "oauth2",
+        "authorize_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+        "token_url": "https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
+        "scopes": [
+          "https://graph.microsoft.com/.default"
+        ],
+        "redirect_path": "/oauth/callback/teams",
+        "secret_keys": [
+          "MS_GRAPH_REFRESH_TOKEN"
+        ]
       }
     }
   },
@@ -153,6 +200,28 @@
         "host": {}
       },
       "wasm": "components/messaging-provider-teams.wasm"
+    },
+    {
+      "id": "messaging-ingress-teams",
+      "version": "0.4.11",
+      "world": "greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/messaging-ingress-teams.wasm"
     },
     {
       "id": "templates",
