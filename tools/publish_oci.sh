@@ -34,10 +34,12 @@ for wasm in "${ARTIFACT_DIR}"/*.wasm; do
   echo "Pushing ${wasm} to ${ref}"
   # Capture digest from oras output without leaking credentials.
   digest="$(
-    oras push --artifact-type application/wasm-component \
-      "${ref}" \
-      "${wasm}:application/wasm" \
-      | awk '/Digest:/{print $2}' | tail -n1
+    (
+      cd "${ARTIFACT_DIR}"
+      oras push --artifact-type application/wasm-component \
+        "${ref}" \
+        "${name}.wasm:application/wasm"
+    ) | awk '/Digest:/{print $2}' | tail -n1
   )"
 
   if [[ -z "${digest}" ]]; then
