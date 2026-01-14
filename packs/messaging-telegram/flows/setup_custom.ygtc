@@ -1,12 +1,15 @@
 id: setup_custom
-title: Telegram setup (custom)
-description: Advanced onboarding for Telegram with webhook/polling options and command menus.
 type: job
 start: collect
-
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
 nodes:
   collect:
-    templates.handlebars:
+    routing:
+    - to: validate
+    handlebars:
       text: |
         Collect:
         - bot_token (required)
@@ -15,30 +18,24 @@ nodes:
         - default_chat_id / allowed_chat_ids
         - commands (optional command list/menu)
         - test_message (bool)
-    routing:
-      - to: validate
-
   validate:
-    templates.handlebars:
+    routing:
+    - to: apply
+    handlebars:
       text: |
         - getMe to confirm token.
         - If webhook mode, setWebhook to provided URL with a secret token if supplied.
         - If polling, ensure interval >= 1000ms.
         - Optionally send test message to default_chat_id.
-    routing:
-      - to: apply
-
   apply:
-    templates.handlebars:
+    routing:
+    - to: summary
+    handlebars:
       text: |
         - Write secrets: TELEGRAM_BOT_TOKEN.
         - Persist config: mode, webhook_url/polling_interval_ms, chats, commands.
         - Idempotent update; re-run to change mode or webhook target.
-    routing:
-      - to: summary
-
   summary:
-    templates.handlebars:
-      text: "Telegram setup_custom applied. Commands/webhook state updated."
-    routing:
-      - out: true
+    routing: out
+    handlebars:
+      text: Telegram setup_custom applied. Commands/webhook state updated.

@@ -1,6 +1,6 @@
 {
   "name": "messaging-provider-bundle",
-  "version": "0.4.11",
+  "version": "0.4.12",
   "description": "Bundle of messaging provider components.",
   "kind": "application",
   "publisher": "Greentic",
@@ -65,6 +65,7 @@
     "teams",
     "telegram",
     "templates",
+    "handlebars",
     "webchat",
     "webex",
     "whatsapp"
@@ -166,7 +167,7 @@
   "extensions": {
     "greentic.provider-extension.v1": {
       "kind": "greentic.provider-extension.v1",
-      "version": "0.4.11",
+      "version": "0.4.12",
       "inline": {
         "providers": [
           {
@@ -282,7 +283,7 @@
     },
     "messaging.provider_flow_hints": {
       "kind": "messaging.provider_flow_hints",
-      "version": "0.4.11",
+      "version": "0.4.12",
       "inline": {
         "messaging.slack.api": {
           "diagnostics": "diagnostics",
@@ -373,12 +374,22 @@
       "entrypoints": [
         "diagnostics"
       ]
+    },
+    {
+      "id": "requirements",
+      "file": "flows/requirements.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "requirements"
+      ]
     }
   ],
   "component_sources": [
     {
       "id": "ai.greentic.component-templates",
-      "version": "0.4.11",
+      "version": "0.4.12",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -400,7 +411,7 @@
     },
     {
       "id": "slack",
-      "version": "0.4.11",
+      "version": "0.4.12",
       "world": "provider:slack/slack",
       "supports": [
         "messaging"
@@ -422,7 +433,7 @@
     },
     {
       "id": "teams",
-      "version": "0.4.11",
+      "version": "0.4.12",
       "world": "provider:teams/teams",
       "supports": [
         "messaging"
@@ -444,7 +455,7 @@
     },
     {
       "id": "telegram",
-      "version": "0.4.11",
+      "version": "0.4.12",
       "world": "provider:telegram/telegram",
       "supports": [
         "messaging"
@@ -466,7 +477,29 @@
     },
     {
       "id": "templates",
-      "version": "0.4.11",
+      "version": "0.4.12",
+      "world": "greentic:component/component@0.5.0",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "stateless",
+        "supported": [
+          "stateless"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/templates.wasm"
+    },
+    {
+      "id": "handlebars",
+      "version": "0.4.12",
       "world": "greentic:component/component@0.5.0",
       "supports": [
         "messaging"
@@ -488,7 +521,7 @@
     },
     {
       "id": "webchat",
-      "version": "0.4.11",
+      "version": "0.4.12",
       "world": "provider:webchat/webchat",
       "supports": [
         "messaging"
@@ -510,7 +543,7 @@
     },
     {
       "id": "webex",
-      "version": "0.4.11",
+      "version": "0.4.12",
       "world": "provider:webex/webex",
       "supports": [
         "messaging"
@@ -532,7 +565,7 @@
     },
     {
       "id": "whatsapp",
-      "version": "0.4.11",
+      "version": "0.4.12",
       "world": "provider:whatsapp/whatsapp",
       "supports": [
         "messaging"

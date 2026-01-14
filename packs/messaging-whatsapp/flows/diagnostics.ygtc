@@ -1,35 +1,32 @@
 id: diagnostics
-title: WhatsApp diagnostics
-description: Validates token, webhook status, and optional send.
 type: job
 start: preflight
-
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
 nodes:
   preflight:
-    templates.handlebars:
+    routing:
+    - to: token_check
+    handlebars:
       text: |
         - Ensure access token/IDs/verify_token exist.
         - Confirm webhook URL (if configured).
-    routing:
-      - to: token_check
-
   token_check:
-    templates.handlebars:
+    routing:
+    - to: optional_send
+    handlebars:
       text: |
         - Call Graph API against phone_number_id to validate token.
         - If webhook configured, verify subscription and respond to challenge.
-    routing:
-      - to: optional_send
-
   optional_send:
-    templates.handlebars:
+    routing:
+    - to: summary
+    handlebars:
       text: |
         If payload.send_test_message true, send a test text message to payload.recipient using messages endpoint.
-    routing:
-      - to: summary
-
   summary:
-    templates.handlebars:
-      text: "Diagnostics complete for WhatsApp."
-    routing:
-      - out: true
+    routing: out
+    handlebars:
+      text: Diagnostics complete for WhatsApp.

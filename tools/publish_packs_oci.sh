@@ -229,6 +229,24 @@ fetch_oci_component() {
   rm -rf "${tmpdir}"
 }
 
+ensure_locked_components_in_pack() {
+  local pack_dir="$1"
+  local pack_out="$2"
+  local lock_file="${pack_dir}/pack.lock.json"
+  [ -f "${lock_file}" ] || return 0
+
+  while IFS= read -r name; do
+    [ -z "${name}" ] && continue
+    local wasm_rel="components/${name}.wasm"
+    local wasm_path="${pack_dir}/${wasm_rel}"
+    if [ ! -f "${wasm_path}" ]; then
+      echo "Missing locked component artifact ${wasm_rel} for ${pack_dir}" >&2
+      exit 1
+    fi
+    (cd "${pack_dir}" && zip -u "${pack_out}" "${wasm_rel}") >/dev/null
+  done < <(jq -r '.components[]? | .name' "${lock_file}")
+}
+
 read_components() {
   local manifest="$1"
   jq -c '(.component_sources // .components // [])[] | if type=="string" then {id: ., wasm: ("components/" + . + ".wasm"), manifest: "", oci: {}} else {id: .id, wasm: (.wasm // ("components/" + .id + ".wasm")), manifest: (.manifest // ""), oci: (.oci // {})} end' "${manifest}"
@@ -331,6 +349,8 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     --gtpack-out "build/${pack_name}.gtpack" \
     --secrets-req ".secret_requirements.json")
   mv "${local_out_dir}/${pack_name}.gtpack" "${pack_out}"
+
+  ensure_locked_components_in_pack "${dir}" "${pack_out}"
 
   python3 "${ROOT_DIR}/tools/validate_pack_extensions.py" "${pack_out}"
 

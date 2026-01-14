@@ -1,12 +1,15 @@
 id: setup_custom
-title: Messaging bundle setup (custom)
-description: Advanced setup for all bundled providers with inbound/webhook options.
 type: job
 start: overview
-
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
 nodes:
   overview:
-    templates.handlebars:
+    routing:
+    - to: validate
+    handlebars:
       text: |
         Collect advanced settings:
         - slack: inbound_mode, events, default_channel, signing_secret
@@ -15,27 +18,21 @@ nodes:
         - webchat: token TTL, allowed_origins, rate_limits
         - webex: webhooks target/secret, room list
         - whatsapp: webhook verify_token, allowed_numbers, template defaults
-    routing:
-      - to: validate
-
   validate:
-    templates.handlebars:
+    routing:
+    - to: apply
+    handlebars:
       text: |
         - Validate credentials per provider.
         - Reconcile webhook/subscription state where applicable.
-    routing:
-      - to: apply
-
   apply:
-    templates.handlebars:
+    routing:
+    - to: summary
+    handlebars:
       text: |
         - Write secrets/config across providers with last_applied markers.
         - Create/update webhook subscriptions idempotently.
-    routing:
-      - to: summary
-
   summary:
-    templates.handlebars:
-      text: "Bundle setup_custom applied; rerun diagnostics for provider health."
-    routing:
-      - out: true
+    routing: out
+    handlebars:
+      text: Bundle setup_custom applied; rerun diagnostics for provider health.

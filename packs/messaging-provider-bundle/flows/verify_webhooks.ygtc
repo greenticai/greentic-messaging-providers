@@ -1,12 +1,14 @@
 id: verify_webhooks
-title: Messaging bundle webhook verification
-description: Verifies inbound/webhook integrations for Slack, Teams, Telegram, Webchat, Webex, and WhatsApp where configured.
 type: job
 start: steps
-
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
 nodes:
   steps:
-    templates.handlebars:
+    routing: out
+    handlebars:
       text: |
         - Slack: confirm events API/socket subscriptions and signing secret validation.
         - Teams: list/renew Graph subscriptions for channels.
@@ -14,5 +16,3 @@ nodes:
         - Webchat: verify JWT/token acceptance.
         - Webex: ensure webhook targets and secrets are correct.
         - WhatsApp: perform Meta webhook challenge/response with verify_token.
-    routing:
-      - out: true

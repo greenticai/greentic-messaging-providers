@@ -1,34 +1,31 @@
 id: diagnostics
-title: Webex diagnostics
-description: Validates token, room access, and webhook status.
 type: job
 start: token_check
-
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
 nodes:
   token_check:
-    templates.handlebars:
+    routing:
+    - to: room_check
+    handlebars:
       text: |
         - Ensure access token exists.
         - Call /people/me to confirm validity.
-    routing:
-      - to: room_check
-
   room_check:
-    templates.handlebars:
+    routing:
+    - to: webhook_check
+    handlebars:
       text: |
         - If default or configured rooms exist, ensure membership and postability (dry-run or actual message if requested).
-    routing:
-      - to: webhook_check
-
   webhook_check:
-    templates.handlebars:
+    routing:
+    - to: summary
+    handlebars:
       text: |
         - If webhook configured, list webhooks and ensure target URL matches; renew if needed.
-    routing:
-      - to: summary
-
   summary:
-    templates.handlebars:
-      text: "Diagnostics complete; token valid, rooms reachable, webhook {{#if payload.verify_webhook}}checked{{else}}not requested{{/if}}."
-    routing:
-      - out: true
+    routing: out
+    handlebars:
+      text: Diagnostics complete; token valid, rooms reachable, webhook {{#if payload.verify_webhook}}checked{{else}}not requested{{/if}}.
