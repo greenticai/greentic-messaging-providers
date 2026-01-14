@@ -1,0 +1,17 @@
+id: requirements
+type: job
+start: summary
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
+nodes:
+  summary:
+    routing: out
+    handlebars:
+      text: |
+        Provider: messaging.webex.bot
+        Config schema: schemas/messaging/webex/config.schema.json
+
+        Secrets:
+        - WEBEX_BOT_TOKEN (tenant): Webex bot access token used for Messages API calls.

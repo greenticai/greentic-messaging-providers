@@ -1,10 +1,10 @@
 pack_id: messaging-telegram
-version: 0.4.11
+version: 0.4.12
 kind: application
 publisher: Greentic
 components:
 - id: ai.greentic.component-templates
-  version: 0.4.11
+  version: 0.4.12
   world: root:component/root
   supports:
   - messaging
@@ -19,7 +19,7 @@ components:
     host: {}
   wasm: components/ai.greentic.component-templates.wasm
 - id: messaging-provider-telegram
-  version: 0.4.11
+  version: 0.4.12
   world: greentic:provider/schema-core@1.0.0
   supports:
   - messaging
@@ -34,7 +34,7 @@ components:
     host: {}
   wasm: components/messaging-provider-telegram.wasm
 - id: messaging-ingress-telegram
-  version: 0.4.11
+  version: 0.4.12
   world: greentic:messaging-ingress-telegram/messaging-ingress-telegram@0.0.1
   supports:
   - messaging
@@ -49,19 +49,26 @@ components:
     host: {}
   wasm: components/messaging-ingress-telegram.wasm
 - id: templates
-  version: 0.4.11
+  version: 0.4.12
   world: greentic:component/component@0.5.0
-  supports:
+  supports: &id001
   - messaging
-  profiles:
+  profiles: &id002
     default: stateless
     supported:
     - stateless
-  capabilities:
+  capabilities: &id003
     wasi:
       random: false
       clocks: false
     host: {}
+  wasm: components/templates.wasm
+- id: handlebars
+  version: 0.4.12
+  world: greentic:component/component@0.5.0
+  supports: *id001
+  profiles: *id002
+  capabilities: *id003
   wasm: components/templates.wasm
 dependencies: []
 flows:
@@ -89,11 +96,17 @@ flows:
   - maintenance
   entrypoints:
   - diagnostics
+- id: requirements
+  file: flows/requirements.ygtc
+  tags:
+  - default
+  entrypoints:
+  - requirements
 assets: []
 extensions:
   greentic.provider-extension.v1:
     kind: greentic.provider-extension.v1
-    version: 0.4.11
+    version: 0.4.12
     inline:
       providers:
       - provider_type: messaging.telegram.bot
@@ -111,7 +124,7 @@ extensions:
         docs_ref: ''
   messaging.provider_flow_hints:
     kind: messaging.provider_flow_hints
-    version: 0.4.11
+    version: 0.4.12
     inline:
       messaging.telegram.bot:
         diagnostics: diagnostics
@@ -120,7 +133,7 @@ extensions:
         verify_webhooks: verify_webhooks
   messaging.provider_ingress.v1:
     kind: messaging.provider_ingress.v1
-    version: 0.4.11
+    version: 0.4.12
     inline:
       component_ref: messaging-ingress-telegram
       export: handle-webhook

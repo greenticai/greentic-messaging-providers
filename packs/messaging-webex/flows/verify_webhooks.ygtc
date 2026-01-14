@@ -1,15 +1,15 @@
 id: verify_webhooks
-title: Webex verify webhooks
-description: Confirms Webex webhook registration and secret validation.
 type: job
 start: steps
-
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
 nodes:
   steps:
-    templates.handlebars:
+    routing: out
+    handlebars:
       text: |
         - List webhooks for the bot and match on target URL.
         - Recreate any missing or disabled webhooks.
         - Validate signature on a sample payload using stored secret.
-    routing:
-      - out: true

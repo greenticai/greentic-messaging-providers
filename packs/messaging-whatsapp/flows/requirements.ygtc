@@ -1,0 +1,18 @@
+id: requirements
+type: job
+start: summary
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
+nodes:
+  summary:
+    routing: out
+    handlebars:
+      text: |
+        Provider: messaging.whatsapp.cloud
+        Config schema: schemas/messaging/whatsapp/config.schema.json
+
+        Secrets:
+        - WHATSAPP_TOKEN (tenant): WhatsApp Cloud API access token.
+        - WHATSAPP_VERIFY_TOKEN (tenant): Verify token used for WhatsApp webhook validation (if configured).

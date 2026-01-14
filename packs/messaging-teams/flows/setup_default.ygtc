@@ -1,12 +1,15 @@
 id: setup_default
-title: Teams setup (default)
-description: Minimal onboarding for Microsoft Teams via Graph with client credentials.
 type: job
 start: collect
-
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
 nodes:
   collect:
-    templates.handlebars:
+    routing:
+    - to: validate
+    handlebars:
       text: |
         Collect:
         - tenant_id
@@ -14,29 +17,23 @@ nodes:
         - client_secret (or certificate reference)
         - bot_id/service_principal_id
         - default_team_id / channel_id (optional)
-    routing:
-      - to: validate
-
   validate:
-    templates.handlebars:
+    routing:
+    - to: apply
+    handlebars:
       text: |
         - Acquire token from Azure AD using tenant_id/client_id/secret.
         - Call a harmless Graph endpoint (GET /v1.0/organization or /me/joinedTeams) to verify access.
         - If default channel provided, check permissions to post message.
-    routing:
-      - to: apply
-
   apply:
-    templates.handlebars:
+    routing:
+    - to: summary
+    handlebars:
       text: |
         - Store secrets: MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET.
         - Persist config: bot/service principal identifiers, default channel, notification scope.
         - Idempotent: overwrites existing secrets/config and records last_applied.
-    routing:
-      - to: summary
-
   summary:
-    templates.handlebars:
-      text: "Teams setup_default complete. Proceed to diagnostics for token + channel verification."
-    routing:
-      - out: true
+    routing: out
+    handlebars:
+      text: Teams setup_default complete. Proceed to diagnostics for token + channel verification.

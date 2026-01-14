@@ -1,0 +1,17 @@
+id: requirements
+type: job
+start: summary
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
+nodes:
+  summary:
+    routing: out
+    handlebars:
+      text: |
+        Provider: messaging.email.smtp
+        Config schema: schemas/messaging/email/config.schema.json
+
+        Secrets:
+        - EMAIL_PASSWORD (tenant): SMTP password secret key

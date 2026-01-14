@@ -1,15 +1,15 @@
 id: verify_webhooks
-title: Webchat verify webhooks
-description: Verifies inbound webchat token verification.
 type: job
 start: steps
-
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
 nodes:
   steps:
-    templates.handlebars:
+    routing: out
+    handlebars:
       text: |
         - Generate a signed token with signing_secret.
         - Send it through the inbound webhook/ingress and expect acceptance.
         - Confirm expiry/claims enforcement.
-    routing:
-      - out: true

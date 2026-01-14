@@ -1,12 +1,12 @@
 id: main
-title: Messaging Provider Bundle
-description: Minimal placeholder flow for the messaging provider bundle pack.
 type: messaging
 start: start
-
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
 nodes:
   start:
-    templates.handlebars:
-      text: "Greentic messaging providers pack is installed."
-    routing:
-      - out: true
+    routing: out
+    handlebars:
+      text: Greentic messaging providers pack is installed.

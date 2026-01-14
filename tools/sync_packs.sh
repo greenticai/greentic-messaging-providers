@@ -111,6 +111,51 @@ fetch_oci_component() {
   rm -rf "${tmpdir}"
 }
 
+declare -A OCI_CACHE_DIRS=()
+OCI_CACHE_TMPDIRS=()
+
+cleanup_oci_cache() {
+  for dir in "${OCI_CACHE_TMPDIRS[@]:-}"; do
+    rm -rf "${dir}"
+  done
+}
+
+trap cleanup_oci_cache EXIT
+
+fetch_locked_component() {
+  local ref="$1"
+  local digest="$2"
+  local dest_wasm="$3"
+
+  local ref_clean="${ref#oci://}"
+  local cache_key="${digest:-${ref_clean}}"
+  local tmpdir="${OCI_CACHE_DIRS[${cache_key}]:-}"
+
+  if [ -z "${tmpdir}" ]; then
+    tmpdir="$(mktemp -d)"
+    OCI_CACHE_DIRS["${cache_key}"]="${tmpdir}"
+    OCI_CACHE_TMPDIRS+=("${tmpdir}")
+    echo "Fetching OCI component ${ref_clean}..."
+    oras pull --output "${tmpdir}" "${ref_clean}"
+  fi
+
+  local manifest="${tmpdir}/component.publish.manifest.json"
+  local artifact=""
+  if [ -f "${manifest}" ]; then
+    artifact="$(jq -r '.artifacts.component_wasm // empty' "${manifest}")"
+  fi
+  if [ -z "${artifact}" ]; then
+    artifact="$(ls "${tmpdir}"/*.wasm 2>/dev/null | head -n 1)"
+    artifact="${artifact##*/}"
+  fi
+  if [ -z "${artifact}" ] || [ ! -f "${tmpdir}/${artifact}" ]; then
+    echo "OCI component artifact not found for ${ref_clean}" >&2
+    exit 1
+  fi
+  mkdir -p "$(dirname "${dest_wasm}")"
+  cp "${tmpdir}/${artifact}" "${dest_wasm}"
+}
+
 for dir in "${PACKS_DIR}"/*; do
   [ -d "${dir}" ] || continue
   if [ ! -f "${dir}/pack.manifest.json" ]; then
@@ -179,6 +224,18 @@ for dir in "${PACKS_DIR}"/*; do
       (.extensions["greentic.provider-extension.v1"].inline.providers[]?.config_schema_ref // empty),
       (.config_schema.provider_config.path // empty)
     ] | flatten | .[]? ' "${dir}/pack.manifest.json")
+
+  lock_file="${dir}/pack.lock.json"
+  if [ -f "${lock_file}" ]; then
+    while IFS=$'\t' read -r name ref digest; do
+      [ -z "${name}" ] && continue
+      wasm_rel="components/${name}.wasm"
+      dest="${dir}/${wasm_rel}"
+      if [ ! -f "${dest}" ]; then
+        fetch_locked_component "${ref}" "${digest}" "${dest}"
+      fi
+    done < <(jq -r '.components[]? | [.name, .ref, .digest] | @tsv' "${lock_file}")
+  fi
 done
 
 echo "Pack sync complete."

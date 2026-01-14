@@ -1,12 +1,14 @@
 id: diagnostics
-title: Messaging bundle diagnostics
-description: Runs provider checks for all configured providers.
 type: job
 start: checks
-
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
 nodes:
   checks:
-    templates.handlebars:
+    routing: out
+    handlebars:
       text: |
         For each configured provider:
         - Slack: auth.test + optional test message.
@@ -16,5 +18,3 @@ nodes:
         - Webex: /people/me + room check.
         - WhatsApp: Graph phone lookup + optional test message.
         Summarize results and fail early if any provider is misconfigured.
-    routing:
-      - out: true

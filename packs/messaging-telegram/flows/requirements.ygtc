@@ -1,0 +1,17 @@
+id: requirements
+type: job
+start: summary
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
+nodes:
+  summary:
+    routing: out
+    handlebars:
+      text: |
+        Provider: messaging.telegram.bot
+        Config schema: schemas/messaging/telegram/config.schema.json
+
+        Secrets:
+        - TELEGRAM_BOT_TOKEN (tenant): Telegram bot token used for sendMessage requests.

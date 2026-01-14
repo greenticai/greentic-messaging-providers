@@ -1,12 +1,15 @@
 id: setup_custom
-title: WhatsApp setup (custom)
-description: Advanced onboarding for WhatsApp Cloud API with templates and allowlists.
 type: job
 start: collect
-
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
 nodes:
   collect:
-    templates.handlebars:
+    routing:
+    - to: validate
+    handlebars:
       text: |
         Collect:
         - access_token, phone_number_id, business_account_id
@@ -14,29 +17,23 @@ nodes:
         - allowed_numbers (optional)
         - template_defaults (optional)
         - test_message flag
-    routing:
-      - to: validate
-
   validate:
-    templates.handlebars:
+    routing:
+    - to: apply
+    handlebars:
       text: |
         - Call Graph API me/product_catalog or phone_number lookup to ensure permissions.
         - If webhook configured, call GET {webhook_url}?hub.verify_token flow.
         - Optional test message to an allowed number if requested.
-    routing:
-      - to: apply
-
   apply:
-    templates.handlebars:
+    routing:
+    - to: summary
+    handlebars:
       text: |
         - Write secrets and verify_token.
         - Persist allowed_numbers, template_defaults, webhook target and status.
         - Idempotent reconciliation.
-    routing:
-      - to: summary
-
   summary:
-    templates.handlebars:
-      text: "WhatsApp setup_custom applied."
-    routing:
-      - out: true
+    routing: out
+    handlebars:
+      text: WhatsApp setup_custom applied.
