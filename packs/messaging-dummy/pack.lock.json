@@ -4,22 +4,22 @@
     {
       "name": "diagnostics::summary",
       "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
-      "digest": "sha256:9bd7be40e7f8247a380d9f7a88ee9352c153777c1b46f218d09dfcdb0442fc1f"
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
       "name": "requirements::summary",
       "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
-      "digest": "sha256:9bd7be40e7f8247a380d9f7a88ee9352c153777c1b46f218d09dfcdb0442fc1f"
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
       "name": "setup_custom::summarize",
       "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
-      "digest": "sha256:9bd7be40e7f8247a380d9f7a88ee9352c153777c1b46f218d09dfcdb0442fc1f"
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
       "name": "setup_default::summarize",
       "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
-      "digest": "sha256:9bd7be40e7f8247a380d9f7a88ee9352c153777c1b46f218d09dfcdb0442fc1f"
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     }
   ]
 }
