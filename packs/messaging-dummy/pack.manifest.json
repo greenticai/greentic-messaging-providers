@@ -1,6 +1,6 @@
 {
   "name": "messaging-dummy",
-  "version": "0.4.13",
+  "version": "0.4.15",
   "description": "Deterministic provider-core messaging provider for CI and integration tests.",
   "kind": "application",
   "publisher": "Greentic",
@@ -16,7 +16,7 @@
   "extensions": {
     "greentic.provider-extension.v1": {
       "kind": "greentic.provider-extension.v1",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "inline": {
         "providers": [
           {
@@ -41,7 +41,7 @@
     },
     "messaging.provider_flow_hints": {
       "kind": "messaging.provider_flow_hints",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "inline": {
         "messaging.dummy": {
           "diagnostics": "diagnostics",
@@ -97,7 +97,7 @@
   "component_sources": [
     {
       "id": "messaging-provider-dummy",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "greentic:provider/schema-core@1.0.0",
       "supports": [
         "messaging"

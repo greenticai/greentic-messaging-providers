@@ -218,9 +218,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.52"
+version = "1.2.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd4932aefd12402b36c60956a4fe0035421f544799057659ff86f923657aada3"
+checksum = "755d2fce177175ffca841e9a06afdb2c4ab0f593d53b4dee48147dfaade85932"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -718,9 +718,9 @@ dependencies = [
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f449e6c6c08c865631d4890cfacf252b3d396c9bcc83adb6623cdb02a8336c41"
+checksum = "8591b0bcc8a98a64310a2fae1bb3e9b8564dd10e381e6e28010fde8e8e8568db"
 
 [[package]]
 name = "fixedbitset"
@@ -1176,9 +1176,9 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.46.0"
+version = "1.46.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b66886d14d18d420ab5052cbff544fc5d34d0b2cdd35eb5976aaa10a4a472e5"
+checksum = "248b42847813a1550dafd15296fd9748c651d0c32194559dbc05d804d54b21e8"
 dependencies = [
  "console",
  "once_cell",
@@ -1370,132 +1370,132 @@ dependencies = [
 
 [[package]]
 name = "messaging-core"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "messaging-ingress-slack"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "hmac",
  "serde",
  "serde_json",
  "sha2",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
 name = "messaging-ingress-teams"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "serde",
  "serde_json",
  "urlencoding",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
 name = "messaging-ingress-telegram"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "serde",
  "serde_json",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
 name = "messaging-ingress-whatsapp"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "serde",
  "serde_json",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
 name = "messaging-provider-dummy"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "greentic-types",
  "serde",
  "serde_json",
  "sha2",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
 name = "messaging-provider-email"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "greentic-types",
  "serde",
  "serde_json",
  "sha2",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
 name = "messaging-provider-slack"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "greentic-types",
  "serde",
  "serde_json",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
 name = "messaging-provider-teams"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "greentic-types",
  "serde",
  "serde_json",
  "urlencoding",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
 name = "messaging-provider-telegram"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "greentic-types",
  "serde",
  "serde_json",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
 name = "messaging-provider-webchat"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "greentic-types",
  "serde",
  "serde_json",
  "sha2",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
 name = "messaging-provider-webex"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "greentic-types",
  "serde",
  "serde_json",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
 name = "messaging-provider-whatsapp"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "greentic-types",
  "serde",
  "serde_json",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
@@ -1659,7 +1659,7 @@ dependencies = [
 
 [[package]]
 name = "provider-common"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "anyhow",
  "schemars",
@@ -1673,7 +1673,7 @@ dependencies = [
 
 [[package]]
 name = "provider-runtime-config"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "serde",
  "serde_json",
@@ -1681,7 +1681,7 @@ dependencies = [
 
 [[package]]
 name = "provider-tests"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "anyhow",
  "greentic-interfaces-wasmtime",
@@ -1840,9 +1840,9 @@ dependencies = [
 
 [[package]]
 name = "rustc-demangle"
-version = "0.1.26"
+version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56f7d92ca342cea22a06f2121d944b4fd82af56988c270852495420f961d4ace"
+checksum = "b50b8869d9fc858ce7266cce0194bd74df58b9d0e3f6df3a9fc8eb470d95c09d"
 
 [[package]]
 name = "rustc-hash"
@@ -1934,9 +1934,9 @@ dependencies = [
 
 [[package]]
 name = "secrets-probe"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
@@ -2110,7 +2110,7 @@ checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
 
 [[package]]
 name = "slack"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "hmac",
  "provider-common",
@@ -2118,7 +2118,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
@@ -2204,26 +2204,26 @@ checksum = "b1dd07eb858a2067e2f3c7155d54e929265c264e6f37efe3ee7a8d1b5a1dd0ba"
 
 [[package]]
 name = "teams"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
  "serde",
  "serde_json",
  "urlencoding",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
 name = "telegram"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "htmlescape",
  "provider-common",
  "provider-runtime-config",
  "serde",
  "serde_json",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
@@ -2501,11 +2501,11 @@ checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
 name = "wasip2"
-version = "1.0.1+wasi-0.2.4"
+version = "1.0.2+wasi-0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0562428422c63773dad2c345a1882263bbf4d65cf3f42e90921f787ef5ad58e7"
+checksum = "9517f9239f02c069db75e65f174b3da828fe5f5b945c4dd26bd25d89c03ebcf5"
 dependencies = [
- "wit-bindgen 0.46.0",
+ "wit-bindgen",
 ]
 
 [[package]]
@@ -2981,35 +2981,35 @@ dependencies = [
 
 [[package]]
 name = "webchat"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
  "serde",
  "serde_json",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
 name = "webex"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
  "serde",
  "serde_json",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
 name = "whatsapp"
-version = "0.4.14"
+version = "0.4.15"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
  "serde",
  "serde_json",
- "wit-bindgen 0.51.0",
+ "wit-bindgen",
 ]
 
 [[package]]
@@ -3333,12 +3333,6 @@ dependencies = [
  "bitflags",
  "windows-sys 0.59.0",
 ]
-
-[[package]]
-name = "wit-bindgen"
-version = "0.46.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f17a85883d4e6d00e8a97c586de764dabcc06133f7f1d55dce5cdc070ad7fe59"
 
 [[package]]
 name = "wit-bindgen"

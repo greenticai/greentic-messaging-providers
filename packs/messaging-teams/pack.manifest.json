@@ -1,6 +1,6 @@
 {
   "name": "messaging-teams",
-  "version": "0.4.13",
+  "version": "0.4.15",
   "description": "Provider-core Microsoft Teams messaging pack (Graph send).",
   "kind": "application",
   "publisher": "Greentic",
@@ -18,7 +18,7 @@
   "extensions": {
     "greentic.provider-extension.v1": {
       "kind": "greentic.provider-extension.v1",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "inline": {
         "providers": [
           {
@@ -44,7 +44,7 @@
     },
     "messaging.oauth.v1": {
       "kind": "messaging.oauth.v1",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "inline": {
         "auth_type": "oauth2",
         "authorize_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
@@ -61,7 +61,7 @@
     },
     "messaging.provider_flow_hints": {
       "kind": "messaging.provider_flow_hints",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "inline": {
         "messaging.teams.graph": {
           "diagnostics": "diagnostics",
@@ -73,7 +73,7 @@
     },
     "messaging.provider_ingress.v1": {
       "kind": "messaging.provider_ingress.v1",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "inline": {
         "capabilities": {
           "content_types": [
@@ -88,7 +88,7 @@
     },
     "messaging.subscriptions.v1": {
       "kind": "messaging.subscriptions.v1",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "inline": {
         "component_ref": "messaging-ingress-teams",
         "export": "sync-subscriptions",
@@ -168,7 +168,7 @@
   "component_sources": [
     {
       "id": "ai.greentic.component-templates",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -190,7 +190,7 @@
     },
     {
       "id": "diagnostics__channel_check",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -212,7 +212,7 @@
     },
     {
       "id": "diagnostics__subscription_check",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -234,7 +234,7 @@
     },
     {
       "id": "diagnostics__summary",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -256,7 +256,7 @@
     },
     {
       "id": "diagnostics__token_check",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -278,7 +278,7 @@
     },
     {
       "id": "handlebars",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "greentic:component/component@0.5.0",
       "supports": [
         "messaging"
@@ -300,7 +300,7 @@
     },
     {
       "id": "messaging-ingress-teams",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1",
       "supports": [
         "messaging"
@@ -322,7 +322,7 @@
     },
     {
       "id": "messaging-provider-teams",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "greentic:provider/schema-core@1.0.0",
       "supports": [
         "messaging"
@@ -344,7 +344,7 @@
     },
     {
       "id": "setup_custom__apply",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -366,7 +366,7 @@
     },
     {
       "id": "setup_custom__collect",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -388,7 +388,7 @@
     },
     {
       "id": "setup_custom__summary",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -410,7 +410,7 @@
     },
     {
       "id": "setup_custom__validate",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -432,7 +432,7 @@
     },
     {
       "id": "setup_default__apply",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -454,7 +454,7 @@
     },
     {
       "id": "setup_default__collect",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -476,7 +476,7 @@
     },
     {
       "id": "setup_default__summary",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -498,7 +498,7 @@
     },
     {
       "id": "setup_default__validate",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -520,7 +520,7 @@
     },
     {
       "id": "verify_webhooks__verify",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"

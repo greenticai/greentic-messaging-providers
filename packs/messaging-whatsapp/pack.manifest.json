@@ -1,6 +1,6 @@
 {
   "name": "messaging-whatsapp",
-  "version": "0.4.13",
+  "version": "0.4.15",
   "description": "Provider-core WhatsApp Cloud messaging pack.",
   "kind": "application",
   "publisher": "Greentic",
@@ -18,7 +18,7 @@
   "extensions": {
     "greentic.provider-extension.v1": {
       "kind": "greentic.provider-extension.v1",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "inline": {
         "providers": [
           {
@@ -44,7 +44,7 @@
     },
     "messaging.provider_flow_hints": {
       "kind": "messaging.provider_flow_hints",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "inline": {
         "messaging.whatsapp.cloud": {
           "diagnostics": "diagnostics",
@@ -56,7 +56,7 @@
     },
     "messaging.provider_ingress.v1": {
       "kind": "messaging.provider_ingress.v1",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "inline": {
         "capabilities": {
           "content_types": [
@@ -137,7 +137,7 @@
   "component_sources": [
     {
       "id": "ai.greentic.component-templates",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -159,7 +159,7 @@
     },
     {
       "id": "diagnostics__optional_send",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -181,7 +181,7 @@
     },
     {
       "id": "diagnostics__preflight",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -203,7 +203,7 @@
     },
     {
       "id": "diagnostics__summary",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -225,7 +225,7 @@
     },
     {
       "id": "diagnostics__token_check",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -247,7 +247,7 @@
     },
     {
       "id": "handlebars",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "greentic:component/component@0.5.0",
       "supports": [
         "messaging"
@@ -269,7 +269,7 @@
     },
     {
       "id": "messaging-ingress-whatsapp",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "greentic:messaging-ingress-whatsapp/messaging-ingress-whatsapp@0.0.1",
       "supports": [
         "messaging"
@@ -291,7 +291,7 @@
     },
     {
       "id": "messaging-provider-whatsapp",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "greentic:provider/schema-core@1.0.0",
       "supports": [
         "messaging"
@@ -313,7 +313,7 @@
     },
     {
       "id": "setup_custom__apply",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -335,7 +335,7 @@
     },
     {
       "id": "setup_custom__collect",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -357,7 +357,7 @@
     },
     {
       "id": "setup_custom__summary",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -379,7 +379,7 @@
     },
     {
       "id": "setup_custom__validate",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -401,7 +401,7 @@
     },
     {
       "id": "setup_default__apply",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -423,7 +423,7 @@
     },
     {
       "id": "setup_default__collect",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -445,7 +445,7 @@
     },
     {
       "id": "setup_default__summary",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -467,7 +467,7 @@
     },
     {
       "id": "setup_default__validate",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -489,7 +489,7 @@
     },
     {
       "id": "verify_webhooks__steps",
-      "version": "0.4.13",
+      "version": "0.4.14",
       "world": "root:component/root",
       "supports": [
         "messaging"

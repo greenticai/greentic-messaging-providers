@@ -1,10 +1,10 @@
 pack_id: messaging-dummy
-version: 0.4.13
+version: 0.4.15
 kind: application
 publisher: Greentic
 components:
 - id: messaging-provider-dummy
-  version: 0.4.13
+  version: 0.4.15
   world: greentic:provider/schema-core@1.0.0
   supports:
   - messaging
@@ -48,7 +48,7 @@ assets: []
 extensions:
   greentic.provider-extension.v1:
     kind: greentic.provider-extension.v1
-    version: 0.4.13
+    version: 0.4.15
     inline:
       providers:
       - provider_type: messaging.dummy
@@ -65,7 +65,7 @@ extensions:
         docs_ref: ''
   messaging.provider_flow_hints:
     kind: messaging.provider_flow_hints
-    version: 0.4.13
+    version: 0.4.15
     inline:
       messaging.dummy:
         diagnostics: diagnostics

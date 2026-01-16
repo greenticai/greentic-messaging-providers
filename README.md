@@ -37,6 +37,7 @@ Current layout:
 - `DRY_RUN=1 tools/publish_packs_oci.sh` builds packs and writes `packs.lock.json` with digests set to `DRY_RUN` without pushing; the build workflow runs this check on every branch/PR.
 - `packs.lock.json` records registry/org/repo, pack file paths, refs, and digests so downstream tools can pin exact OCI blobs.
 - `tools/generate_pack_metadata.py` aggregates `secret_requirements` from each referenced component into `pack.manifest.json` before the pack is zipped, so `.gtpack` metadata contains everything `greentic-secrets` needs.
+- Manual pack builds must pass the generated secrets file: `packc build --in . --gtpack-out build/<pack>.gtpack --secrets-req .secret_requirements.json` (regenerate with `python3 tools/generate_pack_metadata.py --pack-dir packs/<pack> --components-dir components --secrets-out packs/<pack>/.secret_requirements.json`).
 - Pull example: `oras pull ghcr.io/<org>/greentic-packs/messaging-provider-bundle:1.2.3` (use the digest from `packs.lock.json` for pinning in consumers such as `greentic-messaging` or `greentic-distributor-client`).
 - Pack builds require `packc >= 0.4.28`; set `PACKC_BUILD_FLAGS="--offline"` if you need an offline build.
 

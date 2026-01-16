@@ -169,6 +169,7 @@ for dir in "${PACKS_DIR}"/*; do
     --pack-dir "${dir}" \
     --components-dir "${ROOT_DIR}/components" \
     --version "${VERSION}" \
+    --secrets-out "${dir}/.secret_requirements.json" \
     --include-capabilities-cache
 
   mkdir -p "${dir}/components"
