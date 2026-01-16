@@ -2,69 +2,74 @@
   "schema_version": 1,
   "components": [
     {
-      "name": "diagnostics__room_check",
-      "ref": "oci://ghcr.io/greentic-ai/components/templates@sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340",
-      "digest": "sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+      "name": "diagnostics___room_check",
+      "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "diagnostics__summary",
-      "ref": "oci://ghcr.io/greentic-ai/components/templates@sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340",
-      "digest": "sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+      "name": "diagnostics___summary",
+      "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "diagnostics__token_check",
-      "ref": "oci://ghcr.io/greentic-ai/components/templates@sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340",
-      "digest": "sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+      "name": "diagnostics___token_check",
+      "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "diagnostics__webhook_check",
-      "ref": "oci://ghcr.io/greentic-ai/components/templates@sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340",
-      "digest": "sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+      "name": "diagnostics___webhook_check",
+      "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "setup_custom__apply",
-      "ref": "oci://ghcr.io/greentic-ai/components/templates@sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340",
-      "digest": "sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+      "name": "requirements___summary",
+      "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "setup_custom__collect",
-      "ref": "oci://ghcr.io/greentic-ai/components/templates@sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340",
-      "digest": "sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+      "name": "setup_custom___apply",
+      "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "setup_custom__summary",
-      "ref": "oci://ghcr.io/greentic-ai/components/templates@sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340",
-      "digest": "sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+      "name": "setup_custom___collect",
+      "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "setup_custom__validate",
-      "ref": "oci://ghcr.io/greentic-ai/components/templates@sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340",
-      "digest": "sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+      "name": "setup_custom___summary",
+      "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "setup_default__apply",
-      "ref": "oci://ghcr.io/greentic-ai/components/templates@sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340",
-      "digest": "sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+      "name": "setup_custom___validate",
+      "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "setup_default__collect",
-      "ref": "oci://ghcr.io/greentic-ai/components/templates@sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340",
-      "digest": "sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+      "name": "setup_default___apply",
+      "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "setup_default__summary",
-      "ref": "oci://ghcr.io/greentic-ai/components/templates@sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340",
-      "digest": "sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+      "name": "setup_default___collect",
+      "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "setup_default__validate",
-      "ref": "oci://ghcr.io/greentic-ai/components/templates@sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340",
-      "digest": "sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+      "name": "setup_default___summary",
+      "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "verify_webhooks__steps",
-      "ref": "oci://ghcr.io/greentic-ai/components/templates@sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340",
-      "digest": "sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+      "name": "setup_default___validate",
+      "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+    },
+    {
+      "name": "verify_webhooks___steps",
+      "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     }
   ]
 }

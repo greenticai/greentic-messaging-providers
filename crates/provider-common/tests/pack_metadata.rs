@@ -104,6 +104,9 @@ fn collect_expected_requirements(
         let manifest_path = components_dir
             .join(component)
             .join("component.manifest.json");
+        if !manifest_path.exists() {
+            continue;
+        }
         let manifest: Value = serde_json::from_slice(&fs::read(manifest_path)?)?;
         if let Some(reqs) = manifest
             .get("secret_requirements")
