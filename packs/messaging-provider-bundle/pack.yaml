@@ -2,14 +2,9 @@ pack_id: messaging-provider-bundle
 version: 0.4.13
 kind: application
 publisher: Greentic
-x-provider-runtime-config:
-  schema_version: 1
-  format: json
-  injected_as: provider_runtime_config.json
-  init_export: init-runtime-config
 components:
 - id: ai.greentic.component-templates
-  version: 0.4.12
+  version: 0.4.13
   world: root:component/root
   supports:
   - messaging
@@ -23,8 +18,173 @@ components:
       clocks: false
     host: {}
   wasm: components/ai.greentic.component-templates.wasm
+- id: diagnostics__checks
+  version: 0.4.13
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/diagnostics__checks.wasm
+- id: handlebars
+  version: 0.4.13
+  world: greentic:component/component@0.5.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/templates.wasm
+- id: main__start
+  version: 0.4.13
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/main__start.wasm
+- id: setup_custom__apply
+  version: 0.4.13
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_custom__apply.wasm
+- id: setup_custom__overview
+  version: 0.4.13
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_custom__overview.wasm
+- id: setup_custom__summary
+  version: 0.4.13
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_custom__summary.wasm
+- id: setup_custom__validate
+  version: 0.4.13
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_custom__validate.wasm
+- id: setup_default__apply
+  version: 0.4.13
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_default__apply.wasm
+- id: setup_default__overview
+  version: 0.4.13
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_default__overview.wasm
+- id: setup_default__summary
+  version: 0.4.13
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_default__summary.wasm
+- id: setup_default__validate
+  version: 0.4.13
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_default__validate.wasm
 - id: slack
-  version: 0.4.12
+  version: 0.4.13
   world: provider:slack/slack
   supports:
   - messaging
@@ -39,7 +199,7 @@ components:
     host: {}
   wasm: components/slack.wasm
 - id: teams
-  version: 0.4.12
+  version: 0.4.13
   world: provider:teams/teams
   supports:
   - messaging
@@ -54,7 +214,7 @@ components:
     host: {}
   wasm: components/teams.wasm
 - id: telegram
-  version: 0.4.12
+  version: 0.4.13
   world: provider:telegram/telegram
   supports:
   - messaging
@@ -68,30 +228,23 @@ components:
       clocks: false
     host: {}
   wasm: components/telegram.wasm
-- id: templates
-  version: 0.4.12
-  world: greentic:component/component@0.5.0
-  supports: &id001
+- id: verify_webhooks__steps
+  version: 0.4.13
+  world: root:component/root
+  supports:
   - messaging
-  profiles: &id002
-    default: stateless
+  profiles:
+    default: default
     supported:
-    - stateless
-  capabilities: &id003
+    - default
+  capabilities:
     wasi:
       random: false
       clocks: false
     host: {}
-  wasm: components/templates.wasm
-- id: handlebars
-  version: 0.4.12
-  world: greentic:component/component@0.5.0
-  supports: *id001
-  profiles: *id002
-  capabilities: *id003
-  wasm: components/templates.wasm
+  wasm: components/verify_webhooks__steps.wasm
 - id: webchat
-  version: 0.4.12
+  version: 0.4.13
   world: provider:webchat/webchat
   supports:
   - messaging
@@ -106,7 +259,7 @@ components:
     host: {}
   wasm: components/webchat.wasm
 - id: webex
-  version: 0.4.12
+  version: 0.4.13
   world: provider:webex/webex
   supports:
   - messaging
@@ -121,7 +274,7 @@ components:
     host: {}
   wasm: components/webex.wasm
 - id: whatsapp
-  version: 0.4.12
+  version: 0.4.13
   world: provider:whatsapp/whatsapp
   supports:
   - messaging
@@ -149,6 +302,12 @@ flows:
   - default
   entrypoints:
   - default
+- id: requirements
+  file: flows/requirements.ygtc
+  tags:
+  - default
+  entrypoints:
+  - requirements
 - id: setup_custom
   file: flows/setup_custom.ygtc
   tags:
@@ -167,17 +326,15 @@ flows:
   - maintenance
   entrypoints:
   - diagnostics
-- id: requirements
-  file: flows/requirements.ygtc
-  tags:
-  - default
-  entrypoints:
-  - requirements
 assets: []
+x-provider-runtime-config:
+  schema_version: 1
+  format: json
+  injected_as: provider_runtime_config.json
 extensions:
   greentic.provider-extension.v1:
     kind: greentic.provider-extension.v1
-    version: 0.4.12
+    version: 0.4.13
     inline:
       providers:
       - provider_type: messaging.slack.api
@@ -260,7 +417,7 @@ extensions:
         docs_ref: ''
   messaging.provider_flow_hints:
     kind: messaging.provider_flow_hints
-    version: 0.4.12
+    version: 0.4.13
     inline:
       messaging.slack.api:
         diagnostics: diagnostics

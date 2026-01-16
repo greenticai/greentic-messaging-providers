@@ -12,14 +12,12 @@
   },
   "components": [
     "ai.greentic.component-templates",
-    "messaging-provider-webchat",
-    "templates",
-    "handlebars"
+    "messaging-provider-webchat"
   ],
   "extensions": {
     "greentic.provider-extension.v1": {
       "kind": "greentic.provider-extension.v1",
-      "version": "0.4.12",
+      "version": "0.4.13",
       "inline": {
         "providers": [
           {
@@ -45,7 +43,7 @@
     },
     "messaging.provider_flow_hints": {
       "kind": "messaging.provider_flow_hints",
-      "version": "0.4.12",
+      "version": "0.4.13",
       "inline": {
         "messaging.webchat": {
           "diagnostics": "diagnostics",
@@ -66,6 +64,16 @@
       ],
       "entrypoints": [
         "diagnostics"
+      ]
+    },
+    {
+      "id": "requirements",
+      "file": "flows/requirements.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "requirements"
       ]
     },
     {
@@ -97,22 +105,12 @@
       "entrypoints": [
         "diagnostics"
       ]
-    },
-    {
-      "id": "requirements",
-      "file": "flows/requirements.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "requirements"
-      ]
     }
   ],
   "component_sources": [
     {
       "id": "ai.greentic.component-templates",
-      "version": "0.4.12",
+      "version": "0.4.13",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -133,8 +131,96 @@
       "wasm": "components/ai.greentic.component-templates.wasm"
     },
     {
+      "id": "diagnostics__check_secret",
+      "version": "0.4.13",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/diagnostics__check_secret.wasm"
+    },
+    {
+      "id": "diagnostics__optional_loopback",
+      "version": "0.4.13",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/diagnostics__optional_loopback.wasm"
+    },
+    {
+      "id": "diagnostics__summary",
+      "version": "0.4.13",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/diagnostics__summary.wasm"
+    },
+    {
+      "id": "handlebars",
+      "version": "0.4.13",
+      "world": "greentic:component/component@0.5.0",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "stateless",
+        "supported": [
+          "stateless"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/templates.wasm"
+    },
+    {
       "id": "messaging-provider-webchat",
-      "version": "0.4.12",
+      "version": "0.4.13",
       "world": "greentic:provider/schema-core@1.0.0",
       "supports": [
         "messaging"
@@ -155,16 +241,16 @@
       "wasm": "components/messaging-provider-webchat.wasm"
     },
     {
-      "id": "templates",
-      "version": "0.4.12",
-      "world": "greentic:component/component@0.5.0",
+      "id": "setup_custom__apply",
+      "version": "0.4.13",
+      "world": "root:component/root",
       "supports": [
         "messaging"
       ],
       "profiles": {
-        "default": "stateless",
+        "default": "default",
         "supported": [
-          "stateless"
+          "default"
         ]
       },
       "capabilities": {
@@ -174,19 +260,19 @@
         },
         "host": {}
       },
-      "wasm": "components/templates.wasm"
+      "wasm": "components/setup_custom__apply.wasm"
     },
     {
-      "id": "handlebars",
-      "version": "0.4.12",
-      "world": "greentic:component/component@0.5.0",
+      "id": "setup_custom__collect",
+      "version": "0.4.13",
+      "world": "root:component/root",
       "supports": [
         "messaging"
       ],
       "profiles": {
-        "default": "stateless",
+        "default": "default",
         "supported": [
-          "stateless"
+          "default"
         ]
       },
       "capabilities": {
@@ -196,7 +282,161 @@
         },
         "host": {}
       },
-      "wasm": "components/templates.wasm"
+      "wasm": "components/setup_custom__collect.wasm"
+    },
+    {
+      "id": "setup_custom__summary",
+      "version": "0.4.13",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_custom__summary.wasm"
+    },
+    {
+      "id": "setup_custom__validate",
+      "version": "0.4.13",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_custom__validate.wasm"
+    },
+    {
+      "id": "setup_default__apply",
+      "version": "0.4.13",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_default__apply.wasm"
+    },
+    {
+      "id": "setup_default__collect",
+      "version": "0.4.13",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_default__collect.wasm"
+    },
+    {
+      "id": "setup_default__summary",
+      "version": "0.4.13",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_default__summary.wasm"
+    },
+    {
+      "id": "setup_default__validate",
+      "version": "0.4.13",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_default__validate.wasm"
+    },
+    {
+      "id": "verify_webhooks__steps",
+      "version": "0.4.13",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/verify_webhooks__steps.wasm"
     }
   ],
   "capabilities_cache": [
@@ -204,11 +444,6 @@
       "component": "ai.greentic.component-templates",
       "version": "v1",
       "path": "components/ai.greentic.component-templates-capabilities_v1.json"
-    },
-    {
-      "component": "templates",
-      "version": "v1",
-      "path": "components/templates-capabilities_v1.json"
     }
   ]
 }

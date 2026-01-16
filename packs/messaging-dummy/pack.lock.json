@@ -2,22 +2,22 @@
   "schema_version": 1,
   "components": [
     {
-      "name": "diagnostics::summary",
+      "name": "diagnostics___summary",
       "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
       "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "requirements::summary",
+      "name": "requirements___summary",
       "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
       "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "setup_custom::summarize",
+      "name": "setup_custom___summarize",
       "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
       "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
-      "name": "setup_default::summarize",
+      "name": "setup_default___summarize",
       "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
       "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     }

@@ -205,7 +205,9 @@ def main() -> int:
             # Only include components without an OCI reference in the manifest's
             # top-level components list (legacy consumers expect local manifests).
             if not comp_copy.get("oci"):
-                component_ids.append(comp_id)
+                comp_manifest = components_dir / comp_id / "component.manifest.json"
+                if comp_manifest.exists():
+                    component_ids.append(comp_id)
         if component_ids:
             manifest["components"] = component_ids
             manifest["component_sources"] = component_sources
