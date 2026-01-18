@@ -1,0 +1,1224 @@
+{
+  "capabilities": [],
+  "components": [
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 0,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.4.12",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 1,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 2,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 3,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 4,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 5,
+      "operations": [],
+      "profiles": {
+        "default": "stateless",
+        "supported": [
+          "stateless"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.4.12",
+      "world": "greentic:component/component@0.5.0"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 6,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.4.12",
+      "world": "greentic:provider/schema-core@1.0.0"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 7,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 8,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 9,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 10,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 11,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 12,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 13,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 14,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 15,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    }
+  ],
+  "dependencies": [],
+  "extensions": {
+    "greentic.pack.component_manifests@v1": {
+      "inline": {
+        "entries": [
+          {
+            "component_id": "ai.greentic.component-templates",
+            "content_hash": "sha256:7d9c628c0624c3e0ab5d51ac155b3c9d982c4784ea3c309f124bf59a01fa13fe",
+            "encoding": "cbor",
+            "manifest_file": "components/ai.greentic.component-templates.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__room_check",
+            "content_hash": "sha256:46ab4775e98337b4197b3f627475315503a2a92aae5930b9551637a0446130f9",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__room_check.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__summary",
+            "content_hash": "sha256:aa20b2535172a18ba505d2f4c7c631e56609693cf9ffd68038b8ec0f900d0adf",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__summary.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__token_check",
+            "content_hash": "sha256:cb327f46a8f4d2e4198280607c6b3a7421e71897f55cc6cee0cccaa07008c364",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__token_check.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__webhook_check",
+            "content_hash": "sha256:a369edb39c08a18f6f4c39f3c91a20327fa611e73d8666864fdef3784308b801",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__webhook_check.manifest.cbor"
+          },
+          {
+            "component_id": "handlebars",
+            "content_hash": "sha256:73224d732afba632cea99988bdc33c8afd985db9eb544d19e52b56b26ff3d68c",
+            "encoding": "cbor",
+            "manifest_file": "components/handlebars.manifest.cbor"
+          },
+          {
+            "component_id": "messaging-provider-webex",
+            "content_hash": "sha256:11f706b4de548deab296a069cd84e492a3301770dcc62a71a8e62cb6938c1759",
+            "encoding": "cbor",
+            "manifest_file": "components/messaging-provider-webex.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__apply",
+            "content_hash": "sha256:ec7cb9b659d451c7b32fc9ce4073cce6d7eda1f7502d9f75566677637af451a4",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__apply.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__collect",
+            "content_hash": "sha256:f305e094b8cc92e27465a79ec66408bf98578a985b295ee53302834bb79b3f82",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__collect.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__summary",
+            "content_hash": "sha256:d53f8493c83ff21c1fdd464fdae44ed872d4ff2d18a19a694a7ada550b5d0b75",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__summary.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__validate",
+            "content_hash": "sha256:d10592ddc9903a71aa5f995b2bbb46c087b93e1999ef103c2734a4c6b36c9a61",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__validate.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__apply",
+            "content_hash": "sha256:40b48c40d55101c6caf208bb3f831f3e2a1a08281be83537d397a6fbc265f15d",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__apply.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__collect",
+            "content_hash": "sha256:f7beb4f3a1e6f34d8d0920555e7813656f8d230b05aff2732f45aeb1278feb37",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__collect.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__summary",
+            "content_hash": "sha256:bef98bffc91f6fcf528c2544428d8e6319911330fbc2d434eefe8db9624e0714",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__summary.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__validate",
+            "content_hash": "sha256:16067e7f813f163c4d8e588a58b9caa271610bb372e53a45a88d8c9072b93803",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__validate.manifest.cbor"
+          },
+          {
+            "component_id": "verify_webhooks__steps",
+            "content_hash": "sha256:db591afcaac777150fb28c5d441877d88a95695dfa6b7db565fb6cd6db47ee84",
+            "encoding": "cbor",
+            "manifest_file": "components/verify_webhooks__steps.manifest.cbor"
+          }
+        ],
+        "schema_version": 1
+      },
+      "kind": "greentic.pack.component_manifests@v1",
+      "version": "v1"
+    },
+    "greentic.pack.component_sources@v1": {
+      "inline": {
+        "components": [
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___room_check.wasm"
+              }
+            },
+            "name": "diagnostics___room_check",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___summary.wasm"
+              }
+            },
+            "name": "diagnostics___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___token_check.wasm"
+              }
+            },
+            "name": "diagnostics___token_check",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___webhook_check.wasm"
+              }
+            },
+            "name": "diagnostics___webhook_check",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/requirements___summary.wasm"
+              }
+            },
+            "name": "requirements___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___apply.wasm"
+              }
+            },
+            "name": "setup_custom___apply",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___collect.wasm"
+              }
+            },
+            "name": "setup_custom___collect",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___summary.wasm"
+              }
+            },
+            "name": "setup_custom___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___validate.wasm"
+              }
+            },
+            "name": "setup_custom___validate",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___apply.wasm"
+              }
+            },
+            "name": "setup_default___apply",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___collect.wasm"
+              }
+            },
+            "name": "setup_default___collect",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___summary.wasm"
+              }
+            },
+            "name": "setup_default___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___validate.wasm"
+              }
+            },
+            "name": "setup_default___validate",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/verify_webhooks___steps.wasm"
+              }
+            },
+            "name": "verify_webhooks___steps",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          }
+        ],
+        "schema_version": 1
+      },
+      "kind": "greentic.pack.component_sources@v1",
+      "version": "v1"
+    },
+    "greentic.provider-extension.v1": {
+      "inline": {
+        "providers": [
+          {
+            "capabilities": [
+              "messaging"
+            ],
+            "config_schema_ref": "schemas/messaging/webex/config.schema.json",
+            "docs_ref": "",
+            "ops": [
+              "send",
+              "reply"
+            ],
+            "provider_type": "messaging.webex.bot",
+            "runtime": {
+              "component_ref": "messaging-provider-webex",
+              "export": "schema-core-api",
+              "world": "greentic:provider/schema-core@1.0.0"
+            },
+            "state_schema_ref": ""
+          }
+        ]
+      },
+      "kind": "greentic.provider-extension.v1",
+      "version": "0.4.12"
+    },
+    "messaging.provider_flow_hints": {
+      "inline": {
+        "messaging.webex.bot": {
+          "diagnostics": "diagnostics",
+          "setup_custom": "setup_custom",
+          "setup_default": "setup_default",
+          "verify_webhooks": "verify_webhooks"
+        }
+      },
+      "kind": "messaging.provider_flow_hints",
+      "version": "0.4.12"
+    }
+  },
+  "flows": [
+    {
+      "entrypoints": [
+        "diagnostics"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "token_check"
+        },
+        "id": "diagnostics",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 5,
+            "input": {
+              "mapping": {
+                "text": "- Ensure access token exists.\n- Call /people/me to confirm validity.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 2
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 2,
+            "input": {
+              "mapping": {
+                "text": "- If default or configured rooms exist, ensure membership and postability (dry-run or actual message if requested).\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 7
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 7,
+            "input": {
+              "mapping": {
+                "text": "- If webhook configured, list webhooks and ensure target URL matches; renew if needed.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 4
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 4,
+            "input": {
+              "mapping": {
+                "text": "Diagnostics complete; token valid, rooms reachable, webhook {{#if payload.verify_webhook}}checked{{else}}not requested{{/if}}."
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "diagnostics",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "entrypoints": [
+        "requirements"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "summary"
+        },
+        "id": "requirements",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 4,
+            "input": {
+              "mapping": {
+                "text": "Provider: messaging.webex.bot\nConfig schema: schemas/messaging/webex/config.schema.json\n\nSecrets:\n- WEBEX_BOT_TOKEN (tenant): Webex bot access token used for Messages API calls.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "requirements",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "entrypoints": [
+        "setup"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "collect"
+        },
+        "id": "setup_custom",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 1,
+            "input": {
+              "mapping": {
+                "text": "Collect:\n- bot_access_token\n- rooms: list of room_ids\n- webhook_url and secret (if inbound)\n- events to subscribe (messages/attachmentActions)\n- test_message flag\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 6
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 6,
+            "input": {
+              "mapping": {
+                "text": "- Validate token via /people/me.\n- For each room, verify membership/post rights.\n- If webhook_url provided, create/update webhooks and confirm status.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 0
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 0,
+            "input": {
+              "mapping": {
+                "text": "- Save token and webhook secret.\n- Persist room list, webhook ids, last reconciliation timestamp for idempotent reruns.\n- Optionally send test message if requested.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 4
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 4,
+            "input": {
+              "mapping": {
+                "text": "Webex setup_custom applied with webhook target {{payload.webhook_url}}."
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "setup_custom",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "entrypoints": [
+        "setup"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "collect"
+        },
+        "id": "setup_default",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 1,
+            "input": {
+              "mapping": {
+                "text": "Collect:\n- bot_access_token (required)\n- default_room_id (optional)\n- webhook_url (optional)\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 6
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 6,
+            "input": {
+              "mapping": {
+                "text": "- Call Webex /people/me to validate token and bot identity.\n- If default_room_id set, verify membership and postability.\n- If webhook_url provided, ensure signature secret present.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 0
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 0,
+            "input": {
+              "mapping": {
+                "text": "- Store access token via greentic-secrets.\n- Persist config: default_room_id, webhook_url, secret, inbound enabled flag.\n- Idempotent overwrite of previous values.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 4
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 4,
+            "input": {
+              "mapping": {
+                "text": "Webex setup_default complete."
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "setup_default",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "entrypoints": [
+        "diagnostics"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "steps"
+        },
+        "id": "verify_webhooks",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 3,
+            "input": {
+              "mapping": {
+                "text": "- List webhooks for the bot and match on target URL.\n- Recreate any missing or disabled webhooks.\n- Validate signature on a sample payload using stored secret.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "verify_webhooks",
+      "kind": "job",
+      "tags": [
+        "maintenance"
+      ]
+    }
+  ],
+  "kind": "application",
+  "pack_id": 0,
+  "publisher": "Greentic",
+  "schema_version": "pack-v1",
+  "signatures": {
+    "signatures": []
+  },
+  "symbols": {
+    "capability_names": [],
+    "component_ids": [
+      "ai.greentic.component-templates",
+      "diagnostics__room_check",
+      "diagnostics__summary",
+      "diagnostics__token_check",
+      "diagnostics__webhook_check",
+      "handlebars",
+      "messaging-provider-webex",
+      "setup_custom__apply",
+      "setup_custom__collect",
+      "setup_custom__summary",
+      "setup_custom__validate",
+      "setup_default__apply",
+      "setup_default__collect",
+      "setup_default__summary",
+      "setup_default__validate",
+      "verify_webhooks__steps"
+    ],
+    "node_ids": [
+      "apply",
+      "collect",
+      "room_check",
+      "steps",
+      "summary",
+      "token_check",
+      "validate",
+      "webhook_check"
+    ],
+    "pack_ids": [
+      "messaging-webex"
+    ]
+  },
+  "version": "0.4.13"
+}

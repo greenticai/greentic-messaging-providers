@@ -4,26 +4,42 @@
     {
       "name": "diagnostics___summary",
       "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
-      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00",
-      "component_id": "ai.greentic.component-templates"
+      "digest": "sha256:42e5e4dfd246c65fb8a069b811ba6ef875abc4b451f5259149ff1912d1266eb8",
+      "component_id": "ai.greentic.component-templates",
+      "bundled": true,
+      "bundled_path": "blobs/sha256/42e5e4dfd246c65fb8a069b811ba6ef875abc4b451f5259149ff1912d1266eb8.wasm",
+      "wasm_sha256": "42e5e4dfd246c65fb8a069b811ba6ef875abc4b451f5259149ff1912d1266eb8",
+      "resolved_digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
       "name": "requirements___summary",
       "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
-      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00",
-      "component_id": "ai.greentic.component-templates"
+      "digest": "sha256:42e5e4dfd246c65fb8a069b811ba6ef875abc4b451f5259149ff1912d1266eb8",
+      "component_id": "ai.greentic.component-templates",
+      "bundled": true,
+      "bundled_path": "blobs/sha256/42e5e4dfd246c65fb8a069b811ba6ef875abc4b451f5259149ff1912d1266eb8.wasm",
+      "wasm_sha256": "42e5e4dfd246c65fb8a069b811ba6ef875abc4b451f5259149ff1912d1266eb8",
+      "resolved_digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
       "name": "setup_custom___summarize",
       "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
-      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00",
-      "component_id": "ai.greentic.component-templates"
+      "digest": "sha256:42e5e4dfd246c65fb8a069b811ba6ef875abc4b451f5259149ff1912d1266eb8",
+      "component_id": "ai.greentic.component-templates",
+      "bundled": true,
+      "bundled_path": "blobs/sha256/42e5e4dfd246c65fb8a069b811ba6ef875abc4b451f5259149ff1912d1266eb8.wasm",
+      "wasm_sha256": "42e5e4dfd246c65fb8a069b811ba6ef875abc4b451f5259149ff1912d1266eb8",
+      "resolved_digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     },
     {
       "name": "setup_default___summarize",
       "ref": "oci://ghcr.io/greentic-ai/components/templates:latest",
-      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00",
-      "component_id": "ai.greentic.component-templates"
+      "digest": "sha256:42e5e4dfd246c65fb8a069b811ba6ef875abc4b451f5259149ff1912d1266eb8",
+      "component_id": "ai.greentic.component-templates",
+      "bundled": true,
+      "bundled_path": "blobs/sha256/42e5e4dfd246c65fb8a069b811ba6ef875abc4b451f5259149ff1912d1266eb8.wasm",
+      "wasm_sha256": "42e5e4dfd246c65fb8a069b811ba6ef875abc4b451f5259149ff1912d1266eb8",
+      "resolved_digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
     }
   ]
 }
