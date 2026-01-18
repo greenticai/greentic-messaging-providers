@@ -1,0 +1,440 @@
+{
+  "extensions": {
+    "greentic.pack.component_manifests@v1": {
+      "inline": {
+        "entries": [
+          {
+            "component_id": "ai.greentic.component-templates",
+            "content_hash": "sha256:7d9c628c0624c3e0ab5d51ac155b3c9d982c4784ea3c309f124bf59a01fa13fe",
+            "encoding": "cbor",
+            "manifest_file": "components/ai.greentic.component-templates.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__checks",
+            "content_hash": "sha256:07ca9dff66996560e7e999cf5421495667533864e6a753d9e777b11b73bdfa50",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__checks.manifest.cbor"
+          },
+          {
+            "component_id": "handlebars",
+            "content_hash": "sha256:73224d732afba632cea99988bdc33c8afd985db9eb544d19e52b56b26ff3d68c",
+            "encoding": "cbor",
+            "manifest_file": "components/handlebars.manifest.cbor"
+          },
+          {
+            "component_id": "main__start",
+            "content_hash": "sha256:361e212c1aa4d413bcc6a0fc80be1f8c79cad6f61c95798f0ef34a43cbef7c70",
+            "encoding": "cbor",
+            "manifest_file": "components/main__start.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__apply",
+            "content_hash": "sha256:ec7cb9b659d451c7b32fc9ce4073cce6d7eda1f7502d9f75566677637af451a4",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__apply.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__overview",
+            "content_hash": "sha256:de1b400cea19c63d2b00f40985af5610187a4b0f8dd4f92f13d9377e8c45e19d",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__overview.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__summary",
+            "content_hash": "sha256:d53f8493c83ff21c1fdd464fdae44ed872d4ff2d18a19a694a7ada550b5d0b75",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__summary.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__validate",
+            "content_hash": "sha256:d10592ddc9903a71aa5f995b2bbb46c087b93e1999ef103c2734a4c6b36c9a61",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__validate.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__apply",
+            "content_hash": "sha256:40b48c40d55101c6caf208bb3f831f3e2a1a08281be83537d397a6fbc265f15d",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__apply.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__overview",
+            "content_hash": "sha256:0ea9045cb4a9ef4f9840af6d5d186b8fd8367553c0f9eda9ed300ed4ff82eb67",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__overview.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__summary",
+            "content_hash": "sha256:bef98bffc91f6fcf528c2544428d8e6319911330fbc2d434eefe8db9624e0714",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__summary.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__validate",
+            "content_hash": "sha256:16067e7f813f163c4d8e588a58b9caa271610bb372e53a45a88d8c9072b93803",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__validate.manifest.cbor"
+          },
+          {
+            "component_id": "slack",
+            "content_hash": "sha256:dc9795afda470c7bc9d62ddced655be9e770b32c8bf004d5115d2ea3e9df9e53",
+            "encoding": "cbor",
+            "manifest_file": "components/slack.manifest.cbor"
+          },
+          {
+            "component_id": "teams",
+            "content_hash": "sha256:5398315af041689c4eddca08294293bd4bf3de74172dbe24f742a905cc868a1c",
+            "encoding": "cbor",
+            "manifest_file": "components/teams.manifest.cbor"
+          },
+          {
+            "component_id": "telegram",
+            "content_hash": "sha256:a674dafffb4bad4cf7cdc9475d24a5f5a9bc51973424e1dfd26fbb8995962c6f",
+            "encoding": "cbor",
+            "manifest_file": "components/telegram.manifest.cbor"
+          },
+          {
+            "component_id": "verify_webhooks__steps",
+            "content_hash": "sha256:db591afcaac777150fb28c5d441877d88a95695dfa6b7db565fb6cd6db47ee84",
+            "encoding": "cbor",
+            "manifest_file": "components/verify_webhooks__steps.manifest.cbor"
+          },
+          {
+            "component_id": "webchat",
+            "content_hash": "sha256:c34de9f023d04fe1cd9c96589fce4147c1163d126ef70eb16bc9e712f453af3a",
+            "encoding": "cbor",
+            "manifest_file": "components/webchat.manifest.cbor"
+          },
+          {
+            "component_id": "webex",
+            "content_hash": "sha256:39c80cdb14f8993a0aedca3f4be4b98356d556ead15ef4f7ac38e96c0e524600",
+            "encoding": "cbor",
+            "manifest_file": "components/webex.manifest.cbor"
+          },
+          {
+            "component_id": "whatsapp",
+            "content_hash": "sha256:499192628744cf9f06fd8bd699ba0dca1bfbe2549c18c60642dad462e1701730",
+            "encoding": "cbor",
+            "manifest_file": "components/whatsapp.manifest.cbor"
+          }
+        ],
+        "schema_version": 1
+      },
+      "kind": "greentic.pack.component_manifests@v1",
+      "version": "v1"
+    },
+    "greentic.pack.component_sources@v1": {
+      "inline": {
+        "components": [
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___checks.wasm"
+              }
+            },
+            "name": "diagnostics___checks",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/main___start.wasm"
+              }
+            },
+            "name": "main___start",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/requirements___summary.wasm"
+              }
+            },
+            "name": "requirements___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___apply.wasm"
+              }
+            },
+            "name": "setup_custom___apply",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___overview.wasm"
+              }
+            },
+            "name": "setup_custom___overview",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___summary.wasm"
+              }
+            },
+            "name": "setup_custom___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___validate.wasm"
+              }
+            },
+            "name": "setup_custom___validate",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___apply.wasm"
+              }
+            },
+            "name": "setup_default___apply",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___overview.wasm"
+              }
+            },
+            "name": "setup_default___overview",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___summary.wasm"
+              }
+            },
+            "name": "setup_default___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___validate.wasm"
+              }
+            },
+            "name": "setup_default___validate",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/verify_webhooks___steps.wasm"
+              }
+            },
+            "name": "verify_webhooks___steps",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          }
+        ],
+        "schema_version": 1
+      },
+      "kind": "greentic.pack.component_sources@v1",
+      "version": "v1"
+    },
+    "greentic.provider-extension.v1": {
+      "inline": {
+        "providers": [
+          {
+            "capabilities": [
+              "messaging"
+            ],
+            "config_schema_ref": "schemas/messaging/slack/config.schema.json",
+            "docs_ref": "",
+            "ops": [
+              "send",
+              "reply"
+            ],
+            "provider_type": "messaging.slack.api",
+            "runtime": {
+              "component_ref": "slack",
+              "export": "schema-core-api",
+              "world": "greentic:provider/schema-core@1.0.0"
+            },
+            "state_schema_ref": ""
+          },
+          {
+            "capabilities": [
+              "messaging"
+            ],
+            "config_schema_ref": "schemas/messaging/teams/config.schema.json",
+            "docs_ref": "",
+            "ops": [
+              "send",
+              "reply"
+            ],
+            "provider_type": "messaging.teams.graph",
+            "runtime": {
+              "component_ref": "teams",
+              "export": "schema-core-api",
+              "world": "greentic:provider/schema-core@1.0.0"
+            },
+            "state_schema_ref": ""
+          },
+          {
+            "capabilities": [
+              "messaging"
+            ],
+            "config_schema_ref": "schemas/messaging/telegram/config.schema.json",
+            "docs_ref": "",
+            "ops": [
+              "send",
+              "reply"
+            ],
+            "provider_type": "messaging.telegram.bot",
+            "runtime": {
+              "component_ref": "telegram",
+              "export": "schema-core-api",
+              "world": "greentic:provider/schema-core@1.0.0"
+            },
+            "state_schema_ref": ""
+          },
+          {
+            "capabilities": [
+              "messaging"
+            ],
+            "config_schema_ref": "schemas/messaging/webchat/config.schema.json",
+            "docs_ref": "",
+            "ops": [
+              "send",
+              "reply"
+            ],
+            "provider_type": "messaging.webchat",
+            "runtime": {
+              "component_ref": "webchat",
+              "export": "schema-core-api",
+              "world": "greentic:provider/schema-core@1.0.0"
+            },
+            "state_schema_ref": ""
+          },
+          {
+            "capabilities": [
+              "messaging"
+            ],
+            "config_schema_ref": "schemas/messaging/webex/config.schema.json",
+            "docs_ref": "",
+            "ops": [
+              "send",
+              "reply"
+            ],
+            "provider_type": "messaging.webex.bot",
+            "runtime": {
+              "component_ref": "webex",
+              "export": "schema-core-api",
+              "world": "greentic:provider/schema-core@1.0.0"
+            },
+            "state_schema_ref": ""
+          },
+          {
+            "capabilities": [
+              "messaging"
+            ],
+            "config_schema_ref": "schemas/messaging/whatsapp/config.schema.json",
+            "docs_ref": "",
+            "ops": [
+              "send",
+              "reply"
+            ],
+            "provider_type": "messaging.whatsapp.cloud",
+            "runtime": {
+              "component_ref": "whatsapp",
+              "export": "schema-core-api",
+              "world": "greentic:provider/schema-core@1.0.0"
+            },
+            "state_schema_ref": ""
+          }
+        ]
+      },
+      "kind": "greentic.provider-extension.v1",
+      "version": "0.4.12"
+    },
+    "messaging.provider_flow_hints": {
+      "inline": {
+        "messaging.slack.api": {
+          "diagnostics": "diagnostics",
+          "setup_custom": "setup_custom",
+          "setup_default": "setup_default",
+          "verify_webhooks": "verify_webhooks"
+        },
+        "messaging.teams.graph": {
+          "diagnostics": "diagnostics",
+          "setup_custom": "setup_custom",
+          "setup_default": "setup_default",
+          "verify_webhooks": "verify_webhooks"
+        },
+        "messaging.telegram.bot": {
+          "diagnostics": "diagnostics",
+          "setup_custom": "setup_custom",
+          "setup_default": "setup_default",
+          "verify_webhooks": "verify_webhooks"
+        },
+        "messaging.webchat": {
+          "diagnostics": "diagnostics",
+          "setup_custom": "setup_custom",
+          "setup_default": "setup_default",
+          "verify_webhooks": "verify_webhooks"
+        },
+        "messaging.webex.bot": {
+          "diagnostics": "diagnostics",
+          "setup_custom": "setup_custom",
+          "setup_default": "setup_default",
+          "verify_webhooks": "verify_webhooks"
+        },
+        "messaging.whatsapp.cloud": {
+          "diagnostics": "diagnostics",
+          "setup_custom": "setup_custom",
+          "setup_default": "setup_default",
+          "verify_webhooks": "verify_webhooks"
+        }
+      },
+      "kind": "messaging.provider_flow_hints",
+      "version": "0.4.12"
+    }
+  },
+  "pack": null,
+  "version": "0.4.13"
+}

@@ -1,0 +1,342 @@
+{
+  "capabilities": [],
+  "components": [
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 1,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.4.13",
+      "world": "greentic:provider/schema-core@1.0.0"
+    }
+  ],
+  "dependencies": [],
+  "extensions": {
+    "greentic.pack.component_manifests@v1": {
+      "inline": {
+        "entries": [
+          {
+            "component_id": "messaging-provider-dummy",
+            "content_hash": "sha256:e7c391b9503503e5e03c84513cf3c1430a3da9220788fdbd9d02cf0ec279fa64",
+            "encoding": "cbor",
+            "manifest_file": "components/messaging-provider-dummy.manifest.cbor"
+          }
+        ],
+        "schema_version": 1
+      },
+      "kind": "greentic.pack.component_manifests@v1",
+      "version": "v1"
+    },
+    "greentic.pack.component_sources@v1": {
+      "inline": {
+        "components": [
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___summary.wasm"
+              }
+            },
+            "name": "diagnostics___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/requirements___summary.wasm"
+              }
+            },
+            "name": "requirements___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___summarize.wasm"
+              }
+            },
+            "name": "setup_custom___summarize",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___summarize.wasm"
+              }
+            },
+            "name": "setup_default___summarize",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          }
+        ],
+        "schema_version": 1
+      },
+      "kind": "greentic.pack.component_sources@v1",
+      "version": "v1"
+    },
+    "greentic.provider-extension.v1": {
+      "inline": {
+        "providers": [
+          {
+            "capabilities": [
+              "messaging"
+            ],
+            "config_schema_ref": "schemas/messaging/dummy/config.schema.json",
+            "docs_ref": "",
+            "ops": [
+              "send"
+            ],
+            "provider_type": "messaging.dummy",
+            "runtime": {
+              "component_ref": "messaging-provider-dummy",
+              "export": "schema-core-api",
+              "world": "greentic:provider/schema-core@1.0.0"
+            },
+            "state_schema_ref": ""
+          }
+        ]
+      },
+      "kind": "greentic.provider-extension.v1",
+      "version": "0.4.13"
+    },
+    "messaging.provider_flow_hints": {
+      "inline": {
+        "messaging.dummy": {
+          "diagnostics": "diagnostics",
+          "setup_custom": "setup_custom",
+          "setup_default": "setup_default"
+        }
+      },
+      "kind": "messaging.provider_flow_hints",
+      "version": "0.4.13"
+    }
+  },
+  "flows": [
+    {
+      "entrypoints": [
+        "diagnostics"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "summary"
+        },
+        "id": "diagnostics",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 1,
+            "input": {
+              "mapping": {
+                "text": "Dummy diagnostics completed; no external checks required."
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "diagnostics",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "entrypoints": [
+        "requirements"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "summary"
+        },
+        "id": "requirements",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 1,
+            "input": {
+              "mapping": {
+                "text": "Provider: messaging.dummy\nConfig schema: schemas/messaging/dummy/config.schema.json\n\nSecrets: none\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "requirements",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "entrypoints": [
+        "setup"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "summarize"
+        },
+        "id": "setup_custom",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 0,
+            "input": {
+              "mapping": {
+                "text": "Nothing to configure; records last_applied for idempotency."
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "setup_custom",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "entrypoints": [
+        "setup"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "summarize"
+        },
+        "id": "setup_default",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 0,
+            "input": {
+              "mapping": {
+                "text": "Dummy provider requires no external credentials. Flow records last_applied and returns success."
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "setup_default",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    }
+  ],
+  "kind": "application",
+  "pack_id": 0,
+  "publisher": "Greentic",
+  "schema_version": "pack-v1",
+  "signatures": {
+    "signatures": []
+  },
+  "symbols": {
+    "capability_names": [],
+    "component_ids": [
+      "ai.greentic.component-templates",
+      "messaging-provider-dummy"
+    ],
+    "node_ids": [
+      "summarize",
+      "summary"
+    ],
+    "pack_ids": [
+      "messaging-dummy"
+    ]
+  },
+  "version": "0.4.13"
+}

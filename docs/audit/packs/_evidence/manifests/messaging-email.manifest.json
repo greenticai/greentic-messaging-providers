@@ -1,0 +1,993 @@
+{
+  "capabilities": [],
+  "components": [
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 0,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.4.12",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 1,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 2,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 3,
+      "operations": [],
+      "profiles": {
+        "default": "stateless",
+        "supported": [
+          "stateless"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.4.12",
+      "world": "greentic:component/component@0.5.0"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 4,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.4.12",
+      "world": "greentic:provider/schema-core@1.0.0"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 5,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 6,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 7,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 8,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 9,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 10,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 11,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 12,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    }
+  ],
+  "dependencies": [],
+  "extensions": {
+    "greentic.pack.component_manifests@v1": {
+      "inline": {
+        "entries": [
+          {
+            "component_id": "ai.greentic.component-templates",
+            "content_hash": "sha256:7d9c628c0624c3e0ab5d51ac155b3c9d982c4784ea3c309f124bf59a01fa13fe",
+            "encoding": "cbor",
+            "manifest_file": "components/ai.greentic.component-templates.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__checks",
+            "content_hash": "sha256:07ca9dff66996560e7e999cf5421495667533864e6a753d9e777b11b73bdfa50",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__checks.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__summary",
+            "content_hash": "sha256:aa20b2535172a18ba505d2f4c7c631e56609693cf9ffd68038b8ec0f900d0adf",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__summary.manifest.cbor"
+          },
+          {
+            "component_id": "handlebars",
+            "content_hash": "sha256:73224d732afba632cea99988bdc33c8afd985db9eb544d19e52b56b26ff3d68c",
+            "encoding": "cbor",
+            "manifest_file": "components/handlebars.manifest.cbor"
+          },
+          {
+            "component_id": "messaging-provider-email",
+            "content_hash": "sha256:6ee5ddbdac6f2b9d7880cdd5ae904af447ad2c8cd779757c2210a7cb0cb42132",
+            "encoding": "cbor",
+            "manifest_file": "components/messaging-provider-email.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__apply",
+            "content_hash": "sha256:ec7cb9b659d451c7b32fc9ce4073cce6d7eda1f7502d9f75566677637af451a4",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__apply.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__collect",
+            "content_hash": "sha256:f305e094b8cc92e27465a79ec66408bf98578a985b295ee53302834bb79b3f82",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__collect.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__summary",
+            "content_hash": "sha256:d53f8493c83ff21c1fdd464fdae44ed872d4ff2d18a19a694a7ada550b5d0b75",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__summary.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__validate",
+            "content_hash": "sha256:d10592ddc9903a71aa5f995b2bbb46c087b93e1999ef103c2734a4c6b36c9a61",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__validate.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__apply",
+            "content_hash": "sha256:40b48c40d55101c6caf208bb3f831f3e2a1a08281be83537d397a6fbc265f15d",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__apply.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__collect",
+            "content_hash": "sha256:f7beb4f3a1e6f34d8d0920555e7813656f8d230b05aff2732f45aeb1278feb37",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__collect.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__summary",
+            "content_hash": "sha256:bef98bffc91f6fcf528c2544428d8e6319911330fbc2d434eefe8db9624e0714",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__summary.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__validate",
+            "content_hash": "sha256:16067e7f813f163c4d8e588a58b9caa271610bb372e53a45a88d8c9072b93803",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__validate.manifest.cbor"
+          }
+        ],
+        "schema_version": 1
+      },
+      "kind": "greentic.pack.component_manifests@v1",
+      "version": "v1"
+    },
+    "greentic.pack.component_sources@v1": {
+      "inline": {
+        "components": [
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___checks.wasm"
+              }
+            },
+            "name": "diagnostics___checks",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___summary.wasm"
+              }
+            },
+            "name": "diagnostics___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/requirements___summary.wasm"
+              }
+            },
+            "name": "requirements___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___apply.wasm"
+              }
+            },
+            "name": "setup_custom___apply",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___collect.wasm"
+              }
+            },
+            "name": "setup_custom___collect",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___summary.wasm"
+              }
+            },
+            "name": "setup_custom___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___validate.wasm"
+              }
+            },
+            "name": "setup_custom___validate",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___apply.wasm"
+              }
+            },
+            "name": "setup_default___apply",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___collect.wasm"
+              }
+            },
+            "name": "setup_default___collect",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___summary.wasm"
+              }
+            },
+            "name": "setup_default___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___validate.wasm"
+              }
+            },
+            "name": "setup_default___validate",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          }
+        ],
+        "schema_version": 1
+      },
+      "kind": "greentic.pack.component_sources@v1",
+      "version": "v1"
+    },
+    "greentic.provider-extension.v1": {
+      "inline": {
+        "providers": [
+          {
+            "capabilities": [
+              "messaging"
+            ],
+            "config_schema_ref": "schemas/messaging/email/config.schema.json",
+            "docs_ref": "",
+            "ops": [
+              "send",
+              "reply"
+            ],
+            "provider_type": "messaging.email.smtp",
+            "runtime": {
+              "component_ref": "messaging-provider-email",
+              "export": "schema-core-api",
+              "world": "greentic:provider/schema-core@1.0.0"
+            },
+            "state_schema_ref": ""
+          }
+        ]
+      },
+      "kind": "greentic.provider-extension.v1",
+      "version": "0.4.12"
+    },
+    "messaging.provider_flow_hints": {
+      "inline": {
+        "messaging.email.smtp": {
+          "diagnostics": "diagnostics",
+          "setup_custom": "setup_custom",
+          "setup_default": "setup_default"
+        }
+      },
+      "kind": "messaging.provider_flow_hints",
+      "version": "0.4.12"
+    }
+  },
+  "flows": [
+    {
+      "entrypoints": [
+        "diagnostics"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "checks"
+        },
+        "id": "diagnostics",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 1,
+            "input": {
+              "mapping": {
+                "text": "- Confirm SMTP credentials present.\n- Attempt connection/auth with configured TLS/timeout.\n- If payload.send_test_email true, send to payload.recipient (or from_address) with diagnostics marker.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 3
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 3,
+            "input": {
+              "mapping": {
+                "text": "Diagnostics completed; connection/auth {{#if payload.send_test_email}}and send test{{/if}} executed."
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "diagnostics",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "entrypoints": [
+        "requirements"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "summary"
+        },
+        "id": "requirements",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 3,
+            "input": {
+              "mapping": {
+                "text": "Provider: messaging.email.smtp\nConfig schema: schemas/messaging/email/config.schema.json\n\nSecrets:\n- EMAIL_PASSWORD (tenant): SMTP password secret key\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "requirements",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "entrypoints": [
+        "setup"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "collect"
+        },
+        "id": "setup_custom",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 2,
+            "input": {
+              "mapping": {
+                "text": "Collect:\n- smtp_host, smtp_port, username, password\n- tls_mode: starttls | implicit | none\n- connection_timeout_ms, send_timeout_ms\n- retry_policy (attempts/backoff)\n- from_address/display_name\n- inbound_support: false (egress-only)\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 4
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 4,
+            "input": {
+              "mapping": {
+                "text": "- Connect/auth with provided creds and TLS mode.\n- If test_email true, send to provided recipient; respect timeout/retry settings.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 0
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 0,
+            "input": {
+              "mapping": {
+                "text": "- Save secrets (username/password) and TLS preference.\n- Persist config: timeouts, retry_policy, from_address, egress-only flag.\n- Idempotent updates allowed.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 3
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 3,
+            "input": {
+              "mapping": {
+                "text": "SMTP setup_custom applied with tls_mode {{payload.tls_mode}}."
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "setup_custom",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "entrypoints": [
+        "setup"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "collect"
+        },
+        "id": "setup_default",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 2,
+            "input": {
+              "mapping": {
+                "text": "Collect:\n- smtp_host, smtp_port\n- username, password\n- from_address (and optional display_name)\n- use_tls (default true)\nPayload example:\n{\"smtp_host\":\"smtp.example.com\",\"smtp_port\":587,\"username\":\"user\",\"password\":\"pass\",\"from_address\":\"noreply@example.com\",\"use_tls\":true,\"test_email\":false,\"test_recipient\":\"ops@example.com\"}\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 4
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 4,
+            "input": {
+              "mapping": {
+                "text": "- Attempt TCP connect to smtp_host:smtp_port with STARTTLS or TLS per use_tls.\n- Authenticate with username/password.\n- If test_email=true, send a small test email to test_recipient.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 0
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 0,
+            "input": {
+              "mapping": {
+                "text": "- Store secrets SMTP_USERNAME/SMTP_PASSWORD (or provider-specific keys) via greentic-secrets.\n- Persist config: smtp_host, smtp_port, use_tls, from_address/display_name.\n- Idempotent: overwrite existing config; mark last_applied.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 3
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 3,
+            "input": {
+              "mapping": {
+                "text": "SMTP setup_default complete; rerun diagnostics to confirm deliverability."
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "setup_default",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    }
+  ],
+  "kind": "application",
+  "pack_id": 0,
+  "publisher": "Greentic",
+  "schema_version": "pack-v1",
+  "signatures": {
+    "signatures": []
+  },
+  "symbols": {
+    "capability_names": [],
+    "component_ids": [
+      "ai.greentic.component-templates",
+      "diagnostics__checks",
+      "diagnostics__summary",
+      "handlebars",
+      "messaging-provider-email",
+      "setup_custom__apply",
+      "setup_custom__collect",
+      "setup_custom__summary",
+      "setup_custom__validate",
+      "setup_default__apply",
+      "setup_default__collect",
+      "setup_default__summary",
+      "setup_default__validate"
+    ],
+    "node_ids": [
+      "apply",
+      "checks",
+      "collect",
+      "summary",
+      "validate"
+    ],
+    "pack_ids": [
+      "messaging-email"
+    ]
+  },
+  "version": "0.4.13"
+}

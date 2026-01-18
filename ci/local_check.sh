@@ -22,8 +22,18 @@ echo "==> tools/build_components.sh"
 echo "==> tools/sync_packs.sh (PACK_VERSION=${PACK_VERSION})"
 ./tools/sync_packs.sh
 
-echo "==> tools/publish_packs_oci.sh (dry-run, PACK_VERSION=${PACK_VERSION})"
-DRY_RUN=1 ./tools/publish_packs_oci.sh
+run_publish_packs="${RUN_PUBLISH_PACKS:-${CI:-0}}"
+case "${run_publish_packs}" in
+  1|true|TRUE|yes|YES) run_publish_packs=1 ;;
+  *) run_publish_packs=0 ;;
+esac
+
+if [ "${run_publish_packs}" -eq 1 ]; then
+  echo "==> tools/publish_packs_oci.sh (dry-run, PACK_VERSION=${PACK_VERSION})"
+  DRY_RUN=1 ./tools/publish_packs_oci.sh
+else
+  echo "==> tools/publish_packs_oci.sh (skipped; set RUN_PUBLISH_PACKS=1 to enable)"
+fi
 
 echo "==> cargo test --workspace"
 cargo test --workspace

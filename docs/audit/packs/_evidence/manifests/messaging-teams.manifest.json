@@ -1,0 +1,1303 @@
+{
+  "capabilities": [],
+  "components": [
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 0,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.4.12",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 1,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 2,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 3,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 4,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 5,
+      "operations": [],
+      "profiles": {
+        "default": "stateless",
+        "supported": [
+          "stateless"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.4.12",
+      "world": "greentic:component/component@0.5.0"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 6,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.4.12",
+      "world": "greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 7,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.4.12",
+      "world": "greentic:provider/schema-core@1.0.0"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 8,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 9,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 10,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 11,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 12,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 13,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 14,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 15,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    },
+    {
+      "capabilities": {
+        "host": {},
+        "wasi": {
+          "clocks": false,
+          "random": false
+        }
+      },
+      "config_schema": null,
+      "configurators": null,
+      "dev_flows": {},
+      "id": 16,
+      "operations": [],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "resources": {},
+      "supports": [
+        "messaging"
+      ],
+      "version": "0.1.0",
+      "world": "root:component/root"
+    }
+  ],
+  "dependencies": [],
+  "extensions": {
+    "greentic.pack.component_manifests@v1": {
+      "inline": {
+        "entries": [
+          {
+            "component_id": "ai.greentic.component-templates",
+            "content_hash": "sha256:7d9c628c0624c3e0ab5d51ac155b3c9d982c4784ea3c309f124bf59a01fa13fe",
+            "encoding": "cbor",
+            "manifest_file": "components/ai.greentic.component-templates.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__channel_check",
+            "content_hash": "sha256:5277a0740d9c4b47c693fc5881027062680e2e8e877d6ec471e8da76500a8613",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__channel_check.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__subscription_check",
+            "content_hash": "sha256:e415804026c39198875aeeb826eaafc9fa7463fe7d62da842987ba8ae340b0ff",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__subscription_check.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__summary",
+            "content_hash": "sha256:aa20b2535172a18ba505d2f4c7c631e56609693cf9ffd68038b8ec0f900d0adf",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__summary.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__token_check",
+            "content_hash": "sha256:cb327f46a8f4d2e4198280607c6b3a7421e71897f55cc6cee0cccaa07008c364",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__token_check.manifest.cbor"
+          },
+          {
+            "component_id": "handlebars",
+            "content_hash": "sha256:73224d732afba632cea99988bdc33c8afd985db9eb544d19e52b56b26ff3d68c",
+            "encoding": "cbor",
+            "manifest_file": "components/handlebars.manifest.cbor"
+          },
+          {
+            "component_id": "messaging-ingress-teams",
+            "content_hash": "sha256:92f3287e47f483f7645185605420a7b5781dc02589a59b409481233057982f3c",
+            "encoding": "cbor",
+            "manifest_file": "components/messaging-ingress-teams.manifest.cbor"
+          },
+          {
+            "component_id": "messaging-provider-teams",
+            "content_hash": "sha256:6c1ff7ab990459998bdae7e16dea83522feb0e743653f77d2a536355c360892b",
+            "encoding": "cbor",
+            "manifest_file": "components/messaging-provider-teams.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__apply",
+            "content_hash": "sha256:ec7cb9b659d451c7b32fc9ce4073cce6d7eda1f7502d9f75566677637af451a4",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__apply.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__collect",
+            "content_hash": "sha256:f305e094b8cc92e27465a79ec66408bf98578a985b295ee53302834bb79b3f82",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__collect.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__summary",
+            "content_hash": "sha256:d53f8493c83ff21c1fdd464fdae44ed872d4ff2d18a19a694a7ada550b5d0b75",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__summary.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__validate",
+            "content_hash": "sha256:d10592ddc9903a71aa5f995b2bbb46c087b93e1999ef103c2734a4c6b36c9a61",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__validate.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__apply",
+            "content_hash": "sha256:40b48c40d55101c6caf208bb3f831f3e2a1a08281be83537d397a6fbc265f15d",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__apply.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__collect",
+            "content_hash": "sha256:f7beb4f3a1e6f34d8d0920555e7813656f8d230b05aff2732f45aeb1278feb37",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__collect.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__summary",
+            "content_hash": "sha256:bef98bffc91f6fcf528c2544428d8e6319911330fbc2d434eefe8db9624e0714",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__summary.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__validate",
+            "content_hash": "sha256:16067e7f813f163c4d8e588a58b9caa271610bb372e53a45a88d8c9072b93803",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__validate.manifest.cbor"
+          },
+          {
+            "component_id": "verify_webhooks__verify",
+            "content_hash": "sha256:9f4416156c8d19ae204c6f43fb575714a61634eea2dd68b2ea991e751d67b898",
+            "encoding": "cbor",
+            "manifest_file": "components/verify_webhooks__verify.manifest.cbor"
+          }
+        ],
+        "schema_version": 1
+      },
+      "kind": "greentic.pack.component_manifests@v1",
+      "version": "v1"
+    },
+    "greentic.pack.component_sources@v1": {
+      "inline": {
+        "components": [
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___channel_check.wasm"
+              }
+            },
+            "name": "diagnostics___channel_check",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___subscription_check.wasm"
+              }
+            },
+            "name": "diagnostics___subscription_check",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___summary.wasm"
+              }
+            },
+            "name": "diagnostics___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___token_check.wasm"
+              }
+            },
+            "name": "diagnostics___token_check",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/requirements___summary.wasm"
+              }
+            },
+            "name": "requirements___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___apply.wasm"
+              }
+            },
+            "name": "setup_custom___apply",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___collect.wasm"
+              }
+            },
+            "name": "setup_custom___collect",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___summary.wasm"
+              }
+            },
+            "name": "setup_custom___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___validate.wasm"
+              }
+            },
+            "name": "setup_custom___validate",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___apply.wasm"
+              }
+            },
+            "name": "setup_default___apply",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___collect.wasm"
+              }
+            },
+            "name": "setup_default___collect",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___summary.wasm"
+              }
+            },
+            "name": "setup_default___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___validate.wasm"
+              }
+            },
+            "name": "setup_default___validate",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/verify_webhooks___verify.wasm"
+              }
+            },
+            "name": "verify_webhooks___verify",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          }
+        ],
+        "schema_version": 1
+      },
+      "kind": "greentic.pack.component_sources@v1",
+      "version": "v1"
+    },
+    "greentic.provider-extension.v1": {
+      "inline": {
+        "providers": [
+          {
+            "capabilities": [
+              "messaging"
+            ],
+            "config_schema_ref": "schemas/messaging/teams/config.schema.json",
+            "docs_ref": "",
+            "ops": [
+              "send",
+              "reply"
+            ],
+            "provider_type": "messaging.teams.graph",
+            "runtime": {
+              "component_ref": "messaging-provider-teams",
+              "export": "schema-core-api",
+              "world": "greentic:provider/schema-core@1.0.0"
+            },
+            "state_schema_ref": ""
+          }
+        ]
+      },
+      "kind": "greentic.provider-extension.v1",
+      "version": "0.4.12"
+    },
+    "messaging.oauth.v1": {
+      "inline": {
+        "auth_type": "oauth2",
+        "authorize_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+        "provider_id": "teams",
+        "redirect_path": "/oauth/callback/teams",
+        "scopes": [
+          "https://graph.microsoft.com/.default"
+        ],
+        "secret_keys": [
+          "MS_GRAPH_REFRESH_TOKEN"
+        ],
+        "token_url": "https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+      },
+      "kind": "messaging.oauth.v1",
+      "version": "0.4.12"
+    },
+    "messaging.provider_flow_hints": {
+      "inline": {
+        "messaging.teams.graph": {
+          "diagnostics": "diagnostics",
+          "setup_custom": "setup_custom",
+          "setup_default": "setup_default",
+          "verify_webhooks": "verify_webhooks"
+        }
+      },
+      "kind": "messaging.provider_flow_hints",
+      "version": "0.4.12"
+    },
+    "messaging.provider_ingress.v1": {
+      "inline": {
+        "capabilities": {
+          "content_types": [
+            "application/json"
+          ],
+          "supports_webhook_validation": false
+        },
+        "component_ref": "messaging-ingress-teams",
+        "export": "handle-webhook",
+        "world": "greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1"
+      },
+      "kind": "messaging.provider_ingress.v1",
+      "version": "0.4.12"
+    },
+    "messaging.subscriptions.v1": {
+      "inline": {
+        "component_ref": "messaging-ingress-teams",
+        "export": "sync-subscriptions",
+        "renewal_window_hours": 24,
+        "resources": [
+          "message",
+          "reaction"
+        ],
+        "world": "greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1"
+      },
+      "kind": "messaging.subscriptions.v1",
+      "version": "0.4.12"
+    }
+  },
+  "flows": [
+    {
+      "entrypoints": [
+        "diagnostics"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "token_check"
+        },
+        "id": "diagnostics",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 5,
+            "input": {
+              "mapping": {
+                "text": "- Ensure credentials present.\n- Acquire access token from Azure AD.\n- Call GET /v1.0/organization to confirm validity.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 1
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 1,
+            "input": {
+              "mapping": {
+                "text": "- For default channel (or payload.target), attempt dry-run post or channel info lookup.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 3
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 3,
+            "input": {
+              "mapping": {
+                "text": "- If subscriptions configured, list existing subscriptions and ensure they target the desired webhook URL; renew if expiring soon.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 4
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 4,
+            "input": {
+              "mapping": {
+                "text": "Diagnostics complete; token valid, channel reachable, subscriptions reconciled."
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "diagnostics",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "entrypoints": [
+        "requirements"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "summary"
+        },
+        "id": "requirements",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 4,
+            "input": {
+              "mapping": {
+                "text": "Provider: messaging.teams.graph\nConfig schema: schemas/messaging/teams/config.schema.json\n\nSecrets:\n- MS_GRAPH_CLIENT_SECRET (tenant): Client secret used for client_credentials or refresh flows.\n- MS_GRAPH_REFRESH_TOKEN (tenant): Refresh token used when auth_mode selects refresh_token grant.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "requirements",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "entrypoints": [
+        "setup"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "collect"
+        },
+        "id": "setup_custom",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 2,
+            "input": {
+              "mapping": {
+                "text": "Collect:\n- tenant_id, client_id, client_secret/cert\n- bot/service principal ids\n- channels: list of team_id/channel_id targets\n- subscription_types (message, reactions) for webhook callbacks\n- retry/timeouts, test_message flag\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 6
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 6,
+            "input": {
+              "mapping": {
+                "text": "- Acquire token and validate Graph scopes.\n- For each channel, confirm postMessage permission.\n- For subscriptions, ensure webhook endpoint available; create/update subscriptions as needed.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 0
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 0,
+            "input": {
+              "mapping": {
+                "text": "- Save credentials and channel list.\n- Persist subscriptions metadata (resource, expiration, webhook URL) for idempotent reconciliation.\n- Optionally send test message if requested.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 4
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 4,
+            "input": {
+              "mapping": {
+                "text": "Teams setup_custom applied with {{payload.subscription_types}} subscriptions."
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "setup_custom",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "entrypoints": [
+        "setup"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "collect"
+        },
+        "id": "setup_default",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 2,
+            "input": {
+              "mapping": {
+                "text": "Collect:\n- tenant_id\n- client_id\n- client_secret (or certificate reference)\n- bot_id/service_principal_id\n- default_team_id / channel_id (optional)\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 6
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 6,
+            "input": {
+              "mapping": {
+                "text": "- Acquire token from Azure AD using tenant_id/client_id/secret.\n- Call a harmless Graph endpoint (GET /v1.0/organization or /me/joinedTeams) to verify access.\n- If default channel provided, check permissions to post message.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 0
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 0,
+            "input": {
+              "mapping": {
+                "text": "- Store secrets: MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET.\n- Persist config: bot/service principal identifiers, default channel, notification scope.\n- Idempotent: overwrites existing secrets/config and records last_applied.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": {
+              "Next": {
+                "node_id": 4
+              }
+            },
+            "telemetry": {
+              "attributes": {}
+            }
+          },
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 4,
+            "input": {
+              "mapping": {
+                "text": "Teams setup_default complete. Proceed to diagnostics for token + channel verification."
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "setup_default",
+      "kind": "job",
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "entrypoints": [
+        "diagnostics"
+      ],
+      "flow": {
+        "entrypoints": {
+          "default": "verify"
+        },
+        "id": "verify_webhooks",
+        "kind": "job",
+        "metadata": {
+          "extra": {},
+          "tags": []
+        },
+        "nodes": [
+          {
+            "component": {
+              "id": 0,
+              "operation": "handlebars",
+              "pack_alias": null
+            },
+            "id": 7,
+            "input": {
+              "mapping": {
+                "text": "- List Graph subscriptions for the app.\n- Ensure resource filters match configured channels and notification URL matches host ingress.\n- Renew or recreate subscriptions if missing/expired; write back expiration timestamps for idempotency.\n"
+              }
+            },
+            "output": {
+              "mapping": {}
+            },
+            "routing": "End",
+            "telemetry": {
+              "attributes": {}
+            }
+          }
+        ],
+        "schema_version": "flow-v1"
+      },
+      "id": "verify_webhooks",
+      "kind": "job",
+      "tags": [
+        "maintenance"
+      ]
+    }
+  ],
+  "kind": "application",
+  "pack_id": 0,
+  "publisher": "Greentic",
+  "schema_version": "pack-v1",
+  "signatures": {
+    "signatures": []
+  },
+  "symbols": {
+    "capability_names": [],
+    "component_ids": [
+      "ai.greentic.component-templates",
+      "diagnostics__channel_check",
+      "diagnostics__subscription_check",
+      "diagnostics__summary",
+      "diagnostics__token_check",
+      "handlebars",
+      "messaging-ingress-teams",
+      "messaging-provider-teams",
+      "setup_custom__apply",
+      "setup_custom__collect",
+      "setup_custom__summary",
+      "setup_custom__validate",
+      "setup_default__apply",
+      "setup_default__collect",
+      "setup_default__summary",
+      "setup_default__validate",
+      "verify_webhooks__verify"
+    ],
+    "node_ids": [
+      "apply",
+      "channel_check",
+      "collect",
+      "subscription_check",
+      "summary",
+      "token_check",
+      "validate",
+      "verify"
+    ],
+    "pack_ids": [
+      "messaging-teams"
+    ]
+  },
+  "version": "0.4.13"
+}

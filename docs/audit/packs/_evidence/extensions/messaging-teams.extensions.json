@@ -1,0 +1,378 @@
+{
+  "extensions": {
+    "greentic.pack.component_manifests@v1": {
+      "inline": {
+        "entries": [
+          {
+            "component_id": "ai.greentic.component-templates",
+            "content_hash": "sha256:7d9c628c0624c3e0ab5d51ac155b3c9d982c4784ea3c309f124bf59a01fa13fe",
+            "encoding": "cbor",
+            "manifest_file": "components/ai.greentic.component-templates.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__channel_check",
+            "content_hash": "sha256:5277a0740d9c4b47c693fc5881027062680e2e8e877d6ec471e8da76500a8613",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__channel_check.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__subscription_check",
+            "content_hash": "sha256:e415804026c39198875aeeb826eaafc9fa7463fe7d62da842987ba8ae340b0ff",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__subscription_check.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__summary",
+            "content_hash": "sha256:aa20b2535172a18ba505d2f4c7c631e56609693cf9ffd68038b8ec0f900d0adf",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__summary.manifest.cbor"
+          },
+          {
+            "component_id": "diagnostics__token_check",
+            "content_hash": "sha256:cb327f46a8f4d2e4198280607c6b3a7421e71897f55cc6cee0cccaa07008c364",
+            "encoding": "cbor",
+            "manifest_file": "components/diagnostics__token_check.manifest.cbor"
+          },
+          {
+            "component_id": "handlebars",
+            "content_hash": "sha256:73224d732afba632cea99988bdc33c8afd985db9eb544d19e52b56b26ff3d68c",
+            "encoding": "cbor",
+            "manifest_file": "components/handlebars.manifest.cbor"
+          },
+          {
+            "component_id": "messaging-ingress-teams",
+            "content_hash": "sha256:92f3287e47f483f7645185605420a7b5781dc02589a59b409481233057982f3c",
+            "encoding": "cbor",
+            "manifest_file": "components/messaging-ingress-teams.manifest.cbor"
+          },
+          {
+            "component_id": "messaging-provider-teams",
+            "content_hash": "sha256:6c1ff7ab990459998bdae7e16dea83522feb0e743653f77d2a536355c360892b",
+            "encoding": "cbor",
+            "manifest_file": "components/messaging-provider-teams.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__apply",
+            "content_hash": "sha256:ec7cb9b659d451c7b32fc9ce4073cce6d7eda1f7502d9f75566677637af451a4",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__apply.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__collect",
+            "content_hash": "sha256:f305e094b8cc92e27465a79ec66408bf98578a985b295ee53302834bb79b3f82",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__collect.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__summary",
+            "content_hash": "sha256:d53f8493c83ff21c1fdd464fdae44ed872d4ff2d18a19a694a7ada550b5d0b75",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__summary.manifest.cbor"
+          },
+          {
+            "component_id": "setup_custom__validate",
+            "content_hash": "sha256:d10592ddc9903a71aa5f995b2bbb46c087b93e1999ef103c2734a4c6b36c9a61",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_custom__validate.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__apply",
+            "content_hash": "sha256:40b48c40d55101c6caf208bb3f831f3e2a1a08281be83537d397a6fbc265f15d",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__apply.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__collect",
+            "content_hash": "sha256:f7beb4f3a1e6f34d8d0920555e7813656f8d230b05aff2732f45aeb1278feb37",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__collect.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__summary",
+            "content_hash": "sha256:bef98bffc91f6fcf528c2544428d8e6319911330fbc2d434eefe8db9624e0714",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__summary.manifest.cbor"
+          },
+          {
+            "component_id": "setup_default__validate",
+            "content_hash": "sha256:16067e7f813f163c4d8e588a58b9caa271610bb372e53a45a88d8c9072b93803",
+            "encoding": "cbor",
+            "manifest_file": "components/setup_default__validate.manifest.cbor"
+          },
+          {
+            "component_id": "verify_webhooks__verify",
+            "content_hash": "sha256:9f4416156c8d19ae204c6f43fb575714a61634eea2dd68b2ea991e751d67b898",
+            "encoding": "cbor",
+            "manifest_file": "components/verify_webhooks__verify.manifest.cbor"
+          }
+        ],
+        "schema_version": 1
+      },
+      "kind": "greentic.pack.component_manifests@v1",
+      "version": "v1"
+    },
+    "greentic.pack.component_sources@v1": {
+      "inline": {
+        "components": [
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___channel_check.wasm"
+              }
+            },
+            "name": "diagnostics___channel_check",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___subscription_check.wasm"
+              }
+            },
+            "name": "diagnostics___subscription_check",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___summary.wasm"
+              }
+            },
+            "name": "diagnostics___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/diagnostics___token_check.wasm"
+              }
+            },
+            "name": "diagnostics___token_check",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/requirements___summary.wasm"
+              }
+            },
+            "name": "requirements___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___apply.wasm"
+              }
+            },
+            "name": "setup_custom___apply",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___collect.wasm"
+              }
+            },
+            "name": "setup_custom___collect",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___summary.wasm"
+              }
+            },
+            "name": "setup_custom___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_custom___validate.wasm"
+              }
+            },
+            "name": "setup_custom___validate",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___apply.wasm"
+              }
+            },
+            "name": "setup_default___apply",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___collect.wasm"
+              }
+            },
+            "name": "setup_default___collect",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___summary.wasm"
+              }
+            },
+            "name": "setup_default___summary",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/setup_default___validate.wasm"
+              }
+            },
+            "name": "setup_default___validate",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          },
+          {
+            "artifact": {
+              "inline": {
+                "wasm_path": "components/verify_webhooks___verify.wasm"
+              }
+            },
+            "name": "verify_webhooks___verify",
+            "resolved": {
+              "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
+            },
+            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+          }
+        ],
+        "schema_version": 1
+      },
+      "kind": "greentic.pack.component_sources@v1",
+      "version": "v1"
+    },
+    "greentic.provider-extension.v1": {
+      "inline": {
+        "providers": [
+          {
+            "capabilities": [
+              "messaging"
+            ],
+            "config_schema_ref": "schemas/messaging/teams/config.schema.json",
+            "docs_ref": "",
+            "ops": [
+              "send",
+              "reply"
+            ],
+            "provider_type": "messaging.teams.graph",
+            "runtime": {
+              "component_ref": "messaging-provider-teams",
+              "export": "schema-core-api",
+              "world": "greentic:provider/schema-core@1.0.0"
+            },
+            "state_schema_ref": ""
+          }
+        ]
+      },
+      "kind": "greentic.provider-extension.v1",
+      "version": "0.4.12"
+    },
+    "messaging.oauth.v1": {
+      "inline": {
+        "auth_type": "oauth2",
+        "authorize_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+        "provider_id": "teams",
+        "redirect_path": "/oauth/callback/teams",
+        "scopes": [
+          "https://graph.microsoft.com/.default"
+        ],
+        "secret_keys": [
+          "MS_GRAPH_REFRESH_TOKEN"
+        ],
+        "token_url": "https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+      },
+      "kind": "messaging.oauth.v1",
+      "version": "0.4.12"
+    },
+    "messaging.provider_flow_hints": {
+      "inline": {
+        "messaging.teams.graph": {
+          "diagnostics": "diagnostics",
+          "setup_custom": "setup_custom",
+          "setup_default": "setup_default",
+          "verify_webhooks": "verify_webhooks"
+        }
+      },
+      "kind": "messaging.provider_flow_hints",
+      "version": "0.4.12"
+    },
+    "messaging.provider_ingress.v1": {
+      "inline": {
+        "capabilities": {
+          "content_types": [
+            "application/json"
+          ],
+          "supports_webhook_validation": false
+        },
+        "component_ref": "messaging-ingress-teams",
+        "export": "handle-webhook",
+        "world": "greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1"
+      },
+      "kind": "messaging.provider_ingress.v1",
+      "version": "0.4.12"
+    },
+    "messaging.subscriptions.v1": {
+      "inline": {
+        "component_ref": "messaging-ingress-teams",
+        "export": "sync-subscriptions",
+        "renewal_window_hours": 24,
+        "resources": [
+          "message",
+          "reaction"
+        ],
+        "world": "greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1"
+      },
+      "kind": "messaging.subscriptions.v1",
+      "version": "0.4.12"
+    }
+  },
+  "pack": null,
+  "version": "0.4.13"
+}

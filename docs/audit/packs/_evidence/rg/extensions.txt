@@ -1,0 +1,78 @@
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/pack.yaml:394:  messaging.provider_flow_hints:
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/pack.yaml:395:    kind: messaging.provider_flow_hints
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/pack.yaml:404:  messaging.provider_ingress.v1:
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/pack.yaml:405:    kind: messaging.provider_ingress.v1
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/pack.manifest.json:19:    "greentic.provider-extension.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/pack.manifest.json:20:      "kind": "greentic.provider-extension.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/pack.manifest.json:45:    "messaging.oauth.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/pack.manifest.json:46:      "kind": "messaging.oauth.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/pack.manifest.json:64:    "messaging.provider_flow_hints": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/pack.manifest.json:65:      "kind": "messaging.provider_flow_hints",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/pack.manifest.json:77:    "messaging.provider_ingress.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/pack.manifest.json:78:      "kind": "messaging.provider_ingress.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/pack.yaml:283:  messaging.provider_flow_hints:
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/pack.yaml:284:    kind: messaging.provider_flow_hints
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-dummy/pack.yaml:66:  messaging.provider_flow_hints:
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-dummy/pack.yaml:67:    kind: messaging.provider_flow_hints
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/pack.manifest.json:18:    "greentic.provider-extension.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/pack.manifest.json:19:      "kind": "greentic.provider-extension.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/pack.manifest.json:44:    "messaging.provider_flow_hints": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/pack.manifest.json:45:      "kind": "messaging.provider_flow_hints",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-dummy/pack.manifest.json:17:    "greentic.provider-extension.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-dummy/pack.manifest.json:18:      "kind": "greentic.provider-extension.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-dummy/pack.manifest.json:42:    "messaging.provider_flow_hints": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-dummy/pack.manifest.json:43:      "kind": "messaging.provider_flow_hints",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-whatsapp/pack.yaml:313:  messaging.provider_flow_hints:
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-whatsapp/pack.yaml:314:    kind: messaging.provider_flow_hints
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-whatsapp/pack.yaml:322:  messaging.provider_ingress.v1:
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-whatsapp/pack.yaml:323:    kind: messaging.provider_ingress.v1
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-whatsapp/pack.manifest.json:19:    "greentic.provider-extension.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-whatsapp/pack.manifest.json:20:      "kind": "greentic.provider-extension.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-whatsapp/pack.manifest.json:45:    "messaging.provider_flow_hints": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-whatsapp/pack.manifest.json:46:      "kind": "messaging.provider_flow_hints",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-whatsapp/pack.manifest.json:57:    "messaging.provider_ingress.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-whatsapp/pack.manifest.json:58:      "kind": "messaging.provider_ingress.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-telegram/pack.yaml:313:  messaging.provider_flow_hints:
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-telegram/pack.yaml:314:    kind: messaging.provider_flow_hints
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-telegram/pack.yaml:322:  messaging.provider_ingress.v1:
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-telegram/pack.yaml:323:    kind: messaging.provider_ingress.v1
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webex/pack.yaml:298:  messaging.provider_flow_hints:
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webex/pack.yaml:299:    kind: messaging.provider_flow_hints
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-telegram/pack.manifest.json:19:    "greentic.provider-extension.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-telegram/pack.manifest.json:20:      "kind": "greentic.provider-extension.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-telegram/pack.manifest.json:45:    "messaging.provider_flow_hints": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-telegram/pack.manifest.json:46:      "kind": "messaging.provider_flow_hints",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-telegram/pack.manifest.json:57:    "messaging.provider_ingress.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-telegram/pack.manifest.json:58:      "kind": "messaging.provider_ingress.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webex/pack.manifest.json:18:    "greentic.provider-extension.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webex/pack.manifest.json:19:      "kind": "greentic.provider-extension.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webex/pack.manifest.json:44:    "messaging.provider_flow_hints": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webex/pack.manifest.json:45:      "kind": "messaging.provider_flow_hints",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-email/pack.yaml:247:  messaging.provider_flow_hints:
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-email/pack.yaml:248:    kind: messaging.provider_flow_hints
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-email/pack.manifest.json:18:    "greentic.provider-extension.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-email/pack.manifest.json:19:      "kind": "greentic.provider-extension.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-email/pack.manifest.json:44:    "messaging.provider_flow_hints": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-email/pack.manifest.json:45:      "kind": "messaging.provider_flow_hints",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.yaml:326:  messaging.provider_flow_hints:
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.yaml:327:    kind: messaging.provider_flow_hints
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.yaml:335:  messaging.provider_ingress.v1:
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.yaml:336:    kind: messaging.provider_ingress.v1
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.yaml:346:  messaging.subscriptions.v1:
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.yaml:347:    kind: messaging.subscriptions.v1
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.manifest.json:19:    "greentic.provider-extension.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.manifest.json:20:      "kind": "greentic.provider-extension.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.manifest.json:45:    "messaging.oauth.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.manifest.json:46:      "kind": "messaging.oauth.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.manifest.json:62:    "messaging.provider_flow_hints": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.manifest.json:63:      "kind": "messaging.provider_flow_hints",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.manifest.json:74:    "messaging.provider_ingress.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.manifest.json:75:      "kind": "messaging.provider_ingress.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.manifest.json:89:    "messaging.subscriptions.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-teams/pack.manifest.json:90:      "kind": "messaging.subscriptions.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-provider-bundle/pack.yaml:418:  messaging.provider_flow_hints:
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-provider-bundle/pack.yaml:419:    kind: messaging.provider_flow_hints
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-provider-bundle/pack.manifest.json:161:    "greentic.provider-extension.v1": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-provider-bundle/pack.manifest.json:162:      "kind": "greentic.provider-extension.v1",
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-provider-bundle/pack.manifest.json:277:    "messaging.provider_flow_hints": {
+/projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-provider-bundle/pack.manifest.json:278:      "kind": "messaging.provider_flow_hints",
