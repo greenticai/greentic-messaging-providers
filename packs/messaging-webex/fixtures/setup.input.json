@@ -1,0 +1,10 @@
+{
+  "mode": "dry-run",
+  "config": {
+    "access_token": "<value>",
+    "public_base_url": "<value>"
+  },
+  "secrets": {
+    "WEBEX_BOT_TOKEN": "<redacted>"
+  }
+}

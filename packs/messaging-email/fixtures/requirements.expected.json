@@ -1,0 +1,18 @@
+{
+  "provider": "messaging.email.smtp",
+  "config_required": [
+    "host",
+    "username",
+    "from_address"
+  ],
+  "config_optional": [
+    "port",
+    "use_tls"
+  ],
+  "secret_required": [
+    "EMAIL_PASSWORD"
+  ],
+  "secret_optional": [],
+  "oauth_required": false,
+  "subscriptions_required": false
+}

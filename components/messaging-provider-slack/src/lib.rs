@@ -15,7 +15,7 @@ use bindings::greentic::secrets_store::secrets_store;
 use greentic_types::ProviderManifest;
 
 const PROVIDER_TYPE: &str = "messaging.slack.api";
-const CONFIG_SCHEMA_REF: &str = "assets/schemas/messaging/slack/config.schema.json";
+const CONFIG_SCHEMA_REF: &str = "schemas/messaging/slack/config.schema.json";
 const DEFAULT_API_BASE: &str = "https://slack.com/api";
 const DEFAULT_BOT_TOKEN_KEY: &str = "SLACK_BOT_TOKEN";
 

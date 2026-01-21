@@ -1,0 +1,16 @@
+{
+  "provider": "messaging.telegram.bot",
+  "config_required": [
+    "bot_token",
+    "public_base_url"
+  ],
+  "config_optional": [
+    "default_chat_id"
+  ],
+  "secret_required": [
+    "TELEGRAM_BOT_TOKEN"
+  ],
+  "secret_optional": [],
+  "oauth_required": false,
+  "subscriptions_required": false
+}

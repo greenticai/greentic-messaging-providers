@@ -1,42 +1,66 @@
 id: setup_default
 type: job
-start: overview
+in: setup_default__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  overview:
+  setup_default__collect:
     routing:
-    - to: validate
+    - to: setup_default__validate
     handlebars:
-      text: |
-        Payload structure (per provider):
-        - slack: bot_token, signing_secret, default_channel
-        - teams: tenant_id, client_id, client_secret, default_channel
-        - telegram: bot_token, default_chat_id
-        - webchat: signing_secret
-        - webex: access_token, default_room_id
-        - whatsapp: access_token, phone_number_id, business_account_id, verify_token
+      text: 'Collect inputs per provider.
 
-        Interactive runners should prompt provider-by-provider and allow skipping providers not in use.
-  validate:
+        Required config/secret keys (by provider):
+
+        - slack: bot_token, public_base_url; secrets: SLACK_BOT_TOKEN (optional: SLACK_SIGNING_SECRET)
+
+        - teams: tenant_id, client_id, public_base_url; secrets: MS_GRAPH_CLIENT_SECRET,
+        MS_GRAPH_REFRESH_TOKEN
+
+        - telegram: bot_token, public_base_url; secrets: TELEGRAM_BOT_TOKEN
+
+        - webchat: mode, public_base_url; secrets: none
+
+        - webex: access_token, public_base_url; secrets: WEBEX_BOT_TOKEN
+
+        - whatsapp: access_token, phone_number_id, public_base_url; secrets: WHATSAPP_TOKEN
+        (optional: WHATSAPP_VERIFY_TOKEN)
+
+        '
+  setup_default__validate:
     routing:
-    - to: apply
+    - to: setup_default__apply
     handlebars:
-      text: |
-        For each provider with inputs:
-        - Call provider identity endpoint (auth.test, Graph token, getMe, people/me, Graph phone) to validate credentials.
-        - Confirm optional default destinations exist.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_default__apply:
     routing:
-    - to: summary
+    - to: setup_default__summary
     handlebars:
-      text: |
-        - Write secrets per provider using greentic-secrets.
-        - Persist config defaults (channels/rooms/chats).
-        - Idempotent: reruns reconcile and overwrite safely.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"providers\":\
+        \ {\n    \"slack\": {\n      \"config_patch\": {\"public_base_url\": \"<base>\"\
+        , \"default_channel\": \"<channel>\"},\n      \"secrets_patch\": {\"set\"\
+        : {\"SLACK_BOT_TOKEN\": \"<redacted>\"}}\n    },\n    \"teams\": {\n     \
+        \ \"config_patch\": {\"public_base_url\": \"<base>\"},\n      \"secrets_patch\"\
+        : {\"set\": {\"MS_GRAPH_CLIENT_SECRET\": \"<redacted>\", \"MS_GRAPH_REFRESH_TOKEN\"\
+        : \"<redacted>\"}}\n    },\n    \"telegram\": {\n      \"config_patch\": {\"\
+        public_base_url\": \"<base>\"},\n      \"secrets_patch\": {\"set\": {\"TELEGRAM_BOT_TOKEN\"\
+        : \"<redacted>\"}}\n    },\n    \"webchat\": {\n      \"config_patch\": {\"\
+        public_base_url\": \"<base>\"},\n      \"secrets_patch\": {\"set\": {}}\n\
+        \    },\n    \"webex\": {\n      \"config_patch\": {\"public_base_url\": \"\
+        <base>\"},\n      \"secrets_patch\": {\"set\": {\"WEBEX_BOT_TOKEN\": \"<redacted>\"\
+        }}\n    },\n    \"whatsapp\": {\n      \"config_patch\": {\"public_base_url\"\
+        : \"<base>\"},\n      \"secrets_patch\": {\"set\": {\"WHATSAPP_TOKEN\": \"\
+        <redacted>\"}}\n    }\n  },\n  \"webhook_ops\": [\"register\"],\n  \"subscription_ops\"\
+        : [\"teams:sync\"],\n  \"oauth_ops\": [\"slack:authorize\", \"teams:authorize\"\
+        ]\n}\n"
+  setup_default__summary:
     routing: out
     handlebars:
-      text: Bundle setup_default complete for provided providers. Run diagnostics to verify each channel.
+      text: messaging-provider-bundle setup_default complete.

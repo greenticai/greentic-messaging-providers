@@ -23,3 +23,23 @@ Provider-core Microsoft Teams messaging pack (Graph send).
 - `setup_custom`
 - `setup_default`
 - `verify_webhooks`
+
+## Setup
+Inputs:
+- Config required: tenant_id, client_id, public_base_url
+- Config optional: default_channel
+- Secrets required: MS_GRAPH_CLIENT_SECRET, MS_GRAPH_REFRESH_TOKEN
+- Secrets optional: none
+
+Writes:
+- Config keys: tenant_id, client_id, public_base_url, default_channel
+- Secrets: MS_GRAPH_CLIENT_SECRET, MS_GRAPH_REFRESH_TOKEN
+
+Webhooks:
+- public_base_url + /webhooks/teams
+
+Subscriptions:
+- required
+
+OAuth:
+- required

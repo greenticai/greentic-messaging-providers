@@ -30,6 +30,10 @@ MEDIA_TYPE="${MEDIA_TYPE:-application/vnd.greentic.gtpack.v1+zip}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mkdir -p "${ROOT_DIR}/${OUT_DIR}"
 
+if [ -x "${ROOT_DIR}/tools/prepare_pack_assets.sh" ]; then
+  "${ROOT_DIR}/tools/prepare_pack_assets.sh"
+fi
+
 timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 git_sha="$(cd "${ROOT_DIR}" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 
@@ -84,6 +88,21 @@ generate_pack_manifest() {
     --components-dir "${ROOT_DIR}/components" \
     --version "${PACK_VERSION}" \
     --secrets-out "${secrets_out}"
+}
+
+ensure_secret_requirements_asset() {
+  local pack_dir="$1"
+  local secrets_out="$2"
+  local dest_assets="${pack_dir}/assets/secret-requirements.json"
+  local dest_root="${pack_dir}/secret-requirements.json"
+  mkdir -p "$(dirname "${dest_assets}")"
+  if [ -f "${secrets_out}" ]; then
+    cp "${secrets_out}" "${dest_assets}"
+    cp "${secrets_out}" "${dest_root}"
+  else
+    printf '%s\n' "[]" > "${dest_assets}"
+    printf '%s\n' "[]" > "${dest_root}"
+  fi
 }
 
 ensure_pack_readme() {
@@ -187,7 +206,7 @@ for line in lines:
         out.append(f"{prefix}{version}")
         updated = True
     else:
-        out.append(line)
+        out.append(line.replace("__PACK_VERSION__", version))
 if not updated:
     out.append(f"version: {version}")
 path.write_text("\n".join(out) + "\n")
@@ -229,24 +248,6 @@ fetch_oci_component() {
   rm -rf "${tmpdir}"
 }
 
-ensure_locked_components_in_pack() {
-  local pack_dir="$1"
-  local pack_out="$2"
-  local lock_file="${pack_dir}/pack.lock.json"
-  [ -f "${lock_file}" ] || return 0
-
-  while IFS= read -r name; do
-    [ -z "${name}" ] && continue
-    local wasm_rel="components/${name}.wasm"
-    local wasm_path="${pack_dir}/${wasm_rel}"
-    if [ ! -f "${wasm_path}" ]; then
-      echo "Missing locked component artifact ${wasm_rel} for ${pack_dir}" >&2
-      exit 1
-    fi
-    (cd "${pack_dir}" && zip -u "${pack_out}" "${wasm_rel}") >/dev/null
-  done < <(jq -r '.components[]? | .name' "${lock_file}")
-}
-
 read_components() {
   local manifest="$1"
   jq -c '(.component_sources // .components // [])[] | if type=="string" then {id: ., wasm: ("components/" + . + ".wasm"), manifest: "", oci: {}} else {id: .id, wasm: (.wasm // ("components/" + .id + ".wasm")), manifest: (.manifest // ""), oci: (.oci // {})} end' "${manifest}"
@@ -260,6 +261,7 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   secrets_out="${dir}/.secret_requirements.json"
 
   generate_pack_manifest "${dir}" "${secrets_out}"
+  ensure_secret_requirements_asset "${dir}" "${secrets_out}"
   ensure_pack_readme "${dir}"
   update_pack_yaml_version "${dir}"
 
@@ -318,6 +320,13 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     if [ ! -f "${src}" ] || { [ -n "${manifest_rel}" ] && [ ! -f "${manifest_src}" ]; }; then
       if [ -n "${oci_image}" ] && [ -n "${oci_artifact}" ]; then
         fetch_oci_component "${oci_image}" "${oci_digest}" "${oci_artifact}" "${src}" "${oci_manifest}" "${manifest_src}"
+      elif [ -f "${dir}/${wasm_path}" ]; then
+        mkdir -p "$(dirname "${src}")"
+        cp "${dir}/${wasm_path}" "${src}"
+        if [ -n "${manifest_rel}" ] && [ -f "${dir}/${manifest_rel}" ]; then
+          mkdir -p "$(dirname "${manifest_src}")"
+          cp "${dir}/${manifest_rel}" "${manifest_src}"
+        fi
       else
         echo "Missing component artifact: ${src} (component ${comp_id})" >&2
         exit 1
@@ -350,8 +359,6 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     --secrets-req ".secret_requirements.json")
   mv "${local_out_dir}/${pack_name}.gtpack" "${pack_out}"
 
-  ensure_locked_components_in_pack "${dir}" "${pack_out}"
-
   python3 "${ROOT_DIR}/tools/validate_pack_extensions.py" "${pack_out}"
 
   doctor_json="$("${PACKC_BIN}" doctor --json --pack "${pack_out}")"
@@ -373,6 +380,8 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     echo "Pack version mismatch for ${pack_name}: gtpack=${doctor_version} expected=${PACK_VERSION}" >&2
     exit 1
   fi
+
+  python3 "${ROOT_DIR}/tools/validate_pack_fixtures.py"
 
   oci_ref="${OCI_REGISTRY}/${OCI_ORG}/${OCI_REPO}/${pack_name}:${PACK_VERSION}"
   # Compute local content digest (used for dry-run and lockfile regardless of push).
@@ -428,6 +437,26 @@ PY
 
   packs_json=$(echo "${packs_json}" | jq --argjson entry "${pack_entry}" '. + [$entry]')
 done
+
+if compgen -G "${ROOT_DIR}/${OUT_DIR}/messaging-*.gtpack" >/dev/null; then
+  if ! command -v greentic-messaging-test >/dev/null 2>&1; then
+    echo "greentic-messaging-test is required for pack conformance checks" >&2
+    exit 1
+  fi
+  public_base_url="${PUBLIC_BASE_URL:-https://example.com}"
+  env_name="${CONFORMANCE_ENV:-dev}"
+  tenant_name="${CONFORMANCE_TENANT:-example}"
+  team_name="${CONFORMANCE_TEAM:-default}"
+  for pack in "${ROOT_DIR}/${OUT_DIR}"/messaging-*.gtpack; do
+    greentic-messaging-test packs conformance \
+      --setup-only \
+      --public-base-url "${public_base_url}" \
+      --pack-path "${pack}" \
+      --env "${env_name}" \
+      --tenant "${tenant_name}" \
+      --team "${team_name}"
+  done
+fi
 
 echo "${packs_json}" | jq '{ packs: . }' > "${ROOT_DIR}/packs.lock.json"
 echo "Wrote packs.lock.json"

@@ -1,39 +1,48 @@
 id: setup_custom
 type: job
-start: collect
+in: setup_custom__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  collect:
+  setup_custom__collect:
     routing:
-    - to: validate
+    - to: setup_custom__validate
     handlebars:
-      text: |
-        Collect:
-        - smtp_host, smtp_port, username, password
-        - tls_mode: starttls | implicit | none
-        - connection_timeout_ms, send_timeout_ms
-        - retry_policy (attempts/backoff)
-        - from_address/display_name
-        - inbound_support: false (egress-only)
-  validate:
+      text: 'Collect inputs for setup_custom.
+
+        Required config keys: ["host", "username", "from_address"]
+
+        Optional config keys: ["port", "use_tls"]
+
+        Required secrets: ["EMAIL_PASSWORD"]
+
+        Optional secrets: []
+
+        SMTP setup; no inbound webhooks.
+
+        '
+  setup_custom__validate:
     routing:
-    - to: apply
+    - to: setup_custom__apply
     handlebars:
-      text: |
-        - Connect/auth with provided creds and TLS mode.
-        - If test_email true, send to provided recipient; respect timeout/retry settings.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_custom__apply:
     routing:
-    - to: summary
+    - to: setup_custom__summary
     handlebars:
-      text: |
-        - Save secrets (username/password) and TLS preference.
-        - Persist config: timeouts, retry_policy, from_address, egress-only flag.
-        - Idempotent updates allowed.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {\"host\": \"<value>\", \"username\": \"<value>\", \"from_address\": \"\
+        <value>\", \"port\": \"<value>\", \"use_tls\": \"<value>\"},\n  \"secrets_patch\"\
+        : { \"set\": {\"EMAIL_PASSWORD\": \"<redacted>\"}, \"delete\": [] },\n  \"\
+        webhook_ops\": [],\n  \"subscription_ops\": [],\n  \"oauth_ops\": []\n}\n"
+  setup_custom__summary:
     routing: out
     handlebars:
-      text: SMTP setup_custom applied with tls_mode {{payload.tls_mode}}.
+      text: messaging.email.smtp setup_custom complete.

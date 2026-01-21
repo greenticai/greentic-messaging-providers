@@ -1,0 +1,16 @@
+{
+  "provider": "messaging.webex.bot",
+  "config_required": [
+    "access_token",
+    "public_base_url"
+  ],
+  "config_optional": [
+    "default_room_id"
+  ],
+  "secret_required": [
+    "WEBEX_BOT_TOKEN"
+  ],
+  "secret_optional": [],
+  "oauth_required": false,
+  "subscriptions_required": false
+}

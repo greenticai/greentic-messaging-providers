@@ -1,47 +1,49 @@
 id: setup_default
 type: job
-start: collect
+in: setup_default__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  collect:
+  setup_default__collect:
     routing:
-    - to: validate
+    - to: setup_default__validate
     handlebars:
-      text: |
-        Interactive prompts:
-        - bot_token (required)
-        - public_base_url (required for webhook mode)
-        - default_chat_id (optional)
-        - allowed_chat_ids (optional list)
+      text: 'Collect inputs for setup_default.
 
-        Non-interactive payload:
-        {
-          "bot_token": "1234:ABCD",
-          "public_base_url": "https://example.greentic.dev",
-          "default_chat_id": "12345",
-          "allowed_chat_ids": ["12345", "67890"],
-          "test_message": false
-        }
-  validate:
+        Required config keys: ["bot_token", "public_base_url"]
+
+        Optional config keys: ["default_chat_id"]
+
+        Required secrets: ["TELEGRAM_BOT_TOKEN"]
+
+        Optional secrets: []
+
+        Telegram inbound uses webhooks (setWebhook).
+
+        '
+  setup_default__validate:
     routing:
-    - to: apply
+    - to: setup_default__apply
     handlebars:
-      text: |
-        - Call getMe with bot_token to confirm identity.
-        - Call getWebhookInfo to understand current webhook status.
-        - If default_chat_id present and test_message true, sendMessage with a dry-run flag if supported.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_default__apply:
     routing:
-    - to: summary
+    - to: setup_default__summary
     handlebars:
-      text: |
-        - Store bot_token via greentic-secrets.
-        - Persist config: default_chat_id, allowed_chat_ids, mode (webhook|polling), public_base_url, derived webhook_url.
-        - Idempotent: overwrite existing secrets/config; record last_applied.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {\"bot_token\": \"<value>\", \"public_base_url\": \"<value>\", \"default_chat_id\"\
+        : \"<value>\"},\n  \"secrets_patch\": { \"set\": {\"TELEGRAM_BOT_TOKEN\":\
+        \ \"<redacted>\"}, \"delete\": [] },\n  \"webhook_ops\": [{\"op\": \"register\"\
+        , \"url\": \"<public_base_url>/webhooks/telegram\"}],\n  \"subscription_ops\"\
+        : [],\n  \"oauth_ops\": []\n}\n"
+  setup_default__summary:
     routing: out
     handlebars:
-      text: Telegram setup_default complete. Run diagnostics to verify webhook/polling health.
+      text: messaging.telegram.bot setup_default complete.

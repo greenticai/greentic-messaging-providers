@@ -1,54 +1,50 @@
 id: setup_custom
 type: job
-start: collect_inputs
+in: setup_custom__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  collect_inputs:
+  setup_custom__collect:
     routing:
-    - to: validate
+    - to: setup_custom__validate
     handlebars:
-      text: |
-        Interactive prompts should collect:
-        - bot_token (required) and signing_secret (optional)
-        - inbound_mode: events_api | socket_mode (default events_api)
-        - events: minimal set (message.channels, app_mention, reaction_added) unless overridden
-        - default_channel / fallback DM target
-        - public_base_url (required for events_api webhooks)
-        - formatting defaults (link_names, unfurl settings)
-        - test_message (bool)
+      text: 'Collect inputs for setup_custom.
 
-        Payload example:
-        {
-          "bot_token": "xoxb-...",
-          "signing_secret": "...",
-          "inbound_mode": "events_api",
-          "events": ["message.channels", "app_mention"],
-          "default_channel": "#alerts",
-          "public_base_url": "https://example.greentic.dev",
-          "test_message": true
-        }
-  validate:
+        Required config keys: ["bot_token", "public_base_url"]
+
+        Optional config keys: ["default_channel", "team_id"]
+
+        Required secrets: ["SLACK_BOT_TOKEN"]
+
+        Optional secrets: ["SLACK_SIGNING_SECRET"]
+
+        Uses Slack Events API for inbound webhooks.
+
+        '
+  setup_custom__validate:
     routing:
-    - to: apply
+    - to: setup_custom__apply
     handlebars:
-      text: |
-        - Run auth.test to confirm token and workspace.
-        - Verify conversations.join/postability for default_channel if provided.
-        - For events_api: require public_base_url and register event subscriptions using it.
-        - For socket_mode: confirm app-level token present if needed.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_custom__apply:
     routing:
-    - to: summary
+    - to: setup_custom__summary
     handlebars:
-      text: |
-        - Write secrets (SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SOCKET_APP_TOKEN if applicable) via greentic-secrets.
-        - Persist config: inbound_mode, events list, default_channel, team_id, public_base_url, formatting prefs, derived webhook URL if used.
-        - Mark config version/last_applied for idempotent re-runs.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {\"bot_token\": \"<value>\", \"public_base_url\": \"<value>\", \"default_channel\"\
+        : \"<value>\", \"team_id\": \"<value>\"},\n  \"secrets_patch\": { \"set\"\
+        : {\"SLACK_BOT_TOKEN\": \"<redacted>\", \"SLACK_SIGNING_SECRET\": \"<redacted>\"\
+        }, \"delete\": [] },\n  \"webhook_ops\": [{\"op\": \"register\", \"url\":\
+        \ \"<public_base_url>/webhooks/slack\"}],\n  \"subscription_ops\": [],\n \
+        \ \"oauth_ops\": [{\"op\": \"authorize\"}]\n}\n"
+  setup_custom__summary:
     routing: out
     handlebars:
-      text: |
-        Slack setup_custom applied with inbound mode {{payload.inbound_mode}}. Rerun anytime to update subscriptions or defaults.
+      text: messaging.slack.api setup_custom complete.

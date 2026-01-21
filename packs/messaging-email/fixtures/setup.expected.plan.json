@@ -1,0 +1,18 @@
+{
+  "config_patch": {
+    "host": "<value>",
+    "username": "<value>",
+    "from_address": "<value>",
+    "port": "<value>",
+    "use_tls": "<value>"
+  },
+  "secrets_patch": {
+    "set": {
+      "EMAIL_PASSWORD": "<redacted>"
+    },
+    "delete": []
+  },
+  "webhook_ops": [],
+  "subscription_ops": [],
+  "oauth_ops": []
+}

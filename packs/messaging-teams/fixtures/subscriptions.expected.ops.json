@@ -1,0 +1,8 @@
+{
+  "ops": [
+    {
+      "op": "sync",
+      "resource": "messages"
+    }
+  ]
+}

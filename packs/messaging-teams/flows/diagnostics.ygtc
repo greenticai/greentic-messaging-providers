@@ -1,6 +1,6 @@
 id: diagnostics
 type: job
-start: token_check
+in: token_check
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,22 +10,29 @@ nodes:
     routing:
     - to: channel_check
     handlebars:
-      text: |
-        - Ensure credentials present.
+      text: '- Ensure credentials present.
+
         - Acquire access token from Azure AD.
+
         - Call GET /v1.0/organization to confirm validity.
+
+        '
   channel_check:
     routing:
     - to: subscription_check
     handlebars:
-      text: |
-        - For default channel (or payload.target), attempt dry-run post or channel info lookup.
+      text: '- For default channel (or payload.target), attempt dry-run post or channel
+        info lookup.
+
+        '
   subscription_check:
     routing:
     - to: summary
     handlebars:
-      text: |
-        - If subscriptions configured, list existing subscriptions and ensure they target the desired webhook URL; renew if expiring soon.
+      text: '- If subscriptions configured, list existing subscriptions and ensure
+        they target the desired webhook URL; renew if expiring soon.
+
+        '
   summary:
     routing: out
     handlebars:

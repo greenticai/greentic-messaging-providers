@@ -1,38 +1,44 @@
 id: setup_custom
 type: job
-start: overview
+in: setup_custom__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  overview:
+  setup_custom__collect:
     routing:
-    - to: validate
+    - to: setup_custom__validate
     handlebars:
-      text: |
-        Collect advanced settings:
-        - slack: inbound_mode, events, default_channel, signing_secret
-        - teams: channels list, subscription types, webhook URL
-        - telegram: mode (webhook/polling), webhook_url, commands
-        - webchat: token TTL, allowed_origins, rate_limits
-        - webex: webhooks target/secret, room list
-        - whatsapp: webhook verify_token, allowed_numbers, template defaults
-  validate:
+      text: 'Collect inputs per provider (custom variants and advanced fields allowed).
+
+        Use the same required keys as setup_default, plus any optional overrides.
+
+        '
+  setup_custom__validate:
     routing:
-    - to: apply
+    - to: setup_custom__apply
     handlebars:
-      text: |
-        - Validate credentials per provider.
-        - Reconcile webhook/subscription state where applicable.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_custom__apply:
     routing:
-    - to: summary
+    - to: setup_custom__summary
     handlebars:
-      text: |
-        - Write secrets/config across providers with last_applied markers.
-        - Create/update webhook subscriptions idempotently.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"providers\":\
+        \ {\n    \"slack\": {\"config_patch\": {}, \"secrets_patch\": {\"set\": {}}},\n\
+        \    \"teams\": {\"config_patch\": {}, \"secrets_patch\": {\"set\": {}}},\n\
+        \    \"telegram\": {\"config_patch\": {}, \"secrets_patch\": {\"set\": {}}},\n\
+        \    \"webchat\": {\"config_patch\": {}, \"secrets_patch\": {\"set\": {}}},\n\
+        \    \"webex\": {\"config_patch\": {}, \"secrets_patch\": {\"set\": {}}},\n\
+        \    \"whatsapp\": {\"config_patch\": {}, \"secrets_patch\": {\"set\": {}}}\n\
+        \  },\n  \"webhook_ops\": [\"register\"],\n  \"subscription_ops\": [\"teams:sync\"\
+        ],\n  \"oauth_ops\": [\"slack:authorize\", \"teams:authorize\"]\n}\n"
+  setup_custom__summary:
     routing: out
     handlebars:
-      text: Bundle setup_custom applied; rerun diagnostics for provider health.
+      text: messaging-provider-bundle setup_custom complete.

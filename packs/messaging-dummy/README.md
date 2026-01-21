@@ -20,3 +20,23 @@ Deterministic provider-core messaging provider for CI and integration tests.
 - `diagnostics`
 - `setup_custom`
 - `setup_default`
+
+## Setup
+Inputs:
+- Config required: none
+- Config optional: none
+- Secrets required: none
+- Secrets optional: none
+
+Writes:
+- Config keys: none
+- Secrets: none
+
+Webhooks:
+- none
+
+Subscriptions:
+- none
+
+OAuth:
+- not required

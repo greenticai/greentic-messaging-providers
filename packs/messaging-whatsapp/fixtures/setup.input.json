@@ -1,0 +1,11 @@
+{
+  "mode": "dry-run",
+  "config": {
+    "access_token": "<value>",
+    "phone_number_id": "<value>",
+    "public_base_url": "<value>"
+  },
+  "secrets": {
+    "WHATSAPP_TOKEN": "<redacted>"
+  }
+}

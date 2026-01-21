@@ -21,7 +21,7 @@
 
 ## Config requirements (greentic-config)
 - Required config keys: `access_token`, `phone_number_id`, `public_base_url` (`packs/messaging-whatsapp/schemas/messaging/whatsapp/config.schema.json:36`).
-- Config schema reference: `assets/schemas/messaging/whatsapp/config.schema.json` (`packs/messaging-whatsapp/pack.manifest.json:33`).
+- Config schema reference: `schemas/messaging/whatsapp/config.schema.json` (`packs/messaging-whatsapp/pack.manifest.json:33`).
 
 ## Secret requirements (greentic-secrets)
 - Required secrets: `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_TOKEN` (`packs/messaging-whatsapp/pack.manifest.json:73`).

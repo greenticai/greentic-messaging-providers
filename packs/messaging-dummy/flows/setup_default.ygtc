@@ -1,12 +1,46 @@
 id: setup_default
 type: job
-start: summarize
+in: setup_default__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  summarize:
+  setup_default__collect:
+    routing:
+    - to: setup_default__validate
+    handlebars:
+      text: 'Collect inputs for setup_default.
+
+        Required config keys: []
+
+        Optional config keys: []
+
+        Required secrets: []
+
+        Optional secrets: []
+
+        Dummy provider for local testing; no external calls.
+
+        '
+  setup_default__validate:
+    routing:
+    - to: setup_default__apply
+    handlebars:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_default__apply:
+    routing:
+    - to: setup_default__summary
+    handlebars:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {},\n  \"secrets_patch\": { \"set\": {}, \"delete\": [] },\n  \"webhook_ops\"\
+        : [],\n  \"subscription_ops\": [],\n  \"oauth_ops\": []\n}\n"
+  setup_default__summary:
     routing: out
     handlebars:
-      text: Dummy provider requires no external credentials. Flow records last_applied and returns success.
+      text: messaging.dummy setup_default complete.

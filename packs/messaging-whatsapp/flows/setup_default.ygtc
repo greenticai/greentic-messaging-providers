@@ -1,38 +1,50 @@
 id: setup_default
 type: job
-start: collect
+in: setup_default__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  collect:
+  setup_default__collect:
     routing:
-    - to: validate
+    - to: setup_default__validate
     handlebars:
-      text: |
-        Collect:
-        - access_token
-        - phone_number_id
-        - business_account_id
-        - verify_token (for webhook)
-        - public_base_url (required for webhook callbacks)
-  validate:
+      text: 'Collect inputs for setup_default.
+
+        Required config keys: ["access_token", "phone_number_id", "public_base_url"]
+
+        Optional config keys: ["business_account_id"]
+
+        Required secrets: ["WHATSAPP_TOKEN"]
+
+        Optional secrets: ["WHATSAPP_VERIFY_TOKEN"]
+
+        WhatsApp Cloud API uses webhook verification with verify token.
+
+        '
+  setup_default__validate:
     routing:
-    - to: apply
+    - to: setup_default__apply
     handlebars:
-      text: |
-        - Call Graph API /{phone_number_id}?fields=id to verify token and phone binding.
-        - Use public_base_url to register webhook and ensure verify_token matches.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_default__apply:
     routing:
-    - to: summary
+    - to: setup_default__summary
     handlebars:
-      text: |
-        - Store secrets: WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_VERIFY_TOKEN, WHATSAPP_BUSINESS_ACCOUNT_ID.
-        - Persist config: public_base_url, webhook_url, default recipients.
-        - Idempotent overwrite.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {\"access_token\": \"<value>\", \"phone_number_id\": \"<value>\", \"public_base_url\"\
+        : \"<value>\", \"business_account_id\": \"<value>\"},\n  \"secrets_patch\"\
+        : { \"set\": {\"WHATSAPP_TOKEN\": \"<redacted>\", \"WHATSAPP_VERIFY_TOKEN\"\
+        : \"<redacted>\"}, \"delete\": [] },\n  \"webhook_ops\": [{\"op\": \"register\"\
+        , \"url\": \"<public_base_url>/webhooks/whatsapp\"}],\n  \"subscription_ops\"\
+        : [],\n  \"oauth_ops\": []\n}\n"
+  setup_default__summary:
     routing: out
     handlebars:
-      text: WhatsApp setup_default complete.
+      text: messaging.whatsapp.cloud setup_default complete.

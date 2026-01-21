@@ -60,6 +60,11 @@ jobs:
           fi
           echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
           greentic-pack --version
+      - name: Install greentic-messaging-test
+        run: |
+          if ! command -v greentic-messaging-test >/dev/null 2>&1; then
+            cargo binstall greentic-messaging-test --no-confirm --locked || cargo install greentic-messaging-test --locked
+          fi
 
       - name: Install oras
         uses: oras-project/setup-oras@v1
@@ -83,6 +88,37 @@ jobs:
           DRY_RUN: "1"
           PACK_VERSION: "0.0.0-dev"
         run: ./tools/publish_packs_oci.sh
+
+      - name: Validate pack archives
+        run: |
+          for p in dist/packs/messaging-*.gtpack; do
+            greentic-pack doctor --validate --pack "$p"
+          done
+
+      - name: Validate pack fixtures
+        run: python3 tools/validate_pack_fixtures.py
+
+      - name: Run messaging conformance (dry-run)
+        run: |
+          for p in dist/packs/messaging-*.gtpack; do
+            greentic-messaging-test packs conformance \
+              --setup-only \
+              --public-base-url "${PUBLIC_BASE_URL:-https://example.com}" \
+              --pack-path "$p" \
+              --env "${CONFORMANCE_ENV:-dev}" \
+              --tenant "${CONFORMANCE_TENANT:-example}" \
+              --team "${CONFORMANCE_TEAM:-default}"
+          done
+
+      - name: Upload packs + fixtures report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packs-and-fixtures
+          path: |
+            dist/packs/*.gtpack
+            dist/fixtures_report.json
+          if-no-files-found: error
 
       - name: Upload component artifacts
         uses: actions/upload-artifact@v4

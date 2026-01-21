@@ -21,3 +21,23 @@ Provider-core WebChat messaging pack (send + ingest).
 - `setup_custom`
 - `setup_default`
 - `verify_webhooks`
+
+## Setup
+Inputs:
+- Config required: mode, public_base_url
+- Config optional: ingress_path
+- Secrets required: none
+- Secrets optional: none
+
+Writes:
+- Config keys: mode, public_base_url, ingress_path
+- Secrets: none
+
+Webhooks:
+- public_base_url + /webhooks/webchat
+
+Subscriptions:
+- none
+
+OAuth:
+- not required

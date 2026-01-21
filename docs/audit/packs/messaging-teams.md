@@ -26,7 +26,7 @@
 
 ## Config requirements (greentic-config)
 - Required config keys: `tenant_id`, `client_id`, `public_base_url` (`packs/messaging-teams/schemas/messaging/teams/config.schema.json:55`).
-- Config schema reference: `assets/schemas/messaging/teams/config.schema.json` (`packs/messaging-teams/pack.manifest.json:33`).
+- Config schema reference: `schemas/messaging/teams/config.schema.json` (`packs/messaging-teams/pack.manifest.json:33`).
 - Subscriptions pattern: `sync` (`packs/messaging-teams/pack.manifest.json:94`).
 
 ## Secret requirements (greentic-secrets)

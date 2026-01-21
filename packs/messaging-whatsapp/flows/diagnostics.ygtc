@@ -1,6 +1,6 @@
 id: diagnostics
 type: job
-start: preflight
+in: preflight
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,22 +10,28 @@ nodes:
     routing:
     - to: token_check
     handlebars:
-      text: |
-        - Ensure access token/IDs/verify_token exist.
+      text: '- Ensure access token/IDs/verify_token exist.
+
         - Confirm webhook URL (if configured).
+
+        '
   token_check:
     routing:
     - to: optional_send
     handlebars:
-      text: |
-        - Call Graph API against phone_number_id to validate token.
+      text: '- Call Graph API against phone_number_id to validate token.
+
         - If webhook configured, verify subscription and respond to challenge.
+
+        '
   optional_send:
     routing:
     - to: summary
     handlebars:
-      text: |
-        If payload.send_test_message true, send a test text message to payload.recipient using messages endpoint.
+      text: 'If payload.send_test_message true, send a test text message to payload.recipient
+        using messages endpoint.
+
+        '
   summary:
     routing: out
     handlebars:

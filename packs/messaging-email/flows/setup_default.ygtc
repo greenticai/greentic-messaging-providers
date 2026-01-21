@@ -1,40 +1,48 @@
 id: setup_default
 type: job
-start: collect
+in: setup_default__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  collect:
+  setup_default__collect:
     routing:
-    - to: validate
+    - to: setup_default__validate
     handlebars:
-      text: |
-        Collect:
-        - smtp_host, smtp_port
-        - username, password
-        - from_address (and optional display_name)
-        - use_tls (default true)
-        Payload example:
-        {"smtp_host":"smtp.example.com","smtp_port":587,"username":"user","password":"pass","from_address":"noreply@example.com","use_tls":true,"test_email":false,"test_recipient":"ops@example.com"}
-  validate:
+      text: 'Collect inputs for setup_default.
+
+        Required config keys: ["host", "username", "from_address"]
+
+        Optional config keys: ["port", "use_tls"]
+
+        Required secrets: ["EMAIL_PASSWORD"]
+
+        Optional secrets: []
+
+        SMTP setup; no inbound webhooks.
+
+        '
+  setup_default__validate:
     routing:
-    - to: apply
+    - to: setup_default__apply
     handlebars:
-      text: |
-        - Attempt TCP connect to smtp_host:smtp_port with STARTTLS or TLS per use_tls.
-        - Authenticate with username/password.
-        - If test_email=true, send a small test email to test_recipient.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_default__apply:
     routing:
-    - to: summary
+    - to: setup_default__summary
     handlebars:
-      text: |
-        - Store secrets SMTP_USERNAME/SMTP_PASSWORD (or provider-specific keys) via greentic-secrets.
-        - Persist config: smtp_host, smtp_port, use_tls, from_address/display_name.
-        - Idempotent: overwrite existing config; mark last_applied.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {\"host\": \"<value>\", \"username\": \"<value>\", \"from_address\": \"\
+        <value>\", \"port\": \"<value>\", \"use_tls\": \"<value>\"},\n  \"secrets_patch\"\
+        : { \"set\": {\"EMAIL_PASSWORD\": \"<redacted>\"}, \"delete\": [] },\n  \"\
+        webhook_ops\": [],\n  \"subscription_ops\": [],\n  \"oauth_ops\": []\n}\n"
+  setup_default__summary:
     routing: out
     handlebars:
-      text: SMTP setup_default complete; rerun diagnostics to confirm deliverability.
+      text: messaging.email.smtp setup_default complete.

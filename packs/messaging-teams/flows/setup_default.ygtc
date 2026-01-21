@@ -1,40 +1,50 @@
 id: setup_default
 type: job
-start: collect
+in: setup_default__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  collect:
+  setup_default__collect:
     routing:
-    - to: validate
+    - to: setup_default__validate
     handlebars:
-      text: |
-        Collect:
-        - tenant_id
-        - client_id
-        - client_secret (or certificate reference)
-        - bot_id/service_principal_id
-        - default_team_id / channel_id (optional)
-        - public_base_url (required for webhook subscriptions)
-  validate:
+      text: 'Collect inputs for setup_default.
+
+        Required config keys: ["tenant_id", "client_id", "public_base_url"]
+
+        Optional config keys: ["default_channel"]
+
+        Required secrets: ["MS_GRAPH_CLIENT_SECRET", "MS_GRAPH_REFRESH_TOKEN"]
+
+        Optional secrets: []
+
+        Requires Microsoft Graph subscriptions for inbound.
+
+        '
+  setup_default__validate:
     routing:
-    - to: apply
+    - to: setup_default__apply
     handlebars:
-      text: |
-        - Acquire token from Azure AD using tenant_id/client_id/secret.
-        - Call a harmless Graph endpoint (GET /v1.0/organization or /me/joinedTeams) to verify access.
-        - If default channel provided, check permissions to post message.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_default__apply:
     routing:
-    - to: summary
+    - to: setup_default__summary
     handlebars:
-      text: |
-        - Store secrets: MS_GRAPH_TENANT_ID, MS_GRAPH_CLIENT_ID, MS_GRAPH_CLIENT_SECRET.
-        - Persist config: bot/service principal identifiers, default channel, public_base_url, notification scope.
-        - Idempotent: overwrites existing secrets/config and records last_applied.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {\"tenant_id\": \"<value>\", \"client_id\": \"<value>\", \"public_base_url\"\
+        : \"<value>\", \"default_channel\": \"<value>\"},\n  \"secrets_patch\": {\
+        \ \"set\": {\"MS_GRAPH_CLIENT_SECRET\": \"<redacted>\", \"MS_GRAPH_REFRESH_TOKEN\"\
+        : \"<redacted>\"}, \"delete\": [] },\n  \"webhook_ops\": [{\"op\": \"register\"\
+        , \"url\": \"<public_base_url>/webhooks/teams\"}],\n  \"subscription_ops\"\
+        : [{\"op\": \"sync\"}],\n  \"oauth_ops\": [{\"op\": \"authorize\"}]\n}\n"
+  setup_default__summary:
     routing: out
     handlebars:
-      text: Teams setup_default complete. Proceed to diagnostics for token + channel verification.
+      text: messaging.teams.graph setup_default complete.

@@ -18,7 +18,7 @@
 
 ## Config requirements (greentic-config)
 - Required config keys: `mode`, `public_base_url` (`packs/messaging-webchat/schemas/messaging/webchat/config.schema.json:30`).
-- Config schema reference: `assets/schemas/messaging/webchat/config.schema.json` (`packs/messaging-webchat/pack.manifest.json:32`).
+- Config schema reference: `schemas/messaging/webchat/config.schema.json` (`packs/messaging-webchat/pack.manifest.json:32`).
 
 ## Secret requirements (greentic-secrets)
 - No declared secrets (`packs/messaging-webchat/pack.manifest.json:57`).

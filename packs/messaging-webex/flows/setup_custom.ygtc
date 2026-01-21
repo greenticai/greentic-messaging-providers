@@ -1,39 +1,49 @@
 id: setup_custom
 type: job
-start: collect
+in: setup_custom__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  collect:
+  setup_custom__collect:
     routing:
-    - to: validate
+    - to: setup_custom__validate
     handlebars:
-      text: |
-        Collect:
-        - bot_access_token
-        - rooms: list of room_ids
-        - webhook_url and secret (if inbound)
-        - events to subscribe (messages/attachmentActions)
-        - test_message flag
-  validate:
+      text: 'Collect inputs for setup_custom.
+
+        Required config keys: ["access_token", "public_base_url"]
+
+        Optional config keys: ["default_room_id"]
+
+        Required secrets: ["WEBEX_BOT_TOKEN"]
+
+        Optional secrets: []
+
+        Webex bots register webhooks for inbound.
+
+        '
+  setup_custom__validate:
     routing:
-    - to: apply
+    - to: setup_custom__apply
     handlebars:
-      text: |
-        - Validate token via /people/me.
-        - For each room, verify membership/post rights.
-        - If webhook_url provided, create/update webhooks and confirm status.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_custom__apply:
     routing:
-    - to: summary
+    - to: setup_custom__summary
     handlebars:
-      text: |
-        - Save token and webhook secret.
-        - Persist room list, webhook ids, last reconciliation timestamp for idempotent reruns.
-        - Optionally send test message if requested.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {\"access_token\": \"<value>\", \"public_base_url\": \"<value>\", \"default_room_id\"\
+        : \"<value>\"},\n  \"secrets_patch\": { \"set\": {\"WEBEX_BOT_TOKEN\": \"\
+        <redacted>\"}, \"delete\": [] },\n  \"webhook_ops\": [{\"op\": \"register\"\
+        , \"url\": \"<public_base_url>/webhooks/webex\"}],\n  \"subscription_ops\"\
+        : [],\n  \"oauth_ops\": []\n}\n"
+  setup_custom__summary:
     routing: out
     handlebars:
-      text: Webex setup_custom applied with webhook target {{payload.webhook_url}}.
+      text: messaging.webex.bot setup_custom complete.

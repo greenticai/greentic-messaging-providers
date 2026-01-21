@@ -1,38 +1,48 @@
 id: setup_default
 type: job
-start: collect
+in: setup_default__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  collect:
+  setup_default__collect:
     routing:
-    - to: validate
+    - to: setup_default__validate
     handlebars:
-      text: |
-        Collect:
-        - signing_secret (required)
-        - public_base_url (required for webhook callbacks)
-        - channel_token/public_config (optional)
-        - default_audience or room (optional)
-  validate:
+      text: 'Collect inputs for setup_default.
+
+        Required config keys: ["mode", "public_base_url"]
+
+        Optional config keys: ["ingress_path"]
+
+        Required secrets: []
+
+        Optional secrets: []
+
+        Inbound webhooks depend on selected mode.
+
+        '
+  setup_default__validate:
     routing:
-    - to: apply
+    - to: setup_default__apply
     handlebars:
-      text: |
-        - Perform local HMAC/signing with signing_secret to ensure format.
-        - If channel_token provided, verify shape/expiration.
-        - Confirm public_base_url is reachable for webhook verification.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_default__apply:
     routing:
-    - to: summary
+    - to: setup_default__summary
     handlebars:
-      text: |
-        - Store signing_secret via greentic-secrets.
-        - Persist config: public_base_url, default_audience, channel options.
-        - Idempotent: overwrite secrets/config.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {\"mode\": \"<value>\", \"public_base_url\": \"<value>\", \"ingress_path\"\
+        : \"<value>\"},\n  \"secrets_patch\": { \"set\": {}, \"delete\": [] },\n \
+        \ \"webhook_ops\": [{\"op\": \"register\", \"url\": \"<public_base_url>/webhooks/webchat\"\
+        }],\n  \"subscription_ops\": [],\n  \"oauth_ops\": []\n}\n"
+  setup_default__summary:
     routing: out
     handlebars:
-      text: Webchat setup_default complete.
+      text: messaging.webchat setup_default complete.

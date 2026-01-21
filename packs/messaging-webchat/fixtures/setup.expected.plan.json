@@ -1,0 +1,19 @@
+{
+  "config_patch": {
+    "mode": "<value>",
+    "public_base_url": "<value>",
+    "ingress_path": "<value>"
+  },
+  "secrets_patch": {
+    "set": {},
+    "delete": []
+  },
+  "webhook_ops": [
+    {
+      "op": "register",
+      "url": "<public_base_url>/webhook"
+    }
+  ],
+  "subscription_ops": [],
+  "oauth_ops": []
+}

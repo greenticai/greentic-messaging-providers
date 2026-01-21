@@ -1,0 +1,8 @@
+{
+  "mode": "dry-run",
+  "config": {
+    "mode": "<value>",
+    "public_base_url": "<value>"
+  },
+  "secrets": {}
+}

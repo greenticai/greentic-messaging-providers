@@ -1,0 +1,18 @@
+{
+  "provider": "messaging.teams.graph",
+  "config_required": [
+    "tenant_id",
+    "client_id",
+    "public_base_url"
+  ],
+  "config_optional": [
+    "default_channel"
+  ],
+  "secret_required": [
+    "MS_GRAPH_CLIENT_SECRET",
+    "MS_GRAPH_REFRESH_TOKEN"
+  ],
+  "secret_optional": [],
+  "oauth_required": false,
+  "subscriptions_required": true
+}

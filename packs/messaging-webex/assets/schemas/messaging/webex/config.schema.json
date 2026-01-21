@@ -17,8 +17,15 @@
       "type": "string",
       "description": "Webex API base URL.",
       "default": "https://webexapis.com/v1"
+    },
+    "public_base_url": {
+      "type": "string",
+      "description": "Public base URL used to build inbound webhook callback URLs."
     }
   },
-  "required": ["access_token"],
+  "required": [
+    "access_token",
+    "public_base_url"
+  ],
   "additionalProperties": false
 }

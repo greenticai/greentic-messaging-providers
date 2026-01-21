@@ -1,0 +1,8 @@
+{
+  "subscriptions": [
+    {
+      "resource": "messages",
+      "mode": "webhook"
+    }
+  ]
+}

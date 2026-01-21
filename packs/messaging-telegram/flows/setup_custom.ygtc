@@ -1,42 +1,49 @@
 id: setup_custom
 type: job
-start: collect
+in: setup_custom__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  collect:
+  setup_custom__collect:
     routing:
-    - to: validate
+    - to: setup_custom__validate
     handlebars:
-      text: |
-        Collect:
-        - bot_token (required)
-        - mode: webhook | polling (default webhook)
-        - public_base_url (required for webhook mode)
-        - polling_interval_ms (if polling)
-        - default_chat_id / allowed_chat_ids
-        - commands (optional command list/menu)
-        - test_message (bool)
-  validate:
+      text: 'Collect inputs for setup_custom.
+
+        Required config keys: ["bot_token", "public_base_url"]
+
+        Optional config keys: ["default_chat_id"]
+
+        Required secrets: ["TELEGRAM_BOT_TOKEN"]
+
+        Optional secrets: []
+
+        Telegram inbound uses webhooks (setWebhook).
+
+        '
+  setup_custom__validate:
     routing:
-    - to: apply
+    - to: setup_custom__apply
     handlebars:
-      text: |
-        - getMe to confirm token.
-        - If webhook mode, setWebhook using public_base_url (and secret token if supplied).
-        - If polling, ensure interval >= 1000ms.
-        - Optionally send test message to default_chat_id.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_custom__apply:
     routing:
-    - to: summary
+    - to: setup_custom__summary
     handlebars:
-      text: |
-        - Write secrets: TELEGRAM_BOT_TOKEN.
-        - Persist config: mode, public_base_url, derived webhook_url/polling_interval_ms, chats, commands.
-        - Idempotent update; re-run to change mode or webhook target.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {\"bot_token\": \"<value>\", \"public_base_url\": \"<value>\", \"default_chat_id\"\
+        : \"<value>\"},\n  \"secrets_patch\": { \"set\": {\"TELEGRAM_BOT_TOKEN\":\
+        \ \"<redacted>\"}, \"delete\": [] },\n  \"webhook_ops\": [{\"op\": \"register\"\
+        , \"url\": \"<public_base_url>/webhooks/telegram\"}],\n  \"subscription_ops\"\
+        : [],\n  \"oauth_ops\": []\n}\n"
+  setup_custom__summary:
     routing: out
     handlebars:
-      text: Telegram setup_custom applied. Commands/webhook state updated.
+      text: messaging.telegram.bot setup_custom complete.

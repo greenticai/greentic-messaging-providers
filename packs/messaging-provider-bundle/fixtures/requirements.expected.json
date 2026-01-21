@@ -1,0 +1,9 @@
+{
+  "provider": "messaging.provider_bundle",
+  "config_required": [],
+  "config_optional": [],
+  "secret_required": [],
+  "secret_optional": [],
+  "oauth_required": false,
+  "subscriptions_required": false
+}

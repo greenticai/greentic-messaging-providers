@@ -16,7 +16,7 @@ use bindings::greentic::secrets_store::secrets_store;
 use greentic_types::ProviderManifest;
 
 const PROVIDER_TYPE: &str = "messaging.teams.graph";
-const CONFIG_SCHEMA_REF: &str = "assets/schemas/messaging/teams/config.schema.json";
+const CONFIG_SCHEMA_REF: &str = "schemas/messaging/teams/config.schema.json";
 const DEFAULT_CLIENT_SECRET_KEY: &str = "MS_GRAPH_CLIENT_SECRET";
 const DEFAULT_TOKEN_SCOPE: &str = "https://graph.microsoft.com/.default";
 const DEFAULT_GRAPH_BASE: &str = "https://graph.microsoft.com/v1.0";

@@ -1,0 +1,11 @@
+{
+  "mode": "dry-run",
+  "config": {
+    "host": "<value>",
+    "username": "<value>",
+    "from_address": "<value>"
+  },
+  "secrets": {
+    "EMAIL_PASSWORD": "<redacted>"
+  }
+}

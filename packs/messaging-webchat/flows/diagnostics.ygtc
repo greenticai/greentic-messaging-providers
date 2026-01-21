@@ -1,6 +1,6 @@
 id: diagnostics
 type: job
-start: check_secret
+in: check_secret
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,15 +10,19 @@ nodes:
     routing:
     - to: optional_loopback
     handlebars:
-      text: |
-        - Confirm signing_secret present.
+      text: '- Confirm signing_secret present.
+
         - Generate+verify a sample JWT for the configured audience.
+
+        '
   optional_loopback:
     routing:
     - to: summary
     handlebars:
-      text: |
-        If payload.run_loopback true, generate a token and perform a loopback send/receive via the webchat channel (if host supports).
+      text: 'If payload.run_loopback true, generate a token and perform a loopback
+        send/receive via the webchat channel (if host supports).
+
+        '
   summary:
     routing: out
     handlebars:

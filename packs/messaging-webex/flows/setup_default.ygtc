@@ -1,37 +1,49 @@
 id: setup_default
 type: job
-start: collect
+in: setup_default__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  collect:
+  setup_default__collect:
     routing:
-    - to: validate
+    - to: setup_default__validate
     handlebars:
-      text: |
-        Collect:
-        - bot_access_token (required)
-        - default_room_id (optional)
-        - webhook_url (optional)
-  validate:
+      text: 'Collect inputs for setup_default.
+
+        Required config keys: ["access_token", "public_base_url"]
+
+        Optional config keys: ["default_room_id"]
+
+        Required secrets: ["WEBEX_BOT_TOKEN"]
+
+        Optional secrets: []
+
+        Webex bots register webhooks for inbound.
+
+        '
+  setup_default__validate:
     routing:
-    - to: apply
+    - to: setup_default__apply
     handlebars:
-      text: |
-        - Call Webex /people/me to validate token and bot identity.
-        - If default_room_id set, verify membership and postability.
-        - If webhook_url provided, ensure signature secret present.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_default__apply:
     routing:
-    - to: summary
+    - to: setup_default__summary
     handlebars:
-      text: |
-        - Store access token via greentic-secrets.
-        - Persist config: default_room_id, webhook_url, secret, inbound enabled flag.
-        - Idempotent overwrite of previous values.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {\"access_token\": \"<value>\", \"public_base_url\": \"<value>\", \"default_room_id\"\
+        : \"<value>\"},\n  \"secrets_patch\": { \"set\": {\"WEBEX_BOT_TOKEN\": \"\
+        <redacted>\"}, \"delete\": [] },\n  \"webhook_ops\": [{\"op\": \"register\"\
+        , \"url\": \"<public_base_url>/webhooks/webex\"}],\n  \"subscription_ops\"\
+        : [],\n  \"oauth_ops\": []\n}\n"
+  setup_default__summary:
     routing: out
     handlebars:
-      text: Webex setup_default complete.
+      text: messaging.webex.bot setup_default complete.

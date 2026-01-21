@@ -1,13 +1,13 @@
 {
   "name": "messaging-slack",
-  "version": "0.4.17",
+  "version": "0.4.19",
   "description": "Provider-core Slack messaging pack (chat.postMessage).",
   "kind": "application",
   "publisher": "Greentic",
   "config_schema": {
     "provider_config": {
       "format": "json",
-      "path": "assets/schemas/messaging/slack/config.schema.json"
+      "path": "schemas/messaging/slack/config.schema.json"
     }
   },
   "components": [
@@ -16,9 +16,22 @@
     "messaging-provider-slack"
   ],
   "extensions": {
+    "greentic.messaging.validators.v1": {
+      "kind": "greentic.messaging.validators.v1",
+      "version": "1.0.0",
+      "inline": {
+        "validators": [
+          {
+            "id": "greentic.validators.messaging",
+            "world": "greentic:pack-validate/pack-validator@0.1.0",
+            "component_ref": "ghcr.io/greentic-ai/validators/messaging:0.4.19"
+          }
+        ]
+      }
+    },
     "greentic.provider-extension.v1": {
       "kind": "greentic.provider-extension.v1",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "inline": {
         "providers": [
           {
@@ -30,7 +43,7 @@
               "send",
               "reply"
             ],
-            "config_schema_ref": "assets/schemas/messaging/slack/config.schema.json",
+            "config_schema_ref": "schemas/messaging/slack/config.schema.json",
             "state_schema_ref": "",
             "runtime": {
               "component_ref": "messaging-provider-slack",
@@ -44,7 +57,7 @@
     },
     "messaging.oauth.v1": {
       "kind": "messaging.oauth.v1",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "inline": {
         "auth_type": "oauth2",
         "authorize_url": "https://slack.com/oauth/v2/authorize",
@@ -63,7 +76,7 @@
     },
     "messaging.provider_flow_hints": {
       "kind": "messaging.provider_flow_hints",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "inline": {
         "messaging.slack.api": {
           "diagnostics": "diagnostics",
@@ -76,7 +89,7 @@
     },
     "messaging.provider_ingress.v1": {
       "kind": "messaging.provider_ingress.v1",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "inline": {
         "capabilities": {
           "content_types": [
@@ -167,7 +180,7 @@
   "component_sources": [
     {
       "id": "ai.greentic.component-templates",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -189,7 +202,7 @@
     },
     {
       "id": "diagnostics___auth_test",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -211,7 +224,7 @@
     },
     {
       "id": "diagnostics___optional_send",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -233,7 +246,7 @@
     },
     {
       "id": "diagnostics___preflight",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -255,7 +268,7 @@
     },
     {
       "id": "diagnostics___summary",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -277,7 +290,7 @@
     },
     {
       "id": "diagnostics__auth_test",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -299,7 +312,7 @@
     },
     {
       "id": "diagnostics__optional_send",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -321,7 +334,7 @@
     },
     {
       "id": "diagnostics__preflight",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -343,7 +356,7 @@
     },
     {
       "id": "diagnostics__summary",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -365,7 +378,7 @@
     },
     {
       "id": "handlebars",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "greentic:component/component@0.5.0",
       "supports": [
         "messaging"
@@ -387,7 +400,7 @@
     },
     {
       "id": "messaging-ingress-slack",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "greentic:messaging-ingress-slack/messaging-ingress-slack@0.0.1",
       "supports": [
         "messaging"
@@ -409,7 +422,7 @@
     },
     {
       "id": "messaging-provider-slack",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "greentic:provider/schema-core@1.0.0",
       "supports": [
         "messaging"
@@ -431,7 +444,7 @@
     },
     {
       "id": "requirements___summary",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -453,7 +466,7 @@
     },
     {
       "id": "rotate_credentials___apply",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -475,7 +488,7 @@
     },
     {
       "id": "rotate_credentials___collect",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -497,7 +510,7 @@
     },
     {
       "id": "rotate_credentials___summary",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -519,7 +532,7 @@
     },
     {
       "id": "rotate_credentials___validate",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -541,7 +554,7 @@
     },
     {
       "id": "rotate_credentials__apply",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -563,7 +576,7 @@
     },
     {
       "id": "rotate_credentials__collect",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -585,7 +598,7 @@
     },
     {
       "id": "rotate_credentials__summary",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -607,7 +620,7 @@
     },
     {
       "id": "rotate_credentials__validate",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -629,7 +642,7 @@
     },
     {
       "id": "setup_custom___apply",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -651,7 +664,7 @@
     },
     {
       "id": "setup_custom___collect_inputs",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -673,7 +686,7 @@
     },
     {
       "id": "setup_custom___summary",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -695,7 +708,7 @@
     },
     {
       "id": "setup_custom___validate",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -717,7 +730,7 @@
     },
     {
       "id": "setup_custom__apply",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -739,7 +752,7 @@
     },
     {
       "id": "setup_custom__collect_inputs",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -761,7 +774,7 @@
     },
     {
       "id": "setup_custom__summary",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -783,7 +796,7 @@
     },
     {
       "id": "setup_custom__validate",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -805,7 +818,7 @@
     },
     {
       "id": "setup_default___apply_config",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -827,7 +840,7 @@
     },
     {
       "id": "setup_default___collect_inputs",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -849,7 +862,7 @@
     },
     {
       "id": "setup_default___summary",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -871,7 +884,7 @@
     },
     {
       "id": "setup_default___validate_token",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -893,7 +906,7 @@
     },
     {
       "id": "setup_default__apply_config",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -915,7 +928,7 @@
     },
     {
       "id": "setup_default__collect_inputs",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -937,7 +950,7 @@
     },
     {
       "id": "setup_default__summary",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -959,7 +972,7 @@
     },
     {
       "id": "setup_default__validate_token",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -981,7 +994,7 @@
     },
     {
       "id": "verify_webhooks___describe",
-      "version": "0.1.0",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -1003,7 +1016,7 @@
     },
     {
       "id": "verify_webhooks__describe",
-      "version": "0.4.16",
+      "version": "0.4.18",
       "world": "root:component/root",
       "supports": [
         "messaging"

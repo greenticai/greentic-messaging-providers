@@ -1,6 +1,6 @@
 id: requirements
 type: job
-start: summary
+in: summary
 parameters: {}
 tags: []
 schema_version: 2
@@ -9,36 +9,28 @@ nodes:
   summary:
     routing: out
     handlebars:
-      text: |
-        Provider: messaging.slack.api
-        Config schema: assets/schemas/messaging/slack/config.schema.json
-
-        Provider: messaging.teams.graph
-        Config schema: assets/schemas/messaging/teams/config.schema.json
-
-        Provider: messaging.telegram.bot
-        Config schema: assets/schemas/messaging/telegram/config.schema.json
-
-        Provider: messaging.webchat
-        Config schema: assets/schemas/messaging/webchat/config.schema.json
-
-        Provider: messaging.webex.bot
-        Config schema: assets/schemas/messaging/webex/config.schema.json
-
-        Provider: messaging.whatsapp.cloud
-        Config schema: assets/schemas/messaging/whatsapp/config.schema.json
-
-        Config requirements (webhook providers):
-        - public_base_url: Required for Slack, Teams, Telegram, Webchat, WhatsApp webhook callbacks.
-
-        Secrets:
-        - SLACK_BOT_TOKEN (tenant): Slack bot token used for chat.postMessage.
-        - SLACK_SIGNING_SECRET (tenant): Optional signing secret for webhook verification.
-        - MS_GRAPH_TENANT_ID (tenant): Tenant ID for Microsoft Graph access.
-        - MS_GRAPH_CLIENT_ID (tenant): Client ID for Microsoft Graph access.
-        - MS_GRAPH_CLIENT_SECRET (tenant): Client secret used to obtain Graph access tokens.
-        - TELEGRAM_BOT_TOKEN (tenant): Telegram bot token used for sendMessage requests.
-        - WEBEX_BOT_TOKEN (tenant): Bot token used for Webex API calls.
-        - WHATSAPP_TOKEN (tenant): Access token used for WhatsApp Graph API calls.
-        - WHATSAPP_PHONE_NUMBER_ID (tenant): Phone number ID associated with the WhatsApp sender.
-        - WHATSAPP_VERIFY_TOKEN (tenant): Verify token used for webhook validation (if configured).
+      text: "Provider bundle requirements (JSON):\n{\n  \"providers\": [\n    {\n\
+        \      \"provider\": \"messaging.slack.api\",\n      \"config_required\":\
+        \ [\"bot_token\", \"public_base_url\"],\n      \"secret_required\": [\"SLACK_BOT_TOKEN\"\
+        ],\n      \"secret_optional\": [\"SLACK_SIGNING_SECRET\"],\n      \"oauth_required\"\
+        : true,\n      \"subscriptions_required\": false\n    },\n    {\n      \"\
+        provider\": \"messaging.teams.graph\",\n      \"config_required\": [\"tenant_id\"\
+        , \"client_id\", \"public_base_url\"],\n      \"secret_required\": [\"MS_GRAPH_CLIENT_SECRET\"\
+        , \"MS_GRAPH_REFRESH_TOKEN\"],\n      \"secret_optional\": [],\n      \"oauth_required\"\
+        : true,\n      \"subscriptions_required\": true\n    },\n    {\n      \"provider\"\
+        : \"messaging.telegram.bot\",\n      \"config_required\": [\"bot_token\",\
+        \ \"public_base_url\"],\n      \"secret_required\": [\"TELEGRAM_BOT_TOKEN\"\
+        ],\n      \"secret_optional\": [],\n      \"oauth_required\": false,\n   \
+        \   \"subscriptions_required\": false\n    },\n    {\n      \"provider\":\
+        \ \"messaging.webchat\",\n      \"config_required\": [\"mode\", \"public_base_url\"\
+        ],\n      \"secret_required\": [],\n      \"secret_optional\": [],\n     \
+        \ \"oauth_required\": false,\n      \"subscriptions_required\": false\n  \
+        \  },\n    {\n      \"provider\": \"messaging.webex.bot\",\n      \"config_required\"\
+        : [\"access_token\", \"public_base_url\"],\n      \"secret_required\": [\"\
+        WEBEX_BOT_TOKEN\"],\n      \"secret_optional\": [],\n      \"oauth_required\"\
+        : false,\n      \"subscriptions_required\": false\n    },\n    {\n      \"\
+        provider\": \"messaging.whatsapp.cloud\",\n      \"config_required\": [\"\
+        access_token\", \"phone_number_id\", \"public_base_url\"],\n      \"secret_required\"\
+        : [\"WHATSAPP_TOKEN\"],\n      \"secret_optional\": [\"WHATSAPP_VERIFY_TOKEN\"\
+        ],\n      \"oauth_required\": false,\n      \"subscriptions_required\": false\n\
+        \    }\n  ]\n}\n"

@@ -21,3 +21,23 @@ Provider-core Webex messaging pack (messages API).
 - `setup_custom`
 - `setup_default`
 - `verify_webhooks`
+
+## Setup
+Inputs:
+- Config required: access_token, public_base_url
+- Config optional: default_room_id
+- Secrets required: WEBEX_BOT_TOKEN
+- Secrets optional: none
+
+Writes:
+- Config keys: access_token, public_base_url, default_room_id
+- Secrets: WEBEX_BOT_TOKEN
+
+Webhooks:
+- public_base_url + /webhooks/webex
+
+Subscriptions:
+- none
+
+OAuth:
+- not required

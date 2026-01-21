@@ -110,6 +110,50 @@ fn run_metadata_generator(workspace_root: &Path, pack_dir: &Path) {
     assert!(status.success(), "metadata generator did not exit cleanly");
 }
 
+fn build_dummy_pack() -> Result<(tempfile::TempDir, PathBuf)> {
+    let root = workspace_root();
+    let temp = tempdir()?;
+    let pack_src = root.join("packs").join("messaging-dummy");
+    let pack_dir = temp.path().join("messaging-dummy");
+    copy_dir(&pack_src, &pack_dir)?;
+
+    let secrets_path = pack_dir.join("assets").join("secret-requirements.json");
+    if !secrets_path.exists() {
+        if let Some(parent) = secrets_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(&secrets_path, b"[]\n")?;
+    }
+    let root_secrets_path = pack_dir.join("secret-requirements.json");
+    if !root_secrets_path.exists() {
+        fs::copy(&secrets_path, &root_secrets_path)?;
+    }
+
+    let lock_path = pack_dir.join("pack.lock.json");
+    if lock_path.exists() {
+        fs::remove_file(&lock_path)?;
+    }
+
+    let gtpack_path = pack_dir.join("build").join("messaging-dummy.gtpack");
+    let status = Command::new("greentic-pack")
+        .arg("build")
+        .arg("--offline")
+        .arg("--no-update")
+        .arg("--in")
+        .arg(".")
+        .arg("--gtpack-out")
+        .arg(&gtpack_path)
+        .current_dir(&pack_dir)
+        .status()
+        .expect("failed to run greentic-pack build");
+    assert!(
+        status.success(),
+        "greentic-pack build failed for dummy pack"
+    );
+
+    Ok((temp, gtpack_path))
+}
+
 fn manifest_components(manifest_path: &Path) -> Result<Vec<String>> {
     let manifest: Value = serde_json::from_slice(&fs::read(manifest_path)?)?;
     let comps = manifest
@@ -345,24 +389,11 @@ fn packs_lock_has_digest() -> Result<()> {
 
 #[test]
 fn greentic_pack_doctor_requires_config_schema() -> Result<()> {
-    let root = workspace_root();
-    let src = root
-        .join("dist")
-        .join("packs")
-        .join("messaging-dummy.gtpack");
-    assert!(
-        src.exists(),
-        "expected messaging-dummy.gtpack at {}",
-        src.display()
-    );
+    let (_temp, src) = build_dummy_pack()?;
 
     let temp = tempdir()?;
     let broken = temp.path().join("messaging-dummy-missing-schema.gtpack");
-    strip_entry_from_gtpack(
-        &src,
-        &broken,
-        "assets/schemas/messaging/dummy/config.schema.json",
-    )?;
+    strip_entry_from_gtpack(&src, &broken, "schemas/messaging/dummy/config.schema.json")?;
 
     let output = Command::new("greentic-pack")
         .arg("doctor")
@@ -382,6 +413,25 @@ fn greentic_pack_doctor_requires_config_schema() -> Result<()> {
     assert!(
         combined.contains("config schema") || combined.contains("config.schema.json"),
         "expected missing schema error, got: {combined}"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn dummy_pack_includes_schema_and_secret_requirements_asset() -> Result<()> {
+    let (_temp, gtpack_path) = build_dummy_pack()?;
+
+    let schema = read_from_gtpack(&gtpack_path, "schemas/messaging/dummy/config.schema.json")?;
+    assert!(
+        !schema.is_empty(),
+        "config schema should be bundled in the dummy pack"
+    );
+
+    let secret_requirements = read_from_gtpack(&gtpack_path, "assets/secret-requirements.json")?;
+    assert!(
+        !secret_requirements.is_empty(),
+        "secret requirements asset should be bundled in the dummy pack"
     );
 
     Ok(())

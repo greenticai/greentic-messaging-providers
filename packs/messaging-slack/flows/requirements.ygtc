@@ -1,6 +1,6 @@
 id: requirements
 type: job
-start: summary
+in: summary
 parameters: {}
 tags: []
 schema_version: 2
@@ -9,13 +9,10 @@ nodes:
   summary:
     routing: out
     handlebars:
-      text: |
-        Provider: messaging.slack.api
-        Config schema: assets/schemas/messaging/slack/config.schema.json
-
-        Config requirements:
-        - public_base_url: Public base URL for inbound webhook callbacks.
-
-        Secrets:
-        - SLACK_BOT_TOKEN (tenant): Slack bot token used for chat.postMessage calls.
-        - SLACK_SIGNING_SECRET (tenant): Slack signing secret (optional for future webhook validation).
+      text: "Provider: messaging.slack.api\nConfig schema: schemas/messaging/slack/config.schema.json\n\
+        \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.slack.api\"\
+        ,\n  \"config_required\": [\"bot_token\", \"public_base_url\"],\n  \"config_optional\"\
+        : [\"default_channel\", \"team_id\"],\n  \"secret_required\": [\"SLACK_BOT_TOKEN\"\
+        ],\n  \"secret_optional\": [\"SLACK_SIGNING_SECRET\"],\n  \"oauth_required\"\
+        : true,\n  \"subscriptions_required\": false\n}\n\nNotes: Uses Slack Events\
+        \ API for inbound webhooks.\n"

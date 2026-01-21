@@ -1,0 +1,12 @@
+{
+  "mode": "dry-run",
+  "config": {
+    "tenant_id": "<value>",
+    "client_id": "<value>",
+    "public_base_url": "<value>"
+  },
+  "secrets": {
+    "MS_GRAPH_CLIENT_SECRET": "<redacted>",
+    "MS_GRAPH_REFRESH_TOKEN": "<redacted>"
+  }
+}

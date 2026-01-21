@@ -1,0 +1,7 @@
+{
+  "provider": "messaging.slack.api",
+  "message": {
+    "text": "hello from ingress",
+    "id": "msg_123"
+  }
+}

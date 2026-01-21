@@ -21,7 +21,7 @@
 
 ## Config requirements (greentic-config)
 - Required config keys: `bot_token`, `public_base_url` (`packs/messaging-telegram/schemas/messaging/telegram/config.schema.json:26`).
-- Config schema reference: `assets/schemas/messaging/telegram/config.schema.json` (`packs/messaging-telegram/pack.manifest.json:33`).
+- Config schema reference: `schemas/messaging/telegram/config.schema.json` (`packs/messaging-telegram/pack.manifest.json:33`).
 
 ## Secret requirements (greentic-secrets)
 - Required secrets: `TELEGRAM_BOT_TOKEN` (`packs/messaging-telegram/pack.manifest.json:73`).

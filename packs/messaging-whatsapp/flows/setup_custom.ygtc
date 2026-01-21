@@ -1,39 +1,50 @@
 id: setup_custom
 type: job
-start: collect
+in: setup_custom__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  collect:
+  setup_custom__collect:
     routing:
-    - to: validate
+    - to: setup_custom__validate
     handlebars:
-      text: |
-        Collect:
-        - access_token, phone_number_id, business_account_id
-        - public_base_url + verify_token
-        - allowed_numbers (optional)
-        - template_defaults (optional)
-        - test_message flag
-  validate:
+      text: 'Collect inputs for setup_custom.
+
+        Required config keys: ["access_token", "phone_number_id", "public_base_url"]
+
+        Optional config keys: ["business_account_id"]
+
+        Required secrets: ["WHATSAPP_TOKEN"]
+
+        Optional secrets: ["WHATSAPP_VERIFY_TOKEN"]
+
+        WhatsApp Cloud API uses webhook verification with verify token.
+
+        '
+  setup_custom__validate:
     routing:
-    - to: apply
+    - to: setup_custom__apply
     handlebars:
-      text: |
-        - Call Graph API me/product_catalog or phone_number lookup to ensure permissions.
-        - If webhook configured, call GET {public_base_url}/... with hub.verify_token flow.
-        - Optional test message to an allowed number if requested.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_custom__apply:
     routing:
-    - to: summary
+    - to: setup_custom__summary
     handlebars:
-      text: |
-        - Write secrets and verify_token.
-        - Persist public_base_url, allowed_numbers, template_defaults, webhook target and status.
-        - Idempotent reconciliation.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {\"access_token\": \"<value>\", \"phone_number_id\": \"<value>\", \"public_base_url\"\
+        : \"<value>\", \"business_account_id\": \"<value>\"},\n  \"secrets_patch\"\
+        : { \"set\": {\"WHATSAPP_TOKEN\": \"<redacted>\", \"WHATSAPP_VERIFY_TOKEN\"\
+        : \"<redacted>\"}, \"delete\": [] },\n  \"webhook_ops\": [{\"op\": \"register\"\
+        , \"url\": \"<public_base_url>/webhooks/whatsapp\"}],\n  \"subscription_ops\"\
+        : [],\n  \"oauth_ops\": []\n}\n"
+  setup_custom__summary:
     routing: out
     handlebars:
-      text: WhatsApp setup_custom applied.
+      text: messaging.whatsapp.cloud setup_custom complete.

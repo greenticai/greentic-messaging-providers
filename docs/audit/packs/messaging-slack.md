@@ -24,7 +24,7 @@
 
 ## Config requirements (greentic-config)
 - Required config keys: `bot_token`, `public_base_url` (`packs/messaging-slack/schemas/messaging/slack/config.schema.json:31`).
-- Config schema reference: `assets/schemas/messaging/slack/config.schema.json` (`packs/messaging-slack/pack.manifest.json:33`).
+- Config schema reference: `schemas/messaging/slack/config.schema.json` (`packs/messaging-slack/pack.manifest.json:33`).
 
 ## Secret requirements (greentic-secrets)
 - Required secrets: `SLACK_SIGNING_SECRET`, `SLACK_BOT_TOKEN` (`packs/messaging-slack/pack.manifest.json:93`).

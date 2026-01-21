@@ -29,8 +29,34 @@ case "${run_publish_packs}" in
 esac
 
 if [ "${run_publish_packs}" -eq 1 ]; then
+  if ! command -v cargo-binstall >/dev/null 2>&1; then
+    echo "==> Installing cargo-binstall"
+    cargo install cargo-binstall --locked
+  fi
+  if ! command -v greentic-messaging-test >/dev/null 2>&1; then
+    echo "==> Installing greentic-messaging-test"
+    cargo binstall greentic-messaging-test --no-confirm --locked
+  fi
   echo "==> tools/publish_packs_oci.sh (dry-run, PACK_VERSION=${PACK_VERSION})"
   DRY_RUN=1 ./tools/publish_packs_oci.sh
+  if compgen -G "dist/packs/messaging-*.gtpack" >/dev/null; then
+    echo "==> greentic-pack doctor --validate (dist/packs)"
+    for p in dist/packs/messaging-*.gtpack; do
+      greentic-pack doctor --validate --pack "$p"
+    done
+    echo "==> python3 tools/validate_pack_fixtures.py"
+    python3 tools/validate_pack_fixtures.py
+    echo "==> greentic-messaging-test packs conformance (dry-run)"
+    for p in dist/packs/messaging-*.gtpack; do
+      greentic-messaging-test packs conformance \
+        --setup-only \
+        --public-base-url "${PUBLIC_BASE_URL:-https://example.com}" \
+        --pack-path "$p" \
+        --env "${CONFORMANCE_ENV:-dev}" \
+        --tenant "${CONFORMANCE_TENANT:-example}" \
+        --team "${CONFORMANCE_TEAM:-default}"
+    done
+  fi
 else
   echo "==> tools/publish_packs_oci.sh (skipped; set RUN_PUBLISH_PACKS=1 to enable)"
 fi

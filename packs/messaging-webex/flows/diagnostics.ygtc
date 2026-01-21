@@ -1,6 +1,6 @@
 id: diagnostics
 type: job
-start: token_check
+in: token_check
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,22 +10,29 @@ nodes:
     routing:
     - to: room_check
     handlebars:
-      text: |
-        - Ensure access token exists.
+      text: '- Ensure access token exists.
+
         - Call /people/me to confirm validity.
+
+        '
   room_check:
     routing:
     - to: webhook_check
     handlebars:
-      text: |
-        - If default or configured rooms exist, ensure membership and postability (dry-run or actual message if requested).
+      text: '- If default or configured rooms exist, ensure membership and postability
+        (dry-run or actual message if requested).
+
+        '
   webhook_check:
     routing:
     - to: summary
     handlebars:
-      text: |
-        - If webhook configured, list webhooks and ensure target URL matches; renew if needed.
+      text: '- If webhook configured, list webhooks and ensure target URL matches;
+        renew if needed.
+
+        '
   summary:
     routing: out
     handlebars:
-      text: Diagnostics complete; token valid, rooms reachable, webhook {{#if payload.verify_webhook}}checked{{else}}not requested{{/if}}.
+      text: Diagnostics complete; token valid, rooms reachable, webhook {{#if payload.verify_webhook}}checked{{else}}not
+        requested{{/if}}.

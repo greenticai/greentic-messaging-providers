@@ -1,6 +1,6 @@
 id: requirements
 type: job
-start: summary
+in: summary
 parameters: {}
 tags: []
 schema_version: 2
@@ -9,13 +9,10 @@ nodes:
   summary:
     routing: out
     handlebars:
-      text: |
-        Provider: messaging.whatsapp.cloud
-        Config schema: assets/schemas/messaging/whatsapp/config.schema.json
-
-        Config requirements:
-        - public_base_url: Public base URL for inbound webhook callbacks.
-
-        Secrets:
-        - WHATSAPP_TOKEN (tenant): WhatsApp Cloud API access token.
-        - WHATSAPP_VERIFY_TOKEN (tenant): Verify token used for WhatsApp webhook validation (if configured).
+      text: "Provider: messaging.whatsapp.cloud\nConfig schema: schemas/messaging/whatsapp/config.schema.json\n\
+        \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.whatsapp.cloud\"\
+        ,\n  \"config_required\": [\"access_token\", \"phone_number_id\", \"public_base_url\"\
+        ],\n  \"config_optional\": [\"business_account_id\"],\n  \"secret_required\"\
+        : [\"WHATSAPP_TOKEN\"],\n  \"secret_optional\": [\"WHATSAPP_VERIFY_TOKEN\"\
+        ],\n  \"oauth_required\": false,\n  \"subscriptions_required\": false\n}\n\
+        \nNotes: WhatsApp Cloud API uses webhook verification with verify token.\n"

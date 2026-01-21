@@ -15,7 +15,7 @@ use bindings::greentic::secrets_store::secrets_store;
 use greentic_types::ProviderManifest;
 
 const PROVIDER_TYPE: &str = "messaging.whatsapp.cloud";
-const CONFIG_SCHEMA_REF: &str = "assets/schemas/messaging/whatsapp/config.schema.json";
+const CONFIG_SCHEMA_REF: &str = "schemas/messaging/whatsapp/config.schema.json";
 const DEFAULT_API_BASE: &str = "https://graph.facebook.com";
 const DEFAULT_API_VERSION: &str = "v19.0";
 const DEFAULT_TOKEN_KEY: &str = "WHATSAPP_TOKEN";

@@ -2,7 +2,43 @@
   "schema_version": 1,
   "flow": "setup_custom.ygtc",
   "nodes": {
-    "summarize": {
+    "setup_custom__collect": {
+      "component_id": "ai.greentic.component-templates",
+      "source": {
+        "kind": "oci",
+        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
+      },
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.1.2"
+      }
+    },
+    "setup_custom__validate": {
+      "component_id": "ai.greentic.component-templates",
+      "source": {
+        "kind": "oci",
+        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
+      },
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.1.2"
+      }
+    },
+    "setup_custom__apply": {
+      "component_id": "ai.greentic.component-templates",
+      "source": {
+        "kind": "oci",
+        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
+      },
+      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.1.2"
+      }
+    },
+    "setup_custom__summary": {
       "component_id": "ai.greentic.component-templates",
       "source": {
         "kind": "oci",

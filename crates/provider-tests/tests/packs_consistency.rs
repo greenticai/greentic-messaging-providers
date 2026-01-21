@@ -169,3 +169,62 @@ fn packs_have_consistent_manifests_and_artifacts() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn bundle_pack_has_unique_providers_and_schema_paths() -> Result<()> {
+    let root = workspace_root();
+    let pack_dir = root.join("packs").join("messaging-provider-bundle");
+    let manifest_path = pack_dir.join("pack.manifest.json");
+    let manifest: Value = serde_json::from_slice(&fs::read(&manifest_path)?)?;
+
+    let provider_ext = manifest
+        .get("extensions")
+        .and_then(|ext| ext.get(PROVIDER_EXTENSION_ID))
+        .and_then(|ext| ext.get("inline"))
+        .and_then(|inline| inline.get("providers"))
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow::anyhow!("bundle pack missing providers extension"))?;
+
+    let mut seen = std::collections::BTreeSet::new();
+    let mut providers = Vec::new();
+    for provider in provider_ext {
+        let provider_type = provider
+            .get("provider_type")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("bundle provider missing provider_type"))?;
+        assert!(
+            seen.insert(provider_type.to_string()),
+            "duplicate provider id in bundle pack: {}",
+            provider_type
+        );
+        providers.push(provider_type.to_string());
+
+        if let Some(schema) = provider.get("config_schema_ref").and_then(Value::as_str) {
+            assert!(
+                schema.starts_with("schemas/messaging/"),
+                "bundle provider schema ref must be canonical, got: {}",
+                schema
+            );
+        }
+    }
+
+    let expected = [
+        "messaging.slack.api",
+        "messaging.teams.graph",
+        "messaging.telegram.bot",
+        "messaging.webchat",
+        "messaging.webex.bot",
+        "messaging.whatsapp.cloud",
+    ];
+    let expected_set = expected
+        .iter()
+        .map(|id| id.to_string())
+        .collect::<std::collections::BTreeSet<_>>();
+    let found_set = providers
+        .iter()
+        .cloned()
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(expected_set, found_set, "bundle pack providers mismatch");
+
+    Ok(())
+}

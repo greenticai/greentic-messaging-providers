@@ -1,0 +1,29 @@
+{
+  "messaging-dummy": {
+    "errors": []
+  },
+  "messaging-email": {
+    "errors": []
+  },
+  "messaging-provider-bundle": {
+    "errors": []
+  },
+  "messaging-slack": {
+    "errors": []
+  },
+  "messaging-teams": {
+    "errors": []
+  },
+  "messaging-telegram": {
+    "errors": []
+  },
+  "messaging-webchat": {
+    "errors": []
+  },
+  "messaging-webex": {
+    "errors": []
+  },
+  "messaging-whatsapp": {
+    "errors": []
+  }
+}

@@ -24,6 +24,10 @@ command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 command -v python3 >/dev/null 2>&1 || { echo "python3 is required" >&2; exit 1; }
 command -v oras >/dev/null 2>&1 || { echo "oras is required for fetching OCI components" >&2; exit 1; }
 
+if [ -x "${ROOT_DIR}/tools/prepare_pack_assets.sh" ]; then
+  "${ROOT_DIR}/tools/prepare_pack_assets.sh"
+fi
+
 # Default OCI location for the shared templates component used by many packs.
 DEFAULT_TEMPLATES_IMAGE="ghcr.io/greentic-ai/components/templates"
 DEFAULT_TEMPLATES_DIGEST="sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
@@ -55,7 +59,7 @@ for line in lines:
         out.append(f"{prefix}{version}")
         updated = True
     else:
-        out.append(line)
+        out.append(line.replace("__PACK_VERSION__", version))
 if not updated:
     out.append(f"version: {version}")
 path.write_text("\n".join(out) + "\n")
@@ -72,6 +76,21 @@ copy_schema() {
     cp "${src}" "${dest}"
   else
     echo "Warning: schema not found at ${src}" >&2
+  fi
+}
+
+ensure_secret_requirements_asset() {
+  local pack_dir="$1"
+  local secrets_out="$2"
+  local dest_assets="${pack_dir}/assets/secret-requirements.json"
+  local dest_root="${pack_dir}/secret-requirements.json"
+  mkdir -p "$(dirname "${dest_assets}")"
+  if [ -f "${secrets_out}" ]; then
+    cp "${secrets_out}" "${dest_assets}"
+    cp "${secrets_out}" "${dest_root}"
+  else
+    printf '%s\n' "[]" > "${dest_assets}"
+    printf '%s\n' "[]" > "${dest_root}"
   fi
 }
 
@@ -171,6 +190,7 @@ for dir in "${PACKS_DIR}"/*; do
     --version "${VERSION}" \
     --secrets-out "${dir}/.secret_requirements.json" \
     --include-capabilities-cache
+  ensure_secret_requirements_asset "${dir}" "${dir}/.secret_requirements.json"
 
   mkdir -p "${dir}/components"
   while IFS=$'\t' read -r comp wasm_path oci_image oci_digest oci_artifact manifest_rel oci_manifest; do

@@ -1,0 +1,19 @@
+{
+  "provider": "messaging.slack.api",
+  "config_required": [
+    "bot_token",
+    "public_base_url"
+  ],
+  "config_optional": [
+    "default_channel",
+    "team_id"
+  ],
+  "secret_required": [
+    "SLACK_BOT_TOKEN"
+  ],
+  "secret_optional": [
+    "SLACK_SIGNING_SECRET"
+  ],
+  "oauth_required": false,
+  "subscriptions_required": false
+}

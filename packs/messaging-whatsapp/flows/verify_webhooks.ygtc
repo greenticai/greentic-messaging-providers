@@ -1,6 +1,6 @@
 id: verify_webhooks
 type: job
-start: steps
+in: steps
 parameters: {}
 tags: []
 schema_version: 2
@@ -9,7 +9,10 @@ nodes:
   steps:
     routing: out
     handlebars:
-      text: |
-        - Ensure webhook URL registered in Meta app dashboard for phone_number_id.
+      text: '- Ensure webhook URL registered in Meta app dashboard for phone_number_id.
+
         - Perform verification by responding with hub.challenge using verify_token.
+
         - Record verification timestamp for idempotent reruns.
+
+        '

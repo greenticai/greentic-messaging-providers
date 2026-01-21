@@ -1,6 +1,6 @@
 id: main
 type: messaging
-start: start
+in: start
 parameters: {}
 tags: []
 schema_version: 2

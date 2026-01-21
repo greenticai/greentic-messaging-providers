@@ -1,54 +1,50 @@
 id: setup_default
 type: job
-start: collect_inputs
+in: setup_default__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  collect_inputs:
+  setup_default__collect:
     routing:
-    - to: validate_token
+    - to: setup_default__validate
     handlebars:
-      text: |
-        Interactive wizard should prompt for:
-        - bot_token (required)
-        - signing_secret (optional, recommended for inbound)
-        - default_channel (optional)
-        - public_base_url (required for events_api webhooks)
-        - team_id/workspace_hint (optional)
+      text: 'Collect inputs for setup_default.
 
-        Non-interactive payload example:
-        {
-          "bot_token": "xoxb-...",
-          "signing_secret": "...",
-          "default_channel": "#general",
-          "public_base_url": "https://example.greentic.dev",
-          "team_id": "T123",
-          "test_message": false
-        }
+        Required config keys: ["bot_token", "public_base_url"]
 
-        Idempotent behavior: re-running overwrites stored secrets/config for the same tenant.
-  validate_token:
+        Optional config keys: ["default_channel", "team_id"]
+
+        Required secrets: ["SLACK_BOT_TOKEN"]
+
+        Optional secrets: ["SLACK_SIGNING_SECRET"]
+
+        Uses Slack Events API for inbound webhooks.
+
+        '
+  setup_default__validate:
     routing:
-    - to: apply_config
+    - to: setup_default__apply
     handlebars:
-      text: |
-        Validation steps:
-        - Call Slack auth.test with the provided bot_token to verify scopes and workspace.
-        - If signing_secret is provided, verify HMAC against a sample payload to ensure format is correct.
-        - If default_channel is set, call conversations.info to ensure the bot can post there.
-  apply_config:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_default__apply:
     routing:
-    - to: summary
+    - to: setup_default__summary
     handlebars:
-      text: |
-        Apply configuration using greentic-secrets/greentic-config:
-        - secrets: SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET (optional)
-        - config: default_channel, team_id, inbound_mode (defaults to events), public_base_url, derived webhook request URL
-        Ensure secrets are written idempotently (overwrite existing keys) and mark config version/last_applied.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {\"bot_token\": \"<value>\", \"public_base_url\": \"<value>\", \"default_channel\"\
+        : \"<value>\", \"team_id\": \"<value>\"},\n  \"secrets_patch\": { \"set\"\
+        : {\"SLACK_BOT_TOKEN\": \"<redacted>\", \"SLACK_SIGNING_SECRET\": \"<redacted>\"\
+        }, \"delete\": [] },\n  \"webhook_ops\": [{\"op\": \"register\", \"url\":\
+        \ \"<public_base_url>/webhooks/slack\"}],\n  \"subscription_ops\": [],\n \
+        \ \"oauth_ops\": [{\"op\": \"authorize\"}]\n}\n"
+  setup_default__summary:
     routing: out
     handlebars:
-      text: |
-        Slack setup_default complete. Stored bot token and defaults. Next: run diagnostics to validate channel posting and webhook status.
+      text: messaging.slack.api setup_default complete.

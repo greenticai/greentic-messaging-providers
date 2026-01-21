@@ -1,6 +1,6 @@
 id: diagnostics
 type: job
-start: preflight
+in: preflight
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,25 +10,35 @@ nodes:
     routing:
     - to: verify_token
     handlebars:
-      text: |
-        Checks:
+      text: 'Checks:
+
         - TELEGRAM_BOT_TOKEN exists.
+
         - mode (webhook|polling) configured.
+
         - default_chat_id or payload.target_chat provided for send tests.
+
+        '
   verify_token:
     routing:
     - to: optional_send
     handlebars:
-      text: |
-        - getMe to confirm bot identity and status.
-        - If webhook mode, getWebhookInfo and compare URL with configured; trigger a self-ping if possible.
+      text: '- getMe to confirm bot identity and status.
+
+        - If webhook mode, getWebhookInfo and compare URL with configured; trigger
+        a self-ping if possible.
+
         - If polling mode, ensure recent updates can be fetched (getUpdates dry-run).
+
+        '
   optional_send:
     routing:
     - to: summary
     handlebars:
-      text: |
-        If payload.send_test_message true, sendMessage to target chat with diagnostics marker; otherwise skip.
+      text: 'If payload.send_test_message true, sendMessage to target chat with diagnostics
+        marker; otherwise skip.
+
+        '
   summary:
     routing: out
     handlebars:

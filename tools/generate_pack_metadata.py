@@ -232,6 +232,15 @@ def main() -> int:
                             "path": schema.get("path"),
                         }
                     }
+                    break
+        runtime_config = pack_yaml.get("x-provider-runtime-config")
+        if isinstance(runtime_config, dict):
+            schema_version = runtime_config.get("schema_version")
+            if schema_version is not None:
+                config_schema = manifest.setdefault("config_schema", {})
+                config_schema["provider_runtime_config"] = {
+                    "schema_version": schema_version,
+                }
         flows = pack_yaml.get("flows")
         if isinstance(flows, list) and flows:
             manifest["flows"] = flows

@@ -1,0 +1,7 @@
+{
+  "provider": "messaging.telegram.bot",
+  "message": {
+    "text": "hello from ingress",
+    "id": "msg_123"
+  }
+}

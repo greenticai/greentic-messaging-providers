@@ -2,25 +2,25 @@
   "schema_version": 1,
   "flow": "setup_default.ygtc",
   "nodes": {
-    "apply": {
+    "setup_default__collect": {
       "source": {
         "kind": "oci",
         "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
       }
     },
-    "collect": {
+    "setup_default__validate": {
       "source": {
         "kind": "oci",
         "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
       }
     },
-    "summary": {
+    "setup_default__apply": {
       "source": {
         "kind": "oci",
         "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
       }
     },
-    "validate": {
+    "setup_default__summary": {
       "source": {
         "kind": "oci",
         "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"

@@ -20,3 +20,23 @@ Provider-core SMTP email sender pack (simulated send).
 - `diagnostics`
 - `setup_custom`
 - `setup_default`
+
+## Setup
+Inputs:
+- Config required: host, username, from_address
+- Config optional: port, use_tls
+- Secrets required: EMAIL_PASSWORD
+- Secrets optional: none
+
+Writes:
+- Config keys: host, username, from_address, port, use_tls
+- Secrets: EMAIL_PASSWORD
+
+Webhooks:
+- none
+
+Subscriptions:
+- none
+
+OAuth:
+- not required

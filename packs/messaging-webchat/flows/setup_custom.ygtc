@@ -1,40 +1,48 @@
 id: setup_custom
 type: job
-start: collect
+in: setup_custom__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  collect:
+  setup_custom__collect:
     routing:
-    - to: validate
+    - to: setup_custom__validate
     handlebars:
-      text: |
-        Collect:
-        - signing_secret
-        - public_base_url (required for webhook callbacks)
-        - token_ttl_seconds
-        - allowed_origins
-        - rate_limits (messages/sec)
-        - default_audience/channel
-  validate:
+      text: 'Collect inputs for setup_custom.
+
+        Required config keys: ["mode", "public_base_url"]
+
+        Optional config keys: ["ingress_path"]
+
+        Required secrets: []
+
+        Optional secrets: []
+
+        Inbound webhooks depend on selected mode.
+
+        '
+  setup_custom__validate:
     routing:
-    - to: apply
+    - to: setup_custom__apply
     handlebars:
-      text: |
-        - Validate signing_secret by generating/validating a sample JWT.
-        - Ensure token_ttl_seconds within safe bounds (>= 60).
-        - Confirm public_base_url is reachable for webhook verification.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_custom__apply:
     routing:
-    - to: summary
+    - to: setup_custom__summary
     handlebars:
-      text: |
-        - Store signing_secret; persist TTL/origins/rate limits.
-        - Persist public_base_url and derived webhook URL.
-        - Record last_applied for idempotent reruns.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {\"mode\": \"<value>\", \"public_base_url\": \"<value>\", \"ingress_path\"\
+        : \"<value>\"},\n  \"secrets_patch\": { \"set\": {}, \"delete\": [] },\n \
+        \ \"webhook_ops\": [{\"op\": \"register\", \"url\": \"<public_base_url>/webhooks/webchat\"\
+        }],\n  \"subscription_ops\": [],\n  \"oauth_ops\": []\n}\n"
+  setup_custom__summary:
     routing: out
     handlebars:
-      text: Webchat setup_custom applied with TTL {{payload.token_ttl_seconds}}.
+      text: messaging.webchat setup_custom complete.

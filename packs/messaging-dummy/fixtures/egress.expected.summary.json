@@ -1,0 +1,5 @@
+{
+  "status": "accepted",
+  "provider": "messaging.dummy",
+  "message_id": "msg_egress_1"
+}

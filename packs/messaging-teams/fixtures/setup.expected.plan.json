@@ -1,0 +1,27 @@
+{
+  "config_patch": {
+    "tenant_id": "<value>",
+    "client_id": "<value>",
+    "public_base_url": "<value>",
+    "default_channel": "<value>"
+  },
+  "secrets_patch": {
+    "set": {
+      "MS_GRAPH_CLIENT_SECRET": "<redacted>",
+      "MS_GRAPH_REFRESH_TOKEN": "<redacted>"
+    },
+    "delete": []
+  },
+  "webhook_ops": [
+    {
+      "op": "register",
+      "url": "<public_base_url>/webhook"
+    }
+  ],
+  "subscription_ops": [
+    {
+      "op": "sync"
+    }
+  ],
+  "oauth_ops": []
+}

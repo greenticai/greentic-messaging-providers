@@ -1,6 +1,6 @@
 id: verify_webhooks
 type: job
-start: verify
+in: verify
 parameters: {}
 tags: []
 schema_version: 2
@@ -9,8 +9,14 @@ nodes:
   verify:
     routing: out
     handlebars:
-      text: |
-        - List Graph subscriptions for the app.
-        - Ensure resource filters match configured channels and notification URL matches host ingress.
-        - Run sync-subscriptions idempotently; renew or recreate subscriptions before expiry (respect renewal_window_hours).
+      text: '- List Graph subscriptions for the app.
+
+        - Ensure resource filters match configured channels and notification URL matches
+        host ingress.
+
+        - Run sync-subscriptions idempotently; renew or recreate subscriptions before
+        expiry (respect renewal_window_hours).
+
         - Write back expiration timestamps for idempotency.
+
+        '

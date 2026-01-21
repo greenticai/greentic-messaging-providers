@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow": "setup_custom.ygtc",
   "nodes": {
-    "apply": {
+    "setup_custom__collect": {
       "component_id": "ai.greentic.component-templates",
       "source": {
         "kind": "oci",
@@ -14,7 +14,7 @@
         "version": "0.1.2"
       }
     },
-    "collect_inputs": {
+    "setup_custom__validate": {
       "component_id": "ai.greentic.component-templates",
       "source": {
         "kind": "oci",
@@ -26,7 +26,7 @@
         "version": "0.1.2"
       }
     },
-    "summary": {
+    "setup_custom__apply": {
       "component_id": "ai.greentic.component-templates",
       "source": {
         "kind": "oci",
@@ -38,7 +38,7 @@
         "version": "0.1.2"
       }
     },
-    "validate": {
+    "setup_custom__summary": {
       "component_id": "ai.greentic.component-templates",
       "source": {
         "kind": "oci",

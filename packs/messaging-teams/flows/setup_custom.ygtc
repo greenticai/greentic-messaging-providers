@@ -1,40 +1,50 @@
 id: setup_custom
 type: job
-start: collect
+in: setup_custom__collect
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  collect:
+  setup_custom__collect:
     routing:
-    - to: validate
+    - to: setup_custom__validate
     handlebars:
-      text: |
-        Collect:
-        - tenant_id, client_id, client_secret/cert
-        - bot/service principal ids
-        - channels: list of team_id/channel_id targets
-        - subscription_types (message, reactions) for webhook callbacks
-        - public_base_url (required for webhook subscriptions)
-        - retry/timeouts, test_message flag
-  validate:
+      text: 'Collect inputs for setup_custom.
+
+        Required config keys: ["tenant_id", "client_id", "public_base_url"]
+
+        Optional config keys: ["default_channel"]
+
+        Required secrets: ["MS_GRAPH_CLIENT_SECRET", "MS_GRAPH_REFRESH_TOKEN"]
+
+        Optional secrets: []
+
+        Requires Microsoft Graph subscriptions for inbound.
+
+        '
+  setup_custom__validate:
     routing:
-    - to: apply
+    - to: setup_custom__apply
     handlebars:
-      text: |
-        - Acquire token and validate Graph scopes.
-        - For each channel, confirm postMessage permission.
-        - For subscriptions, require public_base_url and create/update subscriptions as needed.
-  apply:
+      text: 'Validate inputs. In dry-run mode, do not call external APIs.
+
+        Live mode may validate credentials with provider APIs when host-gated.
+
+        '
+  setup_custom__apply:
     routing:
-    - to: summary
+    - to: setup_custom__summary
     handlebars:
-      text: |
-        - Save credentials and channel list.
-        - Persist public_base_url and subscriptions metadata (resource, expiration, webhook URL) for idempotent reconciliation.
-        - Optionally send test message if requested.
-  summary:
+      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
+        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
+        : {\"tenant_id\": \"<value>\", \"client_id\": \"<value>\", \"public_base_url\"\
+        : \"<value>\", \"default_channel\": \"<value>\"},\n  \"secrets_patch\": {\
+        \ \"set\": {\"MS_GRAPH_CLIENT_SECRET\": \"<redacted>\", \"MS_GRAPH_REFRESH_TOKEN\"\
+        : \"<redacted>\"}, \"delete\": [] },\n  \"webhook_ops\": [{\"op\": \"register\"\
+        , \"url\": \"<public_base_url>/webhooks/teams\"}],\n  \"subscription_ops\"\
+        : [{\"op\": \"sync\"}],\n  \"oauth_ops\": [{\"op\": \"authorize\"}]\n}\n"
+  setup_custom__summary:
     routing: out
     handlebars:
-      text: Teams setup_custom applied with {{payload.subscription_types}} subscriptions.
+      text: messaging.teams.graph setup_custom complete.

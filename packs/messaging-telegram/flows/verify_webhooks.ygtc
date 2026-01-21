@@ -1,6 +1,6 @@
 id: verify_webhooks
 type: job
-start: steps
+in: steps
 parameters: {}
 tags: []
 schema_version: 2
@@ -9,7 +9,10 @@ nodes:
   steps:
     routing: out
     handlebars:
-      text: |
-        - Read configured webhook_url from config and compare with Telegram getWebhookInfo.
+      text: '- Read configured webhook_url from config and compare with Telegram getWebhookInfo.
+
         - If mismatched, setWebhook to desired URL with allowed_updates.
+
         - Trigger a test update (e.g., send a message to the bot) and confirm delivery.
+
+        '
