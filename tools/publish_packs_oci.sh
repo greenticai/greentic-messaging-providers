@@ -439,22 +439,9 @@ PY
 done
 
 if compgen -G "${ROOT_DIR}/${OUT_DIR}/messaging-*.gtpack" >/dev/null; then
-  if ! command -v greentic-messaging-test >/dev/null 2>&1; then
-    echo "greentic-messaging-test is required for pack conformance checks" >&2
-    exit 1
-  fi
-  public_base_url="${PUBLIC_BASE_URL:-https://example.com}"
-  env_name="${CONFORMANCE_ENV:-dev}"
-  tenant_name="${CONFORMANCE_TENANT:-example}"
-  team_name="${CONFORMANCE_TEAM:-default}"
+  validator_pack_ref="${VALIDATOR_PACK_REF:-oci://ghcr.io/greentic-ai/validators/messaging:latest}"
   for pack in "${ROOT_DIR}/${OUT_DIR}"/messaging-*.gtpack; do
-    greentic-messaging-test packs conformance \
-      --setup-only \
-      --public-base-url "${public_base_url}" \
-      --pack-path "${pack}" \
-      --env "${env_name}" \
-      --tenant "${tenant_name}" \
-      --team "${team_name}"
+    "${PACKC_BIN}" doctor --validate --validator-pack "${validator_pack_ref}" --pack "${pack}"
   done
 fi
 
