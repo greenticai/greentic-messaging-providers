@@ -71,7 +71,7 @@ def aggregate_requirements(pack_dir: Path, components_dir: Path) -> List[dict]:
         else:
             comp_id = component
         comp_manifest = components_dir / comp_id / "component.manifest.json"
-        if comp_id == "handlebars":
+        if comp_id in ("handlebars", "text"):
             alt_manifest = components_dir / "templates" / "component.manifest.json"
             if alt_manifest.exists():
                 comp_manifest = alt_manifest

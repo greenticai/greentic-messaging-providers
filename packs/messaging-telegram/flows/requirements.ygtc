@@ -8,10 +8,10 @@ entrypoints: {}
 nodes:
   summary:
     routing: out
-    handlebars:
+    text:
       text: "Provider: messaging.telegram.bot\nConfig schema: schemas/messaging/telegram/config.schema.json\n\
         \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.telegram.bot\"\
-        ,\n  \"config_required\": [\"bot_token\", \"public_base_url\"],\n  \"config_optional\"\
+        ,\n  \"config_required\": [\"public_base_url\"],\n  \"config_optional\"\
         : [\"default_chat_id\"],\n  \"secret_required\": [\"TELEGRAM_BOT_TOKEN\"],\n\
         \  \"secret_optional\": [],\n  \"oauth_required\": false,\n  \"subscriptions_required\"\
         : false\n}\n\nNotes: Telegram inbound uses webhooks (setWebhook).\n"

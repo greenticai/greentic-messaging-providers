@@ -1,6 +1,5 @@
 {
   "config_patch": {
-    "access_token": "<value>",
     "public_base_url": "<value>",
     "default_room_id": "<value>"
   },

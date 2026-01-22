@@ -9,7 +9,6 @@ Workflow: `.github/workflows/e2e-dry-run.yml`
 Providers covered (matrix):
 - messaging-dummy
 - messaging-email
-- messaging-provider-bundle
 - messaging-slack
 - messaging-teams
 - messaging-telegram

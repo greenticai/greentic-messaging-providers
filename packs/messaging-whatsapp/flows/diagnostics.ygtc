@@ -9,7 +9,7 @@ nodes:
   preflight:
     routing:
     - to: token_check
-    handlebars:
+    text:
       text: '- Ensure access token/IDs/verify_token exist.
 
         - Confirm webhook URL (if configured).
@@ -18,7 +18,7 @@ nodes:
   token_check:
     routing:
     - to: optional_send
-    handlebars:
+    text:
       text: '- Call Graph API against phone_number_id to validate token.
 
         - If webhook configured, verify subscription and respond to challenge.
@@ -27,12 +27,12 @@ nodes:
   optional_send:
     routing:
     - to: summary
-    handlebars:
+    text:
       text: 'If payload.send_test_message true, send a test text message to payload.recipient
         using messages endpoint.
 
         '
   summary:
     routing: out
-    handlebars:
+    text:
       text: Diagnostics complete for WhatsApp.

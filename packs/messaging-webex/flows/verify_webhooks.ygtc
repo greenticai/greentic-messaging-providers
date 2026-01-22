@@ -8,7 +8,7 @@ entrypoints: {}
 nodes:
   steps:
     routing: out
-    handlebars:
+    text:
       text: '- List webhooks for the bot and match on target URL.
 
         - Recreate any missing or disabled webhooks.

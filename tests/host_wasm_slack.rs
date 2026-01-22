@@ -1,5 +1,5 @@
 use std::cell::{Cell, RefCell};
-use std::path::Path;
+use std::path::PathBuf;
 
 use wasmtime::{
     component::{Component, Linker},
@@ -125,8 +125,36 @@ fn make_engine() -> Engine {
     Engine::new(&config).expect("engine")
 }
 
+fn component_path(name: &str) -> PathBuf {
+    let candidates = [
+        PathBuf::from(format!("target/components/{name}.wasm")),
+        PathBuf::from(format!("target/wasm32-wasip2/release/{name}.wasm")),
+        PathBuf::from(format!("target/wasm32-wasip2/debug/{name}.wasm")),
+        PathBuf::from(format!(
+            "target/wasm32-wasip2/wasm32-wasip2/release/{name}.wasm"
+        )),
+        PathBuf::from(format!(
+            "target/wasm32-wasip2/wasm32-wasip2/debug/{name}.wasm"
+        )),
+        PathBuf::from(format!(
+            "components/{name}/target/wasm32-wasip2/release/{name}.wasm"
+        )),
+        PathBuf::from(format!(
+            "components/{name}/target/wasm32-wasip2/debug/{name}.wasm"
+        )),
+    ];
+
+    for path in candidates {
+        if path.exists() {
+            return path;
+        }
+    }
+
+    panic!("no component binary found for {name}");
+}
+
 fn load_slack_component(engine: &Engine) -> Component {
-    let path = Path::new("packs/messaging-provider-bundle/components/slack.wasm");
+    let path = component_path("slack");
     Component::from_file(engine, path).expect("component load")
 }
 

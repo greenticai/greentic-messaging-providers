@@ -22,6 +22,28 @@ echo "==> tools/build_components.sh"
 echo "==> tools/sync_packs.sh (PACK_VERSION=${PACK_VERSION})"
 ./tools/sync_packs.sh
 
+echo "==> greentic-flow doctor --validate (packs/*/flows)"
+if ! command -v greentic-flow >/dev/null 2>&1; then
+  echo "greentic-flow is required for flow validation" >&2
+  exit 1
+fi
+if compgen -G "packs/*/flows/*.ygtc" >/dev/null; then
+  for f in packs/*/flows/*.ygtc; do
+    greentic-flow doctor "$f"
+  done
+fi
+
+echo "==> greentic-component doctor --validate (components manifests)"
+if ! command -v greentic-component >/dev/null 2>&1; then
+  echo "greentic-component is required for component validation" >&2
+  exit 1
+fi
+if compgen -G "packs/*/components/*.manifest.json" >/dev/null; then
+  for c in packs/*/components/*.manifest.json; do
+    greentic-component doctor "$c"
+  done
+fi
+
 run_publish_packs="${RUN_PUBLISH_PACKS:-${CI:-0}}"
 case "${run_publish_packs}" in
   1|true|TRUE|yes|YES) run_publish_packs=1 ;;

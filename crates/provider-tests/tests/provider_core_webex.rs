@@ -302,7 +302,6 @@ fn invoke_send_smoke_test() -> Result<()> {
         "to": {"kind": "room", "id": "room-1"},
         "text": "hello webex",
         "config": {
-            "access_token": TOKEN_KEY,
             "api_base_url": "https://webexapis.com/v1"
         }
     });
@@ -397,7 +396,6 @@ fn invoke_reply_smoke_test() -> Result<()> {
         "text": "reply webex",
         "reply_to_id": "parent-1",
         "config": {
-            "access_token": TOKEN_KEY,
             "api_base_url": "https://webexapis.com/v1"
         }
     });
@@ -484,9 +482,7 @@ fn reply_requires_parent_id() -> Result<()> {
 
     let input = json!({
         "text": "reply webex",
-        "config": {
-            "access_token": TOKEN_KEY
-        }
+        "config": {}
     });
     let (resp,) = invoke
         .call(

@@ -8,10 +8,10 @@ entrypoints: {}
 nodes:
   summary:
     routing: out
-    handlebars:
+    text:
       text: "Provider: messaging.webex.bot\nConfig schema: schemas/messaging/webex/config.schema.json\n\
         \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.webex.bot\"\
-        ,\n  \"config_required\": [\"access_token\", \"public_base_url\"],\n  \"config_optional\"\
+        ,\n  \"config_required\": [\"public_base_url\"],\n  \"config_optional\"\
         : [\"default_room_id\"],\n  \"secret_required\": [\"WEBEX_BOT_TOKEN\"],\n\
         \  \"secret_optional\": [],\n  \"oauth_required\": false,\n  \"subscriptions_required\"\
         : false\n}\n\nNotes: Webex bots register webhooks for inbound.\n"

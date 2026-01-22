@@ -935,8 +935,7 @@ mod teams {
 
         let config_json = json!({
             "tenant_id": "tenant",
-            "client_id": "client",
-            "client_secret_key": "MS_GRAPH_CLIENT_SECRET"
+            "client_id": "client"
         })
         .to_string();
         let state_json = json!({

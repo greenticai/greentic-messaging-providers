@@ -8,7 +8,7 @@ entrypoints: {}
 nodes:
   steps:
     routing: out
-    handlebars:
+    text:
       text: '- Read configured webhook_url from config and compare with Telegram getWebhookInfo.
 
         - If mismatched, setWebhook to desired URL with allowed_updates.

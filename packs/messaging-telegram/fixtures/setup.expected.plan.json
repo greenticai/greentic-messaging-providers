@@ -1,6 +1,5 @@
 {
   "config_patch": {
-    "bot_token": "<value>",
     "public_base_url": "<value>",
     "default_chat_id": "<value>"
   },

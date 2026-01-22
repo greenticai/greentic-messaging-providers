@@ -1,7 +1,0 @@
-{
-  "provider": "messaging.provider_bundle",
-  "message": {
-    "text": "hello from egress",
-    "id": "msg_egress_1"
-  }
-}

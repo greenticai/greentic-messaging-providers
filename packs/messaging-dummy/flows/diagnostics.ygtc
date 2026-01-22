@@ -8,5 +8,5 @@ entrypoints: {}
 nodes:
   summary:
     routing: out
-    handlebars:
+    text:
       text: Dummy diagnostics completed; no external checks required.

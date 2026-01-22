@@ -317,7 +317,6 @@ fn invoke_send_smoke_test() -> Result<()> {
         "to": {"kind": "user", "id": "+15551234567"},
         "text": "hello whatsapp",
         "config": {
-            "access_token": TOKEN_KEY,
             "phone_number_id": "12345",
             "api_version": "v19.0"
         }
@@ -409,7 +408,6 @@ fn reply_requires_context() -> Result<()> {
         "to": {"kind": "user", "id": "+15551234567"},
         "text": "reply whatsapp",
         "config": {
-            "access_token": TOKEN_KEY,
             "phone_number_id": "12345"
         }
     });
@@ -472,7 +470,6 @@ fn invoke_reply_smoke_test() -> Result<()> {
         "text": "reply whatsapp",
         "reply_to_id": "wamid.abc",
         "config": {
-            "access_token": TOKEN_KEY,
             "phone_number_id": "12345",
             "api_version": "v19.0"
         }

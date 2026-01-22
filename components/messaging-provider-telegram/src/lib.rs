@@ -22,7 +22,6 @@ const TOKEN_SECRET: &str = "TELEGRAM_BOT_TOKEN";
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ProviderConfig {
-    bot_token: String,
     #[serde(default)]
     default_chat_id: Option<String>,
     #[serde(default)]
@@ -48,7 +47,6 @@ impl Guest for Component {
             Ok(cfg) => json_bytes(&json!({
                 "ok": true,
                 "config": {
-                    "bot_token": cfg.bot_token,
                     "default_chat_id": cfg.default_chat_id,
                     "api_base_url": cfg.api_base_url.unwrap_or_else(|| DEFAULT_API_BASE.to_string()),
                 }
@@ -112,7 +110,7 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         _ => return json_bytes(&json!({"ok": false, "error": "chat_id required"})),
     };
 
-    let token = match secrets_store::get(&cfg.bot_token) {
+    let token = match secrets_store::get(TOKEN_SECRET) {
         Ok(Some(bytes)) => match String::from_utf8(bytes) {
             Ok(s) => s,
             Err(_) => return json_bytes(&json!({"ok": false, "error": "bot token not utf-8"})),
@@ -215,7 +213,7 @@ fn handle_reply(input_json: &[u8]) -> Vec<u8> {
         return json_bytes(&json!({"ok": false, "error": "reply_to_id or thread_id required"}));
     }
 
-    let token = match secrets_store::get(&cfg.bot_token) {
+    let token = match secrets_store::get(TOKEN_SECRET) {
         Ok(Some(bytes)) => match String::from_utf8(bytes) {
             Ok(s) => s,
             Err(_) => return json_bytes(&json!({"ok": false, "error": "bot token not utf-8"})),
@@ -309,9 +307,6 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         return parse_config_value(cfg);
     }
     let mut partial = serde_json::Map::new();
-    if let Some(v) = input.get("bot_token") {
-        partial.insert("bot_token".into(), v.clone());
-    }
     if let Some(v) = input.get("default_chat_id") {
         partial.insert("default_chat_id".into(), v.clone());
     }
@@ -323,7 +318,6 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
     }
 
     Ok(ProviderConfig {
-        bot_token: TOKEN_SECRET.to_string(),
         default_chat_id: None,
         api_base_url: None,
     })
@@ -341,27 +335,23 @@ mod tests {
     fn load_config_prefers_nested_config() {
         let input = json!({
             "config": {
-                "bot_token": "nested-token",
                 "default_chat_id": "abc",
             },
-            "bot_token": "outer",
         });
         let cfg = load_config(&input).expect("config");
-        assert_eq!(cfg.bot_token, "nested-token");
         assert_eq!(cfg.default_chat_id.as_deref(), Some("abc"));
     }
 
     #[test]
-    fn load_config_defaults_to_secret_requirement() {
+    fn load_config_defaults_to_empty_values() {
         let input = json!({"text": "hi"});
         let cfg = load_config(&input).expect("config");
-        assert_eq!(cfg.bot_token, TOKEN_SECRET);
         assert!(cfg.default_chat_id.is_none());
     }
 
     #[test]
     fn parse_config_bytes_rejects_unknown_fields() {
-        let cfg = br#"{ "bot_token": "abc", "unknown": "field" }"#;
+        let cfg = br#"{ "default_chat_id": "abc", "unknown": "field" }"#;
         let err = parse_config_bytes(cfg).expect_err("should fail");
         assert!(err.contains("unknown field"));
     }

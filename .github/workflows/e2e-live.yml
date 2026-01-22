@@ -64,6 +64,8 @@ jobs:
         env:
           CARGO_NET_GIT_FETCH_WITH_CLI: "true"
         run: |
+          cargo binstall greentic-flow --no-confirm --locked
+          cargo binstall greentic-component --no-confirm --locked
           cargo binstall greentic-messaging-test --no-confirm --locked
           cargo binstall greentic-secrets --no-confirm --locked
 
@@ -82,7 +84,7 @@ jobs:
       - name: "Guard: required environment secrets"
         run: |
           set -euo pipefail
-          packs=(messaging-slack messaging-telegram messaging-email messaging-teams messaging-webchat messaging-webex messaging-whatsapp messaging-provider-bundle)
+          packs=(messaging-slack messaging-telegram messaging-email messaging-teams messaging-webchat messaging-webex messaging-whatsapp)
           for pack in "${packs[@]}"; do
             case "${pack}" in
               messaging-slack)
@@ -106,9 +108,6 @@ jobs:
               messaging-whatsapp)
                 vars=(E2E_WHATSAPP_TOKEN E2E_WHATSAPP_PHONE_NUMBER_ID E2E_WHATSAPP_BUSINESS_ACCOUNT_ID E2E_WHATSAPP_RECIPIENT)
                 ;;
-              messaging-provider-bundle)
-                vars=(E2E_SLACK_BOT_TOKEN E2E_SLACK_CHANNEL E2E_MS_TENANT_ID E2E_MS_CLIENT_ID E2E_MS_CLIENT_SECRET E2E_TEAMS_CHANNEL_ID E2E_TELEGRAM_BOT_TOKEN E2E_TELEGRAM_CHAT_ID E2E_WEBEX_BOT_TOKEN E2E_WEBEX_ROOM_ID E2E_WEBCHAT_SIGNING_SECRET E2E_WHATSAPP_TOKEN E2E_WHATSAPP_PHONE_NUMBER_ID E2E_WHATSAPP_BUSINESS_ACCOUNT_ID E2E_WHATSAPP_RECIPIENT E2E_SMTP_HOST E2E_SMTP_PORT E2E_SMTP_USERNAME E2E_SMTP_PASSWORD E2E_SMTP_FROM E2E_SMTP_TO)
-                ;;
               *)
                 vars=()
                 ;;
@@ -127,6 +126,18 @@ jobs:
       - name: Sync packs
         run: ./tools/sync_packs.sh
 
+      - name: Validate flows
+        run: |
+          for f in packs/*/flows/*.ygtc; do
+            greentic-flow doctor "$f"
+          done
+
+      - name: Validate components
+        run: |
+          for c in packs/*/components/*.manifest.json; do
+            greentic-component doctor "$c"
+          done
+
       - name: Build packs (dry run)
         env:
           DRY_RUN: "1"
@@ -137,7 +148,7 @@ jobs:
           set -euo pipefail
           export SECRETS_ROOT="${SECRETS_ROOT}"
           export GREENTIC_SECRETS_DIR="${GREENTIC_SECRETS_DIR}"
-          packs=(slack telegram email teams webchat webex whatsapp provider-bundle dummy)
+          packs=(slack telegram email teams webchat webex whatsapp dummy)
           for name in "${packs[@]}"; do
             secrets_pack="ci/secrets/${name}.secrets-pack.yaml"
             if [ ! -f "${secrets_pack}" ]; then

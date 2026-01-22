@@ -8,7 +8,7 @@ entrypoints: {}
 nodes:
   steps:
     routing: out
-    handlebars:
+    text:
       text: '- Ensure webhook URL registered in Meta app dashboard for phone_number_id.
 
         - Perform verification by responding with hub.challenge using verify_token.

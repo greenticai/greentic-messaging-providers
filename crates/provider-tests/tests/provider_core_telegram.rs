@@ -346,7 +346,6 @@ fn invoke_send_smoke_test() -> Result<()> {
         "chat_id": "123",
         "text": "hello telegram",
         "config": {
-            "bot_token": SECRET_KEY,
             "api_base_url": "https://api.telegram.org"
         }
     });
@@ -451,7 +450,6 @@ fn invoke_reply_smoke_test() -> Result<()> {
         "text": "reply text",
         "reply_to_id": "42",
         "config": {
-            "bot_token": SECRET_KEY,
             "default_chat_id": "123",
             "api_base_url": "https://api.telegram.org"
         }
@@ -527,7 +525,6 @@ fn reply_requires_reply_to_id() -> Result<()> {
         "chat_id": "123",
         "text": "reply text",
         "config": {
-            "bot_token": SECRET_KEY,
             "default_chat_id": "123"
         }
     });

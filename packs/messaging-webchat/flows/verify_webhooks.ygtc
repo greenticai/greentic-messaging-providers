@@ -8,7 +8,7 @@ entrypoints: {}
 nodes:
   steps:
     routing: out
-    handlebars:
+    text:
       text: '- Generate a signed token with signing_secret.
 
         - Send it through the inbound webhook/ingress and expect acceptance.

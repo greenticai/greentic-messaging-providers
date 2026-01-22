@@ -329,7 +329,6 @@ fn invoke_send_smoke_test() -> Result<()> {
         "text": "hello slack",
         "rich": {"format": "slack_blocks", "blocks": [{"type":"section","text":{"type":"mrkdwn","text":"hello"}}]},
         "config": {
-            "bot_token": BOT_TOKEN_KEY,
             "api_base_url": "https://slack.com/api"
         }
     });
@@ -429,7 +428,7 @@ fn invoke_reply_smoke_test() -> Result<()> {
         "thread_id": "ts-thread",
         "text": "reply slack",
         "to": {"kind":"channel","id":"C123"},
-        "config": {"bot_token": BOT_TOKEN_KEY}
+        "config": {}
     });
     let (resp,) = invoke
         .call(
@@ -501,7 +500,7 @@ fn reply_fails_without_channel() -> Result<()> {
     let input = json!({
         "text": "reply slack",
         "thread_id": "ts-thread",
-        "config": {"bot_token": BOT_TOKEN_KEY}
+        "config": {}
     });
     let (resp,) = invoke
         .call(

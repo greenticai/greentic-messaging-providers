@@ -5,9 +5,6 @@
   "messaging-email": {
     "errors": []
   },
-  "messaging-provider-bundle": {
-    "errors": []
-  },
   "messaging-slack": {
     "errors": []
   },

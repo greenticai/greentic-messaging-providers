@@ -22,9 +22,6 @@ const DEFAULT_BOT_TOKEN_KEY: &str = "SLACK_BOT_TOKEN";
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ProviderConfig {
-    bot_token: String,
-    #[serde(default)]
-    signing_secret: Option<String>,
     #[serde(default)]
     default_channel: Option<String>,
     #[serde(default)]
@@ -50,8 +47,6 @@ impl Guest for Component {
             Ok(cfg) => json_bytes(&json!({
                 "ok": true,
                 "config": {
-                    "bot_token": cfg.bot_token,
-                    "signing_secret": cfg.signing_secret,
                     "default_channel": cfg.default_channel,
                     "api_base_url": cfg.api_base_url.unwrap_or_else(|| DEFAULT_API_BASE.to_string()),
                 }
@@ -114,15 +109,14 @@ fn handle_send(input_json: &[u8], is_reply: bool) -> Vec<u8> {
 
     let (format, blocks) = parse_blocks(&parsed);
 
-    let token_key = cfg.bot_token.as_str();
-    let token = match secrets_store::get(token_key) {
+    let token = match secrets_store::get(DEFAULT_BOT_TOKEN_KEY) {
         Ok(Some(bytes)) => match String::from_utf8(bytes) {
             Ok(s) => s,
             Err(_) => return json_bytes(&json!({"ok": false, "error": "bot token not utf-8"})),
         },
         Ok(None) => {
             return json_bytes(
-                &json!({"ok": false, "error": format!("missing secret: {}", token_key)}),
+                &json!({"ok": false, "error": format!("missing secret: {}", DEFAULT_BOT_TOKEN_KEY)}),
             );
         }
         Err(e) => {
@@ -233,12 +227,7 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         return parse_config_value(cfg);
     }
     let mut partial = serde_json::Map::new();
-    for key in [
-        "bot_token",
-        "signing_secret",
-        "default_channel",
-        "api_base_url",
-    ] {
+    for key in ["default_channel", "api_base_url"] {
         if let Some(v) = input.get(key) {
             partial.insert(key.to_string(), v.clone());
         }
@@ -248,8 +237,6 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
     }
 
     Ok(ProviderConfig {
-        bot_token: DEFAULT_BOT_TOKEN_KEY.to_string(),
-        signing_secret: None,
         default_channel: None,
         api_base_url: None,
     })
@@ -264,23 +251,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn validate_requires_bot_token() {
-        let cfg = br#"{"default_channel":"c"}"#;
-        let resp = Component::validate_config(cfg.to_vec());
-        let json: Value = serde_json::from_slice(&resp).unwrap();
-        assert_eq!(json.get("ok"), Some(&Value::Bool(false)));
-    }
-
-    #[test]
-    fn load_config_defaults_to_token_key() {
+    fn load_config_defaults_to_empty_values() {
         let input = json!({"text":"hi"});
         let cfg = load_config(&input).unwrap();
-        assert_eq!(cfg.bot_token, DEFAULT_BOT_TOKEN_KEY);
+        assert!(cfg.default_channel.is_none());
     }
 
     #[test]
     fn parse_config_rejects_unknown() {
-        let cfg = br#"{"bot_token":"x","unknown":true}"#;
+        let cfg = br#"{"default_channel":"x","unknown":true}"#;
         let err = parse_config_bytes(cfg).unwrap_err();
         assert!(err.contains("unknown field"));
     }
