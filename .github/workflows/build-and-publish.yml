@@ -120,17 +120,8 @@ jobs:
       - name: Validate pack fixtures
         run: python3 tools/validate_pack_fixtures.py
 
-      - name: Run messaging conformance (dry-run)
-        run: |
-          for p in dist/packs/messaging-*.gtpack; do
-            greentic-messaging-test packs conformance \
-              --setup-only \
-              --public-base-url "${PUBLIC_BASE_URL:-https://example.com}" \
-              --pack-path "$p" \
-              --env "${CONFORMANCE_ENV:-dev}" \
-              --tenant "${CONFORMANCE_TENANT:-example}" \
-              --team "${CONFORMANCE_TEAM:-default}"
-          done
+      - name: Validate gtpack flows
+        run: ./tools/validate_gtpack_flows.sh
 
       - name: Upload packs + fixtures report on failure
         if: failure()

@@ -68,16 +68,8 @@ if [ "${run_publish_packs}" -eq 1 ]; then
     done
     echo "==> python3 tools/validate_pack_fixtures.py"
     python3 tools/validate_pack_fixtures.py
-    echo "==> greentic-messaging-test packs conformance (dry-run)"
-    for p in dist/packs/messaging-*.gtpack; do
-      greentic-messaging-test packs conformance \
-        --setup-only \
-        --public-base-url "${PUBLIC_BASE_URL:-https://example.com}" \
-        --pack-path "$p" \
-        --env "${CONFORMANCE_ENV:-dev}" \
-        --tenant "${CONFORMANCE_TENANT:-example}" \
-        --team "${CONFORMANCE_TEAM:-default}"
-    done
+    echo "==> tools/validate_gtpack_flows.sh"
+    ./tools/validate_gtpack_flows.sh
   fi
 else
   echo "==> tools/publish_packs_oci.sh (dry-run; rebuild dist/packs)"
