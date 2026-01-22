@@ -6,6 +6,7 @@ use std::process::Command;
 
 use anyhow::{Result, anyhow};
 use serde_json::{Map, Value};
+use serde_yaml_bw::Value as YamlValue;
 use tempfile::tempdir;
 
 fn workspace_root() -> PathBuf {
@@ -126,6 +127,19 @@ fn build_dummy_pack() -> Result<(tempfile::TempDir, PathBuf)> {
     let pack_src = root.join("packs").join("messaging-dummy");
     let pack_dir = temp.path().join("messaging-dummy");
     copy_dir(&pack_src, &pack_dir)?;
+
+    if !use_online_pack_build() {
+        let pack_yaml = pack_dir.join("pack.yaml");
+        let mut yaml: YamlValue = serde_yaml_bw::from_str(&fs::read_to_string(&pack_yaml)?)?;
+        if let Some(extensions) = yaml
+            .as_mapping_mut()
+            .and_then(|map| map.get_mut(&YamlValue::from("extensions")))
+            .and_then(|value| value.as_mapping_mut())
+        {
+            extensions.remove(&YamlValue::from("greentic.messaging.validators.v1"));
+        }
+        fs::write(&pack_yaml, serde_yaml_bw::to_string(&yaml)?)?;
+    }
 
     let secrets_path = pack_dir.join("assets").join("secret-requirements.json");
     if !secrets_path.exists() {
