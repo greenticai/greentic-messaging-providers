@@ -9,6 +9,9 @@ nodes:
   steps:
     routing: out
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_room_id: "{{ default_room_id }}"
       text: '- List webhooks for the bot and match on target URL.
 
         - Recreate any missing or disabled webhooks.

@@ -10,6 +10,9 @@ nodes:
     routing:
     - to: verify_token
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_chat_id: "{{ default_chat_id }}"
       text: 'Checks:
 
         - TELEGRAM_BOT_TOKEN exists.
@@ -23,6 +26,9 @@ nodes:
     routing:
     - to: optional_send
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_chat_id: "{{ default_chat_id }}"
       text: '- getMe to confirm bot identity and status.
 
         - If webhook mode, getWebhookInfo and compare URL with configured; trigger
@@ -35,6 +41,9 @@ nodes:
     routing:
     - to: summary
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_chat_id: "{{ default_chat_id }}"
       text: 'If payload.send_test_message true, sendMessage to target chat with diagnostics
         marker; otherwise skip.
 
@@ -42,4 +51,7 @@ nodes:
   summary:
     routing: out
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_chat_id: "{{ default_chat_id }}"
       text: Diagnostics complete; token valid and mode {{config.mode}} healthy.

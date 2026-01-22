@@ -10,6 +10,12 @@ nodes:
     routing:
     - to: summary
     text:
+      config:
+        host: "{{ host }}"
+        port: "{{ port }}"
+        username: "{{ username }}"
+        from_address: "{{ from_address }}"
+        tls_mode: "{{ tls_mode }}"
       text: '- Confirm SMTP credentials present.
 
         - Attempt connection/auth with configured TLS/timeout.
@@ -21,5 +27,11 @@ nodes:
   summary:
     routing: out
     text:
+      config:
+        host: "{{ host }}"
+        port: "{{ port }}"
+        username: "{{ username }}"
+        from_address: "{{ from_address }}"
+        tls_mode: "{{ tls_mode }}"
       text: Diagnostics completed; connection/auth {{#if payload.send_test_email}}and
         send test{{/if}} executed.

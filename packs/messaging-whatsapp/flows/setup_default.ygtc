@@ -10,6 +10,10 @@ nodes:
     routing:
     - to: setup_default__validate
     text:
+      config:
+        phone_number_id: "{{ phone_number_id }}"
+        business_account_id: "{{ business_account_id }}"
+        public_base_url: "{{ public_base_url }}"
       text: 'Collect inputs for setup_default.
 
         Required config keys: ["phone_number_id", "public_base_url"]
@@ -27,6 +31,10 @@ nodes:
     routing:
     - to: setup_default__apply
     text:
+      config:
+        phone_number_id: "{{ phone_number_id }}"
+        business_account_id: "{{ business_account_id }}"
+        public_base_url: "{{ public_base_url }}"
       text: 'Validate inputs. In dry-run mode, do not call external APIs.
 
         Live mode may validate credentials with provider APIs when host-gated.
@@ -36,6 +44,10 @@ nodes:
     routing:
     - to: setup_default__summary
     text:
+      config:
+        phone_number_id: "{{ phone_number_id }}"
+        business_account_id: "{{ business_account_id }}"
+        public_base_url: "{{ public_base_url }}"
       text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
         \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
         : {\"phone_number_id\": \"<value>\", \"public_base_url\"\
@@ -47,4 +59,8 @@ nodes:
   setup_default__summary:
     routing: out
     text:
+      config:
+        phone_number_id: "{{ phone_number_id }}"
+        business_account_id: "{{ business_account_id }}"
+        public_base_url: "{{ public_base_url }}"
       text: messaging.whatsapp.cloud setup_default complete.

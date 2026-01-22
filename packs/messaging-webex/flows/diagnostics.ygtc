@@ -10,6 +10,9 @@ nodes:
     routing:
     - to: room_check
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_room_id: "{{ default_room_id }}"
       text: '- Ensure access token exists.
 
         - Call /people/me to confirm validity.
@@ -19,6 +22,9 @@ nodes:
     routing:
     - to: webhook_check
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_room_id: "{{ default_room_id }}"
       text: '- If default or configured rooms exist, ensure membership and postability
         (dry-run or actual message if requested).
 
@@ -27,6 +33,9 @@ nodes:
     routing:
     - to: summary
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_room_id: "{{ default_room_id }}"
       text: '- If webhook configured, list webhooks and ensure target URL matches;
         renew if needed.
 
@@ -34,5 +43,8 @@ nodes:
   summary:
     routing: out
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_room_id: "{{ default_room_id }}"
       text: Diagnostics complete; token valid, rooms reachable, webhook {{#if payload.verify_webhook}}checked{{else}}not
         requested{{/if}}.

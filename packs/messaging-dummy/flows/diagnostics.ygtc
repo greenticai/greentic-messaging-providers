@@ -9,4 +9,5 @@ nodes:
   summary:
     routing: out
     text:
+      config: {}
       text: Dummy diagnostics completed; no external checks required.

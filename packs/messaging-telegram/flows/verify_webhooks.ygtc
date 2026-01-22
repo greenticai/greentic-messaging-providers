@@ -9,6 +9,9 @@ nodes:
   steps:
     routing: out
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_chat_id: "{{ default_chat_id }}"
       text: '- Read configured webhook_url from config and compare with Telegram getWebhookInfo.
 
         - If mismatched, setWebhook to desired URL with allowed_updates.

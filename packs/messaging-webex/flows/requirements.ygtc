@@ -9,6 +9,9 @@ nodes:
   summary:
     routing: out
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_room_id: "{{ default_room_id }}"
       text: "Provider: messaging.webex.bot\nConfig schema: schemas/messaging/webex/config.schema.json\n\
         \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.webex.bot\"\
         ,\n  \"config_required\": [\"public_base_url\"],\n  \"config_optional\"\

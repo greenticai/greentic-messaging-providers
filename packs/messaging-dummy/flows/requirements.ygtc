@@ -9,6 +9,7 @@ nodes:
   summary:
     routing: out
     text:
+      config: {}
       text: "Provider: messaging.dummy\nConfig schema: schemas/messaging/dummy/config.schema.json\n\
         \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.dummy\"\
         ,\n  \"config_required\": [],\n  \"config_optional\": [],\n  \"secret_required\"\

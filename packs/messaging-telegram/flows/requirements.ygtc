@@ -9,6 +9,9 @@ nodes:
   summary:
     routing: out
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_chat_id: "{{ default_chat_id }}"
       text: "Provider: messaging.telegram.bot\nConfig schema: schemas/messaging/telegram/config.schema.json\n\
         \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.telegram.bot\"\
         ,\n  \"config_required\": [\"public_base_url\"],\n  \"config_optional\"\

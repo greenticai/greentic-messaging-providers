@@ -10,6 +10,10 @@ nodes:
     routing:
     - to: optional_loopback
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        mode: "{{ mode }}"
+        ingress_path: "{{ ingress_path }}"
       text: '- Confirm signing_secret present.
 
         - Generate+verify a sample JWT for the configured audience.
@@ -19,6 +23,10 @@ nodes:
     routing:
     - to: summary
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        mode: "{{ mode }}"
+        ingress_path: "{{ ingress_path }}"
       text: 'If payload.run_loopback true, generate a token and perform a loopback
         send/receive via the webchat channel (if host supports).
 
@@ -26,4 +34,8 @@ nodes:
   summary:
     routing: out
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        mode: "{{ mode }}"
+        ingress_path: "{{ ingress_path }}"
       text: Diagnostics complete for webchat.

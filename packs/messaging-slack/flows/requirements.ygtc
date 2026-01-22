@@ -9,6 +9,9 @@ nodes:
   summary:
     routing: out
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_channel: "{{ default_channel }}"
       text: "Provider: messaging.slack.api\nConfig schema: schemas/messaging/slack/config.schema.json\n\
         \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.slack.api\"\
         ,\n  \"config_required\": [\"public_base_url\"],\n  \"config_optional\"\

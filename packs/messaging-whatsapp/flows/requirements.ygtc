@@ -9,6 +9,10 @@ nodes:
   summary:
     routing: out
     text:
+      config:
+        phone_number_id: "{{ phone_number_id }}"
+        business_account_id: "{{ business_account_id }}"
+        public_base_url: "{{ public_base_url }}"
       text: "Provider: messaging.whatsapp.cloud\nConfig schema: schemas/messaging/whatsapp/config.schema.json\n\
         \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.whatsapp.cloud\"\
         ,\n  \"config_required\": [\"phone_number_id\", \"public_base_url\"\

@@ -10,6 +10,7 @@ nodes:
     routing:
     - to: setup_default__validate
     text:
+      config: {}
       text: 'Collect inputs for setup_default.
 
         Required config keys: []
@@ -27,6 +28,7 @@ nodes:
     routing:
     - to: setup_default__apply
     text:
+      config: {}
       text: 'Validate inputs. In dry-run mode, do not call external APIs.
 
         Live mode may validate credentials with provider APIs when host-gated.
@@ -36,6 +38,7 @@ nodes:
     routing:
     - to: setup_default__summary
     text:
+      config: {}
       text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
         \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
         : {},\n  \"secrets_patch\": { \"set\": {}, \"delete\": [] },\n  \"webhook_ops\"\
@@ -43,4 +46,5 @@ nodes:
   setup_default__summary:
     routing: out
     text:
+      config: {}
       text: messaging.dummy setup_default complete.

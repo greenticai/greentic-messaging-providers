@@ -9,6 +9,9 @@ nodes:
   describe:
     routing: out
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_channel: "{{ default_channel }}"
       text: 'Steps:
 
         - Fetch current event subscriptions from Slack API.

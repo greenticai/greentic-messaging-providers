@@ -10,6 +10,12 @@ nodes:
     routing:
     - to: channel_check
     text:
+      config:
+        tenant_id: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        public_base_url: "{{ public_base_url }}"
+        team_id: "{{ team_id }}"
+        channel_id: "{{ channel_id }}"
       text: '- Ensure credentials present.
 
         - Acquire access token from Azure AD.
@@ -21,6 +27,12 @@ nodes:
     routing:
     - to: subscription_check
     text:
+      config:
+        tenant_id: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        public_base_url: "{{ public_base_url }}"
+        team_id: "{{ team_id }}"
+        channel_id: "{{ channel_id }}"
       text: '- For default channel (or payload.target), attempt dry-run post or channel
         info lookup.
 
@@ -29,6 +41,12 @@ nodes:
     routing:
     - to: summary
     text:
+      config:
+        tenant_id: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        public_base_url: "{{ public_base_url }}"
+        team_id: "{{ team_id }}"
+        channel_id: "{{ channel_id }}"
       text: '- If subscriptions configured, list existing subscriptions and ensure
         they target the desired webhook URL; renew if expiring soon.
 
@@ -36,4 +54,10 @@ nodes:
   summary:
     routing: out
     text:
+      config:
+        tenant_id: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        public_base_url: "{{ public_base_url }}"
+        team_id: "{{ team_id }}"
+        channel_id: "{{ channel_id }}"
       text: Diagnostics complete; token valid, channel reachable, subscriptions reconciled.

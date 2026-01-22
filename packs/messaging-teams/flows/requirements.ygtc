@@ -9,6 +9,12 @@ nodes:
   summary:
     routing: out
     text:
+      config:
+        tenant_id: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        public_base_url: "{{ public_base_url }}"
+        team_id: "{{ team_id }}"
+        channel_id: "{{ channel_id }}"
       text: "Provider: messaging.teams.graph\nConfig schema: schemas/messaging/teams/config.schema.json\n\
         \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.teams.graph\"\
         ,\n  \"config_required\": [\"tenant_id\", \"client_id\", \"public_base_url\"\

@@ -10,6 +10,10 @@ nodes:
     routing:
     - to: setup_default__validate
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        mode: "{{ mode }}"
+        ingress_path: "{{ ingress_path }}"
       text: 'Collect inputs for setup_default.
 
         Required config keys: ["mode", "public_base_url"]
@@ -27,6 +31,10 @@ nodes:
     routing:
     - to: setup_default__apply
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        mode: "{{ mode }}"
+        ingress_path: "{{ ingress_path }}"
       text: 'Validate inputs. In dry-run mode, do not call external APIs.
 
         Live mode may validate credentials with provider APIs when host-gated.
@@ -36,6 +44,10 @@ nodes:
     routing:
     - to: setup_default__summary
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        mode: "{{ mode }}"
+        ingress_path: "{{ ingress_path }}"
       text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
         \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
         : {\"mode\": \"<value>\", \"public_base_url\": \"<value>\", \"ingress_path\"\
@@ -45,4 +57,8 @@ nodes:
   setup_default__summary:
     routing: out
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        mode: "{{ mode }}"
+        ingress_path: "{{ ingress_path }}"
       text: messaging.webchat setup_default complete.

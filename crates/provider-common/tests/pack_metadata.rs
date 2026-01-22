@@ -168,9 +168,6 @@ fn build_dummy_pack() -> Result<(tempfile::TempDir, PathBuf)> {
         .arg("--gtpack-out")
         .arg(&gtpack_path)
         .current_dir(&pack_dir);
-    if !use_online_pack_build() {
-        command.arg("--offline");
-    }
     let status = command.status().expect("failed to run greentic-pack build");
     assert!(
         status.success(),

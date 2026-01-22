@@ -10,6 +10,12 @@ nodes:
     routing:
     - to: setup_custom__validate
     text:
+      config:
+        tenant_id: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        public_base_url: "{{ public_base_url }}"
+        team_id: "{{ team_id }}"
+        channel_id: "{{ channel_id }}"
       text: 'Collect inputs for setup_custom.
 
         Required config keys: ["tenant_id", "client_id", "public_base_url"]
@@ -27,6 +33,12 @@ nodes:
     routing:
     - to: setup_custom__apply
     text:
+      config:
+        tenant_id: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        public_base_url: "{{ public_base_url }}"
+        team_id: "{{ team_id }}"
+        channel_id: "{{ channel_id }}"
       text: 'Validate inputs. In dry-run mode, do not call external APIs.
 
         Live mode may validate credentials with provider APIs when host-gated.
@@ -36,6 +48,12 @@ nodes:
     routing:
     - to: setup_custom__summary
     text:
+      config:
+        tenant_id: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        public_base_url: "{{ public_base_url }}"
+        team_id: "{{ team_id }}"
+        channel_id: "{{ channel_id }}"
       text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
         \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
         : {\"tenant_id\": \"<value>\", \"client_id\": \"<value>\", \"public_base_url\"\
@@ -47,4 +65,10 @@ nodes:
   setup_custom__summary:
     routing: out
     text:
+      config:
+        tenant_id: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        public_base_url: "{{ public_base_url }}"
+        team_id: "{{ team_id }}"
+        channel_id: "{{ channel_id }}"
       text: messaging.teams.graph setup_custom complete.

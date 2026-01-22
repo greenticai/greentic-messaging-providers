@@ -9,6 +9,12 @@ nodes:
   summary:
     routing: out
     text:
+      config:
+        host: "{{ host }}"
+        port: "{{ port }}"
+        username: "{{ username }}"
+        from_address: "{{ from_address }}"
+        tls_mode: "{{ tls_mode }}"
       text: "Provider: messaging.email.smtp\nConfig schema: schemas/messaging/email/config.schema.json\n\
         \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.email.smtp\"\
         ,\n  \"config_required\": [\"host\", \"username\", \"from_address\"],\n  \"\

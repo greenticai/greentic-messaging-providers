@@ -9,6 +9,10 @@ nodes:
   summary:
     routing: out
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        mode: "{{ mode }}"
+        ingress_path: "{{ ingress_path }}"
       text: "Provider: messaging.webchat\nConfig schema: schemas/messaging/webchat/config.schema.json\n\
         \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.webchat\"\
         ,\n  \"config_required\": [\"mode\", \"public_base_url\"],\n  \"config_optional\"\

@@ -10,6 +10,9 @@ nodes:
     routing:
     - to: setup_custom__validate
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_channel: "{{ default_channel }}"
       text: 'Collect inputs for setup_custom.
 
         Required config keys: ["public_base_url"]
@@ -27,6 +30,9 @@ nodes:
     routing:
     - to: setup_custom__apply
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_channel: "{{ default_channel }}"
       text: 'Validate inputs. In dry-run mode, do not call external APIs.
 
         Live mode may validate credentials with provider APIs when host-gated.
@@ -36,6 +42,9 @@ nodes:
     routing:
     - to: setup_custom__summary
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_channel: "{{ default_channel }}"
       text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
         \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
         : {\"public_base_url\": \"<value>\", \"default_channel\"\
@@ -47,4 +56,7 @@ nodes:
   setup_custom__summary:
     routing: out
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_channel: "{{ default_channel }}"
       text: messaging.slack.api setup_custom complete.

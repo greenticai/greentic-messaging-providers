@@ -10,6 +10,9 @@ nodes:
     routing:
     - to: auth_test
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_channel: "{{ default_channel }}"
       text: 'Checks performed:
 
         - Ensure SLACK_BOT_TOKEN (and optional SLACK_SIGNING_SECRET) exist in greentic-secrets.
@@ -24,6 +27,9 @@ nodes:
     routing:
     - to: optional_send
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_channel: "{{ default_channel }}"
       text: 'Call Slack auth.test with stored bot token to verify scopes and workspace.
 
         If default_channel is set, call conversations.info and conversations.history
@@ -34,6 +40,9 @@ nodes:
     routing:
     - to: summary
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_channel: "{{ default_channel }}"
       text: 'If payload.send_test_message is true, post a test message to default_channel
         (or payload.target) with a diagnostics marker.
 
@@ -43,6 +52,9 @@ nodes:
   summary:
     routing: out
     text:
+      config:
+        public_base_url: "{{ public_base_url }}"
+        default_channel: "{{ default_channel }}"
       text: 'Diagnostics complete. Token valid, channel reachable. Webhook status
         {{#if payload.verify_webhook}}checked{{else}}not requested{{/if}}.
 
