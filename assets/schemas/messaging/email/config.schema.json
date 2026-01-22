@@ -16,12 +16,6 @@
       "type": "string",
       "description": "SMTP username"
     },
-    "password_key": {
-      "type": "string",
-      "description": "Secret store key for the SMTP password",
-      "x-secret": true,
-      "default": "EMAIL_PASSWORD"
-    },
     "from_address": {
       "type": "string",
       "description": "Default from address"

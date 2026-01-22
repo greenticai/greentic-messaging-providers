@@ -3,12 +3,6 @@
   "title": "Webex Provider-Core Config",
   "type": "object",
   "properties": {
-    "access_token": {
-      "type": "string",
-      "description": "Secret store key for the Webex bot access token.",
-      "x-secret": true,
-      "default": "WEBEX_BOT_TOKEN"
-    },
     "default_room_id": {
       "type": "string",
       "description": "Default room ID used when invocation omits destination."
@@ -24,7 +18,6 @@
     }
   },
   "required": [
-    "access_token",
     "public_base_url"
   ],
   "additionalProperties": false

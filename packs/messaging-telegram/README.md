@@ -25,13 +25,13 @@ Provider-core Telegram messaging provider pack.
 
 ## Setup
 Inputs:
-- Config required: bot_token, public_base_url
+- Config required: public_base_url
 - Config optional: default_chat_id
 - Secrets required: TELEGRAM_BOT_TOKEN
 - Secrets optional: none
 
 Writes:
-- Config keys: bot_token, public_base_url, default_chat_id
+- Config keys: public_base_url, default_chat_id
 - Secrets: TELEGRAM_BOT_TOKEN
 
 Webhooks:

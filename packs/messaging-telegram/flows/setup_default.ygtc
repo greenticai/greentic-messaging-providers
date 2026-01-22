@@ -9,10 +9,10 @@ nodes:
   setup_default__collect:
     routing:
     - to: setup_default__validate
-    handlebars:
+    text:
       text: 'Collect inputs for setup_default.
 
-        Required config keys: ["bot_token", "public_base_url"]
+        Required config keys: ["public_base_url"]
 
         Optional config keys: ["default_chat_id"]
 
@@ -26,7 +26,7 @@ nodes:
   setup_default__validate:
     routing:
     - to: setup_default__apply
-    handlebars:
+    text:
       text: 'Validate inputs. In dry-run mode, do not call external APIs.
 
         Live mode may validate credentials with provider APIs when host-gated.
@@ -35,15 +35,15 @@ nodes:
   setup_default__apply:
     routing:
     - to: setup_default__summary
-    handlebars:
+    text:
       text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
         \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
-        : {\"bot_token\": \"<value>\", \"public_base_url\": \"<value>\", \"default_chat_id\"\
+        : {\"public_base_url\": \"<value>\", \"default_chat_id\"\
         : \"<value>\"},\n  \"secrets_patch\": { \"set\": {\"TELEGRAM_BOT_TOKEN\":\
         \ \"<redacted>\"}, \"delete\": [] },\n  \"webhook_ops\": [{\"op\": \"register\"\
         , \"url\": \"<public_base_url>/webhooks/telegram\"}],\n  \"subscription_ops\"\
         : [],\n  \"oauth_ops\": []\n}\n"
   setup_default__summary:
     routing: out
-    handlebars:
+    text:
       text: messaging.telegram.bot setup_default complete.

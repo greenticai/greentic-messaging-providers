@@ -1,7 +1,6 @@
 {
   "provider": "messaging.slack.api",
   "config_required": [
-    "bot_token",
     "public_base_url"
   ],
   "config_optional": [

@@ -15,7 +15,6 @@ use greentic_types::ProviderManifest;
 
 const PROVIDER_TYPE: &str = "messaging.email.smtp";
 const CONFIG_SCHEMA_REF: &str = "schemas/messaging/email/config.schema.json";
-const DEFAULT_PASSWORD_KEY: &str = "EMAIL_PASSWORD";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -24,8 +23,6 @@ struct ProviderConfig {
     #[serde(default = "default_port")]
     port: u16,
     username: String,
-    #[serde(default)]
-    password_key: Option<String>,
     from_address: String,
     #[serde(default = "default_tls")]
     tls_mode: String,
@@ -61,7 +58,6 @@ impl Guest for Component {
                     "host": cfg.host,
                     "port": cfg.port,
                     "username": cfg.username,
-                    "password_key": cfg.password_key.unwrap_or_else(|| DEFAULT_PASSWORD_KEY.to_string()),
                     "from_address": cfg.from_address,
                     "tls_mode": cfg.tls_mode,
                 }
@@ -212,14 +208,7 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         return parse_config_value(cfg);
     }
     let mut partial = serde_json::Map::new();
-    for key in [
-        "host",
-        "port",
-        "username",
-        "password_key",
-        "from_address",
-        "tls_mode",
-    ] {
+    for key in ["host", "port", "username", "from_address", "tls_mode"] {
         if let Some(v) = input.get(key) {
             partial.insert(key.to_string(), v.clone());
         }

@@ -438,6 +438,12 @@ PY
   packs_json=$(echo "${packs_json}" | jq --argjson entry "${pack_entry}" '. + [$entry]')
 done
 
+bundle_pack="${ROOT_DIR}/${OUT_DIR}/messaging-provider-bundle.gtpack"
+if [ -f "${bundle_pack}" ]; then
+  echo "messaging-provider-bundle pack is no longer supported; remove ${bundle_pack}" >&2
+  exit 1
+fi
+
 if compgen -G "${ROOT_DIR}/${OUT_DIR}/messaging-*.gtpack" >/dev/null; then
   validator_pack_ref="${VALIDATOR_PACK_REF:-oci://ghcr.io/greentic-ai/validators/messaging:latest}"
   for pack in "${ROOT_DIR}/${OUT_DIR}"/messaging-*.gtpack; do

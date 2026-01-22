@@ -23,8 +23,6 @@ const DEFAULT_TOKEN_KEY: &str = "WHATSAPP_TOKEN";
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ProviderConfig {
-    #[serde(default = "default_token_key")]
-    access_token: String,
     phone_number_id: String,
     #[serde(default)]
     business_account_id: Option<String>,
@@ -32,10 +30,6 @@ struct ProviderConfig {
     api_base_url: Option<String>,
     #[serde(default)]
     api_version: Option<String>,
-}
-
-fn default_token_key() -> String {
-    DEFAULT_TOKEN_KEY.to_string()
 }
 
 struct Component;
@@ -57,7 +51,6 @@ impl Guest for Component {
             Ok(cfg) => json_bytes(&json!({
                 "ok": true,
                 "config": {
-                    "access_token": cfg.access_token,
                     "phone_number_id": cfg.phone_number_id,
                     "business_account_id": cfg.business_account_id,
                     "api_base_url": cfg.api_base_url.unwrap_or_else(|| DEFAULT_API_BASE.to_string()),
@@ -127,15 +120,14 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         return json_bytes(&json!({"ok": false, "error": "text required"}));
     }
 
-    let token_key = cfg.access_token;
-    let token = match secrets_store::get(&token_key) {
+    let token = match secrets_store::get(DEFAULT_TOKEN_KEY) {
         Ok(Some(bytes)) => match String::from_utf8(bytes) {
             Ok(s) => s,
             Err(_) => return json_bytes(&json!({"ok": false, "error": "access_token not utf-8"})),
         },
         Ok(None) => {
             return json_bytes(
-                &json!({"ok": false, "error": format!("missing secret: {}", token_key)}),
+                &json!({"ok": false, "error": format!("missing secret: {}", DEFAULT_TOKEN_KEY)}),
             );
         }
         Err(e) => {
@@ -251,7 +243,7 @@ fn handle_reply(_input_json: &[u8]) -> Vec<u8> {
         return json_bytes(&json!({"ok": false, "error": "reply_to_id or thread_id required"}));
     }
 
-    let token = match secrets_store::get(&cfg.access_token) {
+    let token = match secrets_store::get(DEFAULT_TOKEN_KEY) {
         Ok(Some(bytes)) => String::from_utf8(bytes).unwrap_or_default(),
         _ => return json_bytes(&json!({"ok": false, "error": "missing access token"})),
     };
@@ -336,7 +328,6 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
     }
     let mut partial = serde_json::Map::new();
     for key in [
-        "access_token",
         "phone_number_id",
         "business_account_id",
         "api_base_url",
@@ -363,7 +354,7 @@ mod tests {
 
     #[test]
     fn validate_requires_phone_number_id() {
-        let cfg = br#"{"access_token":"k"}"#;
+        let cfg = br#"{"business_account_id":"k"}"#;
         let resp = Component::validate_config(cfg.to_vec());
         let json: Value = serde_json::from_slice(&resp).unwrap();
         assert_eq!(json.get("ok"), Some(&Value::Bool(false)));
@@ -371,7 +362,7 @@ mod tests {
 
     #[test]
     fn parse_config_rejects_unknown() {
-        let cfg = br#"{"access_token":"k","phone_number_id":"p","unexpected":true}"#;
+        let cfg = br#"{"phone_number_id":"p","unexpected":true}"#;
         let err = parse_config_bytes(cfg).unwrap_err();
         assert!(err.contains("unknown field"));
     }
@@ -379,7 +370,7 @@ mod tests {
     #[test]
     fn load_config_prefers_nested() {
         let input = json!({
-            "config": {"access_token":"k","phone_number_id":"pn","api_version":"v20.0"},
+            "config": {"phone_number_id":"pn","api_version":"v20.0"},
             "api_version": "outer"
         });
         let cfg = load_config(&input).unwrap();

@@ -8,7 +8,7 @@ entrypoints: {}
 nodes:
   verify:
     routing: out
-    handlebars:
+    text:
       text: '- List Graph subscriptions for the app.
 
         - Ensure resource filters match configured channels and notification URL matches

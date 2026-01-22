@@ -1,5 +1,5 @@
 use std::cell::{Cell, RefCell};
-use std::path::Path;
+use std::path::PathBuf;
 
 use wasmtime::{
     component::{Component, Linker},
@@ -11,6 +11,34 @@ fn make_engine() -> Engine {
     config.wasm_component_model(true);
     config.cache_config_load(false);
     Engine::new(&config).expect("engine")
+}
+
+fn component_path(name: &str) -> PathBuf {
+    let candidates = [
+        PathBuf::from(format!("target/components/{name}.wasm")),
+        PathBuf::from(format!("target/wasm32-wasip2/release/{name}.wasm")),
+        PathBuf::from(format!("target/wasm32-wasip2/debug/{name}.wasm")),
+        PathBuf::from(format!(
+            "target/wasm32-wasip2/wasm32-wasip2/release/{name}.wasm"
+        )),
+        PathBuf::from(format!(
+            "target/wasm32-wasip2/wasm32-wasip2/debug/{name}.wasm"
+        )),
+        PathBuf::from(format!(
+            "components/{name}/target/wasm32-wasip2/release/{name}.wasm"
+        )),
+        PathBuf::from(format!(
+            "components/{name}/target/wasm32-wasip2/debug/{name}.wasm"
+        )),
+    ];
+
+    for path in candidates {
+        if path.exists() {
+            return path;
+        }
+    }
+
+    panic!("no component binary found for {name}");
 }
 
 // --- Telegram ----------------------------------------------------------------
@@ -125,11 +153,8 @@ mod telegram {
     }
 
     fn component(engine: &Engine) -> Component {
-        Component::from_file(
-            engine,
-            Path::new("packs/messaging-provider-bundle/components/telegram.wasm"),
-        )
-        .expect("component")
+        let path = super::component_path("telegram");
+        Component::from_file(engine, path).expect("component")
     }
 
     fn instantiate(engine: &Engine, state: HostState) -> (Store<HostState>, bindings::Telegram) {
@@ -326,11 +351,8 @@ mod webex {
     }
 
     fn component(engine: &Engine) -> Component {
-        Component::from_file(
-            engine,
-            Path::new("packs/messaging-provider-bundle/components/webex.wasm"),
-        )
-        .expect("component")
+        let path = super::component_path("webex");
+        Component::from_file(engine, path).expect("component")
     }
 
     fn instantiate(engine: &Engine, state: HostState) -> (Store<HostState>, bindings::Webex) {
@@ -510,11 +532,8 @@ mod whatsapp {
     }
 
     fn component(engine: &Engine) -> Component {
-        Component::from_file(
-            engine,
-            Path::new("packs/messaging-provider-bundle/components/whatsapp.wasm"),
-        )
-        .expect("component")
+        let path = super::component_path("whatsapp");
+        Component::from_file(engine, path).expect("component")
     }
 
     fn instantiate(engine: &Engine, state: HostState) -> (Store<HostState>, bindings::Whatsapp) {
@@ -696,11 +715,8 @@ mod teams {
     }
 
     fn component(engine: &Engine) -> Component {
-        Component::from_file(
-            engine,
-            Path::new("packs/messaging-provider-bundle/components/teams.wasm"),
-        )
-        .expect("component")
+        let path = super::component_path("teams");
+        Component::from_file(engine, path).expect("component")
     }
 
     fn instantiate(engine: &Engine, state: HostState) -> (Store<HostState>, bindings::Teams) {
@@ -882,11 +898,8 @@ mod webchat {
     }
 
     fn component(engine: &Engine) -> Component {
-        Component::from_file(
-            engine,
-            Path::new("packs/messaging-provider-bundle/components/webchat.wasm"),
-        )
-        .expect("component")
+        let path = super::component_path("webchat");
+        Component::from_file(engine, path).expect("component")
     }
 
     fn instantiate(engine: &Engine, state: HostState) -> (Store<HostState>, bindings::Webchat) {

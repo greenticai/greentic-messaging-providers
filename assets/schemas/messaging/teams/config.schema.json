@@ -11,18 +11,6 @@
       "type": "string",
       "description": "App registration client ID."
     },
-    "client_secret_key": {
-      "type": "string",
-      "description": "Secret store key for the client secret (client_credentials grant).",
-      "x-secret": true,
-      "default": "MS_GRAPH_CLIENT_SECRET"
-    },
-    "refresh_token_key": {
-      "type": "string",
-      "description": "Secret store key for refresh token (refresh_token grant).",
-      "x-secret": true,
-      "default": "MS_GRAPH_REFRESH_TOKEN"
-    },
     "team_id": {
       "type": "string",
       "description": "Default team ID if not provided in invocation."

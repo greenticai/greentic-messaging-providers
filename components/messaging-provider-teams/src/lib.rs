@@ -18,6 +18,7 @@ use greentic_types::ProviderManifest;
 const PROVIDER_TYPE: &str = "messaging.teams.graph";
 const CONFIG_SCHEMA_REF: &str = "schemas/messaging/teams/config.schema.json";
 const DEFAULT_CLIENT_SECRET_KEY: &str = "MS_GRAPH_CLIENT_SECRET";
+const DEFAULT_REFRESH_TOKEN_KEY: &str = "MS_GRAPH_REFRESH_TOKEN";
 const DEFAULT_TOKEN_SCOPE: &str = "https://graph.microsoft.com/.default";
 const DEFAULT_GRAPH_BASE: &str = "https://graph.microsoft.com/v1.0";
 const DEFAULT_AUTH_BASE: &str = "https://login.microsoftonline.com";
@@ -27,10 +28,6 @@ const DEFAULT_AUTH_BASE: &str = "https://login.microsoftonline.com";
 struct ProviderConfig {
     tenant_id: String,
     client_id: String,
-    #[serde(default)]
-    client_secret_key: Option<String>,
-    #[serde(default)]
-    refresh_token_key: Option<String>,
     #[serde(default)]
     team_id: Option<String>,
     #[serde(default)]
@@ -59,27 +56,18 @@ impl Guest for Component {
 
     fn validate_config(config_json: Vec<u8>) -> Vec<u8> {
         match parse_config_bytes(&config_json) {
-            Ok(cfg) => {
-                if cfg.client_secret_key.is_none() && cfg.refresh_token_key.is_none() {
-                    return json_bytes(
-                        &json!({"ok": false, "error": "client_secret_key or refresh_token_key required"}),
-                    );
+            Ok(cfg) => json_bytes(&json!({
+                "ok": true,
+                "config": {
+                    "tenant_id": cfg.tenant_id,
+                    "client_id": cfg.client_id,
+                    "team_id": cfg.team_id,
+                    "channel_id": cfg.channel_id,
+                    "graph_base_url": cfg.graph_base_url.unwrap_or_else(|| DEFAULT_GRAPH_BASE.to_string()),
+                    "auth_base_url": cfg.auth_base_url.unwrap_or_else(|| DEFAULT_AUTH_BASE.to_string()),
+                    "token_scope": cfg.token_scope.unwrap_or_else(|| DEFAULT_TOKEN_SCOPE.to_string()),
                 }
-                json_bytes(&json!({
-                    "ok": true,
-                    "config": {
-                        "tenant_id": cfg.tenant_id,
-                        "client_id": cfg.client_id,
-                        "client_secret_key": cfg.client_secret_key,
-                        "refresh_token_key": cfg.refresh_token_key,
-                        "team_id": cfg.team_id,
-                        "channel_id": cfg.channel_id,
-                        "graph_base_url": cfg.graph_base_url.unwrap_or_else(|| DEFAULT_GRAPH_BASE.to_string()),
-                        "auth_base_url": cfg.auth_base_url.unwrap_or_else(|| DEFAULT_AUTH_BASE.to_string()),
-                        "token_scope": cfg.token_scope.unwrap_or_else(|| DEFAULT_TOKEN_SCOPE.to_string()),
-                    }
-                }))
-            }
+            })),
             Err(err) => json_bytes(&json!({"ok": false, "error": err})),
         }
     }
@@ -113,12 +101,6 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
-
-    if cfg.client_secret_key.is_none() && cfg.refresh_token_key.is_none() {
-        return json_bytes(
-            &json!({"ok": false, "error": "client_secret_key or refresh_token_key required"}),
-        );
-    }
 
     let text = match parsed
         .get("text")
@@ -325,27 +307,20 @@ fn acquire_token(cfg: &ProviderConfig) -> Result<String, String> {
         .clone()
         .unwrap_or_else(|| DEFAULT_TOKEN_SCOPE.to_string());
 
-    if let Some(rt_key) = cfg.refresh_token_key.as_ref() {
-        let refresh_token = get_secret(rt_key)?;
+    if let Ok(refresh_token) = get_secret(DEFAULT_REFRESH_TOKEN_KEY) {
         let mut form = format!(
             "client_id={}&grant_type=refresh_token&refresh_token={}&scope={}",
             encode(&cfg.client_id),
             encode(&refresh_token),
             encode(&scope)
         );
-        if let Some(secret_key) = cfg.client_secret_key.as_ref()
-            && let Ok(secret) = get_secret(secret_key)
-        {
+        if let Ok(secret) = get_secret(DEFAULT_CLIENT_SECRET_KEY) {
             form.push_str(&format!("&client_secret={}", encode(&secret)));
         }
         return send_token_request(&token_url, &form);
     }
 
-    let client_secret_key = cfg
-        .client_secret_key
-        .as_deref()
-        .unwrap_or(DEFAULT_CLIENT_SECRET_KEY);
-    let client_secret = get_secret(client_secret_key)?;
+    let client_secret = get_secret(DEFAULT_CLIENT_SECRET_KEY)?;
     let form = format!(
         "client_id={}&client_secret={}&grant_type=client_credentials&scope={}",
         encode(&cfg.client_id),
@@ -406,8 +381,6 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
     let keys = [
         "tenant_id",
         "client_id",
-        "client_secret_key",
-        "refresh_token_key",
         "team_id",
         "channel_id",
         "graph_base_url",
@@ -435,11 +408,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn validate_requires_auth_mode() {
+    fn validate_allows_defaults() {
         let cfg = br#"{"tenant_id":"t","client_id":"c"}"#;
         let resp = Component::validate_config(cfg.to_vec());
         let json: Value = serde_json::from_slice(&resp).unwrap();
-        assert_eq!(json.get("ok"), Some(&Value::Bool(false)));
+        assert_eq!(json.get("ok"), Some(&Value::Bool(true)));
     }
 
     #[test]
@@ -447,13 +420,11 @@ mod tests {
         let input = json!({
             "config": {
                 "tenant_id": "t",
-                "client_id": "c",
-                "client_secret_key": "inner"
+                "client_id": "c"
             },
             "tenant_id": "outer"
         });
         let cfg = load_config(&input).expect("cfg");
-        assert_eq!(cfg.client_secret_key.as_deref(), Some("inner"));
         assert_eq!(cfg.tenant_id, "t");
     }
 

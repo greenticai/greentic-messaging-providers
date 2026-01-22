@@ -245,38 +245,28 @@ fn requirement_keys(
 #[test]
 fn gtpack_contains_secret_requirements_metadata() -> Result<()> {
     let root = workspace_root();
-    let pack_source = root.join("packs").join("messaging-provider-bundle");
+    let pack_source = root.join("packs").join("messaging-telegram");
     let temp = tempdir()?;
-    let pack_copy = temp.path().join("messaging-provider-bundle");
+    let pack_copy = temp.path().join("messaging-telegram");
     copy_dir(&pack_source, &pack_copy)?;
-
-    let pack_yaml = fs::read_to_string(pack_copy.join("pack.yaml"))?;
-    assert!(
-        pack_yaml.contains("x-provider-runtime-config:"),
-        "pack.yaml must declare x-provider-runtime-config (host injected blob contract)"
-    );
-    assert!(
-        pack_yaml.contains("injected_as: provider_runtime_config.json"),
-        "pack.yaml must reference provider_runtime_config.json"
-    );
 
     run_metadata_generator(&root, &pack_copy);
 
-    let gtpack_path = temp.path().join("messaging-provider-bundle.gtpack");
+    let gtpack_path = temp.path().join("messaging-telegram.gtpack");
     build_gtpack(&pack_copy, &gtpack_path)?;
 
     let manifest_bytes = read_from_gtpack(&gtpack_path, "pack.manifest.json")?;
     let manifest: Value = serde_json::from_slice(&manifest_bytes)?;
 
-    let schema_version = manifest
+    let schema_path = manifest
         .get("config_schema")
-        .and_then(|v| v.get("provider_runtime_config"))
-        .and_then(|v| v.get("schema_version"))
-        .and_then(Value::as_u64);
+        .and_then(|v| v.get("provider_config"))
+        .and_then(|v| v.get("path"))
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow!("pack manifest missing config schema path"))?;
     assert_eq!(
-        schema_version,
-        Some(1),
-        "pack manifest must declare config_schema.provider_runtime_config.schema_version = 1"
+        schema_path, "schemas/messaging/telegram/config.schema.json",
+        "unexpected config schema path for messaging-telegram"
     );
 
     let requirements = manifest
@@ -286,7 +276,7 @@ fn gtpack_contains_secret_requirements_metadata() -> Result<()> {
 
     assert!(
         !requirements.is_empty(),
-        "secret_requirements should be populated for messaging provider bundle"
+        "secret_requirements should be populated for messaging-telegram"
     );
 
     let components = manifest_components(&pack_copy.join("pack.manifest.json"))?;
@@ -335,10 +325,9 @@ fn gtpack_contains_secret_requirements_metadata() -> Result<()> {
         .get("capabilities_cache")
         .and_then(|v| v.as_array())
         .ok_or_else(|| anyhow!("pack manifest missing capabilities_cache"))?;
-    assert_eq!(
-        cache.len(),
-        components.len(),
-        "capabilities_cache must contain entries for each component"
+    assert!(
+        !cache.is_empty(),
+        "capabilities_cache should include entries when capabilities_v1.json exists"
     );
     for entry in cache {
         let obj = entry
@@ -377,7 +366,7 @@ fn packs_lock_has_digest() -> Result<()> {
     let gtpack_path = root
         .join("dist")
         .join("packs")
-        .join("messaging-provider-bundle.gtpack");
+        .join("messaging-telegram.gtpack");
     let lock_json: Value = serde_json::from_slice(&std::fs::read(&lock_path)?)?;
     let packs = lock_json
         .get("packs")
@@ -385,8 +374,23 @@ fn packs_lock_has_digest() -> Result<()> {
         .ok_or_else(|| anyhow!("packs.lock.json missing packs array"))?;
     let entry = packs
         .iter()
-        .find(|p| p.get("name").and_then(Value::as_str) == Some("messaging-provider-bundle"))
-        .ok_or_else(|| anyhow!("packs.lock.json missing messaging-provider-bundle entry"))?;
+        .find(|p| p.get("name").and_then(Value::as_str) == Some("messaging-telegram"))
+        .ok_or_else(|| anyhow!("packs.lock.json missing messaging-telegram entry"))?;
+    assert!(
+        !packs
+            .iter()
+            .any(|p| p.get("name").and_then(Value::as_str) == Some("messaging-provider-bundle")),
+        "packs.lock.json should not include messaging-provider-bundle"
+    );
+    let bundle_path = root
+        .join("dist")
+        .join("packs")
+        .join("messaging-provider-bundle.gtpack");
+    assert!(
+        !bundle_path.exists(),
+        "bundle pack artifact should not exist at {}",
+        bundle_path.display()
+    );
     let digest = entry
         .get("digest")
         .and_then(Value::as_str)

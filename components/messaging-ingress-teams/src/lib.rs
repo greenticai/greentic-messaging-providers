@@ -19,6 +19,7 @@ const DEFAULT_GRAPH_BASE: &str = "https://graph.microsoft.com/v1.0";
 const DEFAULT_AUTH_BASE: &str = "https://login.microsoftonline.com";
 const DEFAULT_TOKEN_SCOPE: &str = "https://graph.microsoft.com/.default";
 const DEFAULT_CLIENT_SECRET_KEY: &str = "MS_GRAPH_CLIENT_SECRET";
+const DEFAULT_REFRESH_TOKEN_KEY: &str = "MS_GRAPH_REFRESH_TOKEN";
 const STATE_KEY: &str = "messaging.teams.subscriptions";
 
 #[derive(Debug, Deserialize)]
@@ -26,10 +27,6 @@ const STATE_KEY: &str = "messaging.teams.subscriptions";
 struct ProviderConfig {
     tenant_id: String,
     client_id: String,
-    #[serde(default)]
-    client_secret_key: Option<String>,
-    #[serde(default)]
-    refresh_token_key: Option<String>,
     #[serde(default)]
     graph_base_url: Option<String>,
     #[serde(default)]
@@ -230,27 +227,20 @@ fn acquire_token(cfg: &ProviderConfig) -> Result<String, String> {
         .clone()
         .unwrap_or_else(|| DEFAULT_TOKEN_SCOPE.to_string());
 
-    if let Some(rt_key) = cfg.refresh_token_key.as_ref() {
-        let refresh_token = get_secret(rt_key)?;
+    if let Ok(refresh_token) = get_secret(DEFAULT_REFRESH_TOKEN_KEY) {
         let mut form = format!(
             "client_id={}&grant_type=refresh_token&refresh_token={}&scope={}",
             encode(&cfg.client_id),
             encode(&refresh_token),
             encode(&scope)
         );
-        if let Some(secret_key) = cfg.client_secret_key.as_ref()
-            && let Ok(secret) = get_secret(secret_key)
-        {
+        if let Ok(secret) = get_secret(DEFAULT_CLIENT_SECRET_KEY) {
             form.push_str(&format!("&client_secret={}", encode(&secret)));
         }
         return send_token_request(&token_url, &form);
     }
 
-    let client_secret_key = cfg
-        .client_secret_key
-        .as_deref()
-        .unwrap_or(DEFAULT_CLIENT_SECRET_KEY);
-    let client_secret = get_secret(client_secret_key)?;
+    let client_secret = get_secret(DEFAULT_CLIENT_SECRET_KEY)?;
     let form = format!(
         "client_id={}&client_secret={}&grant_type=client_credentials&scope={}",
         encode(&cfg.client_id),

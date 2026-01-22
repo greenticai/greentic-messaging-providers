@@ -1,7 +1,6 @@
 {
   "provider": "messaging.telegram.bot",
   "config_required": [
-    "bot_token",
     "public_base_url"
   ],
   "config_optional": [

@@ -9,7 +9,7 @@ nodes:
   check_secret:
     routing:
     - to: optional_loopback
-    handlebars:
+    text:
       text: '- Confirm signing_secret present.
 
         - Generate+verify a sample JWT for the configured audience.
@@ -18,12 +18,12 @@ nodes:
   optional_loopback:
     routing:
     - to: summary
-    handlebars:
+    text:
       text: 'If payload.run_loopback true, generate a token and perform a loopback
         send/receive via the webchat channel (if host supports).
 
         '
   summary:
     routing: out
-    handlebars:
+    text:
       text: Diagnostics complete for webchat.

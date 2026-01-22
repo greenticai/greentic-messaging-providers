@@ -9,10 +9,10 @@ nodes:
   setup_default__collect:
     routing:
     - to: setup_default__validate
-    handlebars:
+    text:
       text: 'Collect inputs for setup_default.
 
-        Required config keys: ["access_token", "phone_number_id", "public_base_url"]
+        Required config keys: ["phone_number_id", "public_base_url"]
 
         Optional config keys: ["business_account_id"]
 
@@ -26,7 +26,7 @@ nodes:
   setup_default__validate:
     routing:
     - to: setup_default__apply
-    handlebars:
+    text:
       text: 'Validate inputs. In dry-run mode, do not call external APIs.
 
         Live mode may validate credentials with provider APIs when host-gated.
@@ -35,10 +35,10 @@ nodes:
   setup_default__apply:
     routing:
     - to: setup_default__summary
-    handlebars:
+    text:
       text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
         \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
-        : {\"access_token\": \"<value>\", \"phone_number_id\": \"<value>\", \"public_base_url\"\
+        : {\"phone_number_id\": \"<value>\", \"public_base_url\"\
         : \"<value>\", \"business_account_id\": \"<value>\"},\n  \"secrets_patch\"\
         : { \"set\": {\"WHATSAPP_TOKEN\": \"<redacted>\", \"WHATSAPP_VERIFY_TOKEN\"\
         : \"<redacted>\"}, \"delete\": [] },\n  \"webhook_ops\": [{\"op\": \"register\"\
@@ -46,5 +46,5 @@ nodes:
         : [],\n  \"oauth_ops\": []\n}\n"
   setup_default__summary:
     routing: out
-    handlebars:
+    text:
       text: messaging.whatsapp.cloud setup_default complete.

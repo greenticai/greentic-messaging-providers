@@ -15,7 +15,7 @@ Providers covered and required environment secrets (set in the `e2e-live` enviro
 - Webchat: `E2E_WEBCHAT_SIGNING_SECRET`
 - Webex: `E2E_WEBEX_BOT_TOKEN`, `E2E_WEBEX_ROOM_ID`
 - WhatsApp: `E2E_WHATSAPP_TOKEN`, `E2E_WHATSAPP_PHONE_NUMBER_ID`, `E2E_WHATSAPP_BUSINESS_ACCOUNT_ID`, `E2E_WHATSAPP_RECIPIENT`, optional `E2E_WHATSAPP_VERIFY_TOKEN`
-- Provider bundle: union of the above + SMTP keys (reuses individual secrets); Dummy: none
+- Dummy: none
 
 Secrets packs (env-backed, no real secrets):
 - `ci/secrets/*.secrets-pack.yaml` map pack keys to env var names; update these if secret names change.
@@ -30,7 +30,7 @@ cargo binstall greentic-messaging-test --no-confirm --locked
 ./tools/sync_packs.sh
 DRY_RUN=1 ./tools/publish_packs_oci.sh
 export SECRETS_ROOT=$(mktemp -d) GREENTIC_SECRETS_DIR=$SECRETS_ROOT
-for p in slack telegram email teams webchat webex whatsapp provider-bundle dummy; do
+for p in slack telegram email teams webchat webex whatsapp dummy; do
   greentic-secrets init --pack ci/secrets/${p}.secrets-pack.yaml --env dev --tenant ci --team ci --non-interactive
 done
 greentic-messaging-test packs all \

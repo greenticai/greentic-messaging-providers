@@ -9,7 +9,7 @@ nodes:
   preflight:
     routing:
     - to: verify_token
-    handlebars:
+    text:
       text: 'Checks:
 
         - TELEGRAM_BOT_TOKEN exists.
@@ -22,7 +22,7 @@ nodes:
   verify_token:
     routing:
     - to: optional_send
-    handlebars:
+    text:
       text: '- getMe to confirm bot identity and status.
 
         - If webhook mode, getWebhookInfo and compare URL with configured; trigger
@@ -34,12 +34,12 @@ nodes:
   optional_send:
     routing:
     - to: summary
-    handlebars:
+    text:
       text: 'If payload.send_test_message true, sendMessage to target chat with diagnostics
         marker; otherwise skip.
 
         '
   summary:
     routing: out
-    handlebars:
+    text:
       text: Diagnostics complete; token valid and mode {{config.mode}} healthy.

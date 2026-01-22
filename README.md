@@ -31,20 +31,20 @@ Current layout:
   - declares `config_schema.provider_runtime_config` (schema v1, JSON) for host injection as `provider_runtime_config.json`.
 
 ## Packs (.gtpack) publishing
-- Pack sources live under `packs/` (placeholder `messaging-provider-bundle` exists). Packs are built with `packc` from the `greentic-pack` toolchain via `tools/publish_packs_oci.sh`, which emits the current greentic-pack manifest schema (including `meta.messaging.adapters`) into the `.gtpack`.
+- Pack sources live under `packs/` (individual provider packs such as `messaging-telegram`, `messaging-slack`, etc.). Packs are built with `packc` from the `greentic-pack` toolchain via `tools/publish_packs_oci.sh`, which emits the current greentic-pack manifest schema (including `meta.messaging.adapters`) into the `.gtpack`.
 - Publishing script defaults: `OCI_REGISTRY=ghcr.io`, `OCI_ORG=${GITHUB_REPOSITORY_OWNER}`, `OCI_REPO=greentic-packs`, `PACK_VERSION` from the tag (or override), `PACKS_DIR=packs`, `OUT_DIR=dist/packs`; media type `application/vnd.greentic.gtpack.v1+zip` is used for pushes.
 - Release tags (`v*`) run `.github/workflows/publish_packs.yml` to push `.gtpack` artifacts to `ghcr.io/<org>/greentic-packs/<pack>:<version>` (no `latest` tag by default). `PACK_VERSION` is the tag without the leading `v`.
 - `DRY_RUN=1 tools/publish_packs_oci.sh` builds packs and writes `packs.lock.json` with digests set to `DRY_RUN` without pushing; the build workflow runs this check on every branch/PR.
 - `packs.lock.json` records registry/org/repo, pack file paths, refs, and digests so downstream tools can pin exact OCI blobs.
 - `tools/generate_pack_metadata.py` aggregates `secret_requirements` from each referenced component into `pack.manifest.json` before the pack is zipped, so `.gtpack` metadata contains everything `greentic-secrets` needs.
 - Manual pack builds must pass the generated secrets file: `packc build --in . --gtpack-out build/<pack>.gtpack --secrets-req .secret_requirements.json` (regenerate with `python3 tools/generate_pack_metadata.py --pack-dir packs/<pack> --components-dir components --secrets-out packs/<pack>/.secret_requirements.json`).
-- Pull example: `oras pull ghcr.io/<org>/greentic-packs/messaging-provider-bundle:1.2.3` (use the digest from `packs.lock.json` for pinning in consumers such as `greentic-messaging` or `greentic-distributor-client`).
+- Pull example: `oras pull ghcr.io/<org>/greentic-packs/messaging-telegram:1.2.3` (use the digest from `packs.lock.json` for pinning in consumers such as `greentic-messaging` or `greentic-distributor-client`).
 - Pack builds require `packc >= 0.4.28`; set `PACKC_BUILD_FLAGS="--offline"` if you need an offline build.
 
 ## Secrets workflow
 - Runtime secrets are resolved only through the `greentic:secrets-store@1.0.0` host bindings; provider code never reads environment variables or filesystem trees.
 - Each provider’s `component.manifest.json` declares structured `secret_requirements`, and pack builds merge them into `pack.manifest.json` inside the resulting `.gtpack`.
-- Initialize secrets for a built pack with `greentic-secrets init --pack dist/packs/messaging-provider-bundle.gtpack`, then supply values via your preferred `greentic-secrets` set/apply workflow (e.g., `greentic-secrets set SLACK_BOT_TOKEN=... SLACK_SIGNING_SECRET=...`).
+- Initialize secrets for a built pack with `greentic-secrets init --pack dist/packs/messaging-telegram.gtpack`, then supply values via your preferred `greentic-secrets` set/apply workflow (e.g., `greentic-secrets set TELEGRAM_BOT_TOKEN=...`).
 - Pack metadata contains only key names/scopes/descriptions; no secret values are ever baked into `.gtpack` artifacts or logs.
 
 ## Slack component

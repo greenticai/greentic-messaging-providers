@@ -20,7 +20,7 @@
 - Ingress contract uses `handle-webhook` returning `normalized-payload-json` (`components/messaging-ingress-whatsapp/wit/messaging-ingress-whatsapp/deps/provider-common/world.wit:67`).
 
 ## Config requirements (greentic-config)
-- Required config keys: `access_token`, `phone_number_id`, `public_base_url` (`packs/messaging-whatsapp/schemas/messaging/whatsapp/config.schema.json:36`).
+- Required config keys: `phone_number_id`, `public_base_url` (`packs/messaging-whatsapp/schemas/messaging/whatsapp/config.schema.json:31`).
 - Config schema reference: `schemas/messaging/whatsapp/config.schema.json` (`packs/messaging-whatsapp/pack.manifest.json:33`).
 
 ## Secret requirements (greentic-secrets)
@@ -51,7 +51,7 @@ Provider/ingress wasm paths (no digest in pack manifest or lock):
 - `components/messaging-provider-whatsapp.wasm` (`packs/messaging-whatsapp/pack.manifest.json:312`).
 
 ## PUBLIC_BASE_URL
-- Required config key in `packs/messaging-whatsapp/schemas/messaging/whatsapp/config.schema.json:36`.
+- Required config key in `packs/messaging-whatsapp/schemas/messaging/whatsapp/config.schema.json:31`.
 
 ## Subscriptions lifecycle
 - No subscriptions extension declared; only ingress `handle-webhook` and provider ops are listed (`packs/messaging-whatsapp/pack.manifest.json:19`).

@@ -365,9 +365,7 @@ fn invoke_send_smoke_test() -> Result<()> {
         "channel_id": "channel-1",
         "config": {
             "tenant_id": "tenant-123",
-            "client_id": "client-123",
-            "client_secret_key": CLIENT_SECRET_KEY,
-            "refresh_token_key": REFRESH_TOKEN_KEY
+            "client_id": "client-123"
         }
     });
     let input_bytes = serde_json::to_vec(&input)?;
@@ -499,9 +497,7 @@ fn invoke_reply_smoke_test() -> Result<()> {
         "reply_to_id": "thread-42",
         "config": {
             "tenant_id": "tenant-123",
-            "client_id": "client-123",
-            "client_secret_key": CLIENT_SECRET_KEY,
-            "refresh_token_key": REFRESH_TOKEN_KEY
+            "client_id": "client-123"
         }
     });
     let (resp,) = invoke
@@ -581,8 +577,7 @@ fn reply_requires_thread_id() -> Result<()> {
         "channel_id": "channel-1",
         "config": {
             "tenant_id": "tenant-123",
-            "client_id": "client-123",
-            "client_secret_key": CLIENT_SECRET_KEY
+            "client_id": "client-123"
         }
     });
     let (resp,) = invoke

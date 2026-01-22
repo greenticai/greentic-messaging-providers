@@ -161,10 +161,6 @@ fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
-fn packs_root() -> PathBuf {
-    workspace_root().join("packs/messaging-provider-bundle/components")
-}
-
 fn component_path(provider: ProviderId) -> PathBuf {
     let name = provider.as_str();
     let candidates = [
@@ -183,7 +179,6 @@ fn component_path(provider: ProviderId) -> PathBuf {
         workspace_root().join(format!(
             "components/{name}/target/wasm32-wasip2/debug/{name}.wasm"
         )),
-        packs_root().join(format!("{name}.wasm")),
     ];
 
     for path in candidates {

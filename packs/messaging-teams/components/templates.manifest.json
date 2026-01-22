@@ -1,7 +1,7 @@
 {
   "$schema": "https://greentic-ai.github.io/greentic-component/schemas/v1/component.manifest.schema.json",
   "artifacts": {
-    "component_wasm": "component_templates.wasm"
+    "component_wasm": "templates.wasm"
   },
   "capabilities": {
     "host": {
@@ -52,7 +52,7 @@
     "title": "templates component configuration",
     "type": "object"
   },
-  "default_operation": "handlebars",
+  "default_operation": "text",
   "describe_export": "get-manifest",
   "dev_flows": {
     "custom": {
@@ -91,7 +91,7 @@
             ]
           },
           "emit_config": {
-            "template": "{\n  \"node_id\": \"COMPONENT_STEP\",\n  \"node\": {\n    \"component.exec\": {\n      \"component\": \"ai.greentic.component-templates\",\n      \"operation\": \"handlebars\",\n      \"input\": {\n        \"output_path\": \"{{state.output_path}}\",\n        \"template\": \"{{state.template}}\",\n        \"wrap\": {{state.wrap}}\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
+            "template": "{\n  \"node_id\": \"COMPONENT_STEP\",\n  \"node\": {\n    \"component.exec\": {\n      \"component\": \"ai.greentic.component-templates\",\n      \"operation\": \"text\",\n      \"input\": {\n        \"output_path\": \"{{state.output_path}}\",\n        \"template\": \"{{state.template}}\",\n        \"wrap\": {{state.wrap}}\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
           }
         }
       }
@@ -104,7 +104,7 @@
         "kind": "component-config",
         "nodes": {
           "emit_config": {
-            "template": "{\n  \"node_id\": \"COMPONENT_STEP\",\n  \"node\": {\n    \"component.exec\": {\n      \"component\": \"ai.greentic.component-templates\",\n      \"operation\": \"handlebars\",\n      \"input\": {\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
+            "template": "{\n  \"node_id\": \"COMPONENT_STEP\",\n  \"node\": {\n    \"component.exec\": {\n      \"component\": \"ai.greentic.component-templates\",\n      \"operation\": \"text\",\n      \"input\": {\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
           }
         }
       }
@@ -124,7 +124,7 @@
       "input_schema": {
         "$ref": "schemas/io/input.schema.json"
       },
-      "name": "handlebars",
+      "name": "text",
       "output_schema": {
         "$ref": "schemas/io/output.schema.json"
       }

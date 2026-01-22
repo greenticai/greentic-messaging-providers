@@ -26,13 +26,13 @@ Provider-core WhatsApp Cloud messaging pack.
 
 ## Setup
 Inputs:
-- Config required: access_token, phone_number_id, public_base_url
+- Config required: phone_number_id, public_base_url
 - Config optional: business_account_id
 - Secrets required: WHATSAPP_TOKEN
 - Secrets optional: WHATSAPP_VERIFY_TOKEN
 
 Writes:
-- Config keys: access_token, phone_number_id, public_base_url, business_account_id
+- Config keys: phone_number_id, public_base_url, business_account_id
 - Secrets: WHATSAPP_TOKEN, WHATSAPP_VERIFY_TOKEN
 
 Webhooks:

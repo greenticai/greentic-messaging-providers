@@ -8,7 +8,7 @@ entrypoints: {}
 nodes:
   summary:
     routing: out
-    handlebars:
+    text:
       text: "Provider: messaging.teams.graph\nConfig schema: schemas/messaging/teams/config.schema.json\n\
         \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.teams.graph\"\
         ,\n  \"config_required\": [\"tenant_id\", \"client_id\", \"public_base_url\"\

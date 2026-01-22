@@ -27,13 +27,13 @@ Provider-core Slack messaging pack (chat.postMessage).
 
 ## Setup
 Inputs:
-- Config required: bot_token, public_base_url
+- Config required: public_base_url
 - Config optional: default_channel, team_id
 - Secrets required: SLACK_BOT_TOKEN
 - Secrets optional: SLACK_SIGNING_SECRET
 
 Writes:
-- Config keys: bot_token, public_base_url, default_channel, team_id
+- Config keys: public_base_url, default_channel, team_id
 - Secrets: SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET
 
 Webhooks:
