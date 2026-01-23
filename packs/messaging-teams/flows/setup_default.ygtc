@@ -1,11 +1,17 @@
 id: setup_default
 type: job
-in: setup_default__collect
+in: setup_default__emit_questions
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
+  setup_default__emit_questions:
+    routing:
+    - to: setup_default__collect
+    emit:
+      id: "teams-setup"
+      spec_ref: "assets/setup.yaml"
   setup_default__collect:
     routing:
     - to: setup_default__validate
@@ -32,36 +38,44 @@ nodes:
   setup_default__validate:
     routing:
     - to: setup_default__apply
-    text:
-      config:
-        tenant_id: "{{ tenant_id }}"
-        client_id: "{{ client_id }}"
-        public_base_url: "{{ public_base_url }}"
-        team_id: "{{ team_id }}"
-        channel_id: "{{ channel_id }}"
-      text: 'Validate inputs. In dry-run mode, do not call external APIs.
-
-        Live mode may validate credentials with provider APIs when host-gated.
-
-        '
+    validate:
+      spec_json: "{{ node.setup_default__emit_questions }}"
+      answers_json: "{{ state.input.answers_json }}"
   setup_default__apply:
     routing:
     - to: setup_default__summary
-    text:
-      config:
-        tenant_id: "{{ tenant_id }}"
-        client_id: "{{ client_id }}"
-        public_base_url: "{{ public_base_url }}"
-        team_id: "{{ team_id }}"
-        channel_id: "{{ channel_id }}"
-      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
-        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
-        : {\"tenant_id\": \"<value>\", \"client_id\": \"<value>\", \"public_base_url\"\
-        : \"<value>\", \"default_channel\": \"<value>\"},\n  \"secrets_patch\": {\
-        \ \"set\": {\"MS_GRAPH_CLIENT_SECRET\": \"<redacted>\", \"MS_GRAPH_REFRESH_TOKEN\"\
-        : \"<redacted>\"}, \"delete\": [] },\n  \"webhook_ops\": [{\"op\": \"register\"\
-        , \"url\": \"<public_base_url>/webhooks/teams\"}],\n  \"subscription_ops\"\
-        : [{\"op\": \"sync\"}],\n  \"oauth_ops\": [{\"op\": \"authorize\"}]\n}\n"
+    apply:
+      plan:
+        actions:
+          - type: "config.set"
+            scope: "tenant"
+            key: "tenant_id"
+            value: "{{ state.input.answers.tenant_id }}"
+          - type: "config.set"
+            scope: "tenant"
+            key: "client_id"
+            value: "{{ state.input.answers.client_id }}"
+          - type: "config.set"
+            scope: "tenant"
+            key: "public_base_url"
+            value: "{{ state.input.answers.public_base_url }}"
+          - type: "config.set"
+            scope: "tenant"
+            key: "team_id"
+            value: "{{ state.input.answers.team_id }}"
+          - type: "config.set"
+            scope: "tenant"
+            key: "channel_id"
+            value: "{{ state.input.answers.channel_id }}"
+          - type: "secrets.put"
+            scope: "tenant"
+            key: "MS_GRAPH_CLIENT_SECRET"
+            value: "{{ state.input.answers.client_secret }}"
+          - type: "secrets.put"
+            scope: "tenant"
+            key: "MS_GRAPH_REFRESH_TOKEN"
+            value: "{{ state.input.answers.refresh_token }}"
+      dry_run: "{{ state.input.dry_run }}"
   setup_default__summary:
     routing: out
     text:

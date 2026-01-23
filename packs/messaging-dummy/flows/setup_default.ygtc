@@ -1,11 +1,17 @@
 id: setup_default
 type: job
-in: setup_default__collect
+in: setup_default__emit_questions
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
+  setup_default__emit_questions:
+    routing:
+    - to: setup_default__collect
+    emit:
+      id: "dummy-setup"
+      spec_ref: "assets/setup.yaml"
   setup_default__collect:
     routing:
     - to: setup_default__validate
@@ -27,22 +33,16 @@ nodes:
   setup_default__validate:
     routing:
     - to: setup_default__apply
-    text:
-      config: {}
-      text: 'Validate inputs. In dry-run mode, do not call external APIs.
-
-        Live mode may validate credentials with provider APIs when host-gated.
-
-        '
+    validate:
+      spec_json: "{{ node.setup_default__emit_questions }}"
+      answers_json: "{{ state.input.answers_json }}"
   setup_default__apply:
     routing:
     - to: setup_default__summary
-    text:
-      config: {}
-      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
-        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
-        : {},\n  \"secrets_patch\": { \"set\": {}, \"delete\": [] },\n  \"webhook_ops\"\
-        : [],\n  \"subscription_ops\": [],\n  \"oauth_ops\": []\n}\n"
+    apply:
+      plan:
+        actions: []
+      dry_run: "{{ state.input.dry_run }}"
   setup_default__summary:
     routing: out
     text:

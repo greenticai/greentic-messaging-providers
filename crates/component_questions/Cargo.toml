@@ -1,0 +1,28 @@
+[package]
+name = "questions"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+anyhow.workspace = true
+regex = "1"
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml_bw = "2"
+wit-bindgen.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+tempfile.workspace = true
+
+[package.metadata.component]
+package = "greentic:questions"
+
+[package.metadata.component.target]
+path = "wit/questions"
+world = "questions"

@@ -1,0 +1,24 @@
+[package]
+name = "provision"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+wit-bindgen.workspace = true
+
+[package.metadata.component]
+package = "greentic:component-provision"
+
+[package.metadata.component.target]
+path = "wit/provision"
+world = "provision"
+
+[package.metadata.component.target.dependencies]
+"greentic:state" = { path = "wit/provision/deps/state" }
+"greentic:interfaces-types" = { path = "wit/provision/deps/interfaces-types" }

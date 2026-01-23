@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET_DIR="${ROOT_DIR}/target/components"
 BUILD_TARGET="wasm32-wasip2"
 TARGET_DIR_OVERRIDE="${ROOT_DIR}/target/${BUILD_TARGET}"
-PACKAGES=("secrets-probe" "slack" "teams" "telegram" "webchat" "webex" "whatsapp" "messaging-ingress-slack" "messaging-ingress-teams" "messaging-ingress-telegram" "messaging-ingress-whatsapp" "messaging-provider-dummy" "messaging-provider-telegram" "messaging-provider-teams" "messaging-provider-email" "messaging-provider-slack" "messaging-provider-webex" "messaging-provider-whatsapp" "messaging-provider-webchat")
+PACKAGES=("provision" "questions" "secrets-probe" "slack" "teams" "telegram" "webchat" "webex" "whatsapp" "messaging-ingress-slack" "messaging-ingress-teams" "messaging-ingress-telegram" "messaging-ingress-whatsapp" "messaging-provider-dummy" "messaging-provider-telegram" "messaging-provider-teams" "messaging-provider-email" "messaging-provider-slack" "messaging-provider-webex" "messaging-provider-whatsapp" "messaging-provider-webchat")
 WASM_TOOLS_BIN="${WASM_TOOLS_BIN:-wasm-tools}"
 HAS_WASM_TOOLS=0
 # Keep tool caches inside the workspace to avoid sandbox write issues.
@@ -62,6 +62,12 @@ for PACKAGE_NAME in "${PACKAGES[@]}"; do
   fi
 
   cp "${ARTIFACT_PATH}" "${TARGET_DIR}/${PACKAGE_NAME}.wasm"
+  if [ "${PACKAGE_NAME}" = "provision" ]; then
+    cp "${ARTIFACT_PATH}" "${ROOT_DIR}/components/provision/provision.wasm"
+  fi
+  if [ "${PACKAGE_NAME}" = "questions" ]; then
+    cp "${ARTIFACT_PATH}" "${ROOT_DIR}/components/questions/questions.wasm"
+  fi
   if [ "${HAS_WASM_TOOLS}" -eq 1 ]; then
     if ! "${WASM_TOOLS_BIN}" component wit "${TARGET_DIR}/${PACKAGE_NAME}.wasm" | grep -q "wasi:cli/"; then
       echo "Artifact ${PACKAGE_NAME} does not appear to target WASI preview 2 (missing wasi:cli import)" >&2

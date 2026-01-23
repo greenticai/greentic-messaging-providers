@@ -1,0 +1,16 @@
+[package]
+name = "questions-cli"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "questions-cli"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+rpassword = "7"
+serde.workspace = true
+serde_json.workspace = true

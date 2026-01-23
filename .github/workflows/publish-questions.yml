@@ -1,0 +1,56 @@
+name: Publish Questions Component
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish-questions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: publish-questions
+
+      - name: Install cargo-component
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
+          if ! command -v cargo-component >/dev/null 2>&1; then
+            cargo binstall cargo-component --no-confirm --locked || cargo install cargo-component --locked
+          fi
+
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+
+      - name: Build questions component
+        run: ./tools/build_components.sh
+
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Publish questions component
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          VERSION="${VERSION#v}"
+          VERSION="${VERSION:-0.0.0}"
+          VERSION="${VERSION}" ./tools/publish_questions_oci.sh

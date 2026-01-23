@@ -1,18 +1,18 @@
 {
-  "schema_version": 1,
   "flow": "diagnostics.ygtc",
   "nodes": {
     "checks": {
       "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
+        "kind": "local",
+        "path": "file://../components/templates.wasm"
       }
     },
     "summary": {
       "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
+        "kind": "local",
+        "path": "file://../components/templates.wasm"
       }
     }
-  }
+  },
+  "schema_version": 1
 }

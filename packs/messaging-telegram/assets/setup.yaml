@@ -1,0 +1,20 @@
+provider_id: telegram
+version: 1
+title: Telegram provider setup
+questions:
+  - name: public_base_url
+    title: Public base URL
+    kind: string
+    required: true
+    help: "Example: https://xxxx.trycloudflare.com"
+    validate:
+      regex: "^https://"
+  - name: default_chat_id
+    title: Default chat ID
+    kind: string
+    required: false
+  - name: bot_token
+    title: Telegram bot token
+    kind: string
+    required: true
+    secret: true

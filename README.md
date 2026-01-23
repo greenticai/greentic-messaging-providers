@@ -4,11 +4,16 @@ Workspace for building messaging provider components that can be packaged and di
 
 Current layout:
 - `crates/`: shared libraries for message types and provider utilities.
+- `crates/component_questions`: CLI-first questions component (WASM) for emitting/validating setup questions.
+- `crates/questions-cli`: helper CLI to render QuestionSpec JSON and collect answers.
 - `components/`: provider WASM components. Includes `secrets-probe`, `slack`, `teams`, `telegram`, `webchat`, `webex`, `whatsapp`, and the provider-core `messaging-provider-dummy`.
+- `components/provision`: provisioning apply component used by setup flows to write config/secrets.
 - `schemas/`: JSON Schemas for provider configuration (e.g., `schemas/messaging/dummy/config.schema.json`).
 - `tools/`: build/publishing helpers (e.g., `tools/build_components.sh`).
 - To resync pack metadata/schemas and stage fresh artifacts locally, run `./tools/sync_packs.sh` (uses workspace version by default, or `PACK_VERSION` override).
 - `packs/`: pack sources (bundled providers and fixtures such as `messaging-dummy`).
+- Each pack ships a setup spec at `packs/<pack>/assets/setup.yaml` for CLI-driven setup questions.
+- Setup flows (`setup_default`/`setup_custom`) start with `*_emit_questions` and expect both `answers` (object) and `answers_json` (JSON string) in the flow input; pass `dry_run` as `false` for real apply or `true` for a no-op preview.
 - `.github/workflows/`: CI pipelines (build/test + component artifacts).
 
 ## Building locally
@@ -17,6 +22,12 @@ Current layout:
   - `cargo install cargo-component --locked`
 - Run the full check/build pipeline: `./ci/local_check.sh` (fmt, tests, and component builds).
 - Component artifacts are copied to `target/components/*.wasm`; the build script uses `cargo component build` by default.
+
+## Questions component
+- Build the component: `./tools/build_components.sh` (produces `target/components/questions.wasm`).
+- Publish to GHCR: `VERSION=<tag> ./tools/publish_questions_oci.sh`.
+- Render/collect answers via CLI:
+  - `cargo run -p questions-cli -- --spec /path/to/questions.json`
 
 ## Publishing (OCI)
 - Tag releases (`v*`) trigger the publish workflow, which builds components and pushes them to GHCR under `ghcr.io/<owner>/greentic-messaging-providers/<component>:<tag>`.

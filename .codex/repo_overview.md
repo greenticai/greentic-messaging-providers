@@ -21,6 +21,14 @@
   - **Role:** Runtime configuration model for provider components.
   - **Key functionality:** Defines `ProviderRuntimeConfig` (schema versioned JSON), telemetry/network/runtime settings, and validation helpers.
   - **Key dependencies / integration points:** Used by legacy provider components that expose `init-runtime-config`.
+- **Path:** `crates/component_questions`
+  - **Role:** CLI-first questions component (WASM).
+  - **Key functionality:** Parses setup specs, emits QuestionSpec JSON, validates answers, and produces example answers JSON.
+  - **Key dependencies / integration points:** Uses `serde`, `serde_yaml_bw`, and `regex`; compiled to `questions.wasm`.
+- **Path:** `crates/questions-cli`
+  - **Role:** CLI helper that renders QuestionSpec JSON and collects answers.
+  - **Key functionality:** Reads spec JSON from `--spec` or stdin, prompts for answers (hides secret input), and prints JSON answers.
+  - **Key dependencies / integration points:** Uses `rpassword` for secret input.
 - **Path:** `components/messaging-provider-dummy`
   - **Role:** Deterministic provider-core messaging provider for CI and smoke tests.
   - **Key functionality:** Implements provider-core `describe` (emits `ProviderManifest` for `messaging.dummy`), `validate-config` (accepts any JSON), `healthcheck`, and `invoke` (`send`/`reply` return deterministic `message_id`/`provider_message_id` based on hashed input and set status to sent/replied). Ships config schema under `schemas/messaging/dummy/config.schema.json` and manifest with empty `secret_requirements`.
@@ -57,6 +65,14 @@
   - **Role:** Minimal WASM component that probes the `greentic:secrets-store@1.0.0` interface.
   - **Key functionality:** Exports `run()` which calls `secrets_store::get("TEST_API_KEY")` and returns JSON `{"ok":true,"key_present":true}` when the secret is present; returns `{"ok":false,"key_present":false}` on missing/failed lookups.
   - **Key dependencies / integration points:** Uses `wit-bindgen` with WIT definitions under `components/secrets-probe/wit/`; imports canonical `greentic:secrets-store` package via local WIT files (resolved by `cargo component`).
+- **Path:** `components/questions`
+  - **Role:** Component manifest + README for the questions component.
+  - **Key functionality:** Declares `emit`, `validate`, and `example-answers` operations with string IO and a read-only `assets` mount.
+  - **Key dependencies / integration points:** Published to GHCR via `tools/publish_questions_oci.sh`.
+- **Path:** `components/provision`
+  - **Role:** Provisioning apply component.
+  - **Key functionality:** Exposes `apply` for applying plan actions with optional dry-run and state-store writes under `config/<scope>/<key>` and `secrets/<scope>/<key>`.
+  - **Key dependencies / integration points:** Imports `greentic:state/state-store@1.0.0`; built via `tools/build_components.sh` and referenced by setup flows as a local component.
 - **Path:** `components/teams`
   - **Role:** Microsoft Teams provider component with egress, ingress, refresh stub, and formatting.
   - **Key functionality:** Exports WIT world with `send_message` (POST to Graph channel messages using destination JSON), `handle_webhook` (wraps incoming payload), `refresh` (no-op JSON), and `format_message` (returns Graph message payload JSON). Includes basic unit tests for destination parsing and formatting.
@@ -117,21 +133,28 @@
   - **Role:** Provider-core pack for Greentic WebChat (send + ingest).
   - **Key functionality:** Inline `greentic.ext.provider` entry for `messaging.webchat` targeting provider-core world, ships the WebChat config schema (`schemas/messaging/webchat/config.schema.json`), and references the `messaging-provider-webchat.wasm` component.
   - **Key dependencies / integration points:** Depends on the WebChat provider-core component and can be built/published via pack tooling.
+- **Path:** `packs/*/assets/setup.yaml`
+  - **Role:** Provider setup question specs bundled with each pack.
+  - **Key functionality:** YAML files defining CLI setup questions and marking secret inputs.
+  - **Key dependencies / integration points:** Consumed by the questions component.
 - **Path:** `tools/build_components.sh`
   - **Role:** Builds components to `target/components/*.wasm`.
   - **Key functionality:** Runs `cargo component build --target wasm32-wasip2` for each component using an explicit target-dir, falling back to `cargo build` only if necessary; copies WASM artifacts into `target/components/`, then cleans nested target directories.
 - **Path:** `ci/local_check.sh`
   - **Role:** CI convenience wrapper.
   - **Key functionality:** Runs `cargo fmt --check`, `cargo test --workspace`, and `tools/build_components.sh`.
-- **Path:** `.github/workflows/build.yml`
-  - **Role:** CI workflow for pushes/PRs.
-  - **Key functionality:** Checks out the repo, installs Rust with `wasm32-wasip2`, installs `cargo-component`, runs fmt/test, builds components, and uploads `target/components/*.wasm` as artifacts.
-- **Path:** `.github/workflows/publish.yml`
-  - **Role:** Release publishing workflow.
-  - **Key functionality:** On tags (`v*`), installs toolchain + `cargo-component` + `oras`, runs fmt/test/build, logs into GHCR, publishes component WASM artifacts via `tools/publish_oci.sh`, and uploads `components.lock.json`.
+- **Path:** `.github/workflows/build-and-publish.yml`
+  - **Role:** CI workflow for pushes/PRs with pack build validation.
+  - **Key functionality:** Installs Rust toolchain and CLIs, runs fmt/test, builds components, syncs packs, validates flows/components, and builds packs in dry-run mode.
+- **Path:** `.github/workflows/publish-questions.yml`
+  - **Role:** Publish workflow for the questions component.
+  - **Key functionality:** Builds components and publishes `questions.wasm` to GHCR using `tools/publish_questions_oci.sh` on tags.
 - **Path:** `tools/publish_oci.sh`
   - **Role:** Publish built WASM components to OCI and emit a lockfile.
   - **Key dependencies / integration points:** Requires `OCI_REGISTRY`, `OCI_NAMESPACE`, and `VERSION`; pushes `target/components/*.wasm` with `oras` and writes `components.lock.json` recording references and digests.
+- **Path:** `tools/publish_questions_oci.sh`
+  - **Role:** Publish the questions component to GHCR.
+  - **Key dependencies / integration points:** Requires `VERSION`; pushes `questions.wasm` plus manifest/README to `ghcr.io/<org>/components/questions`.
 - **Path:** `tools/publish_packs_oci.sh`
   - **Role:** Build and optionally publish pack `.gtpack` artifacts.
   - **Key functionality:** Uses `packc` to build packs in `packs/`, stages component artifacts, writes `packs.lock.json`, and (optionally) pushes to OCI when not in dry-run mode.

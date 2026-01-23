@@ -1,30 +1,36 @@
 {
-  "schema_version": 1,
   "flow": "setup_custom.ygtc",
   "nodes": {
-    "setup_custom__collect": {
-      "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
-      }
-    },
-    "setup_custom__validate": {
-      "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
-      }
-    },
     "setup_custom__apply": {
       "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
+        "kind": "local",
+        "path": "file://../../../components/provision/provision.wasm"
+      }
+    },
+    "setup_custom__collect": {
+      "source": {
+        "kind": "local",
+        "path": "file://../components/templates.wasm"
+      }
+    },
+    "setup_custom__emit_questions": {
+      "source": {
+        "kind": "local",
+        "path": "file://../../../components/questions/questions.wasm"
       }
     },
     "setup_custom__summary": {
       "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
+        "kind": "local",
+        "path": "file://../components/templates.wasm"
+      }
+    },
+    "setup_custom__validate": {
+      "source": {
+        "kind": "local",
+        "path": "file://../../../components/questions/questions.wasm"
       }
     }
-  }
+  },
+  "schema_version": 1
 }

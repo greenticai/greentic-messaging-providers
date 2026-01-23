@@ -1,54 +1,54 @@
 {
-  "schema_version": 1,
   "flow": "diagnostics.ygtc",
   "nodes": {
     "room_check": {
       "component_id": "ai.greentic.component-templates",
-      "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
-      },
-      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00",
+      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
       "manifest": {
-        "world": "greentic:component/component@0.5.0",
-        "version": "0.1.2"
+        "version": "0.1.2",
+        "world": "greentic:component/component@0.5.0"
+      },
+      "source": {
+        "kind": "local",
+        "path": "file://../components/templates.wasm"
       }
     },
     "summary": {
       "component_id": "ai.greentic.component-templates",
-      "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
-      },
-      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00",
+      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
       "manifest": {
-        "world": "greentic:component/component@0.5.0",
-        "version": "0.1.2"
+        "version": "0.1.2",
+        "world": "greentic:component/component@0.5.0"
+      },
+      "source": {
+        "kind": "local",
+        "path": "file://../components/templates.wasm"
       }
     },
     "token_check": {
       "component_id": "ai.greentic.component-templates",
-      "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
-      },
-      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00",
+      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
       "manifest": {
-        "world": "greentic:component/component@0.5.0",
-        "version": "0.1.2"
+        "version": "0.1.2",
+        "world": "greentic:component/component@0.5.0"
+      },
+      "source": {
+        "kind": "local",
+        "path": "file://../components/templates.wasm"
       }
     },
     "webhook_check": {
       "component_id": "ai.greentic.component-templates",
-      "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
-      },
-      "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00",
+      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
       "manifest": {
-        "world": "greentic:component/component@0.5.0",
-        "version": "0.1.2"
+        "version": "0.1.2",
+        "world": "greentic:component/component@0.5.0"
+      },
+      "source": {
+        "kind": "local",
+        "path": "file://../components/templates.wasm"
       }
     }
-  }
+  },
+  "schema_version": 1
 }

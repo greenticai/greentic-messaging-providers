@@ -12,6 +12,7 @@ print(data.get("workspace", {}).get("package", {}).get("version", "0.0.0"))
 PY
 )}"
 export PACK_VERSION
+export GREENTIC_RUNNER_SMOKE=1
 
 echo "==> cargo fmt --check"
 cargo fmt --check
@@ -21,6 +22,11 @@ echo "==> tools/build_components.sh"
 
 echo "==> tools/sync_packs.sh (PACK_VERSION=${PACK_VERSION})"
 ./tools/sync_packs.sh
+
+if ! command -v greentic-runner >/dev/null 2>&1; then
+  echo "==> Installing greentic-runner"
+  cargo binstall greentic-runner --no-confirm --locked
+fi
 
 echo "==> greentic-flow doctor --validate (packs/*/flows)"
 if ! command -v greentic-flow >/dev/null 2>&1; then
@@ -73,7 +79,8 @@ if [ "${run_publish_packs}" -eq 1 ]; then
   fi
 else
   echo "==> tools/publish_packs_oci.sh (dry-run; rebuild dist/packs)"
-  DRY_RUN=1 PACKC_BUILD_FLAGS="--offline" ./tools/publish_packs_oci.sh
+  PACKC_BUILD_FLAGS="${PACKC_BUILD_FLAGS:-}"
+  DRY_RUN=1 PACKC_BUILD_FLAGS="${PACKC_BUILD_FLAGS}" ./tools/publish_packs_oci.sh
 fi
 
 echo "==> cargo test --workspace"

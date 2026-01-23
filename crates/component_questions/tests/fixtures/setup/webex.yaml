@@ -1,0 +1,16 @@
+provider_id: webex
+version: 1
+title: Webex provider setup
+questions:
+  - name: webhook_base_url
+    title: Public base URL
+    kind: string
+    required: true
+    help: "Example: https://xxxx.trycloudflare.com"
+    validate:
+      regex: "^https://"
+  - name: bot_token
+    title: Webex bot token
+    kind: string
+    required: true
+    secret: true

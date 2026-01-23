@@ -1,0 +1,24 @@
+provider_id: whatsapp
+version: 1
+title: WhatsApp provider setup
+questions:
+  - name: phone_number_id
+    title: Phone number ID
+    kind: string
+    required: true
+  - name: business_account_id
+    title: Business account ID
+    kind: string
+    required: false
+  - name: public_base_url
+    title: Public base URL
+    kind: string
+    required: true
+    help: "Example: https://xxxx.trycloudflare.com"
+    validate:
+      regex: "^https://"
+  - name: access_token
+    title: WhatsApp access token
+    kind: string
+    required: true
+    secret: true

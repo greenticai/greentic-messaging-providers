@@ -1,12 +1,12 @@
 {
-  "schema_version": 1,
   "flow": "verify_webhooks.ygtc",
   "nodes": {
     "describe": {
       "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
+        "kind": "local",
+        "path": "file://../components/templates.wasm"
       }
     }
-  }
+  },
+  "schema_version": 1
 }

@@ -65,6 +65,11 @@ jobs:
           if ! command -v greentic-flow >/dev/null 2>&1; then
             cargo binstall greentic-flow --no-confirm --locked || cargo install greentic-flow --locked
           fi
+      - name: Install greentic-runner
+        run: |
+          if ! command -v greentic-runner >/dev/null 2>&1; then
+            cargo binstall greentic-runner --no-confirm --locked || cargo install greentic-runner --locked
+          fi
       - name: Install greentic-component
         run: |
           if ! command -v greentic-component >/dev/null 2>&1; then
