@@ -1,11 +1,17 @@
 id: setup_default
 type: job
-in: setup_default__collect
+in: setup_default__emit_questions
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
+  setup_default__emit_questions:
+    routing:
+    - to: setup_default__collect
+    emit:
+      id: "webex-setup"
+      spec_ref: "assets/setup.yaml"
   setup_default__collect:
     routing:
     - to: setup_default__validate
@@ -29,29 +35,28 @@ nodes:
   setup_default__validate:
     routing:
     - to: setup_default__apply
-    text:
-      config:
-        public_base_url: "{{ public_base_url }}"
-        default_room_id: "{{ default_room_id }}"
-      text: 'Validate inputs. In dry-run mode, do not call external APIs.
-
-        Live mode may validate credentials with provider APIs when host-gated.
-
-        '
+    validate:
+      spec_json: "{{ node.setup_default__emit_questions }}"
+      answers_json: "{{ state.input.answers_json }}"
   setup_default__apply:
     routing:
     - to: setup_default__summary
-    text:
-      config:
-        public_base_url: "{{ public_base_url }}"
-        default_room_id: "{{ default_room_id }}"
-      text: "Apply changes.\nDry-run must return a deterministic ProvisionPlan and\
-        \ perform no network calls.\n\nProvisionPlan (JSON):\n{\n  \"config_patch\"\
-        : {\"public_base_url\": \"<value>\", \"default_room_id\"\
-        : \"<value>\"},\n  \"secrets_patch\": { \"set\": {\"WEBEX_BOT_TOKEN\": \"\
-        <redacted>\"}, \"delete\": [] },\n  \"webhook_ops\": [{\"op\": \"register\"\
-        , \"url\": \"<public_base_url>/webhooks/webex\"}],\n  \"subscription_ops\"\
-        : [],\n  \"oauth_ops\": []\n}\n"
+    apply:
+      plan:
+        actions:
+          - type: "config.set"
+            scope: "tenant"
+            key: "public_base_url"
+            value: "{{ state.input.answers.public_base_url }}"
+          - type: "config.set"
+            scope: "tenant"
+            key: "default_room_id"
+            value: "{{ state.input.answers.default_room_id }}"
+          - type: "secrets.put"
+            scope: "tenant"
+            key: "WEBEX_BOT_TOKEN"
+            value: "{{ state.input.answers.bot_token }}"
+      dry_run: "{{ state.input.dry_run }}"
   setup_default__summary:
     routing: out
     text:

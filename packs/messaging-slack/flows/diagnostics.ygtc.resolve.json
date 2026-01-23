@@ -1,30 +1,30 @@
 {
-  "schema_version": 1,
   "flow": "diagnostics.ygtc",
   "nodes": {
     "auth_test": {
       "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
+        "kind": "local",
+        "path": "file://../components/templates.wasm"
       }
     },
     "optional_send": {
       "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
+        "kind": "local",
+        "path": "file://../components/templates.wasm"
       }
     },
     "preflight": {
       "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
+        "kind": "local",
+        "path": "file://../components/templates.wasm"
       }
     },
     "summary": {
       "source": {
-        "kind": "oci",
-        "ref": "oci://ghcr.io/greentic-ai/components/templates:latest"
+        "kind": "local",
+        "path": "file://../components/templates.wasm"
       }
     }
-  }
+  },
+  "schema_version": 1
 }

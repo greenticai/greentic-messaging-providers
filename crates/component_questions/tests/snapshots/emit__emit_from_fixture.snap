@@ -1,0 +1,31 @@
+---
+source: crates/component_questions/tests/emit.rs
+assertion_line: 34
+expression: json_value
+---
+{
+  "id": "webex-setup",
+  "questions": [
+    {
+      "help": "Example: https://xxxx.trycloudflare.com",
+      "kind": "string",
+      "name": "webhook_base_url",
+      "required": true,
+      "secret": false,
+      "title": "Public base URL",
+      "validate": {
+        "max": null,
+        "min": null,
+        "regex": "^https://"
+      }
+    },
+    {
+      "kind": "string",
+      "name": "bot_token",
+      "required": true,
+      "secret": true,
+      "title": "Webex bot token"
+    }
+  ],
+  "title": "Webex provider setup"
+}

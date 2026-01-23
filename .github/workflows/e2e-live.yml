@@ -65,6 +65,7 @@ jobs:
           CARGO_NET_GIT_FETCH_WITH_CLI: "true"
         run: |
           cargo binstall greentic-flow --no-confirm --locked
+          cargo binstall greentic-runner --no-confirm --locked
           cargo binstall greentic-component --no-confirm --locked
           cargo binstall greentic-messaging-test --no-confirm --locked
           cargo binstall greentic-secrets --no-confirm --locked

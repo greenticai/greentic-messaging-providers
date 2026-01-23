@@ -1,0 +1,9 @@
+package greentic:component-provision@0.1.0;
+
+use greentic:state/state-store@1.0.0;
+
+world provision {
+  import state-store;
+
+  export apply: func(plan-json: string) -> result<string, string>;
+}

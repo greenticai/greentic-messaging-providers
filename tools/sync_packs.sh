@@ -253,7 +253,11 @@ for dir in "${PACKS_DIR}"/*; do
       wasm_rel="components/${name}.wasm"
       dest="${dir}/${wasm_rel}"
       if [ ! -f "${dest}" ]; then
-        fetch_locked_component "${ref}" "${digest}" "${dest}"
+        if [[ "${ref}" == *"components/questions"* ]] && [ -f "${ROOT_DIR}/components/questions/questions.wasm" ]; then
+          cp "${ROOT_DIR}/components/questions/questions.wasm" "${dest}"
+        else
+          fetch_locked_component "${ref}" "${digest}" "${dest}"
+        fi
       fi
     done < <(jq -r '.components[]? | [.name, .ref, .digest] | @tsv' "${lock_file}")
   fi

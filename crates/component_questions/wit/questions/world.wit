@@ -1,0 +1,7 @@
+package greentic:questions@0.1.0;
+
+world questions {
+  export emit: func(input-json: string) -> result<string, string>;
+  export validate: func(input-json: string) -> result<string, string>;
+  export example-answers: func(input-json: string) -> result<string, string>;
+}

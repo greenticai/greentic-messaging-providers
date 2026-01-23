@@ -43,6 +43,9 @@ jobs:
       - name: Install greentic-flow
         run: cargo binstall greentic-flow --no-confirm --locked
 
+      - name: Install greentic-runner
+        run: cargo binstall greentic-runner --no-confirm --locked
+
       - name: Install greentic-component
         run: cargo binstall greentic-component --no-confirm --locked
 

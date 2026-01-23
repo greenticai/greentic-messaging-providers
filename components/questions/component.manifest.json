@@ -1,0 +1,65 @@
+{
+  "$schema": "https://greentic-ai.github.io/greentic-component/schemas/v1/component.manifest.schema.json",
+  "id": "ai.greentic.component-questions",
+  "name": "questions",
+  "version": "0.1.0",
+  "world": "greentic:questions/questions@0.1.0",
+  "description": "CLI-first questions component for emitting and validating setup questions.",
+  "supports": ["messaging"],
+  "profiles": {
+    "default": "stateless",
+    "supported": ["stateless"]
+  },
+  "operations": [
+    {
+      "name": "emit",
+      "input_schema": { "type": "string" },
+      "output_schema": { "type": "string" }
+    },
+    {
+      "name": "validate",
+      "input_schema": { "type": "string" },
+      "output_schema": { "type": "string" }
+    },
+    {
+      "name": "example-answers",
+      "input_schema": { "type": "string" },
+      "output_schema": { "type": "string" }
+    }
+  ],
+  "default_operation": "emit",
+  "config_schema": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "capabilities": {
+    "wasi": {
+      "filesystem": {
+        "mode": "read_only",
+        "mounts": [
+          {
+            "name": "assets",
+            "host_class": "assets",
+            "guest_path": "/assets"
+          }
+        ]
+      },
+      "random": false,
+      "clocks": false
+    },
+    "host": {
+      "telemetry": {
+        "scope": "node"
+      }
+    }
+  },
+  "limits": {
+    "memory_mb": 128,
+    "wall_time_ms": 1000
+  },
+  "artifacts": {
+    "component_wasm": "questions.wasm"
+  }
+}

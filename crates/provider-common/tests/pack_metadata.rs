@@ -96,6 +96,16 @@ fn read_from_gtpack(gtpack: &Path, file: &str) -> Result<Vec<u8>> {
     Ok(buf)
 }
 
+fn list_flow_json_entries(gtpack: &Path) -> Result<Vec<String>> {
+    let archive = fs::File::open(gtpack)?;
+    let zip = zip::ZipArchive::new(archive)?;
+    Ok(zip
+        .file_names()
+        .filter(|name| name.starts_with("flows/") && name.ends_with("/flow.json"))
+        .map(|name| name.to_string())
+        .collect())
+}
+
 fn run_metadata_generator(workspace_root: &Path, pack_dir: &Path) {
     let status = Command::new("python3")
         .arg(workspace_root.join("tools/generate_pack_metadata.py"))
@@ -460,6 +470,71 @@ fn dummy_pack_includes_schema_and_secret_requirements_asset() -> Result<()> {
         !secret_requirements.is_empty(),
         "secret requirements asset should be bundled in the dummy pack"
     );
+
+    Ok(())
+}
+
+#[test]
+fn gtpack_templates_nodes_require_config() -> Result<()> {
+    let root = workspace_root();
+    let dist_dir = root.join("dist").join("packs");
+    let mut packs = Vec::new();
+    for entry in fs::read_dir(&dist_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("gtpack") {
+            continue;
+        }
+        if let Some(name) = path.file_name().and_then(|s| s.to_str())
+            && name.starts_with("messaging-")
+        {
+            packs.push(path);
+        }
+    }
+    if packs.is_empty() {
+        return Err(anyhow!(
+            "no messaging-*.gtpack found under {}",
+            dist_dir.display()
+        ));
+    }
+
+    for pack in packs {
+        let flow_entries = list_flow_json_entries(&pack)?;
+        let mut missing = Vec::new();
+        for flow_entry in flow_entries {
+            let data: Value = serde_json::from_slice(&read_from_gtpack(&pack, &flow_entry)?)?;
+            let nodes = data
+                .get("nodes")
+                .and_then(|v| v.as_object())
+                .ok_or_else(|| anyhow!("flow {} missing nodes", flow_entry))?;
+            for (node_id, node) in nodes {
+                let comp_id = node
+                    .get("component")
+                    .and_then(|v| v.get("id"))
+                    .and_then(Value::as_str);
+                if comp_id != Some("ai.greentic.component-templates") {
+                    continue;
+                }
+                let mapping = node
+                    .get("input")
+                    .and_then(|v| v.get("mapping"))
+                    .and_then(Value::as_object);
+                let has_config = mapping
+                    .and_then(|map| map.get("config"))
+                    .and_then(Value::as_object)
+                    .is_some();
+                if !has_config {
+                    missing.push(format!("{flow_entry}:{node_id}"));
+                }
+            }
+        }
+        assert!(
+            missing.is_empty(),
+            "missing config in templates nodes for {}: {}",
+            pack.display(),
+            missing.join(", ")
+        );
+    }
 
     Ok(())
 }
