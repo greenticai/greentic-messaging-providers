@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Telegram Provider-Core Config",
+  "type": "object",
+  "properties": {
+    "default_chat_id": {
+      "type": "string",
+      "description": "Default chat id used when an invocation does not supply one."
+    },
+    "public_base_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Public base URL for inbound webhook callbacks."
+    },
+    "public_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Public webhook URL (deprecated alias for public_base_url)."
+    },
+    "api_base_url": {
+      "type": "string",
+      "description": "Override for the Telegram API base URL.",
+      "default": "https://api.telegram.org"
+    }
+  },
+  "required": ["public_base_url"],
+  "additionalProperties": false
+}

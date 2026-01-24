@@ -17,8 +17,8 @@
 - Provider contract uses `schema-core-api` with JSON byte payloads for `invoke` (`components/messaging-provider-email/wit/messaging-provider-email/deps/provider-schema-core.wit:6`).
 
 ## Config requirements (greentic-config)
-- Required config keys: `host`, `username`, `from_address` (`packs/messaging-email/schemas/messaging/email/config.schema.json:36`).
-- Config schema reference: `schemas/messaging/email/config.schema.json` (`packs/messaging-email/pack.manifest.json:32`).
+- Required config keys: `host`, `username`, `from_address` (`packs/messaging-email/schemas/messaging/email/public.config.schema.json:36`).
+- Config schema reference: `schemas/messaging/email/public.config.schema.json` (`packs/messaging-email/pack.manifest.json:32`).
 
 ## Secret requirements (greentic-secrets)
 - Required secrets: `EMAIL_PASSWORD` (`packs/messaging-email/pack.manifest.json:56`).

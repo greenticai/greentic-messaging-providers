@@ -1,10 +1,11 @@
 {
+  "schema_version": 1,
   "flow": "setup_default.ygtc",
   "nodes": {
     "setup_default__apply": {
       "source": {
         "kind": "local",
-        "path": "file://../../../components/provision/provision.wasm"
+        "path": "file://../components/provision.wasm"
       }
     },
     "setup_default__collect": {
@@ -16,7 +17,7 @@
     "setup_default__emit_questions": {
       "source": {
         "kind": "local",
-        "path": "file://../../../components/questions/questions.wasm"
+        "path": "file://../components/questions.wasm"
       }
     },
     "setup_default__summary": {
@@ -28,9 +29,8 @@
     "setup_default__validate": {
       "source": {
         "kind": "local",
-        "path": "file://../../../components/questions/questions.wasm"
+        "path": "file://../components/questions.wasm"
       }
     }
-  },
-  "schema_version": 1
+  }
 }

@@ -1,6 +1,6 @@
 id: requirements
 type: job
-in: summary
+start: summary
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,11 +10,21 @@ nodes:
     routing: out
     text:
       config:
-        public_base_url: "{{ public_base_url }}"
-        default_chat_id: "{{ default_chat_id }}"
-      text: "Provider: messaging.telegram.bot\nConfig schema: schemas/messaging/telegram/config.schema.json\n\
-        \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.telegram.bot\"\
-        ,\n  \"config_required\": [\"public_base_url\"],\n  \"config_optional\"\
-        : [\"default_chat_id\"],\n  \"secret_required\": [\"TELEGRAM_BOT_TOKEN\"],\n\
-        \  \"secret_optional\": [],\n  \"oauth_required\": false,\n  \"subscriptions_required\"\
-        : false\n}\n\nNotes: Telegram inbound uses webhooks (setWebhook).\n"
+        default_chat_id: '{{ default_chat_id }}'
+        public_base_url: '{{ public_base_url }}'
+      text: |
+        Provider: messaging.telegram.bot
+        Config schema: schemas/messaging/telegram/public.config.schema.json
+
+        Machine-readable requirements (JSON):
+        {
+          "provider": "messaging.telegram.bot",
+          "config_required": ["public_base_url"],
+          "config_optional": ["default_chat_id"],
+          "secret_required": ["TELEGRAM_BOT_TOKEN"],
+          "secret_optional": [],
+          "oauth_required": false,
+          "subscriptions_required": false
+        }
+
+        Notes: Telegram inbound uses webhooks (setWebhook).

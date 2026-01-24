@@ -1,0 +1,37 @@
+provider_id: teams
+version: 1
+title: Microsoft Teams provider setup
+questions:
+  - name: tenant_id
+    title: Tenant ID
+    kind: string
+    required: true
+  - name: client_id
+    title: Client ID
+    kind: string
+    required: true
+  - name: public_base_url
+    title: Public base URL
+    kind: string
+    required: true
+    help: "Example: https://xxxx.trycloudflare.com"
+    validate:
+      regex: "^https://"
+  - name: team_id
+    title: Team ID
+    kind: string
+    required: false
+  - name: channel_id
+    title: Channel ID
+    kind: string
+    required: false
+  - name: client_secret
+    title: Client secret
+    kind: string
+    required: true
+    secret: true
+  - name: refresh_token
+    title: Refresh token
+    kind: string
+    required: false
+    secret: true

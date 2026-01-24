@@ -1,66 +1,66 @@
 {
+  "schema_version": 1,
   "flow": "setup_custom.ygtc",
   "nodes": {
     "setup_custom__apply": {
       "component_id": "ai.greentic.component-provision",
-      "digest": "sha256:8bbc52608dee68c9142e1463095f145a8798404bd2294386a6db6eb2058c843a",
-      "manifest": {
-        "version": "0.1.0",
-        "world": "greentic:component-provision/provision@0.1.0"
-      },
       "source": {
         "kind": "local",
-        "path": "file://../../../components/provision/provision.wasm"
+        "path": "../../../components/provision/provision.wasm"
+      },
+      "digest": "sha256:2a4e436c0f6ea2310bfec0f934005a4ed5763ec007a8cd58e3254592e50f9c7a",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.1.0"
       }
     },
     "setup_custom__collect": {
       "component_id": "ai.greentic.component-templates",
-      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
-      "manifest": {
-        "version": "0.1.2",
-        "world": "greentic:component/component@0.5.0"
-      },
       "source": {
         "kind": "local",
         "path": "file://../components/templates.wasm"
+      },
+      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.1.2"
       }
     },
     "setup_custom__emit_questions": {
       "component_id": "ai.greentic.component-questions",
-      "digest": "sha256:f316082c957129ce38812cb76e95c323b4ce922458aab3da61ae863534ef5f17",
-      "manifest": {
-        "version": "0.1.0",
-        "world": "greentic:questions/questions@0.1.0"
-      },
       "source": {
         "kind": "local",
-        "path": "file://../../../components/questions/questions.wasm"
+        "path": "../../../components/questions/questions.wasm"
+      },
+      "digest": "sha256:6f111ad880dadbdce48e7562f930ceac680fc7d53aa6c786f46db2db6bb3e5f6",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.1.0"
       }
     },
     "setup_custom__summary": {
       "component_id": "ai.greentic.component-templates",
-      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
-      "manifest": {
-        "version": "0.1.2",
-        "world": "greentic:component/component@0.5.0"
-      },
       "source": {
         "kind": "local",
         "path": "file://../components/templates.wasm"
+      },
+      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.1.2"
       }
     },
     "setup_custom__validate": {
       "component_id": "ai.greentic.component-questions",
-      "digest": "sha256:f316082c957129ce38812cb76e95c323b4ce922458aab3da61ae863534ef5f17",
-      "manifest": {
-        "version": "0.1.0",
-        "world": "greentic:questions/questions@0.1.0"
-      },
       "source": {
         "kind": "local",
-        "path": "file://../../../components/questions/questions.wasm"
+        "path": "../../../components/questions/questions.wasm"
+      },
+      "digest": "sha256:6f111ad880dadbdce48e7562f930ceac680fc7d53aa6c786f46db2db6bb3e5f6",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.1.0"
       }
     }
-  },
-  "schema_version": 1
+  }
 }

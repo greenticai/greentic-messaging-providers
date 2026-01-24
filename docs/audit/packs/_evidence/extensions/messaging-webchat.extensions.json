@@ -271,7 +271,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/webchat/config.schema.json",
+            "config_schema_ref": "schemas/messaging/webchat/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",

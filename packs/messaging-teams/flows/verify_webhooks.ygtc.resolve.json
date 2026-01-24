@@ -1,12 +1,12 @@
 {
+  "schema_version": 1,
   "flow": "verify_webhooks.ygtc",
   "nodes": {
     "verify": {
       "source": {
         "kind": "local",
-        "path": "file://../components/templates.wasm"
+        "path": "../components/templates.wasm"
       }
     }
-  },
-  "schema_version": 1
+  }
 }

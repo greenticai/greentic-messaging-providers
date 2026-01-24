@@ -1,6 +1,6 @@
 id: requirements
 type: job
-in: summary
+start: summary
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,15 +10,24 @@ nodes:
     routing: out
     text:
       config:
-        tenant_id: "{{ tenant_id }}"
-        client_id: "{{ client_id }}"
-        public_base_url: "{{ public_base_url }}"
-        team_id: "{{ team_id }}"
-        channel_id: "{{ channel_id }}"
-      text: "Provider: messaging.teams.graph\nConfig schema: schemas/messaging/teams/config.schema.json\n\
-        \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.teams.graph\"\
-        ,\n  \"config_required\": [\"tenant_id\", \"client_id\", \"public_base_url\"\
-        ],\n  \"config_optional\": [\"default_channel\"],\n  \"secret_required\":\
-        \ [\"MS_GRAPH_CLIENT_SECRET\", \"MS_GRAPH_REFRESH_TOKEN\"],\n  \"secret_optional\"\
-        : [],\n  \"oauth_required\": true,\n  \"subscriptions_required\": true\n}\n\
-        \nNotes: Requires Microsoft Graph subscriptions for inbound.\n"
+        channel_id: '{{ channel_id }}'
+        client_id: '{{ client_id }}'
+        public_base_url: '{{ public_base_url }}'
+        team_id: '{{ team_id }}'
+        tenant_id: '{{ tenant_id }}'
+      text: |
+        Provider: messaging.teams.graph
+        Config schema: schemas/messaging/teams/public.config.schema.json
+
+        Machine-readable requirements (JSON):
+        {
+          "provider": "messaging.teams.graph",
+          "config_required": ["tenant_id", "client_id", "public_base_url"],
+          "config_optional": ["default_channel"],
+          "secret_required": ["MS_GRAPH_CLIENT_SECRET", "MS_GRAPH_REFRESH_TOKEN"],
+          "secret_optional": [],
+          "oauth_required": true,
+          "subscriptions_required": true
+        }
+
+        Notes: Requires Microsoft Graph subscriptions for inbound.

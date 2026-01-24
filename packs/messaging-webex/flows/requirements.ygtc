@@ -1,6 +1,6 @@
 id: requirements
 type: job
-in: summary
+start: summary
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,11 +10,21 @@ nodes:
     routing: out
     text:
       config:
-        public_base_url: "{{ public_base_url }}"
-        default_room_id: "{{ default_room_id }}"
-      text: "Provider: messaging.webex.bot\nConfig schema: schemas/messaging/webex/config.schema.json\n\
-        \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.webex.bot\"\
-        ,\n  \"config_required\": [\"public_base_url\"],\n  \"config_optional\"\
-        : [\"default_room_id\"],\n  \"secret_required\": [\"WEBEX_BOT_TOKEN\"],\n\
-        \  \"secret_optional\": [],\n  \"oauth_required\": false,\n  \"subscriptions_required\"\
-        : false\n}\n\nNotes: Webex bots register webhooks for inbound.\n"
+        default_room_id: '{{ default_room_id }}'
+        public_base_url: '{{ public_base_url }}'
+      text: |
+        Provider: messaging.webex.bot
+        Config schema: schemas/messaging/webex/public.config.schema.json
+
+        Machine-readable requirements (JSON):
+        {
+          "provider": "messaging.webex.bot",
+          "config_required": ["public_base_url"],
+          "config_optional": ["default_room_id"],
+          "secret_required": ["WEBEX_BOT_TOKEN"],
+          "secret_optional": [],
+          "oauth_required": false,
+          "subscriptions_required": false
+        }
+
+        Notes: Webex bots register webhooks for inbound.

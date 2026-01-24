@@ -1,183 +1,56 @@
 {
-  "name": "messaging-slack",
-  "version": "0.4.21",
-  "description": "Provider-core Slack messaging pack (chat.postMessage).",
-  "kind": "application",
-  "publisher": "Greentic",
-  "config_schema": {
-    "provider_config": {
-      "format": "json",
-      "path": "schemas/messaging/slack/config.schema.json"
-    }
-  },
-  "components": [
-    "ai.greentic.component-templates",
-    "messaging-ingress-slack",
-    "messaging-provider-slack"
-  ],
-  "extensions": {
-    "greentic.messaging.validators.v1": {
-      "kind": "greentic.messaging.validators.v1",
-      "version": "0.4.21",
-      "inline": {
-        "validators": [
-          {
-            "id": "greentic.validators.messaging",
-            "world": "greentic:pack-validate/pack-validator@0.1.0",
-            "component_ref": "oci://ghcr.io/greentic-ai/validators/messaging:0.4.19"
-          }
-        ]
-      }
-    },
-    "greentic.provider-extension.v1": {
-      "kind": "greentic.provider-extension.v1",
-      "version": "0.4.21",
-      "inline": {
-        "providers": [
-          {
-            "provider_type": "messaging.slack.api",
-            "capabilities": [
-              "messaging"
-            ],
-            "ops": [
-              "send",
-              "reply"
-            ],
-            "config_schema_ref": "schemas/messaging/slack/config.schema.json",
-            "state_schema_ref": "",
-            "runtime": {
-              "component_ref": "messaging-provider-slack",
-              "export": "schema-core-api",
-              "world": "greentic:provider/schema-core@1.0.0"
-            },
-            "docs_ref": ""
-          }
-        ]
-      }
-    },
-    "messaging.oauth.v1": {
-      "kind": "messaging.oauth.v1",
-      "version": "0.4.21",
-      "inline": {
-        "auth_type": "oauth2",
-        "authorize_url": "https://slack.com/oauth/v2/authorize",
-        "provider_id": "slack",
-        "redirect_path": "/oauth/callback/slack",
-        "scopes": [
-          "chat:write",
-          "channels:read",
-          "channels:history"
-        ],
-        "secret_keys": [
-          "SLACK_BOT_TOKEN"
-        ],
-        "token_url": "https://slack.com/api/oauth.v2.access"
-      }
-    },
-    "messaging.provider_flow_hints": {
-      "kind": "messaging.provider_flow_hints",
-      "version": "0.4.21",
-      "inline": {
-        "messaging.slack.api": {
-          "diagnostics": "diagnostics",
-          "rotate_credentials": "rotate_credentials",
-          "setup_custom": "setup_custom",
-          "setup_default": "setup_default",
-          "verify_webhooks": "verify_webhooks"
-        }
-      }
-    },
-    "messaging.provider_ingress.v1": {
-      "kind": "messaging.provider_ingress.v1",
-      "version": "0.4.21",
-      "inline": {
-        "capabilities": {
-          "content_types": [
-            "application/json"
-          ],
-          "supports_webhook_validation": true
-        },
-        "component_ref": "messaging-ingress-slack",
-        "export": "handle-webhook",
-        "world": "greentic:messaging-ingress-slack/messaging-ingress-slack@0.0.1"
-      }
-    }
-  },
-  "secret_requirements": [
+  "capabilities_cache": [
     {
-      "name": "SLACK_SIGNING_SECRET",
-      "scope": "tenant",
-      "description": "Slack signing secret used to verify webhook signatures (optional)."
-    },
-    {
-      "name": "SLACK_BOT_TOKEN",
-      "scope": "tenant",
-      "description": "Slack bot token used for chat.postMessage calls."
-    }
-  ],
-  "flows": [
-    {
-      "id": "diagnostics",
-      "file": "flows/diagnostics.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "diagnostics"
-      ]
-    },
-    {
-      "id": "requirements",
-      "file": "flows/requirements.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "requirements"
-      ]
-    },
-    {
-      "id": "rotate_credentials",
-      "file": "flows/rotate_credentials.ygtc",
-      "tags": [
-        "maintenance"
-      ],
-      "entrypoints": [
-        "maintenance"
-      ]
-    },
-    {
-      "id": "setup_custom",
-      "file": "flows/setup_custom.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "setup"
-      ]
-    },
-    {
-      "id": "setup_default",
-      "file": "flows/setup_default.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "setup"
-      ]
-    },
-    {
-      "id": "verify_webhooks",
-      "file": "flows/verify_webhooks.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "diagnostics"
-      ]
+      "component": "ai.greentic.component-templates",
+      "version": "v1",
+      "path": "components/ai.greentic.component-templates-capabilities_v1.json"
     }
   ],
   "component_sources": [
+    {
+      "id": "ai.greentic.component-provision",
+      "version": "0.4.21",
+      "world": "greentic:component-provision/provision@0.1.0",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "stateless",
+        "supported": [
+          "stateless"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/provision.wasm"
+    },
+    {
+      "id": "ai.greentic.component-questions",
+      "version": "0.4.21",
+      "world": "greentic:questions/questions@0.1.0",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "stateless",
+        "supported": [
+          "stateless"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/questions.wasm"
+    },
     {
       "id": "ai.greentic.component-templates",
       "version": "0.4.21",
@@ -375,28 +248,6 @@
         "host": {}
       },
       "wasm": "components/diagnostics__summary.wasm"
-    },
-    {
-      "id": "text",
-      "version": "0.4.21",
-      "world": "greentic:component/component@0.5.0",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "stateless",
-        "supported": [
-          "stateless"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/templates.wasm"
     },
     {
       "id": "messaging-ingress-slack",
@@ -685,6 +536,116 @@
       "wasm": "components/setup_custom___collect_inputs.wasm"
     },
     {
+      "id": "setup_custom___setup_custom__apply",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_custom___setup_custom__apply.wasm"
+    },
+    {
+      "id": "setup_custom___setup_custom__collect",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_custom___setup_custom__collect.wasm"
+    },
+    {
+      "id": "setup_custom___setup_custom__emit_questions",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_custom___setup_custom__emit_questions.wasm"
+    },
+    {
+      "id": "setup_custom___setup_custom__summary",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_custom___setup_custom__summary.wasm"
+    },
+    {
+      "id": "setup_custom___setup_custom__validate",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_custom___setup_custom__validate.wasm"
+    },
+    {
       "id": "setup_custom___summary",
       "version": "0.4.21",
       "world": "root:component/root",
@@ -861,6 +822,116 @@
       "wasm": "components/setup_default___collect_inputs.wasm"
     },
     {
+      "id": "setup_default___setup_default__apply",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_default___setup_default__apply.wasm"
+    },
+    {
+      "id": "setup_default___setup_default__collect",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_default___setup_default__collect.wasm"
+    },
+    {
+      "id": "setup_default___setup_default__emit_questions",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_default___setup_default__emit_questions.wasm"
+    },
+    {
+      "id": "setup_default___setup_default__summary",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_default___setup_default__summary.wasm"
+    },
+    {
+      "id": "setup_default___setup_default__validate",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_default___setup_default__validate.wasm"
+    },
+    {
       "id": "setup_default___summary",
       "version": "0.4.21",
       "world": "root:component/root",
@@ -993,6 +1064,28 @@
       "wasm": "components/setup_default__validate_token.wasm"
     },
     {
+      "id": "text",
+      "version": "0.4.21",
+      "world": "greentic:component/component@0.5.0",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "stateless",
+        "supported": [
+          "stateless"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/templates.wasm"
+    },
+    {
       "id": "verify_webhooks___describe",
       "version": "0.4.21",
       "world": "root:component/root",
@@ -1035,57 +1128,219 @@
         "host": {}
       },
       "wasm": "components/verify_webhooks__describe.wasm"
-    },
-    {
-      "id": "ai.greentic.component-questions",
-      "version": "0.4.21",
-      "world": "greentic:questions/questions@0.1.0",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "stateless",
-        "supported": [
-          "stateless"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/questions.wasm"
-    },
-    {
-      "id": "ai.greentic.component-provision",
-      "version": "0.4.21",
-      "world": "greentic:component-provision/provision@0.1.0",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "stateless",
-        "supported": [
-          "stateless"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/provision.wasm"
     }
   ],
-  "capabilities_cache": [
-    {
-      "component": "ai.greentic.component-templates",
-      "version": "v1",
-      "path": "components/ai.greentic.component-templates-capabilities_v1.json"
+  "components": [
+    "ai.greentic.component-templates",
+    "messaging-ingress-slack",
+    "messaging-provider-slack"
+  ],
+  "config_schema": {
+    "provider_config": {
+      "format": "json",
+      "path": "schemas/messaging/slack/public.config.schema.json"
     }
-  ]
+  },
+  "description": "Provider-core Slack messaging pack (chat.postMessage).",
+  "extensions": {
+    "greentic.messaging.validators.v1": {
+      "kind": "greentic.messaging.validators.v1",
+      "version": "0.4.21",
+      "inline": {
+        "validators": [
+          {
+            "component_ref": "oci://ghcr.io/greentic-ai/validators/messaging:0.4.19",
+            "id": "greentic.validators.messaging",
+            "world": "greentic:pack-validate/pack-validator@0.1.0"
+          }
+        ]
+      }
+    },
+    "greentic.provider-extension.v1": {
+      "kind": "greentic.provider-extension.v1",
+      "version": "0.4.21",
+      "inline": {
+        "providers": [
+          {
+            "provider_type": "messaging.slack.api",
+            "capabilities": [
+              "messaging"
+            ],
+            "ops": [
+              "send",
+              "reply"
+            ],
+            "config_schema_ref": "schemas/messaging/slack/public.config.schema.json",
+            "state_schema_ref": "",
+            "runtime": {
+              "component_ref": "messaging-provider-slack",
+              "export": "schema-core-api",
+              "world": "greentic:provider/schema-core@1.0.0"
+            },
+            "docs_ref": ""
+          }
+        ]
+      }
+    },
+    "messaging.oauth.v1": {
+      "kind": "messaging.oauth.v1",
+      "version": "0.4.21",
+      "inline": {
+        "auth_type": "oauth2",
+        "authorize_url": "https://slack.com/oauth/v2/authorize",
+        "provider_id": "slack",
+        "redirect_path": "/oauth/callback/slack",
+        "scopes": [
+          "chat:write",
+          "channels:read",
+          "channels:history"
+        ],
+        "secret_keys": [
+          "SLACK_BOT_TOKEN"
+        ],
+        "token_url": "https://slack.com/api/oauth.v2.access"
+      }
+    },
+    "messaging.provider_flow_hints": {
+      "kind": "messaging.provider_flow_hints",
+      "version": "0.4.21",
+      "inline": {
+        "messaging.slack.api": {
+          "diagnostics": "diagnostics",
+          "rotate_credentials": "rotate_credentials",
+          "setup_custom": "setup_custom",
+          "setup_default": "setup_default",
+          "verify_webhooks": "verify_webhooks"
+        }
+      }
+    },
+    "messaging.provider_ingress.v1": {
+      "kind": "messaging.provider_ingress.v1",
+      "version": "0.4.21",
+      "inline": {
+        "capabilities": {
+          "content_types": [
+            "application/json"
+          ],
+          "supports_webhook_validation": true
+        },
+        "component_ref": "messaging-ingress-slack",
+        "export": "handle-webhook",
+        "world": "greentic:messaging-ingress-slack/messaging-ingress-slack@0.0.1"
+      }
+    }
+  },
+  "flows": [
+    {
+      "id": "diagnostics",
+      "file": "flows/diagnostics.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "ingress_default",
+      "file": "flows/ingress_default.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "ingress"
+      ]
+    },
+    {
+      "id": "requirements",
+      "file": "flows/requirements.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "requirements"
+      ]
+    },
+    {
+      "id": "rotate_credentials",
+      "file": "flows/rotate_credentials.ygtc",
+      "tags": [
+        "maintenance"
+      ],
+      "entrypoints": [
+        "maintenance"
+      ]
+    },
+    {
+      "id": "setup_custom",
+      "file": "flows/setup_custom.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "setup"
+      ]
+    },
+    {
+      "id": "setup_default",
+      "file": "flows/setup_default.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "setup"
+      ]
+    },
+    {
+      "id": "sync_subscriptions",
+      "file": "flows/sync_subscriptions.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "subscriptions"
+      ]
+    },
+    {
+      "id": "verify_webhooks",
+      "file": "flows/verify_webhooks.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "diagnostics"
+      ]
+    }
+  ],
+  "kind": "application",
+  "messaging": {
+    "adapters": [
+      {
+        "component": "messaging-ingress-slack",
+        "default_flow": "flows/ingress_default.ygtc",
+        "kind": "ingress",
+        "name": "messaging.slack.ingress"
+      },
+      {
+        "component": "messaging-provider-slack",
+        "kind": "egress",
+        "name": "messaging.slack.api"
+      }
+    ]
+  },
+  "name": "messaging-slack",
+  "publisher": "Greentic",
+  "secret_requirements": [
+    {
+      "name": "SLACK_SIGNING_SECRET",
+      "scope": "tenant",
+      "description": "Slack signing secret used to verify webhook signatures (optional)."
+    },
+    {
+      "name": "SLACK_BOT_TOKEN",
+      "scope": "tenant",
+      "description": "Slack bot token used for chat.postMessage calls."
+    }
+  ],
+  "version": "0.4.21"
 }

@@ -1,6 +1,6 @@
 id: requirements
 type: job
-in: summary
+start: summary
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,12 +10,22 @@ nodes:
     routing: out
     text:
       config:
-        public_base_url: "{{ public_base_url }}"
-        mode: "{{ mode }}"
-        ingress_path: "{{ ingress_path }}"
-      text: "Provider: messaging.webchat\nConfig schema: schemas/messaging/webchat/config.schema.json\n\
-        \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.webchat\"\
-        ,\n  \"config_required\": [\"mode\", \"public_base_url\"],\n  \"config_optional\"\
-        : [\"ingress_path\"],\n  \"secret_required\": [],\n  \"secret_optional\":\
-        \ [],\n  \"oauth_required\": false,\n  \"subscriptions_required\": false\n\
-        }\n\nNotes: Inbound webhooks depend on selected mode.\n"
+        ingress_path: '{{ ingress_path }}'
+        mode: '{{ mode }}'
+        public_base_url: '{{ public_base_url }}'
+      text: |
+        Provider: messaging.webchat
+        Config schema: schemas/messaging/webchat/public.config.schema.json
+
+        Machine-readable requirements (JSON):
+        {
+          "provider": "messaging.webchat",
+          "config_required": ["mode", "public_base_url"],
+          "config_optional": ["ingress_path"],
+          "secret_required": [],
+          "secret_optional": [],
+          "oauth_required": false,
+          "subscriptions_required": false
+        }
+
+        Notes: Inbound webhooks depend on selected mode.

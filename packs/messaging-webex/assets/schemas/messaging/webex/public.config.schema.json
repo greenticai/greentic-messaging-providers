@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Webex Provider-Core Config",
+  "type": "object",
+  "properties": {
+    "default_room_id": {
+      "type": "string",
+      "description": "Default room ID used when invocation omits destination."
+    },
+    "api_base_url": {
+      "type": "string",
+      "description": "Webex API base URL.",
+      "default": "https://webexapis.com/v1"
+    },
+    "public_base_url": {
+      "type": "string",
+      "description": "Public base URL used to build inbound webhook callback URLs."
+    }
+  },
+  "required": [
+    "public_base_url"
+  ],
+  "additionalProperties": false
+}

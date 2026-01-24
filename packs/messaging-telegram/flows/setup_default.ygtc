@@ -1,6 +1,6 @@
 id: setup_default
 type: job
-in: setup_default__emit_questions
+start: setup_default__emit_questions
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,57 +10,29 @@ nodes:
     routing:
     - to: setup_default__collect
     emit:
-      id: "telegram-setup"
-      spec_ref: "assets/setup.yaml"
+      id: messaging-telegram-setup_default
+      spec_ref: assets/setup.yaml
   setup_default__collect:
     routing:
     - to: setup_default__validate
     text:
-      config:
-        public_base_url: "{{ public_base_url }}"
-        default_chat_id: "{{ default_chat_id }}"
-      text: 'Collect inputs for setup_default.
-
-        Required config keys: ["public_base_url"]
-
-        Optional config keys: ["default_chat_id"]
-
-        Required secrets: ["TELEGRAM_BOT_TOKEN"]
-
-        Optional secrets: []
-
-        Telegram inbound uses webhooks (setWebhook).
-
-        '
+      config: {}
+      text: Collect inputs for setup_default.
   setup_default__validate:
     routing:
     - to: setup_default__apply
     validate:
-      spec_json: "{{ node.setup_default__emit_questions }}"
-      answers_json: "{{ state.input.answers_json }}"
+      answers_json: '{{ state.input.answers_json }}'
+      spec_json: '{{ node.setup_default__emit_questions }}'
   setup_default__apply:
     routing:
     - to: setup_default__summary
     apply:
+      dry_run: '{{ state.input.dry_run }}'
       plan:
-        actions:
-          - type: "config.set"
-            scope: "tenant"
-            key: "public_base_url"
-            value: "{{ state.input.answers.public_base_url }}"
-          - type: "config.set"
-            scope: "tenant"
-            key: "default_chat_id"
-            value: "{{ state.input.answers.default_chat_id }}"
-          - type: "secrets.put"
-            scope: "tenant"
-            key: "TELEGRAM_BOT_TOKEN"
-            value: "{{ state.input.answers.bot_token }}"
-      dry_run: "{{ state.input.dry_run }}"
+        actions: []
   setup_default__summary:
     routing: out
     text:
-      config:
-        public_base_url: "{{ public_base_url }}"
-        default_chat_id: "{{ default_chat_id }}"
-      text: messaging.telegram.bot setup_default complete.
+      config: {}
+      text: messaging.telegram setup_default complete.

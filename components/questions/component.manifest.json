@@ -1,65 +1,76 @@
 {
   "$schema": "https://greentic-ai.github.io/greentic-component/schemas/v1/component.manifest.schema.json",
-  "id": "ai.greentic.component-questions",
-  "name": "questions",
-  "version": "0.1.0",
-  "world": "greentic:questions/questions@0.1.0",
-  "description": "CLI-first questions component for emitting and validating setup questions.",
-  "supports": ["messaging"],
-  "profiles": {
-    "default": "stateless",
-    "supported": ["stateless"]
-  },
-  "operations": [
-    {
-      "name": "emit",
-      "input_schema": { "type": "string" },
-      "output_schema": { "type": "string" }
-    },
-    {
-      "name": "validate",
-      "input_schema": { "type": "string" },
-      "output_schema": { "type": "string" }
-    },
-    {
-      "name": "example-answers",
-      "input_schema": { "type": "string" },
-      "output_schema": { "type": "string" }
-    }
-  ],
-  "default_operation": "emit",
-  "config_schema": {
-    "type": "object",
-    "properties": {},
-    "required": [],
-    "additionalProperties": false
+  "artifacts": {
+    "component_wasm": "questions.wasm"
   },
   "capabilities": {
+    "host": {
+      "secrets": {
+        "required": []
+      },
+      "telemetry": {
+        "scope": "node"
+      }
+    },
     "wasi": {
+      "clocks": false,
       "filesystem": {
         "mode": "read_only",
         "mounts": [
           {
-            "name": "assets",
+            "guest_path": "/assets",
             "host_class": "assets",
-            "guest_path": "/assets"
+            "name": "assets"
           }
         ]
       },
-      "random": false,
-      "clocks": false
-    },
-    "host": {
-      "telemetry": {
-        "scope": "node"
-      }
+      "random": false
     }
   },
+  "config_schema": {
+    "additionalProperties": false,
+    "properties": {},
+    "required": [],
+    "type": "object"
+  },
+  "default_operation": "emit",
+  "describe_export": "get-manifest",
+  "hashes": {
+    "component_wasm": "blake3:c9add5fcb45632e38102f6a3350c4ff08255768550c78f9ea1279683a4bbff50"
+  },
+  "id": "ai.greentic.component-questions",
   "limits": {
     "memory_mb": 128,
     "wall_time_ms": 1000
   },
-  "artifacts": {
-    "component_wasm": "questions.wasm"
-  }
+  "name": "questions",
+  "operations": [
+    {
+      "input_schema": {},
+      "name": "emit",
+      "output_schema": {}
+    },
+    {
+      "input_schema": {},
+      "name": "validate",
+      "output_schema": {}
+    },
+    {
+      "input_schema": {},
+      "name": "example-answers",
+      "output_schema": {}
+    }
+  ],
+  "profiles": {
+    "default": "stateless",
+    "supported": [
+      "stateless"
+    ]
+  },
+  "secret_requirements": [],
+  "supports": [
+    "messaging"
+  ],
+  "version": "0.1.0",
+  "world": "greentic:component/component@0.5.0"
 }

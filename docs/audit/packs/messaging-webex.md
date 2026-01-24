@@ -17,8 +17,8 @@
 - Provider contract uses `schema-core-api` with JSON byte payloads for `invoke` (`components/messaging-provider-webex/wit/messaging-provider-webex/deps/provider-schema-core/package.wit:6`).
 
 ## Config requirements (greentic-config)
-- Required config keys: `public_base_url` (`packs/messaging-webex/schemas/messaging/webex/config.schema.json:19`).
-- Config schema reference: `schemas/messaging/webex/config.schema.json` (`packs/messaging-webex/pack.manifest.json:32`).
+- Required config keys: `public_base_url` (`packs/messaging-webex/schemas/messaging/webex/public.config.schema.json:19`).
+- Config schema reference: `schemas/messaging/webex/public.config.schema.json` (`packs/messaging-webex/pack.manifest.json:32`).
 
 ## Secret requirements (greentic-secrets)
 - Required secrets: `WEBEX_BOT_TOKEN` (`packs/messaging-webex/pack.manifest.json:57`).

@@ -146,6 +146,17 @@ fetch_locked_component() {
   local digest="$2"
   local dest_wasm="$3"
 
+  if [[ "${ref}" == file://* ]]; then
+    local src_path="${ref#file://}"
+    if [ ! -f "${src_path}" ]; then
+      echo "Local component file not found for ${ref}" >&2
+      exit 1
+    fi
+    mkdir -p "$(dirname "${dest_wasm}")"
+    cp "${src_path}" "${dest_wasm}"
+    return
+  fi
+
   local ref_clean="${ref#oci://}"
   local cache_key="${digest:-${ref_clean}}"
   local tmpdir="${OCI_CACHE_DIRS[${cache_key}]:-}"

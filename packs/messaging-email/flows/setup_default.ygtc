@@ -1,6 +1,6 @@
 id: setup_default
 type: job
-in: setup_default__emit_questions
+start: setup_default__emit_questions
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,75 +10,29 @@ nodes:
     routing:
     - to: setup_default__collect
     emit:
-      id: "email-setup"
-      spec_ref: "assets/setup.yaml"
+      id: messaging-email-setup_default
+      spec_ref: assets/setup.yaml
   setup_default__collect:
     routing:
     - to: setup_default__validate
     text:
-      config:
-        host: "{{ host }}"
-        port: "{{ port }}"
-        username: "{{ username }}"
-        from_address: "{{ from_address }}"
-        tls_mode: "{{ tls_mode }}"
-      text: 'Collect inputs for setup_default.
-
-        Required config keys: ["host", "username", "from_address"]
-
-        Optional config keys: ["port", "use_tls"]
-
-        Required secrets: ["EMAIL_PASSWORD"]
-
-        Optional secrets: []
-
-        SMTP setup; no inbound webhooks.
-
-        '
+      config: {}
+      text: Collect inputs for setup_default.
   setup_default__validate:
     routing:
     - to: setup_default__apply
     validate:
-      spec_json: "{{ node.setup_default__emit_questions }}"
-      answers_json: "{{ state.input.answers_json }}"
+      answers_json: '{{ state.input.answers_json }}'
+      spec_json: '{{ node.setup_default__emit_questions }}'
   setup_default__apply:
     routing:
     - to: setup_default__summary
     apply:
+      dry_run: '{{ state.input.dry_run }}'
       plan:
-        actions:
-          - type: "config.set"
-            scope: "tenant"
-            key: "host"
-            value: "{{ state.input.answers.host }}"
-          - type: "config.set"
-            scope: "tenant"
-            key: "port"
-            value: "{{ state.input.answers.port }}"
-          - type: "config.set"
-            scope: "tenant"
-            key: "username"
-            value: "{{ state.input.answers.username }}"
-          - type: "config.set"
-            scope: "tenant"
-            key: "from_address"
-            value: "{{ state.input.answers.from_address }}"
-          - type: "config.set"
-            scope: "tenant"
-            key: "tls_mode"
-            value: "{{ state.input.answers.tls_mode }}"
-          - type: "secrets.put"
-            scope: "tenant"
-            key: "EMAIL_PASSWORD"
-            value: "{{ state.input.answers.password }}"
-      dry_run: "{{ state.input.dry_run }}"
+        actions: []
   setup_default__summary:
     routing: out
     text:
-      config:
-        host: "{{ host }}"
-        port: "{{ port }}"
-        username: "{{ username }}"
-        from_address: "{{ from_address }}"
-        tls_mode: "{{ tls_mode }}"
-      text: messaging.email.smtp setup_default complete.
+      config: {}
+      text: messaging.email setup_default complete.

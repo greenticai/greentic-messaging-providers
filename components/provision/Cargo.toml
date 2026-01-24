@@ -10,15 +10,8 @@ crate-type = ["cdylib"]
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
-wit-bindgen.workspace = true
-
-[package.metadata.component]
-package = "greentic:component-provision"
+greentic-interfaces-guest = { workspace = true, features = ["component-node", "state-store"] }
 
 [package.metadata.component.target]
-path = "wit/provision"
-world = "provision"
-
-[package.metadata.component.target.dependencies]
-"greentic:state" = { path = "wit/provision/deps/state" }
-"greentic:interfaces-types" = { path = "wit/provision/deps/interfaces-types" }
+path = "../../wit/component-node"
+world = "node"

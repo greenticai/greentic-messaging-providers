@@ -295,7 +295,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/teams/config.schema.json",
+            "config_schema_ref": "schemas/messaging/teams/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",

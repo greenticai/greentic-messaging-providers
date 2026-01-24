@@ -917,7 +917,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/slack/config.schema.json",
+            "config_schema_ref": "schemas/messaging/slack/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",
@@ -1125,7 +1125,7 @@
             "id": 8,
             "input": {
               "mapping": {
-                "text": "Provider: messaging.slack.api\nConfig schema: schemas/messaging/slack/config.schema.json\n\nSecrets:\n- SLACK_BOT_TOKEN (tenant): Slack bot token used for chat.postMessage calls.\n- SLACK_SIGNING_SECRET (tenant): Slack signing secret (optional for future webhook validation).\n"
+                "text": "Provider: messaging.slack.api\nConfig schema: schemas/messaging/slack/public.config.schema.json\n\nSecrets:\n- SLACK_BOT_TOKEN (tenant): Slack bot token used for chat.postMessage calls.\n- SLACK_SIGNING_SECRET (tenant): Slack signing secret (optional for future webhook validation).\n"
               }
             },
             "output": {

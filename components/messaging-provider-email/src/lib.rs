@@ -14,7 +14,7 @@ use bindings::exports::greentic::provider_schema_core::schema_core_api::Guest;
 use greentic_types::ProviderManifest;
 
 const PROVIDER_TYPE: &str = "messaging.email.smtp";
-const CONFIG_SCHEMA_REF: &str = "schemas/messaging/email/config.schema.json";
+const CONFIG_SCHEMA_REF: &str = "schemas/messaging/email/public.config.schema.json";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]

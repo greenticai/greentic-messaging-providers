@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WhatsApp Provider-Core Config",
+  "type": "object",
+  "properties": {
+    "phone_number_id": {
+      "type": "string",
+      "description": "WhatsApp phone number ID used for sending messages."
+    },
+    "business_account_id": {
+      "type": "string",
+      "description": "Optional business account ID."
+    },
+    "public_base_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Public base URL for inbound webhook callbacks."
+    },
+    "api_base_url": {
+      "type": "string",
+      "description": "Graph API base URL.",
+      "default": "https://graph.facebook.com"
+    },
+    "api_version": {
+      "type": "string",
+      "description": "Graph API version.",
+      "default": "v19.0"
+    }
+  },
+  "required": ["phone_number_id", "public_base_url"],
+  "additionalProperties": false
+}

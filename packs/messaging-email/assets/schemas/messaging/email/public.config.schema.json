@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Email Provider-Core Config",
+  "type": "object",
+  "properties": {
+    "host": {
+      "type": "string",
+      "description": "SMTP host name or address"
+    },
+    "port": {
+      "type": "integer",
+      "description": "SMTP port",
+      "default": 587
+    },
+    "username": {
+      "type": "string",
+      "description": "SMTP username"
+    },
+    "from_address": {
+      "type": "string",
+      "description": "Default from address"
+    },
+    "tls_mode": {
+      "type": "string",
+      "enum": ["starttls", "implicit", "none"],
+      "default": "starttls",
+      "description": "TLS mode to use"
+    }
+  },
+  "required": ["host", "username", "from_address"],
+  "additionalProperties": false
+}

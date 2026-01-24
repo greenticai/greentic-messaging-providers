@@ -21,7 +21,8 @@ fn run_setup_default(
 ) -> Result<()> {
     let answers_json = serde_json::to_string(&answers)?;
     let input = json!({
-        "tenant": "smoke",
+        "tenant": "operator",
+        "team": "operator",
         "public_base_url": "https://example.com",
         "config": config,
         "answers": answers,
@@ -33,8 +34,8 @@ fn run_setup_default(
         entry_flow: Some("setup_default".to_string()),
         input,
         ctx: TenantContext {
-            tenant_id: Some("smoke".to_string()),
-            team_id: None,
+            tenant_id: Some("operator".to_string()),
+            team_id: Some("operator".to_string()),
             user_id: Some("operator".to_string()),
             session_id: None,
         },
@@ -103,4 +104,40 @@ fn runner_desktop_setup_default_smoke() -> Result<()> {
     )?;
 
     Ok(())
+}
+
+#[test]
+fn runner_desktop_abi_compat_smoke() -> Result<()> {
+    let root = workspace_root();
+    let packs_dir = root.join("dist").join("packs");
+    let webex = packs_dir.join("messaging-webex.gtpack");
+
+    if !webex.exists() {
+        return Err(anyhow!(
+            "missing gtpack; expected webex under {}",
+            packs_dir.display()
+        ));
+    }
+
+    let result = run_setup_default(
+        &webex,
+        json!({
+            "public_base_url": "https://example.com",
+            "default_room_id": "room-123"
+        }),
+        json!({
+            "public_base_url": "https://example.com",
+            "default_room_id": "room-123",
+            "bot_token": "webex-test-token"
+        }),
+        true,
+    );
+    result.map_err(|err| {
+        let msg = err.to_string();
+        if msg.contains("greentic:component/node@") {
+            anyhow!("runner ABI mismatch for {}: {msg}", webex.display())
+        } else {
+            err
+        }
+    })
 }

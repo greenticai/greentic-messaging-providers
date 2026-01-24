@@ -65,7 +65,7 @@ Fail CI on any validation errors.
 Add one automated test that:
 - builds `messaging-dummy` pack
 - opens the resulting `.gtpack`
-- asserts `schemas/messaging/dummy/config.schema.json` exists (or the dummy’s canonical schema path)
+- asserts `schemas/messaging/dummy/public.config.schema.json` exists (or the dummy’s canonical schema path)
 - asserts `assets/secret-requirements.json` exists when referenced
 
 ACCEPTANCE CRITERIA

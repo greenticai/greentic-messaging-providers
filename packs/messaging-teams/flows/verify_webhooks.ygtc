@@ -1,6 +1,6 @@
 id: verify_webhooks
 type: job
-in: verify
+start: verify
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,19 +10,13 @@ nodes:
     routing: out
     text:
       config:
-        tenant_id: "{{ tenant_id }}"
-        client_id: "{{ client_id }}"
-        public_base_url: "{{ public_base_url }}"
-        team_id: "{{ team_id }}"
-        channel_id: "{{ channel_id }}"
-      text: '- List Graph subscriptions for the app.
-
-        - Ensure resource filters match configured channels and notification URL matches
-        host ingress.
-
-        - Run sync-subscriptions idempotently; renew or recreate subscriptions before
-        expiry (respect renewal_window_hours).
-
+        channel_id: '{{ channel_id }}'
+        client_id: '{{ client_id }}'
+        public_base_url: '{{ public_base_url }}'
+        team_id: '{{ team_id }}'
+        tenant_id: '{{ tenant_id }}'
+      text: |
+        - List Graph subscriptions for the app.
+        - Ensure resource filters match configured channels and notification URL matches host ingress.
+        - Run sync-subscriptions idempotently; renew or recreate subscriptions before expiry (respect renewal_window_hours).
         - Write back expiration timestamps for idempotency.
-
-        '

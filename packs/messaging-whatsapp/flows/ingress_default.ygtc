@@ -1,0 +1,13 @@
+id: ingress_default
+type: messaging
+start: ingress_default__summary
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
+nodes:
+  ingress_default__summary:
+    routing: out
+    text:
+      config: {}
+      text: messaging.whatsapp ingress ok

@@ -16,6 +16,14 @@ fn get_mapping<'a>(value: &'a Value, label: &str) -> Result<&'a serde_yaml_bw::M
         .ok_or_else(|| anyhow!("{label} is not a mapping"))
 }
 
+fn flow_root<'a>(value: &'a Value) -> Result<&'a serde_yaml_bw::Mapping> {
+    let map = get_mapping(value, "flow")?;
+    if let Some(root) = map.get(&Value::String("flow".to_string(), None)) {
+        return get_mapping(root, "flow");
+    }
+    Ok(map)
+}
+
 fn map_get<'a>(map: &'a serde_yaml_bw::Mapping, key: &str) -> Result<&'a Value> {
     map.get(&Value::String(key.to_string(), None))
         .ok_or_else(|| anyhow!("missing key {key}"))
@@ -26,7 +34,8 @@ fn setup_flows_use_questions_emit_and_validate() -> Result<()> {
     for entry in glob("packs/*/flows/setup_*.ygtc")? {
         let path = entry?;
         let flow = load_flow(&path)?;
-        let nodes = map_get(get_mapping(&flow, "flow")?, "nodes")?;
+        let flow_root = flow_root(&flow)?;
+        let nodes = map_get(flow_root, "nodes")?;
         let nodes = get_mapping(nodes, "nodes")?;
 
         let prefix = if path.file_name().and_then(|v| v.to_str()) == Some("setup_default.ygtc") {
@@ -37,7 +46,10 @@ fn setup_flows_use_questions_emit_and_validate() -> Result<()> {
         let emit_id = format!("{prefix}__emit_questions");
         let validate_id = format!("{prefix}__validate");
 
-        let entry_node = map_get(get_mapping(&flow, "flow")?, "in")?
+        let entry_node = flow_root
+            .get(&Value::String("in".to_string(), None))
+            .or_else(|| flow_root.get(&Value::String("start".to_string(), None)))
+            .ok_or_else(|| anyhow!("missing flow entry"))?
             .as_str()
             .ok_or_else(|| anyhow!("flow entry is not a string"))?;
         if entry_node != emit_id {

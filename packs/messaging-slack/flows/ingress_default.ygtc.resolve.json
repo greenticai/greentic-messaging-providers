@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "flow": "ingress_default.ygtc",
+  "nodes": {
+    "ingress_default__summary": {
+      "source": {
+        "kind": "local",
+        "path": "../components/templates.wasm"
+      }
+    }
+  }
+}

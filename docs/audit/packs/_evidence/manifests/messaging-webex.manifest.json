@@ -709,7 +709,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/webex/config.schema.json",
+            "config_schema_ref": "schemas/messaging/webex/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",
@@ -882,7 +882,7 @@
             "id": 4,
             "input": {
               "mapping": {
-                "text": "Provider: messaging.webex.bot\nConfig schema: schemas/messaging/webex/config.schema.json\n\nSecrets:\n- WEBEX_BOT_TOKEN (tenant): Webex bot access token used for Messages API calls.\n"
+                "text": "Provider: messaging.webex.bot\nConfig schema: schemas/messaging/webex/public.config.schema.json\n\nSecrets:\n- WEBEX_BOT_TOKEN (tenant): Webex bot access token used for Messages API calls.\n"
               }
             },
             "output": {

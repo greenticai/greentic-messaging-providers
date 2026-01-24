@@ -367,7 +367,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/slack/config.schema.json",
+            "config_schema_ref": "schemas/messaging/slack/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",

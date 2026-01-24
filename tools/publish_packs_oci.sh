@@ -264,6 +264,8 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   ensure_secret_requirements_asset "${dir}" "${secrets_out}"
   ensure_pack_readme "${dir}"
   update_pack_yaml_version "${dir}"
+  (cd "${dir}" && "${PACKC_BIN}" config)
+  (cd "${dir}" && "${PACKC_BIN}" resolve)
 
   components=()
   while IFS= read -r comp_line; do

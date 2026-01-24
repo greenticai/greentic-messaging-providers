@@ -1,121 +1,56 @@
 {
-  "name": "messaging-email",
-  "version": "0.4.21",
-  "description": "Provider-core SMTP email sender pack (simulated send).",
-  "kind": "application",
-  "publisher": "Greentic",
-  "config_schema": {
-    "provider_config": {
-      "format": "json",
-      "path": "schemas/messaging/email/config.schema.json"
-    }
-  },
-  "components": [
-    "ai.greentic.component-templates",
-    "messaging-provider-email"
-  ],
-  "extensions": {
-    "greentic.messaging.validators.v1": {
-      "kind": "greentic.messaging.validators.v1",
-      "version": "0.4.21",
-      "inline": {
-        "validators": [
-          {
-            "id": "greentic.validators.messaging",
-            "world": "greentic:pack-validate/pack-validator@0.1.0",
-            "component_ref": "oci://ghcr.io/greentic-ai/validators/messaging:0.4.19"
-          }
-        ]
-      }
-    },
-    "greentic.provider-extension.v1": {
-      "kind": "greentic.provider-extension.v1",
-      "version": "0.4.21",
-      "inline": {
-        "providers": [
-          {
-            "provider_type": "messaging.email.smtp",
-            "capabilities": [
-              "messaging"
-            ],
-            "ops": [
-              "send",
-              "reply"
-            ],
-            "config_schema_ref": "schemas/messaging/email/config.schema.json",
-            "state_schema_ref": "",
-            "runtime": {
-              "component_ref": "messaging-provider-email",
-              "export": "schema-core-api",
-              "world": "greentic:provider/schema-core@1.0.0"
-            },
-            "docs_ref": ""
-          }
-        ]
-      }
-    },
-    "messaging.provider_flow_hints": {
-      "kind": "messaging.provider_flow_hints",
-      "version": "0.4.21",
-      "inline": {
-        "messaging.email.smtp": {
-          "diagnostics": "diagnostics",
-          "setup_custom": "setup_custom",
-          "setup_default": "setup_default"
-        }
-      }
-    }
-  },
-  "secret_requirements": [
+  "capabilities_cache": [
     {
-      "name": "EMAIL_PASSWORD",
-      "scope": "tenant",
-      "description": "SMTP password secret key"
-    }
-  ],
-  "flows": [
-    {
-      "id": "diagnostics",
-      "file": "flows/diagnostics.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "diagnostics"
-      ]
-    },
-    {
-      "id": "requirements",
-      "file": "flows/requirements.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "requirements"
-      ]
-    },
-    {
-      "id": "setup_custom",
-      "file": "flows/setup_custom.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "setup"
-      ]
-    },
-    {
-      "id": "setup_default",
-      "file": "flows/setup_default.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "setup"
-      ]
+      "component": "ai.greentic.component-templates",
+      "version": "v1",
+      "path": "components/ai.greentic.component-templates-capabilities_v1.json"
     }
   ],
   "component_sources": [
+    {
+      "id": "ai.greentic.component-provision",
+      "version": "0.4.21",
+      "world": "greentic:component-provision/provision@0.1.0",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "stateless",
+        "supported": [
+          "stateless"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/provision.wasm"
+    },
+    {
+      "id": "ai.greentic.component-questions",
+      "version": "0.4.21",
+      "world": "greentic:questions/questions@0.1.0",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "stateless",
+        "supported": [
+          "stateless"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/questions.wasm"
+    },
     {
       "id": "ai.greentic.component-templates",
       "version": "0.4.21",
@@ -227,28 +162,6 @@
       "wasm": "components/diagnostics__summary.wasm"
     },
     {
-      "id": "text",
-      "version": "0.4.21",
-      "world": "greentic:component/component@0.5.0",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "stateless",
-        "supported": [
-          "stateless"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/templates.wasm"
-    },
-    {
       "id": "messaging-provider-email",
       "version": "0.4.21",
       "world": "greentic:provider/schema-core@1.0.0",
@@ -335,6 +248,116 @@
         "host": {}
       },
       "wasm": "components/setup_custom___collect.wasm"
+    },
+    {
+      "id": "setup_custom___setup_custom__apply",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_custom___setup_custom__apply.wasm"
+    },
+    {
+      "id": "setup_custom___setup_custom__collect",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_custom___setup_custom__collect.wasm"
+    },
+    {
+      "id": "setup_custom___setup_custom__emit_questions",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_custom___setup_custom__emit_questions.wasm"
+    },
+    {
+      "id": "setup_custom___setup_custom__summary",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_custom___setup_custom__summary.wasm"
+    },
+    {
+      "id": "setup_custom___setup_custom__validate",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_custom___setup_custom__validate.wasm"
     },
     {
       "id": "setup_custom___summary",
@@ -513,6 +536,116 @@
       "wasm": "components/setup_default___collect.wasm"
     },
     {
+      "id": "setup_default___setup_default__apply",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_default___setup_default__apply.wasm"
+    },
+    {
+      "id": "setup_default___setup_default__collect",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_default___setup_default__collect.wasm"
+    },
+    {
+      "id": "setup_default___setup_default__emit_questions",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_default___setup_default__emit_questions.wasm"
+    },
+    {
+      "id": "setup_default___setup_default__summary",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_default___setup_default__summary.wasm"
+    },
+    {
+      "id": "setup_default___setup_default__validate",
+      "version": "0.4.21",
+      "world": "root:component/root",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/setup_default___setup_default__validate.wasm"
+    },
+    {
       "id": "setup_default___summary",
       "version": "0.4.21",
       "world": "root:component/root",
@@ -645,9 +778,9 @@
       "wasm": "components/setup_default__validate.wasm"
     },
     {
-      "id": "ai.greentic.component-questions",
+      "id": "text",
       "version": "0.4.21",
-      "world": "greentic:questions/questions@0.1.0",
+      "world": "greentic:component/component@0.5.0",
       "supports": [
         "messaging"
       ],
@@ -664,36 +797,142 @@
         },
         "host": {}
       },
-      "wasm": "components/questions.wasm"
-    },
-    {
-      "id": "ai.greentic.component-provision",
-      "version": "0.4.21",
-      "world": "greentic:component-provision/provision@0.1.0",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "stateless",
-        "supported": [
-          "stateless"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/provision.wasm"
+      "wasm": "components/templates.wasm"
     }
   ],
-  "capabilities_cache": [
-    {
-      "component": "ai.greentic.component-templates",
-      "version": "v1",
-      "path": "components/ai.greentic.component-templates-capabilities_v1.json"
+  "components": [
+    "ai.greentic.component-templates",
+    "messaging-provider-email"
+  ],
+  "config_schema": {
+    "provider_config": {
+      "format": "json",
+      "path": "schemas/messaging/email/public.config.schema.json"
     }
-  ]
+  },
+  "description": "Provider-core SMTP email sender pack (simulated send).",
+  "extensions": {
+    "greentic.messaging.validators.v1": {
+      "kind": "greentic.messaging.validators.v1",
+      "version": "0.4.21",
+      "inline": {
+        "validators": [
+          {
+            "component_ref": "oci://ghcr.io/greentic-ai/validators/messaging:0.4.19",
+            "id": "greentic.validators.messaging",
+            "world": "greentic:pack-validate/pack-validator@0.1.0"
+          }
+        ]
+      }
+    },
+    "greentic.provider-extension.v1": {
+      "kind": "greentic.provider-extension.v1",
+      "version": "0.4.21",
+      "inline": {
+        "providers": [
+          {
+            "provider_type": "messaging.email.smtp",
+            "capabilities": [
+              "messaging"
+            ],
+            "ops": [
+              "send",
+              "reply"
+            ],
+            "config_schema_ref": "schemas/messaging/email/public.config.schema.json",
+            "state_schema_ref": "",
+            "runtime": {
+              "component_ref": "messaging-provider-email",
+              "export": "schema-core-api",
+              "world": "greentic:provider/schema-core@1.0.0"
+            },
+            "docs_ref": ""
+          }
+        ]
+      }
+    },
+    "messaging.provider_flow_hints": {
+      "kind": "messaging.provider_flow_hints",
+      "version": "0.4.21",
+      "inline": {
+        "messaging.email.smtp": {
+          "diagnostics": "diagnostics",
+          "setup_custom": "setup_custom",
+          "setup_default": "setup_default"
+        }
+      }
+    }
+  },
+  "flows": [
+    {
+      "id": "diagnostics",
+      "file": "flows/diagnostics.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "requirements",
+      "file": "flows/requirements.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "requirements"
+      ]
+    },
+    {
+      "id": "setup_custom",
+      "file": "flows/setup_custom.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "setup"
+      ]
+    },
+    {
+      "id": "setup_default",
+      "file": "flows/setup_default.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "setup"
+      ]
+    },
+    {
+      "id": "sync_subscriptions",
+      "file": "flows/sync_subscriptions.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "subscriptions"
+      ]
+    }
+  ],
+  "kind": "application",
+  "messaging": {
+    "adapters": [
+      {
+        "component": "messaging-provider-email",
+        "kind": "egress",
+        "name": "messaging.email.smtp"
+      }
+    ]
+  },
+  "name": "messaging-email",
+  "publisher": "Greentic",
+  "secret_requirements": [
+    {
+      "name": "EMAIL_PASSWORD",
+      "scope": "tenant",
+      "description": "SMTP password secret key"
+    }
+  ],
+  "version": "0.4.21"
 }
