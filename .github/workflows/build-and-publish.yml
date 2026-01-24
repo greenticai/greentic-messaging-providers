@@ -16,7 +16,7 @@ env:
   OCI_NAMESPACE: ${{ github.repository_owner }}/greentic-messaging-providers
 
 jobs:
-  build-and-publish:
+  install-tools:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -61,34 +61,180 @@ jobs:
           fi
           echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
           greentic-pack --version
+
       - name: Install greentic-flow
         run: |
           if ! command -v greentic-flow >/dev/null 2>&1; then
             cargo binstall greentic-flow --no-confirm --locked || cargo install greentic-flow --locked
           fi
+
       - name: Install greentic-runner
         run: |
           if ! command -v greentic-runner >/dev/null 2>&1; then
             cargo binstall greentic-runner --no-confirm --locked || cargo install greentic-runner --locked
           fi
+
       - name: Install greentic-component
         run: |
           if ! command -v greentic-component >/dev/null 2>&1; then
             cargo binstall greentic-component --no-confirm --locked || cargo install greentic-component --locked
           fi
+
       - name: Install oras
         uses: oras-project/setup-oras@v1
         with:
           version: 1.2.0
 
+  build-components:
+    runs-on: ubuntu-latest
+    needs: install-tools
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+          components: rustfmt, clippy
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: build-test-publish
+
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
+
       - name: Build components
         run: ./tools/build_components.sh
+
+      - name: Upload component artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: components-wasm
+          path: target/components/*.wasm
+          if-no-files-found: error
+
+  cargo-fmt:
+    runs-on: ubuntu-latest
+    needs: install-tools
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: build-test-publish
 
       - name: Cargo fmt
         run: cargo fmt --check
 
+  cargo-test:
+    runs-on: ubuntu-latest
+    needs: install-tools
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: build-test-publish
+
       - name: Cargo test
         run: cargo test --workspace
+
+  pack-and-validate:
+    runs-on: ubuntu-latest
+    needs: [build-components, cargo-fmt, cargo-test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+          components: rustfmt, clippy
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: build-test-publish
+
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
+
+      - name: Install cargo-binstall
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
+
+      - name: Install cargo-component
+        run: |
+          if ! command -v cargo-component >/dev/null 2>&1; then
+            cargo binstall cargo-component --no-confirm --locked || cargo install cargo-component --locked
+          fi
+
+      - name: Install greentic-pack
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+        run: |
+          if ! command -v greentic-pack >/dev/null 2>&1; then
+            cargo binstall greentic-pack --no-confirm --locked || cargo install greentic-pack --locked
+          fi
+          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+          greentic-pack --version
+
+      - name: Install greentic-flow
+        run: |
+          if ! command -v greentic-flow >/dev/null 2>&1; then
+            cargo binstall greentic-flow --no-confirm --locked || cargo install greentic-flow --locked
+          fi
+
+      - name: Install greentic-runner
+        run: |
+          if ! command -v greentic-runner >/dev/null 2>&1; then
+            cargo binstall greentic-runner --no-confirm --locked || cargo install greentic-runner --locked
+          fi
+
+      - name: Install greentic-component
+        run: |
+          if ! command -v greentic-component >/dev/null 2>&1; then
+            cargo binstall greentic-component --no-confirm --locked || cargo install greentic-component --locked
+          fi
+
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+
+      - name: Download component artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: components-wasm
+          path: target/components
 
       - name: Sync packs
         run: ./tools/sync_packs.sh
@@ -104,6 +250,7 @@ jobs:
           for c in packs/*/components/*.manifest.json; do
             greentic-component doctor "$c"
           done
+
       - name: Test component-questions
         run: |
           set -euo pipefail
@@ -111,7 +258,7 @@ jobs:
           trap 'rm -rf "${tmpdir}"' EXIT
           cp components/questions/questions.wasm "${tmpdir}/questions.wasm"
           cp components/questions/component.manifest.json "${tmpdir}/component.manifest.json"
-          cp packs/messaging-dummy/assets/setup.yaml "${tmpdir}/setup.yaml"
+          cp packs/messaging-dummy/setup.yaml "${tmpdir}/setup.yaml"
           (
             cd "${tmpdir}"
             greentic-component test \
@@ -172,13 +319,6 @@ jobs:
             dist/fixtures_report.json
           if-no-files-found: error
 
-      - name: Upload component artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: components-wasm
-          path: target/components/*.wasm
-          if-no-files-found: error
-
       - name: Upload packs lockfile (dry-run)
         uses: actions/upload-artifact@v4
         with:
@@ -186,8 +326,60 @@ jobs:
           path: packs.lock.json
           if-no-files-found: error
 
+  publish:
+    runs-on: ubuntu-latest
+    needs: pack-and-validate
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+          components: rustfmt, clippy
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: build-test-publish
+
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
+
+      - name: Install cargo-binstall
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
+
+      - name: Install greentic-pack
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+        run: |
+          if ! command -v greentic-pack >/dev/null 2>&1; then
+            cargo binstall greentic-pack --no-confirm --locked || cargo install greentic-pack --locked
+          fi
+          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+          greentic-pack --version
+
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+
+      - name: Download component artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: components-wasm
+          path: target/components
+
       - name: Set publish version
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
         run: |
           python3 - <<'PY'
           import os
@@ -202,17 +394,14 @@ jobs:
           PY
 
       - name: Login to GHCR
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
         run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Publish components
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
         env:
           VERSION: ${{ env.PUBLISH_VERSION }}
         run: bash ./tools/publish_oci.sh
 
       - name: Upload components lockfile
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
         uses: actions/upload-artifact@v4
         with:
           name: components-lockfile
@@ -220,13 +409,11 @@ jobs:
           if-no-files-found: error
 
       - name: Publish packs
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
         env:
           PACK_VERSION: ${{ env.PUBLISH_VERSION }}
         run: ./tools/publish_packs_oci.sh
 
       - name: Upload built packs
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
         uses: actions/upload-artifact@v4
         with:
           name: gtpack-artifacts
