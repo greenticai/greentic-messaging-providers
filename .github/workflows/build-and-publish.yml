@@ -137,8 +137,11 @@ jobs:
         with:
           key: build-test-publish
 
+      - name: Ensure rustfmt is installed
+        run: rustup component add rustfmt
+
       - name: Cargo fmt
-        run: cargo fmt --check
+        run: cargo +stable fmt --check
 
   cargo-test:
     runs-on: ubuntu-latest
