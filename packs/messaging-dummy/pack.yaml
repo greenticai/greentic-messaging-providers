@@ -3,6 +3,36 @@ version: 0.4.21
 kind: application
 publisher: Greentic
 components:
+- id: ai.greentic.component-provision
+  version: 0.4.21
+  world: greentic:component-provision/provision@0.1.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/provision.wasm
+- id: ai.greentic.component-questions
+  version: 0.4.21
+  world: greentic:questions/questions@0.1.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/questions.wasm
 - id: ai.greentic.component-templates
   version: 0.4.21
   world: root:component/root
@@ -258,36 +288,6 @@ components:
       clocks: false
     host: {}
   wasm: components/templates.wasm
-- id: ai.greentic.component-questions
-  version: 0.4.21
-  world: greentic:questions/questions@0.1.0
-  supports:
-  - messaging
-  profiles:
-    default: stateless
-    supported:
-    - stateless
-  capabilities:
-    wasi:
-      random: false
-      clocks: false
-    host: {}
-  wasm: components/questions.wasm
-- id: ai.greentic.component-provision
-  version: 0.4.21
-  world: greentic:component-provision/provision@0.1.0
-  supports:
-  - messaging
-  profiles:
-    default: stateless
-    supported:
-    - stateless
-  capabilities:
-    wasi:
-      random: false
-      clocks: false
-    host: {}
-  wasm: components/provision.wasm
 dependencies: []
 flows:
 - id: diagnostics
@@ -314,8 +314,15 @@ flows:
   - default
   entrypoints:
   - setup
+- id: sync_subscriptions
+  file: flows/sync_subscriptions.ygtc
+  tags:
+  - default
+  entrypoints:
+  - subscriptions
 assets:
-- path: schemas/messaging/dummy/config.schema.json
+- path: setup.yaml
+- path: schemas/messaging/dummy/public.config.schema.json
 - path: fixtures/requirements.expected.json
 - path: fixtures/setup.input.json
 - path: fixtures/setup.expected.plan.json
@@ -341,7 +348,7 @@ extensions:
         - messaging
         ops:
         - send
-        config_schema_ref: schemas/messaging/dummy/config.schema.json
+        config_schema_ref: schemas/messaging/dummy/public.config.schema.json
         state_schema_ref: ''
         runtime:
           component_ref: messaging-provider-dummy

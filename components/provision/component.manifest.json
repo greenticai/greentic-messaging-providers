@@ -1,54 +1,62 @@
 {
   "$schema": "https://greentic-ai.github.io/greentic-component/schemas/v1/component.manifest.schema.json",
-  "id": "ai.greentic.component-provision",
-  "name": "provision",
-  "version": "0.1.0",
-  "world": "greentic:component-provision/provision@0.1.0",
-  "description": "Apply provisioning plans to host config/secrets stores.",
-  "supports": ["messaging"],
-  "profiles": {
-    "default": "stateless",
-    "supported": ["stateless"]
-  },
-  "operations": [
-    {
-      "name": "apply",
-      "input_schema": { "type": "string" },
-      "output_schema": { "type": "string" }
-    }
-  ],
-  "default_operation": "apply",
-  "config_schema": {
-    "type": "object",
-    "properties": {},
-    "required": [],
-    "additionalProperties": false
+  "artifacts": {
+    "component_wasm": "provision.wasm"
   },
   "capabilities": {
+    "host": {
+      "state": {
+        "delete": false,
+        "read": false,
+        "write": true
+      },
+      "telemetry": {
+        "scope": "node"
+      }
+    },
     "wasi": {
+      "clocks": false,
       "filesystem": {
         "mode": "none",
         "mounts": []
       },
-      "random": false,
-      "clocks": false
-    },
-    "host": {
-      "telemetry": {
-        "scope": "node"
-      },
-      "state": {
-        "read": false,
-        "write": true,
-        "delete": false
-      }
+      "random": false
     }
   },
+  "config_schema": {
+    "additionalProperties": false,
+    "properties": {},
+    "required": [],
+    "type": "object"
+  },
+  "default_operation": "apply",
+  "describe_export": "get-manifest",
+  "hashes": {
+    "component_wasm": "blake3:0f48cb8c9f21850945f51946cde880e251ec7b910464cbfbac141360973be41f"
+  },
+  "id": "ai.greentic.component-provision",
   "limits": {
     "memory_mb": 128,
     "wall_time_ms": 1000
   },
-  "artifacts": {
-    "component_wasm": "provision.wasm"
-  }
+  "name": "provision",
+  "operations": [
+    {
+      "input_schema": {},
+      "name": "apply",
+      "output_schema": {}
+    }
+  ],
+  "profiles": {
+    "default": "stateless",
+    "supported": [
+      "stateless"
+    ]
+  },
+  "secret_requirements": [],
+  "supports": [
+    "messaging"
+  ],
+  "version": "0.1.0",
+  "world": "greentic:component/component@0.5.0"
 }

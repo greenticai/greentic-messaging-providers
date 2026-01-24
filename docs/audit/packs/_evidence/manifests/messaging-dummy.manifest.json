@@ -109,7 +109,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/dummy/config.schema.json",
+            "config_schema_ref": "schemas/messaging/dummy/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send"
@@ -208,7 +208,7 @@
             "id": 1,
             "input": {
               "mapping": {
-                "text": "Provider: messaging.dummy\nConfig schema: schemas/messaging/dummy/config.schema.json\n\nSecrets: none\n"
+                "text": "Provider: messaging.dummy\nConfig schema: schemas/messaging/dummy/public.config.schema.json\n\nSecrets: none\n"
               }
             },
             "output": {

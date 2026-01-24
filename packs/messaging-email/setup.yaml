@@ -1,0 +1,35 @@
+provider_id: email
+version: 1
+title: Email provider setup
+questions:
+  - name: host
+    title: SMTP host
+    kind: string
+    required: true
+  - name: port
+    title: SMTP port
+    kind: number
+    required: false
+    default: 587
+  - name: username
+    title: SMTP username
+    kind: string
+    required: true
+  - name: from_address
+    title: From address
+    kind: string
+    required: true
+  - name: tls_mode
+    title: TLS mode
+    kind: choice
+    required: false
+    choices:
+      - starttls
+      - implicit
+      - none
+    default: starttls
+  - name: password
+    title: SMTP password
+    kind: string
+    required: true
+    secret: true

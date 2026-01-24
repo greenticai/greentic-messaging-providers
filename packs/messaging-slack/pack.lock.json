@@ -26,6 +26,12 @@
       "component_id": "ai.greentic.component-templates"
     },
     {
+      "name": "ingress_default___ingress_default__summary",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/flows/../components/templates.wasm",
+      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
+      "component_id": "ai.greentic.component-templates"
+    },
+    {
       "name": "requirements___summary",
       "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/flows/../components/templates.wasm",
       "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
@@ -58,7 +64,7 @@
     {
       "name": "setup_custom___setup_custom__apply",
       "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/flows/../../../components/provision/provision.wasm",
-      "digest": "sha256:8bbc52608dee68c9142e1463095f145a8798404bd2294386a6db6eb2058c843a",
+      "digest": "sha256:2a4e436c0f6ea2310bfec0f934005a4ed5763ec007a8cd58e3254592e50f9c7a",
       "component_id": "ai.greentic.component-provision"
     },
     {
@@ -70,7 +76,7 @@
     {
       "name": "setup_custom___setup_custom__emit_questions",
       "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/flows/../../../components/questions/questions.wasm",
-      "digest": "sha256:f316082c957129ce38812cb76e95c323b4ce922458aab3da61ae863534ef5f17",
+      "digest": "sha256:6f111ad880dadbdce48e7562f930ceac680fc7d53aa6c786f46db2db6bb3e5f6",
       "component_id": "ai.greentic.component-questions"
     },
     {
@@ -82,13 +88,13 @@
     {
       "name": "setup_custom___setup_custom__validate",
       "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/flows/../../../components/questions/questions.wasm",
-      "digest": "sha256:f316082c957129ce38812cb76e95c323b4ce922458aab3da61ae863534ef5f17",
+      "digest": "sha256:6f111ad880dadbdce48e7562f930ceac680fc7d53aa6c786f46db2db6bb3e5f6",
       "component_id": "ai.greentic.component-questions"
     },
     {
       "name": "setup_default___setup_default__apply",
       "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/flows/../../../components/provision/provision.wasm",
-      "digest": "sha256:8bbc52608dee68c9142e1463095f145a8798404bd2294386a6db6eb2058c843a",
+      "digest": "sha256:2a4e436c0f6ea2310bfec0f934005a4ed5763ec007a8cd58e3254592e50f9c7a",
       "component_id": "ai.greentic.component-provision"
     },
     {
@@ -100,7 +106,7 @@
     {
       "name": "setup_default___setup_default__emit_questions",
       "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/flows/../../../components/questions/questions.wasm",
-      "digest": "sha256:f316082c957129ce38812cb76e95c323b4ce922458aab3da61ae863534ef5f17",
+      "digest": "sha256:6f111ad880dadbdce48e7562f930ceac680fc7d53aa6c786f46db2db6bb3e5f6",
       "component_id": "ai.greentic.component-questions"
     },
     {
@@ -112,8 +118,14 @@
     {
       "name": "setup_default___setup_default__validate",
       "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/flows/../../../components/questions/questions.wasm",
-      "digest": "sha256:f316082c957129ce38812cb76e95c323b4ce922458aab3da61ae863534ef5f17",
+      "digest": "sha256:6f111ad880dadbdce48e7562f930ceac680fc7d53aa6c786f46db2db6bb3e5f6",
       "component_id": "ai.greentic.component-questions"
+    },
+    {
+      "name": "sync_subscriptions___sync_subscriptions__summary",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-slack/flows/../components/templates.wasm",
+      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
+      "component_id": "ai.greentic.component-templates"
     },
     {
       "name": "verify_webhooks___describe",

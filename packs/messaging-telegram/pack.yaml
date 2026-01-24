@@ -3,6 +3,36 @@ version: 0.4.21
 kind: application
 publisher: Greentic
 components:
+- id: ai.greentic.component-provision
+  version: 0.4.21
+  world: greentic:component-provision/provision@0.1.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/provision.wasm
+- id: ai.greentic.component-questions
+  version: 0.4.21
+  world: greentic:questions/questions@0.1.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/questions.wasm
 - id: ai.greentic.component-templates
   version: 0.4.21
   world: root:component/root
@@ -138,21 +168,6 @@ components:
       clocks: false
     host: {}
   wasm: components/diagnostics__verify_token.wasm
-- id: text
-  version: 0.4.21
-  world: greentic:component/component@0.5.0
-  supports:
-  - messaging
-  profiles:
-    default: stateless
-    supported:
-    - stateless
-  capabilities:
-    wasi:
-      random: false
-      clocks: false
-    host: {}
-  wasm: components/templates.wasm
 - id: messaging-ingress-telegram
   version: 0.4.21
   world: greentic:messaging-ingress-telegram/messaging-ingress-telegram@0.0.1
@@ -258,6 +273,21 @@ components:
       clocks: false
     host: {}
   wasm: components/setup_custom___setup_custom__collect.wasm
+- id: setup_custom___setup_custom__emit_questions
+  version: 0.4.21
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_custom___setup_custom__emit_questions.wasm
 - id: setup_custom___setup_custom__summary
   version: 0.4.21
   world: root:component/root
@@ -438,6 +468,21 @@ components:
       clocks: false
     host: {}
   wasm: components/setup_default___setup_default__collect.wasm
+- id: setup_default___setup_default__emit_questions
+  version: 0.4.21
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_default___setup_default__emit_questions.wasm
 - id: setup_default___setup_default__summary
   version: 0.4.21
   world: root:component/root
@@ -558,6 +603,21 @@ components:
       clocks: false
     host: {}
   wasm: components/setup_default__validate.wasm
+- id: text
+  version: 0.4.21
+  world: greentic:component/component@0.5.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/templates.wasm
 - id: verify_webhooks___steps
   version: 0.4.21
   world: root:component/root
@@ -588,36 +648,6 @@ components:
       clocks: false
     host: {}
   wasm: components/verify_webhooks__steps.wasm
-- id: ai.greentic.component-questions
-  version: 0.4.21
-  world: greentic:questions/questions@0.1.0
-  supports:
-  - messaging
-  profiles:
-    default: stateless
-    supported:
-    - stateless
-  capabilities:
-    wasi:
-      random: false
-      clocks: false
-    host: {}
-  wasm: components/questions.wasm
-- id: ai.greentic.component-provision
-  version: 0.4.21
-  world: greentic:component-provision/provision@0.1.0
-  supports:
-  - messaging
-  profiles:
-    default: stateless
-    supported:
-    - stateless
-  capabilities:
-    wasi:
-      random: false
-      clocks: false
-    host: {}
-  wasm: components/provision.wasm
 dependencies: []
 flows:
 - id: diagnostics
@@ -626,6 +656,12 @@ flows:
   - default
   entrypoints:
   - diagnostics
+- id: ingress_default
+  file: flows/ingress_default.ygtc
+  tags:
+  - default
+  entrypoints:
+  - ingress
 - id: requirements
   file: flows/requirements.ygtc
   tags:
@@ -644,6 +680,12 @@ flows:
   - default
   entrypoints:
   - setup
+- id: sync_subscriptions
+  file: flows/sync_subscriptions.ygtc
+  tags:
+  - default
+  entrypoints:
+  - subscriptions
 - id: verify_webhooks
   file: flows/verify_webhooks.ygtc
   tags:
@@ -651,7 +693,8 @@ flows:
   entrypoints:
   - diagnostics
 assets:
-- path: schemas/messaging/telegram/config.schema.json
+- path: setup.yaml
+- path: schemas/messaging/telegram/public.config.schema.json
 - path: fixtures/requirements.expected.json
 - path: fixtures/setup.input.json
 - path: fixtures/setup.expected.plan.json
@@ -680,7 +723,7 @@ extensions:
         ops:
         - send
         - reply
-        config_schema_ref: schemas/messaging/telegram/config.schema.json
+        config_schema_ref: schemas/messaging/telegram/public.config.schema.json
         state_schema_ref: ''
         runtime:
           component_ref: messaging-provider-telegram

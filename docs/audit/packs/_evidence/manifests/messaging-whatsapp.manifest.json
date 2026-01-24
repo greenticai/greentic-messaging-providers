@@ -741,7 +741,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/whatsapp/config.schema.json",
+            "config_schema_ref": "schemas/messaging/whatsapp/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",
@@ -929,7 +929,7 @@
             "id": 5,
             "input": {
               "mapping": {
-                "text": "Provider: messaging.whatsapp.cloud\nConfig schema: schemas/messaging/whatsapp/config.schema.json\n\nSecrets:\n- WHATSAPP_TOKEN (tenant): WhatsApp Cloud API access token.\n- WHATSAPP_VERIFY_TOKEN (tenant): Verify token used for WhatsApp webhook validation (if configured).\n"
+                "text": "Provider: messaging.whatsapp.cloud\nConfig schema: schemas/messaging/whatsapp/public.config.schema.json\n\nSecrets:\n- WHATSAPP_TOKEN (tenant): WhatsApp Cloud API access token.\n- WHATSAPP_VERIFY_TOKEN (tenant): Verify token used for WhatsApp webhook validation (if configured).\n"
               }
             },
             "output": {

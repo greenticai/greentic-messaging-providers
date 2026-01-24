@@ -31,7 +31,7 @@
   - **Key dependencies / integration points:** Uses `rpassword` for secret input.
 - **Path:** `components/messaging-provider-dummy`
   - **Role:** Deterministic provider-core messaging provider for CI and smoke tests.
-  - **Key functionality:** Implements provider-core `describe` (emits `ProviderManifest` for `messaging.dummy`), `validate-config` (accepts any JSON), `healthcheck`, and `invoke` (`send`/`reply` return deterministic `message_id`/`provider_message_id` based on hashed input and set status to sent/replied). Ships config schema under `schemas/messaging/dummy/config.schema.json` and manifest with empty `secret_requirements`.
+  - **Key functionality:** Implements provider-core `describe` (emits `ProviderManifest` for `messaging.dummy`), `validate-config` (accepts any JSON), `healthcheck`, and `invoke` (`send`/`reply` return deterministic `message_id`/`provider_message_id` based on hashed input and set status to sent/replied). Ships config schema under `schemas/messaging/dummy/public.config.schema.json` and manifest with empty `secret_requirements`.
   - **Key dependencies / integration points:** Uses `greentic-types` for manifest serialization, `sha2` for hashing; WIT world `greentic:provider-schema-core/schema-core@1.0.0`.
 - **Path:** `components/messaging-provider-telegram`
   - **Role:** Provider-core Telegram messaging provider (send-only) that talks to the host HTTP + secrets interfaces.
@@ -103,7 +103,7 @@
   - **Key dependencies / integration points:** Built via `packc` through `tools/publish_packs_oci.sh`; uses `tools/generate_pack_metadata.py` to aggregate secret requirements.
 - **Path:** `packs/messaging-dummy`
   - **Role:** Provider-core pack fixture for the dummy messaging provider.
-  - **Key functionality:** Inline `greentic.ext.provider` extension targeting `messaging.dummy`, runtime world pinned to `greentic:provider-schema-core/schema-core@1.0.0`, embeds config schema (`schemas/messaging/dummy/config.schema.json`), and includes the built `messaging-provider-dummy.wasm` under `components/`.
+  - **Key functionality:** Inline `greentic.ext.provider` extension targeting `messaging.dummy`, runtime world pinned to `greentic:provider-schema-core/schema-core@1.0.0`, embeds config schema (`schemas/messaging/dummy/public.config.schema.json`), and includes the built `messaging-provider-dummy.wasm` under `components/`.
   - **Key dependencies / integration points:** Uses the shared schema under `schemas/` and is compatible with `tools/publish_packs_oci.sh` for pack builds.
 - **Path:** `packs/messaging-telegram`
   - **Role:** Provider-core pack fixture for the Telegram bot provider.

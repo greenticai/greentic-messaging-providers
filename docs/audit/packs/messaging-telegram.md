@@ -20,8 +20,8 @@
 - Ingress contract uses `handle-webhook` returning `normalized-payload-json` (`components/messaging-ingress-telegram/wit/messaging-ingress-telegram/deps/provider-common/world.wit:67`).
 
 ## Config requirements (greentic-config)
-- Required config keys: `public_base_url` (`packs/messaging-telegram/schemas/messaging/telegram/config.schema.json:21`).
-- Config schema reference: `schemas/messaging/telegram/config.schema.json` (`packs/messaging-telegram/pack.manifest.json:33`).
+- Required config keys: `public_base_url` (`packs/messaging-telegram/schemas/messaging/telegram/public.config.schema.json:21`).
+- Config schema reference: `schemas/messaging/telegram/public.config.schema.json` (`packs/messaging-telegram/pack.manifest.json:33`).
 
 ## Secret requirements (greentic-secrets)
 - Required secrets: `TELEGRAM_BOT_TOKEN` (`packs/messaging-telegram/pack.manifest.json:73`).
@@ -51,7 +51,7 @@ Provider/ingress wasm paths (no digest in pack manifest or lock):
 - `components/messaging-provider-telegram.wasm` (`packs/messaging-telegram/pack.manifest.json:307`).
 
 ## PUBLIC_BASE_URL
-- Required config key in `packs/messaging-telegram/schemas/messaging/telegram/config.schema.json:21`.
+- Required config key in `packs/messaging-telegram/schemas/messaging/telegram/public.config.schema.json:21`.
 
 ## Subscriptions lifecycle
 - No subscriptions extension declared; only ingress `handle-webhook` and provider ops are listed (`packs/messaging-telegram/pack.manifest.json:19`).

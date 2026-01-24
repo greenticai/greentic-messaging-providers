@@ -741,7 +741,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/telegram/config.schema.json",
+            "config_schema_ref": "schemas/messaging/telegram/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",
@@ -929,7 +929,7 @@
             "id": 5,
             "input": {
               "mapping": {
-                "text": "Provider: messaging.telegram.bot\nConfig schema: schemas/messaging/telegram/config.schema.json\n\nSecrets:\n- TELEGRAM_BOT_TOKEN (tenant): Telegram bot token used for sendMessage requests.\n"
+                "text": "Provider: messaging.telegram.bot\nConfig schema: schemas/messaging/telegram/public.config.schema.json\n\nSecrets:\n- TELEGRAM_BOT_TOKEN (tenant): Telegram bot token used for sendMessage requests.\n"
               }
             },
             "output": {

@@ -79,7 +79,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/dummy/config.schema.json",
+            "config_schema_ref": "schemas/messaging/dummy/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send"

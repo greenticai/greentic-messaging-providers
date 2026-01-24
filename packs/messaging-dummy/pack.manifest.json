@@ -1,114 +1,56 @@
 {
-  "name": "messaging-dummy",
-  "version": "0.4.21",
-  "description": "Deterministic provider-core messaging provider for CI and integration tests.",
-  "kind": "application",
-  "publisher": "Greentic",
-  "config_schema": {
-    "provider_config": {
-      "format": "json",
-      "path": "schemas/messaging/dummy/config.schema.json"
-    }
-  },
-  "components": [
-    "ai.greentic.component-templates",
-    "messaging-provider-dummy"
-  ],
-  "extensions": {
-    "greentic.messaging.validators.v1": {
-      "kind": "greentic.messaging.validators.v1",
-      "version": "0.4.21",
-      "inline": {
-        "validators": [
-          {
-            "component_ref": "oci://ghcr.io/greentic-ai/validators/messaging:0.4.19",
-            "id": "greentic.validators.messaging",
-            "world": "greentic:pack-validate/pack-validator@0.1.0"
-          }
-        ]
-      }
-    },
-    "greentic.provider-extension.v1": {
-      "kind": "greentic.provider-extension.v1",
-      "version": "0.4.21",
-      "inline": {
-        "providers": [
-          {
-            "provider_type": "messaging.dummy",
-            "capabilities": [
-              "messaging"
-            ],
-            "ops": [
-              "send"
-            ],
-            "config_schema_ref": "schemas/messaging/dummy/config.schema.json",
-            "state_schema_ref": "",
-            "runtime": {
-              "component_ref": "messaging-provider-dummy",
-              "export": "schema-core-api",
-              "world": "greentic:provider/schema-core@1.0.0"
-            },
-            "docs_ref": ""
-          }
-        ]
-      }
-    },
-    "messaging.provider_flow_hints": {
-      "kind": "messaging.provider_flow_hints",
-      "version": "0.4.21",
-      "inline": {
-        "messaging.dummy": {
-          "diagnostics": "diagnostics",
-          "setup_custom": "setup_custom",
-          "setup_default": "setup_default"
-        }
-      }
-    }
-  },
-  "secret_requirements": [],
-  "flows": [
+  "capabilities_cache": [
     {
-      "id": "diagnostics",
-      "file": "flows/diagnostics.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "diagnostics"
-      ]
-    },
-    {
-      "id": "requirements",
-      "file": "flows/requirements.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "requirements"
-      ]
-    },
-    {
-      "id": "setup_custom",
-      "file": "flows/setup_custom.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "setup"
-      ]
-    },
-    {
-      "id": "setup_default",
-      "file": "flows/setup_default.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "setup"
-      ]
+      "component": "ai.greentic.component-templates",
+      "version": "v1",
+      "path": "components/ai.greentic.component-templates-capabilities_v1.json"
     }
   ],
   "component_sources": [
+    {
+      "id": "ai.greentic.component-provision",
+      "version": "0.4.21",
+      "world": "greentic:component-provision/provision@0.1.0",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "stateless",
+        "supported": [
+          "stateless"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/provision.wasm"
+    },
+    {
+      "id": "ai.greentic.component-questions",
+      "version": "0.4.21",
+      "world": "greentic:questions/questions@0.1.0",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "stateless",
+        "supported": [
+          "stateless"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/questions.wasm"
+    },
     {
       "id": "ai.greentic.component-templates",
       "version": "0.4.21",
@@ -482,57 +424,140 @@
         "host": {}
       },
       "wasm": "components/templates.wasm"
-    },
-    {
-      "id": "ai.greentic.component-questions",
-      "version": "0.4.21",
-      "world": "greentic:questions/questions@0.1.0",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "stateless",
-        "supported": [
-          "stateless"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/questions.wasm"
-    },
-    {
-      "id": "ai.greentic.component-provision",
-      "version": "0.4.21",
-      "world": "greentic:component-provision/provision@0.1.0",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "stateless",
-        "supported": [
-          "stateless"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/provision.wasm"
     }
   ],
-  "capabilities_cache": [
-    {
-      "component": "ai.greentic.component-templates",
-      "version": "v1",
-      "path": "components/ai.greentic.component-templates-capabilities_v1.json"
+  "components": [
+    "ai.greentic.component-templates",
+    "messaging-provider-dummy"
+  ],
+  "config_schema": {
+    "provider_config": {
+      "format": "json",
+      "path": "schemas/messaging/dummy/public.config.schema.json"
     }
-  ]
+  },
+  "description": "Deterministic provider-core messaging provider for CI and integration tests.",
+  "extensions": {
+    "greentic.messaging.validators.v1": {
+      "kind": "greentic.messaging.validators.v1",
+      "version": "0.4.21",
+      "inline": {
+        "validators": [
+          {
+            "component_ref": "oci://ghcr.io/greentic-ai/validators/messaging:0.4.19",
+            "id": "greentic.validators.messaging",
+            "world": "greentic:pack-validate/pack-validator@0.1.0"
+          }
+        ]
+      }
+    },
+    "greentic.provider-extension.v1": {
+      "kind": "greentic.provider-extension.v1",
+      "version": "0.4.21",
+      "inline": {
+        "providers": [
+          {
+            "provider_type": "messaging.dummy",
+            "capabilities": [
+              "messaging"
+            ],
+            "ops": [
+              "send"
+            ],
+            "config_schema_ref": "schemas/messaging/dummy/public.config.schema.json",
+            "state_schema_ref": "",
+            "runtime": {
+              "component_ref": "messaging-provider-dummy",
+              "export": "schema-core-api",
+              "world": "greentic:provider/schema-core@1.0.0"
+            },
+            "docs_ref": ""
+          }
+        ]
+      }
+    },
+    "messaging.provider_flow_hints": {
+      "kind": "messaging.provider_flow_hints",
+      "version": "0.4.21",
+      "inline": {
+        "messaging.dummy": {
+          "diagnostics": "diagnostics",
+          "setup_custom": "setup_custom",
+          "setup_default": "setup_default"
+        }
+      }
+    }
+  },
+  "flows": [
+    {
+      "id": "diagnostics",
+      "file": "flows/diagnostics.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "requirements",
+      "file": "flows/requirements.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "requirements"
+      ]
+    },
+    {
+      "id": "setup_custom",
+      "file": "flows/setup_custom.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "setup"
+      ]
+    },
+    {
+      "id": "setup_default",
+      "file": "flows/setup_default.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "setup"
+      ]
+    },
+    {
+      "id": "sync_subscriptions",
+      "file": "flows/sync_subscriptions.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "subscriptions"
+      ]
+    }
+  ],
+  "kind": "application",
+  "messaging": {
+    "adapters": [
+      {
+        "component": "messaging-provider-dummy",
+        "kind": "egress",
+        "name": "messaging.dummy"
+      }
+    ]
+  },
+  "name": "messaging-dummy",
+  "publisher": "Greentic",
+  "secret_requirements": [
+    {
+      "name": "DUMMY_TOKEN",
+      "scope": "tenant",
+      "description": "Dummy token used for conformance setup validation."
+    }
+  ],
+  "version": "0.4.21"
 }

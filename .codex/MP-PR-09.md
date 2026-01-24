@@ -7,7 +7,7 @@ Make messaging-dummy the canonical pack used by all CI harnesses for offline E2E
 It must be deterministic and minimal.
 
 DELIVERABLES
-- Config schema under `schemas/messaging/dummy/config.schema.json`
+- Config schema under `schemas/messaging/dummy/public.config.schema.json`
 - Secret requirements asset included (even if minimal) to test plumbing
 - Requirements flow returns deterministic required keys
 - Setup flow emits deterministic plan patches

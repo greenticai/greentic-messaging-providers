@@ -1,6 +1,6 @@
 id: diagnostics
 type: job
-in: checks
+start: checks
 parameters: {}
 tags: []
 schema_version: 2
@@ -11,27 +11,22 @@ nodes:
     - to: summary
     text:
       config:
-        host: "{{ host }}"
-        port: "{{ port }}"
-        username: "{{ username }}"
-        from_address: "{{ from_address }}"
-        tls_mode: "{{ tls_mode }}"
-      text: '- Confirm SMTP credentials present.
-
+        from_address: '{{ from_address }}'
+        host: '{{ host }}'
+        port: '{{ port }}'
+        tls_mode: '{{ tls_mode }}'
+        username: '{{ username }}'
+      text: |
+        - Confirm SMTP credentials present.
         - Attempt connection/auth with configured TLS/timeout.
-
-        - If payload.send_test_email true, send to payload.recipient (or from_address)
-        with diagnostics marker.
-
-        '
+        - If payload.send_test_email true, send to payload.recipient (or from_address) with diagnostics marker.
   summary:
     routing: out
     text:
       config:
-        host: "{{ host }}"
-        port: "{{ port }}"
-        username: "{{ username }}"
-        from_address: "{{ from_address }}"
-        tls_mode: "{{ tls_mode }}"
-      text: Diagnostics completed; connection/auth {{#if payload.send_test_email}}and
-        send test{{/if}} executed.
+        from_address: '{{ from_address }}'
+        host: '{{ host }}'
+        port: '{{ port }}'
+        tls_mode: '{{ tls_mode }}'
+        username: '{{ username }}'
+      text: Diagnostics completed; connection/auth {{#if payload.send_test_email}}and send test{{/if}} executed.

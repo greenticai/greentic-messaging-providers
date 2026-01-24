@@ -25,8 +25,8 @@
 - Subscriptions contract uses `sync-subscriptions` with JSON payloads (`components/messaging-ingress-teams/wit/messaging-ingress-teams/deps/provider-common/world.wit:81`).
 
 ## Config requirements (greentic-config)
-- Required config keys: `tenant_id`, `client_id`, `public_base_url` (`packs/messaging-teams/schemas/messaging/teams/config.schema.json:55`).
-- Config schema reference: `schemas/messaging/teams/config.schema.json` (`packs/messaging-teams/pack.manifest.json:33`).
+- Required config keys: `tenant_id`, `client_id`, `public_base_url` (`packs/messaging-teams/schemas/messaging/teams/public.config.schema.json:55`).
+- Config schema reference: `schemas/messaging/teams/public.config.schema.json` (`packs/messaging-teams/pack.manifest.json:33`).
 - Subscriptions pattern: `sync` (`packs/messaging-teams/pack.manifest.json:94`).
 
 ## Secret requirements (greentic-secrets)
@@ -57,7 +57,7 @@ Provider/ingress wasm paths (no digest in pack manifest or lock):
 - `components/messaging-provider-teams.wasm` (`packs/messaging-teams/pack.manifest.json:343`).
 
 ## PUBLIC_BASE_URL
-- Required config key in `packs/messaging-teams/schemas/messaging/teams/config.schema.json:55`.
+- Required config key in `packs/messaging-teams/schemas/messaging/teams/public.config.schema.json:55`.
 
 ## Subscriptions lifecycle
 - Pattern `sync` with `sync-subscriptions`; expects state `webhook_url` + `desired_subscriptions` and renews before expiry within `renewal_window_hours` (`packs/messaging-teams/pack.manifest.json:94`).

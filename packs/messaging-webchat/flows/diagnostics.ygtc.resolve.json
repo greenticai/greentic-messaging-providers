@@ -1,24 +1,24 @@
 {
+  "schema_version": 1,
   "flow": "diagnostics.ygtc",
   "nodes": {
     "check_secret": {
       "source": {
         "kind": "local",
-        "path": "file://../components/templates.wasm"
+        "path": "../components/templates.wasm"
       }
     },
     "optional_loopback": {
       "source": {
         "kind": "local",
-        "path": "file://../components/templates.wasm"
+        "path": "../components/templates.wasm"
       }
     },
     "summary": {
       "source": {
         "kind": "local",
-        "path": "file://../components/templates.wasm"
+        "path": "../components/templates.wasm"
       }
     }
-  },
-  "schema_version": 1
+  }
 }

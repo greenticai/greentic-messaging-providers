@@ -1,6 +1,6 @@
 id: verify_webhooks
 type: job
-in: steps
+start: steps
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,13 +10,10 @@ nodes:
     routing: out
     text:
       config:
-        public_base_url: "{{ public_base_url }}"
-        mode: "{{ mode }}"
-        ingress_path: "{{ ingress_path }}"
-      text: '- Generate a signed token with signing_secret.
-
+        ingress_path: '{{ ingress_path }}'
+        mode: '{{ mode }}'
+        public_base_url: '{{ public_base_url }}'
+      text: |
+        - Generate a signed token with signing_secret.
         - Send it through the inbound webhook/ingress and expect acceptance.
-
         - Confirm expiry/claims enforcement.
-
-        '

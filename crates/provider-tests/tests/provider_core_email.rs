@@ -160,14 +160,17 @@ fn pack_has_extension_and_schema() -> Result<()> {
         .get("config_schema_ref")
         .and_then(|v| v.as_str())
         .unwrap_or_default();
-    assert_eq!(schema_ref, "schemas/messaging/email/config.schema.json");
+    assert_eq!(
+        schema_ref,
+        "schemas/messaging/email/public.config.schema.json"
+    );
     assert!(
         pack_dir.join(schema_ref).exists(),
         "pack schema should exist"
     );
     assert!(
         workspace_root()
-            .join("schemas/messaging/email/config.schema.json")
+            .join("schemas/messaging/email/public.config.schema.json")
             .exists(),
         "workspace schema should exist"
     );

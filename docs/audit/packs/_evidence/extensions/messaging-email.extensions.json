@@ -235,7 +235,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/email/config.schema.json",
+            "config_schema_ref": "schemas/messaging/email/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",

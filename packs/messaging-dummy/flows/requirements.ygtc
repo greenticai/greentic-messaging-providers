@@ -1,6 +1,6 @@
 id: requirements
 type: job
-in: summary
+start: summary
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,8 +10,19 @@ nodes:
     routing: out
     text:
       config: {}
-      text: "Provider: messaging.dummy\nConfig schema: schemas/messaging/dummy/config.schema.json\n\
-        \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.dummy\"\
-        ,\n  \"config_required\": [],\n  \"config_optional\": [],\n  \"secret_required\"\
-        : [],\n  \"secret_optional\": [],\n  \"oauth_required\": false,\n  \"subscriptions_required\"\
-        : false\n}\n\nNotes: Dummy provider for local testing; no external calls.\n"
+      text: |
+        Provider: messaging.dummy
+        Config schema: schemas/messaging/dummy/public.config.schema.json
+
+        Machine-readable requirements (JSON):
+        {
+          "provider": "messaging.dummy",
+          "config_required": [],
+          "config_optional": [],
+          "secret_required": [],
+          "secret_optional": [],
+          "oauth_required": false,
+          "subscriptions_required": false
+        }
+
+        Notes: Dummy provider for local testing; no external calls.

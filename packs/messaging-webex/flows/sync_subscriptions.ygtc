@@ -1,0 +1,13 @@
+id: sync_subscriptions
+type: job
+start: sync_subscriptions__summary
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
+nodes:
+  sync_subscriptions__summary:
+    routing: out
+    text:
+      config: {}
+      text: messaging.webex subscriptions synced.

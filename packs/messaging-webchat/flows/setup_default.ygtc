@@ -1,6 +1,6 @@
 id: setup_default
 type: job
-in: setup_default__emit_questions
+start: setup_default__emit_questions
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,59 +10,29 @@ nodes:
     routing:
     - to: setup_default__collect
     emit:
-      id: "webchat-setup"
-      spec_ref: "assets/setup.yaml"
+      id: messaging-webchat-setup_default
+      spec_ref: assets/setup.yaml
   setup_default__collect:
     routing:
     - to: setup_default__validate
     text:
-      config:
-        public_base_url: "{{ public_base_url }}"
-        mode: "{{ mode }}"
-        ingress_path: "{{ ingress_path }}"
-      text: 'Collect inputs for setup_default.
-
-        Required config keys: ["mode", "public_base_url"]
-
-        Optional config keys: ["ingress_path"]
-
-        Required secrets: []
-
-        Optional secrets: []
-
-        Inbound webhooks depend on selected mode.
-
-        '
+      config: {}
+      text: Collect inputs for setup_default.
   setup_default__validate:
     routing:
     - to: setup_default__apply
     validate:
-      spec_json: "{{ node.setup_default__emit_questions }}"
-      answers_json: "{{ state.input.answers_json }}"
+      answers_json: '{{ state.input.answers_json }}'
+      spec_json: '{{ node.setup_default__emit_questions }}'
   setup_default__apply:
     routing:
     - to: setup_default__summary
     apply:
+      dry_run: '{{ state.input.dry_run }}'
       plan:
-        actions:
-          - type: "config.set"
-            scope: "tenant"
-            key: "public_base_url"
-            value: "{{ state.input.answers.public_base_url }}"
-          - type: "config.set"
-            scope: "tenant"
-            key: "mode"
-            value: "{{ state.input.answers.mode }}"
-          - type: "config.set"
-            scope: "tenant"
-            key: "ingress_path"
-            value: "{{ state.input.answers.ingress_path }}"
-      dry_run: "{{ state.input.dry_run }}"
+        actions: []
   setup_default__summary:
     routing: out
     text:
-      config:
-        public_base_url: "{{ public_base_url }}"
-        mode: "{{ mode }}"
-        ingress_path: "{{ ingress_path }}"
+      config: {}
       text: messaging.webchat setup_default complete.

@@ -17,8 +17,8 @@
 - Provider contract uses `schema-core-api` with JSON byte payloads for `invoke` (`components/messaging-provider-dummy/wit/messaging-provider-dummy/world.wit:6`).
 
 ## Config requirements (greentic-config)
-- No required keys declared (schema allows any properties) (`packs/messaging-dummy/schemas/messaging/dummy/config.schema.json:1`).
-- Config schema reference: `schemas/messaging/dummy/config.schema.json` (`packs/messaging-dummy/pack.manifest.json:30`).
+- No required keys declared (schema allows any properties) (`packs/messaging-dummy/schemas/messaging/dummy/public.config.schema.json:1`).
+- Config schema reference: `schemas/messaging/dummy/public.config.schema.json` (`packs/messaging-dummy/pack.manifest.json:30`).
 
 ## Secret requirements (greentic-secrets)
 - No declared secrets (`packs/messaging-dummy/pack.manifest.json:54`).

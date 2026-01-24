@@ -289,7 +289,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/webex/config.schema.json",
+            "config_schema_ref": "schemas/messaging/webex/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",

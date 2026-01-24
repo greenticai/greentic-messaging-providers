@@ -741,7 +741,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/teams/config.schema.json",
+            "config_schema_ref": "schemas/messaging/teams/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",
@@ -960,7 +960,7 @@
             "id": 4,
             "input": {
               "mapping": {
-                "text": "Provider: messaging.teams.graph\nConfig schema: schemas/messaging/teams/config.schema.json\n\nSecrets:\n- MS_GRAPH_CLIENT_SECRET (tenant): Client secret used for client_credentials or refresh flows.\n- MS_GRAPH_REFRESH_TOKEN (tenant): Refresh token used when auth_mode selects refresh_token grant.\n"
+                "text": "Provider: messaging.teams.graph\nConfig schema: schemas/messaging/teams/public.config.schema.json\n\nSecrets:\n- MS_GRAPH_CLIENT_SECRET (tenant): Client secret used for client_credentials or refresh flows.\n- MS_GRAPH_REFRESH_TOKEN (tenant): Refresh token used when auth_mode selects refresh_token grant.\n"
               }
             },
             "output": {

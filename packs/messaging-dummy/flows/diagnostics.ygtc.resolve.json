@@ -1,12 +1,12 @@
 {
+  "schema_version": 1,
   "flow": "diagnostics.ygtc",
   "nodes": {
     "summary": {
       "source": {
         "kind": "local",
-        "path": "file://../components/templates.wasm"
+        "path": "../components/templates.wasm"
       }
     }
-  },
-  "schema_version": 1
+  }
 }

@@ -283,7 +283,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/slack/config.schema.json",
+            "config_schema_ref": "schemas/messaging/slack/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",
@@ -301,7 +301,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/teams/config.schema.json",
+            "config_schema_ref": "schemas/messaging/teams/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",
@@ -319,7 +319,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/telegram/config.schema.json",
+            "config_schema_ref": "schemas/messaging/telegram/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",
@@ -337,7 +337,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/webchat/config.schema.json",
+            "config_schema_ref": "schemas/messaging/webchat/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",
@@ -355,7 +355,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/webex/config.schema.json",
+            "config_schema_ref": "schemas/messaging/webex/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",
@@ -373,7 +373,7 @@
             "capabilities": [
               "messaging"
             ],
-            "config_schema_ref": "schemas/messaging/whatsapp/config.schema.json",
+            "config_schema_ref": "schemas/messaging/whatsapp/public.config.schema.json",
             "docs_ref": "",
             "ops": [
               "send",

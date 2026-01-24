@@ -1,6 +1,6 @@
 id: requirements
 type: job
-in: summary
+start: summary
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,12 +10,21 @@ nodes:
     routing: out
     text:
       config:
-        public_base_url: "{{ public_base_url }}"
-        default_channel: "{{ default_channel }}"
-      text: "Provider: messaging.slack.api\nConfig schema: schemas/messaging/slack/config.schema.json\n\
-        \nMachine-readable requirements (JSON):\n{\n  \"provider\": \"messaging.slack.api\"\
-        ,\n  \"config_required\": [\"public_base_url\"],\n  \"config_optional\"\
-        : [\"default_channel\", \"team_id\"],\n  \"secret_required\": [\"SLACK_BOT_TOKEN\"\
-        ],\n  \"secret_optional\": [\"SLACK_SIGNING_SECRET\"],\n  \"oauth_required\"\
-        : true,\n  \"subscriptions_required\": false\n}\n\nNotes: Uses Slack Events\
-        \ API for inbound webhooks.\n"
+        default_channel: '{{ default_channel }}'
+        public_base_url: '{{ public_base_url }}'
+      text: |
+        Provider: messaging.slack.api
+        Config schema: schemas/messaging/slack/public.config.schema.json
+
+        Machine-readable requirements (JSON):
+        {
+          "provider": "messaging.slack.api",
+          "config_required": ["public_base_url"],
+          "config_optional": ["default_channel", "team_id"],
+          "secret_required": ["SLACK_BOT_TOKEN"],
+          "secret_optional": ["SLACK_SIGNING_SECRET"],
+          "oauth_required": true,
+          "subscriptions_required": false
+        }
+
+        Notes: Uses Slack Events API for inbound webhooks.

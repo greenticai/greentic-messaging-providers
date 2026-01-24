@@ -4,20 +4,12 @@ use regex::Regex;
 use spec::{QuestionKind, QuestionSpecItem, QuestionsSpec, SetupSpec};
 
 use anyhow::{Result, anyhow};
+use greentic_interfaces_guest::component::node::{InvokeResult, NodeError};
+use greentic_interfaces_guest::component_entrypoint;
 use serde::Deserialize;
 use serde_json::{Map, Value};
 use std::fs;
 use std::path::PathBuf;
-
-mod bindings {
-    wit_bindgen::generate!({
-        path: "wit/questions",
-        world: "questions",
-        generate_all
-    });
-}
-
-use bindings::Guest;
 
 #[derive(Debug, Deserialize)]
 struct EmitInput {
@@ -58,53 +50,93 @@ pub struct ValidationError {
     pub message: String,
 }
 
-struct Component;
+component_entrypoint!({
+    manifest: describe_payload,
+    invoke: handle_message,
+    invoke_stream: false,
+});
 
-impl Guest for Component {
-    fn emit(input_json: String) -> Result<String, String> {
-        let input: EmitInput = serde_json::from_str(&input_json).map_err(err_string)?;
-        touch_context(&input.context);
-        let spec = load_spec(&input.spec_ref).map_err(err_string)?;
-        let title = spec
-            .title
-            .clone()
-            .unwrap_or_else(|| format!("{} setup", spec.provider_id));
-        let questions = spec
-            .questions
-            .iter()
-            .map(QuestionSpecItem::try_from)
-            .collect::<Result<Vec<_>>>()
-            .map_err(err_string)?;
-        let spec = QuestionsSpec {
-            id: input.id,
-            title,
-            questions,
-        };
-        serde_json::to_string(&spec).map_err(err_string)
-    }
+fn describe_payload() -> String {
+    serde_json::json!({
+        "component": {
+            "name": "questions",
+            "org": "ai.greentic",
+            "version": "0.1.0",
+            "world": "greentic:component/component@0.5.0"
+        }
+    })
+    .to_string()
+}
 
-    fn validate(input_json: String) -> Result<String, String> {
-        let input: ValidateInput = serde_json::from_str(&input_json).map_err(err_string)?;
-        let spec: QuestionsSpec = serde_json::from_str(&input.spec_json).map_err(err_string)?;
-        let answers: Value = serde_json::from_str(&input.answers_json).map_err(err_string)?;
-        let answer_map = answers.as_object().cloned().unwrap_or_else(Map::new);
-        let errors = validate_answers_for_spec(&spec.questions, &answer_map);
-        let output = ValidateOutput {
-            ok: errors.is_empty(),
-            errors,
-        };
-        serde_json::to_string(&output).map_err(err_string)
-    }
-
-    fn example_answers(input_json: String) -> Result<String, String> {
-        let input: ExampleInput = serde_json::from_str(&input_json).map_err(err_string)?;
-        let spec: QuestionsSpec = serde_json::from_str(&input.spec_json).map_err(err_string)?;
-        let value = example_answers_for_spec(&spec.questions);
-        serde_json::to_string(&value).map_err(err_string)
+fn handle_message(operation: String, input: String) -> InvokeResult {
+    match operation.as_str() {
+        "emit" => invoke_operation(emit(input)),
+        "validate" => invoke_operation(validate(input)),
+        "example-answers" => invoke_operation(example_answers(input)),
+        other => InvokeResult::Err(NodeError {
+            code: "UNKNOWN_OPERATION".to_string(),
+            message: format!("unsupported operation {other}"),
+            retryable: false,
+            backoff_ms: None,
+            details: None,
+        }),
     }
 }
 
-bindings::__export_world_questions_cabi!(Component with_types_in bindings);
+fn invoke_operation(result: Result<String, String>) -> InvokeResult {
+    match result {
+        Ok(value) => InvokeResult::Ok(value),
+        Err(message) => InvokeResult::Err(NodeError {
+            code: "INVALID_INPUT".to_string(),
+            message,
+            retryable: false,
+            backoff_ms: None,
+            details: None,
+        }),
+    }
+}
+
+fn emit(input_json: String) -> Result<String, String> {
+    let input: EmitInput = serde_json::from_str(&input_json).map_err(err_string)?;
+    touch_context(&input.context);
+    let spec = load_spec(&input.spec_ref).map_err(err_string)?;
+    let title = spec
+        .title
+        .clone()
+        .unwrap_or_else(|| format!("{} setup", spec.provider_id));
+    let questions = spec
+        .questions
+        .iter()
+        .map(QuestionSpecItem::try_from)
+        .collect::<Result<Vec<_>>>()
+        .map_err(err_string)?;
+    let spec = QuestionsSpec {
+        id: input.id,
+        title,
+        questions,
+    };
+    serde_json::to_string(&spec).map_err(err_string)
+}
+
+fn validate(input_json: String) -> Result<String, String> {
+    let input: ValidateInput = serde_json::from_str(&input_json).map_err(err_string)?;
+    let spec: QuestionsSpec = serde_json::from_str(&input.spec_json).map_err(err_string)?;
+    let answers: Value = serde_json::from_str(&input.answers_json).map_err(err_string)?;
+    let answer_map = answers.as_object().cloned().unwrap_or_else(Map::new);
+    let errors = validate_answers_for_spec(&spec.questions, &answer_map);
+    let output = ValidateOutput {
+        ok: errors.is_empty(),
+        errors,
+    };
+    serde_json::to_string(&output).map_err(err_string)
+}
+
+fn example_answers(input_json: String) -> Result<String, String> {
+    let input: ExampleInput = serde_json::from_str(&input_json).map_err(err_string)?;
+    let spec: QuestionsSpec = serde_json::from_str(&input.spec_json).map_err(err_string)?;
+    let value = example_answers_for_spec(&spec.questions);
+    serde_json::to_string(&value).map_err(err_string)
+}
 
 fn err_string(err: impl std::fmt::Display) -> String {
     format!("{err}")

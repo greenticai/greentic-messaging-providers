@@ -1,6 +1,6 @@
 id: diagnostics
 type: job
-in: token_check
+start: token_check
 parameters: {}
 tags: []
 schema_version: 2
@@ -11,40 +11,33 @@ nodes:
     - to: room_check
     text:
       config:
-        public_base_url: "{{ public_base_url }}"
-        default_room_id: "{{ default_room_id }}"
-      text: '- Ensure access token exists.
-
+        default_room_id: '{{ default_room_id }}'
+        public_base_url: '{{ public_base_url }}'
+      text: |
+        - Ensure access token exists.
         - Call /people/me to confirm validity.
-
-        '
   room_check:
     routing:
     - to: webhook_check
     text:
       config:
-        public_base_url: "{{ public_base_url }}"
-        default_room_id: "{{ default_room_id }}"
-      text: '- If default or configured rooms exist, ensure membership and postability
-        (dry-run or actual message if requested).
-
-        '
+        default_room_id: '{{ default_room_id }}'
+        public_base_url: '{{ public_base_url }}'
+      text: |
+        - If default or configured rooms exist, ensure membership and postability (dry-run or actual message if requested).
   webhook_check:
     routing:
     - to: summary
     text:
       config:
-        public_base_url: "{{ public_base_url }}"
-        default_room_id: "{{ default_room_id }}"
-      text: '- If webhook configured, list webhooks and ensure target URL matches;
-        renew if needed.
-
-        '
+        default_room_id: '{{ default_room_id }}'
+        public_base_url: '{{ public_base_url }}'
+      text: |
+        - If webhook configured, list webhooks and ensure target URL matches; renew if needed.
   summary:
     routing: out
     text:
       config:
-        public_base_url: "{{ public_base_url }}"
-        default_room_id: "{{ default_room_id }}"
-      text: Diagnostics complete; token valid, rooms reachable, webhook {{#if payload.verify_webhook}}checked{{else}}not
-        requested{{/if}}.
+        default_room_id: '{{ default_room_id }}'
+        public_base_url: '{{ public_base_url }}'
+      text: Diagnostics complete; token valid, rooms reachable, webhook {{#if payload.verify_webhook}}checked{{else}}not requested{{/if}}.

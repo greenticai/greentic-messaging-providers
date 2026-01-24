@@ -1,6 +1,6 @@
 id: diagnostics
 type: job
-in: summary
+start: summary
 parameters: {}
 tags: []
 schema_version: 2

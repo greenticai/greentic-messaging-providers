@@ -8,7 +8,7 @@ Current layout:
 - `crates/questions-cli`: helper CLI to render QuestionSpec JSON and collect answers.
 - `components/`: provider WASM components. Includes `secrets-probe`, `slack`, `teams`, `telegram`, `webchat`, `webex`, `whatsapp`, and the provider-core `messaging-provider-dummy`.
 - `components/provision`: provisioning apply component used by setup flows to write config/secrets.
-- `schemas/`: JSON Schemas for provider configuration (e.g., `schemas/messaging/dummy/config.schema.json`).
+- `schemas/`: JSON Schemas for provider configuration (e.g., `schemas/messaging/dummy/public.config.schema.json`).
 - `tools/`: build/publishing helpers (e.g., `tools/build_components.sh`).
 - To resync pack metadata/schemas and stage fresh artifacts locally, run `./tools/sync_packs.sh` (uses workspace version by default, or `PACK_VERSION` override).
 - `packs/`: pack sources (bundled providers and fixtures such as `messaging-dummy`).
@@ -138,4 +138,4 @@ Exports (world `greentic:provider-schema-core/schema-core@1.0.0`):
   - `send`/`reply` return deterministic payload with `message_id` derived from the input hash, `provider_message_id = "dummy:<hash>"`, and `status = "sent"` (or `replied`).
 
 Pack fixture:
-- `packs/messaging-dummy`: provider-core pack with inline `greentic.provider-extension.v1` extension, config schema at `schemas/messaging/dummy/config.schema.json`, and the built `messaging-provider-dummy.wasm` artifact.
+- `packs/messaging-dummy`: provider-core pack with inline `greentic.provider-extension.v1` extension, config schema at `schemas/messaging/dummy/public.config.schema.json`, and the built `messaging-provider-dummy.wasm` artifact.

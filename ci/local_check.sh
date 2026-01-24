@@ -50,6 +50,57 @@ if compgen -G "packs/*/components/*.manifest.json" >/dev/null; then
   done
 fi
 
+echo "==> greentic-component test (questions emit/validate)"
+if ! command -v greentic-component >/dev/null 2>&1; then
+  echo "greentic-component is required for component tests" >&2
+  exit 1
+fi
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "${tmpdir}"' EXIT
+cp components/questions/questions.wasm "${tmpdir}/questions.wasm"
+cp components/questions/component.manifest.json "${tmpdir}/component.manifest.json"
+cp packs/messaging-dummy/assets/setup.yaml "${tmpdir}/setup.yaml"
+(
+  cd "${tmpdir}"
+  greentic-component test \
+    --wasm questions.wasm \
+    --manifest component.manifest.json \
+    --op emit \
+    --input-json '{"id":"dummy-setup","spec_ref":"assets/setup.yaml","context":{"tenant_id":"t1","env":"dev"}}' \
+    --pretty
+)
+python3 - <<'PY' "${tmpdir}"
+import json
+import sys
+from pathlib import Path
+
+tmpdir = Path(sys.argv[1])
+spec = {
+    "provider_id": "dummy",
+    "version": 1,
+    "title": "Dummy provider setup",
+    "questions": [],
+    "id": "dummy-setup",
+}
+payload = {
+    "id": "dummy-setup",
+    "spec_json": json.dumps(spec),
+    "answers_json": json.dumps({}),
+}
+(tmpdir / "validate_input.json").write_text(json.dumps(payload))
+PY
+(
+  cd "${tmpdir}"
+  greentic-component test \
+    --wasm questions.wasm \
+    --manifest component.manifest.json \
+    --op validate \
+    --input validate_input.json \
+    --pretty
+)
+trap - EXIT
+rm -rf "${tmpdir}"
+
 run_publish_packs="${RUN_PUBLISH_PACKS:-${CI:-0}}"
 case "${run_publish_packs}" in
   1|true|TRUE|yes|YES) run_publish_packs=1 ;;
@@ -61,21 +112,13 @@ if [ "${run_publish_packs}" -eq 1 ]; then
     echo "==> Installing cargo-binstall"
     cargo install cargo-binstall --locked
   fi
-  if ! command -v greentic-messaging-test >/dev/null 2>&1; then
-    echo "==> Installing greentic-messaging-test"
-    cargo binstall greentic-messaging-test --no-confirm --locked
-  fi
   echo "==> tools/publish_packs_oci.sh (dry-run, PACK_VERSION=${PACK_VERSION})"
   DRY_RUN=1 ./tools/publish_packs_oci.sh
   if compgen -G "dist/packs/messaging-*.gtpack" >/dev/null; then
-    echo "==> greentic-pack doctor --validate (dist/packs)"
+    echo "==> provider pack must pass greentic-pack doctor (messaging validator)"
     for p in dist/packs/messaging-*.gtpack; do
-      greentic-pack doctor --validate --pack "$p"
+      greentic-pack doctor --validate --validator-pack "oci://ghcr.io/greentic-ai/validators/messaging:latest" --pack "$p"
     done
-    echo "==> python3 tools/validate_pack_fixtures.py"
-    python3 tools/validate_pack_fixtures.py
-    echo "==> tools/validate_gtpack_flows.sh"
-    ./tools/validate_gtpack_flows.sh
   fi
 else
   echo "==> tools/publish_packs_oci.sh (dry-run; rebuild dist/packs)"

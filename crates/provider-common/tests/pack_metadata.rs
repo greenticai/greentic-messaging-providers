@@ -286,7 +286,7 @@ fn gtpack_contains_secret_requirements_metadata() -> Result<()> {
         .and_then(Value::as_str)
         .ok_or_else(|| anyhow!("pack manifest missing config schema path"))?;
     assert_eq!(
-        schema_path, "schemas/messaging/telegram/config.schema.json",
+        schema_path, "schemas/messaging/telegram/public.config.schema.json",
         "unexpected config schema path for messaging-telegram"
     );
 
@@ -430,7 +430,11 @@ fn greentic_pack_doctor_requires_config_schema() -> Result<()> {
 
     let temp = tempdir()?;
     let broken = temp.path().join("messaging-dummy-missing-schema.gtpack");
-    strip_entry_from_gtpack(&src, &broken, "schemas/messaging/dummy/config.schema.json")?;
+    strip_entry_from_gtpack(
+        &src,
+        &broken,
+        "schemas/messaging/dummy/public.config.schema.json",
+    )?;
 
     let output = Command::new("greentic-pack")
         .arg("doctor")
@@ -459,7 +463,10 @@ fn greentic_pack_doctor_requires_config_schema() -> Result<()> {
 fn dummy_pack_includes_schema_and_secret_requirements_asset() -> Result<()> {
     let (_temp, gtpack_path) = build_dummy_pack()?;
 
-    let schema = read_from_gtpack(&gtpack_path, "schemas/messaging/dummy/config.schema.json")?;
+    let schema = read_from_gtpack(
+        &gtpack_path,
+        "schemas/messaging/dummy/public.config.schema.json",
+    )?;
     assert!(
         !schema.is_empty(),
         "config schema should be bundled in the dummy pack"

@@ -3,6 +3,36 @@ version: 0.4.21
 kind: application
 publisher: Greentic
 components:
+- id: ai.greentic.component-provision
+  version: 0.4.21
+  world: greentic:component-provision/provision@0.1.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/provision.wasm
+- id: ai.greentic.component-questions
+  version: 0.4.21
+  world: greentic:questions/questions@0.1.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/questions.wasm
 - id: ai.greentic.component-templates
   version: 0.4.21
   world: root:component/root
@@ -138,21 +168,6 @@ components:
       clocks: false
     host: {}
   wasm: components/diagnostics__token_check.wasm
-- id: text
-  version: 0.4.21
-  world: greentic:component/component@0.5.0
-  supports:
-  - messaging
-  profiles:
-    default: stateless
-    supported:
-    - stateless
-  capabilities:
-    wasi:
-      random: false
-      clocks: false
-    host: {}
-  wasm: components/templates.wasm
 - id: messaging-ingress-whatsapp
   version: 0.4.21
   world: greentic:messaging-ingress-whatsapp/messaging-ingress-whatsapp@0.0.1
@@ -228,6 +243,81 @@ components:
       clocks: false
     host: {}
   wasm: components/setup_custom___collect.wasm
+- id: setup_custom___setup_custom__apply
+  version: 0.4.21
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_custom___setup_custom__apply.wasm
+- id: setup_custom___setup_custom__collect
+  version: 0.4.21
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_custom___setup_custom__collect.wasm
+- id: setup_custom___setup_custom__emit_questions
+  version: 0.4.21
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_custom___setup_custom__emit_questions.wasm
+- id: setup_custom___setup_custom__summary
+  version: 0.4.21
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_custom___setup_custom__summary.wasm
+- id: setup_custom___setup_custom__validate
+  version: 0.4.21
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_custom___setup_custom__validate.wasm
 - id: setup_custom___summary
   version: 0.4.21
   world: root:component/root
@@ -348,6 +438,81 @@ components:
       clocks: false
     host: {}
   wasm: components/setup_default___collect.wasm
+- id: setup_default___setup_default__apply
+  version: 0.4.21
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_default___setup_default__apply.wasm
+- id: setup_default___setup_default__collect
+  version: 0.4.21
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_default___setup_default__collect.wasm
+- id: setup_default___setup_default__emit_questions
+  version: 0.4.21
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_default___setup_default__emit_questions.wasm
+- id: setup_default___setup_default__summary
+  version: 0.4.21
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_default___setup_default__summary.wasm
+- id: setup_default___setup_default__validate
+  version: 0.4.21
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/setup_default___setup_default__validate.wasm
 - id: setup_default___summary
   version: 0.4.21
   world: root:component/root
@@ -438,6 +603,21 @@ components:
       clocks: false
     host: {}
   wasm: components/setup_default__validate.wasm
+- id: text
+  version: 0.4.21
+  world: greentic:component/component@0.5.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/templates.wasm
 - id: verify_webhooks___steps
   version: 0.4.21
   world: root:component/root
@@ -468,36 +648,6 @@ components:
       clocks: false
     host: {}
   wasm: components/verify_webhooks__steps.wasm
-- id: ai.greentic.component-questions
-  version: 0.4.21
-  world: greentic:questions/questions@0.1.0
-  supports:
-  - messaging
-  profiles:
-    default: stateless
-    supported:
-    - stateless
-  capabilities:
-    wasi:
-      random: false
-      clocks: false
-    host: {}
-  wasm: components/questions.wasm
-- id: ai.greentic.component-provision
-  version: 0.4.21
-  world: greentic:component-provision/provision@0.1.0
-  supports:
-  - messaging
-  profiles:
-    default: stateless
-    supported:
-    - stateless
-  capabilities:
-    wasi:
-      random: false
-      clocks: false
-    host: {}
-  wasm: components/provision.wasm
 dependencies: []
 flows:
 - id: diagnostics
@@ -506,6 +656,12 @@ flows:
   - default
   entrypoints:
   - diagnostics
+- id: ingress_default
+  file: flows/ingress_default.ygtc
+  tags:
+  - default
+  entrypoints:
+  - ingress
 - id: requirements
   file: flows/requirements.ygtc
   tags:
@@ -524,17 +680,21 @@ flows:
   - default
   entrypoints:
   - setup
+- id: sync_subscriptions
+  file: flows/sync_subscriptions.ygtc
+  tags:
+  - default
+  entrypoints:
+  - subscriptions
 - id: verify_webhooks
   file: flows/verify_webhooks.ygtc
   tags:
   - maintenance
   entrypoints:
   - diagnostics
-schemas:
-- kind: config
-  path: schemas/messaging/whatsapp/config.schema.json
 assets:
-- path: schemas/messaging/whatsapp/config.schema.json
+- path: setup.yaml
+- path: schemas/messaging/whatsapp/public.config.schema.json
 - path: fixtures/requirements.expected.json
 - path: fixtures/setup.input.json
 - path: fixtures/setup.expected.plan.json
@@ -549,9 +709,9 @@ extensions:
     version: 0.4.21
     inline:
       validators:
-      - id: greentic.validators.messaging
-        world: "greentic:pack-validate/pack-validator@0.1.0"
-        component_ref: oci://ghcr.io/greentic-ai/validators/messaging:0.4.19
+      - component_ref: oci://ghcr.io/greentic-ai/validators/messaging:0.4.19
+        id: greentic.validators.messaging
+        world: greentic:pack-validate/pack-validator@0.1.0
   greentic.provider-extension.v1:
     kind: greentic.provider-extension.v1
     version: 0.4.21
@@ -563,7 +723,7 @@ extensions:
         ops:
         - send
         - reply
-        config_schema_ref: schemas/messaging/whatsapp/config.schema.json
+        config_schema_ref: schemas/messaging/whatsapp/public.config.schema.json
         state_schema_ref: ''
         runtime:
           component_ref: messaging-provider-whatsapp

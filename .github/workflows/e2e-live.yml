@@ -67,7 +67,6 @@ jobs:
           cargo binstall greentic-flow --no-confirm --locked
           cargo binstall greentic-runner --no-confirm --locked
           cargo binstall greentic-component --no-confirm --locked
-          cargo binstall greentic-messaging-test --no-confirm --locked
           cargo binstall greentic-secrets --no-confirm --locked
 
       - name: Set secrets cache dir
@@ -138,6 +137,50 @@ jobs:
           for c in packs/*/components/*.manifest.json; do
             greentic-component doctor "$c"
           done
+      - name: Test component-questions
+        run: |
+          set -euo pipefail
+          tmpdir="$(mktemp -d)"
+          trap 'rm -rf "${tmpdir}"' EXIT
+          cp components/questions/questions.wasm "${tmpdir}/questions.wasm"
+          cp components/questions/component.manifest.json "${tmpdir}/component.manifest.json"
+          cp packs/messaging-dummy/assets/setup.yaml "${tmpdir}/setup.yaml"
+          (
+            cd "${tmpdir}"
+            greentic-component test \
+              --wasm questions.wasm \
+              --manifest component.manifest.json \
+              --op emit \
+              --input-json '{"id":"dummy-setup","spec_ref":"assets/setup.yaml","context":{"tenant_id":"t1","env":"dev"}}'
+          )
+          python3 - <<'PY' "${tmpdir}"
+          import json
+          import sys
+          from pathlib import Path
+
+          tmpdir = Path(sys.argv[1])
+          spec = {
+              "provider_id": "dummy",
+              "version": 1,
+              "title": "Dummy provider setup",
+              "questions": [],
+              "id": "dummy-setup",
+          }
+          payload = {
+              "id": "dummy-setup",
+              "spec_json": json.dumps(spec),
+              "answers_json": json.dumps({}),
+          }
+          (tmpdir / "validate_input.json").write_text(json.dumps(payload))
+          PY
+          (
+            cd "${tmpdir}"
+            greentic-component test \
+              --wasm questions.wasm \
+              --manifest component.manifest.json \
+              --op validate \
+              --input validate_input.json
+          )
 
       - name: Build packs (dry run)
         env:
@@ -158,19 +201,6 @@ jobs:
             fi
             greentic-secrets init --pack "${secrets_pack}" --env "${GREENTIC_ENV}" --tenant "${GREENTIC_TENANT}" --team "${GREENTIC_TEAM}" --non-interactive
           done
-
-      - name: Run greentic-messaging-test (live)
-        run: |
-          set -euo pipefail
-          export SECRETS_ROOT="${SECRETS_ROOT}"
-          export GREENTIC_SECRETS_DIR="${GREENTIC_SECRETS_DIR}"
-          greentic-messaging-test packs all \
-            --packs "${PACKS_DIR}" \
-            --glob "${PACK_GLOB}" \
-            --env "${GREENTIC_ENV}" \
-            --tenant "${GREENTIC_TENANT}" \
-            --team "${GREENTIC_TEAM}" \
-            --flow smoke
 
       - name: Cleanup secrets
         if: always()

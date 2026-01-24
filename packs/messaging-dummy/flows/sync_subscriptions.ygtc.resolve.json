@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "flow": "sync_subscriptions.ygtc",
+  "nodes": {
+    "sync_subscriptions__summary": {
+      "source": {
+        "kind": "local",
+        "path": "../components/templates.wasm"
+      }
+    }
+  }
+}

@@ -1,6 +1,6 @@
 id: verify_webhooks
 type: job
-in: describe
+start: describe
 parameters: {}
 tags: []
 schema_version: 2
@@ -10,17 +10,11 @@ nodes:
     routing: out
     text:
       config:
-        public_base_url: "{{ public_base_url }}"
-        default_channel: "{{ default_channel }}"
-      text: 'Steps:
-
+        default_channel: '{{ default_channel }}'
+        public_base_url: '{{ public_base_url }}'
+      text: |
+        Steps:
         - Fetch current event subscriptions from Slack API.
-
         - Ensure request_url matches the host-provided ingress endpoint.
-
-        - Send a challenge (or expect Slack''s challenge) and verify signature using
-        signing secret.
-
+        - Send a challenge (or expect Slack's challenge) and verify signature using signing secret.
         - Mark verification timestamp in config for idempotent runs.
-
-        '
