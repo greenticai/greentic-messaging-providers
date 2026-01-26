@@ -16,6 +16,15 @@ Current layout:
 - Setup flows (`setup_default`/`setup_custom`) start with `*_emit_questions` and expect both `answers` (object) and `answers_json` (JSON string) in the flow input; pass `dry_run` as `false` for real apply or `true` for a no-op preview.
 - `.github/workflows/`: CI pipelines (build/test + component artifacts).
 
+## Generated flows (authoritative)
+`packs/*/flows/*.ygtc` are generated artifacts. Do not edit them by hand.
+
+To change flows:
+1) Update component manifests/schemas under `components/` or provider specs under `specs/providers/`.
+2) Regenerate flows: `./ci/gen_flows.sh`.
+
+CI will reject any direct edits to `packs/*/flows/*.ygtc`.
+
 ## Building locally
 - Ensure Rust is installed with the `wasm32-wasip2` target and `cargo-component`:
   - `rustup target add wasm32-wasip2`

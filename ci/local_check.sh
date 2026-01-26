@@ -28,6 +28,15 @@ fi
 echo "==> tools/build_components.sh"
 ./tools/build_components.sh
 
+echo "==> tools/check_op_schemas.py"
+python3 tools/check_op_schemas.py
+
+echo "==> ci/gen_flows.sh"
+./ci/gen_flows.sh
+
+echo "==> ci/check_generated.sh"
+./ci/check_generated.sh
+
 echo "==> tools/sync_packs.sh (PACK_VERSION=${PACK_VERSION})"
 ./tools/sync_packs.sh
 
@@ -56,6 +65,19 @@ if compgen -G "packs/*/components/*.manifest.json" >/dev/null; then
   for c in packs/*/components/*.manifest.json; do
     greentic-component doctor "$c"
   done
+fi
+
+validator_ref="oci://ghcr.io/greentic-ai/validators/messaging:latest"
+validator_root="${ROOT_DIR}/.greentic/validators"
+validator_wasm="${validator_root}/greentic.validators.messaging.wasm"
+mkdir -p "${validator_root}"
+if command -v greentic-dev >/dev/null 2>&1; then
+  echo "==> greentic-dev store fetch ${validator_ref} (best effort)"
+  if greentic-dev store fetch "${validator_ref}" --out "${validator_wasm}" >/dev/null 2>&1; then
+    echo "Validator cached at ${validator_wasm}"
+  else
+    echo "Validator fetch skipped; using cached copy if present"
+  fi
 fi
 
 echo "==> greentic-component test (questions emit/validate)"
@@ -120,18 +142,22 @@ if [ "${run_publish_packs}" -eq 1 ]; then
     echo "==> Installing cargo-binstall"
     cargo install cargo-binstall --locked
   fi
-  echo "==> tools/publish_packs_oci.sh (dry-run, PACK_VERSION=${PACK_VERSION})"
-  DRY_RUN=1 ./tools/publish_packs_oci.sh
+  echo "==> tools/build_packs_only.sh (dry-run, PACK_VERSION=${PACK_VERSION})"
+  DRY_RUN=1 PACK_VERSION="${PACK_VERSION}" PACKC_BUILD_FLAGS="${PACKC_BUILD_FLAGS:-}" ./tools/build_packs_only.sh
   if compgen -G "dist/packs/messaging-*.gtpack" >/dev/null; then
     echo "==> provider pack must pass greentic-pack doctor (messaging validator)"
     for p in dist/packs/messaging-*.gtpack; do
-      greentic-pack doctor --validate --validator-pack "oci://ghcr.io/greentic-ai/validators/messaging:latest" --pack "$p"
+      if [ -f "${validator_wasm}" ]; then
+        greentic-pack doctor --validate --validator-wasm "greentic.validators.messaging=${validator_wasm}" --validator-policy required --pack "$p"
+      else
+        greentic-pack doctor --validate --pack "$p"
+      fi
     done
   fi
 else
-  echo "==> tools/publish_packs_oci.sh (dry-run; rebuild dist/packs)"
+  echo "==> tools/build_packs_only.sh (dry-run; rebuild dist/packs)"
   PACKC_BUILD_FLAGS="${PACKC_BUILD_FLAGS:-}"
-  DRY_RUN=1 PACKC_BUILD_FLAGS="${PACKC_BUILD_FLAGS}" ./tools/publish_packs_oci.sh
+  PACKC_BUILD_FLAGS="${PACKC_BUILD_FLAGS}" ./tools/build_packs_only.sh
 fi
 
 echo "==> cargo test --workspace"

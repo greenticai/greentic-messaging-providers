@@ -33,6 +33,9 @@ jobs:
         with:
           key: build-test-publish
 
+      - name: Check component operation schemas
+        run: python3 tools/check_op_schemas.py
+
       - name: Cache cargo bin tools
         uses: actions/cache@v4
         with:
@@ -233,11 +236,22 @@ jobs:
         with:
           version: 1.2.0
 
+      - name: Packgen gtests
+        env:
+          RUN_PACKGEN_TESTS: "1"
+        run: cargo test -p greentic-messaging-packgen --tests
+
       - name: Download component artifacts
         uses: actions/download-artifact@v4
         with:
           name: components-wasm
           path: target/components
+
+      - name: Generate flows (packgen)
+        run: ./ci/gen_flows.sh
+
+      - name: Check generated flows
+        run: ./ci/check_generated.sh
 
       - name: Sync packs
         run: ./tools/sync_packs.sh
@@ -304,6 +318,9 @@ jobs:
           DRY_RUN: "1"
           PACK_VERSION: "0.0.0-dev"
         run: ./tools/publish_packs_oci.sh
+
+      - name: Runner-desktop setup smoke
+        run: cargo test -p provider-common runner_desktop_setup_default_smoke
 
       - name: Validate pack archives
         run: |

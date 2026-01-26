@@ -1,0 +1,68 @@
+pack:
+  id: messaging-whatsapp
+  name: Messaging WhatsApp
+  version: "0.1.0"
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.whatsapp.cloud
+  provider_id: whatsapp
+  ops:
+    - send
+    - reply
+  capabilities:
+    render_tiers:
+      - tier-d
+components:
+  adapter:
+    component_ref: local:../packs/messaging-whatsapp/components/messaging-provider-whatsapp.wasm
+    world: greentic:provider-schema-core/schema-core@1.0.0
+    export: schema-core-api
+    manifest: ../components/messaging-provider-whatsapp/component.manifest.json
+flows:
+  generate:
+    - setup_default
+    - diagnostics
+    - requirements
+setup:
+  questions:
+    - key: phone_number_id
+      prompt: Phone number ID
+      kind: string
+      required: true
+      write_to: config:phone_number_id
+    - key: business_account_id
+      prompt: Business account ID
+      kind: string
+      required: false
+      write_to: config:business_account_id
+    - key: public_base_url
+      prompt: Public base URL
+      kind: string
+      required: true
+      help: "Example: https://xxxx.trycloudflare.com"
+      validate:
+        regex: "^https://"
+      write_to: config:public_base_url
+    - key: access_token
+      prompt: WhatsApp access token
+      kind: string
+      required: true
+      write_to: secrets:WHATSAPP_TOKEN
+  emits_success_message: true
+requirements:
+  required_args:
+    - to
+    - text
+  optional_args: []
+  examples:
+    - args:
+        to:
+          kind: user
+          id: "+1234567890"
+        text: Hello from whatsapp
+      text: Hello from whatsapp
+  notes: to.kind=user with to.id is required for sends.
+validators:
+  - id: greentic.validators.messaging
+    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest

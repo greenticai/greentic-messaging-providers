@@ -1,0 +1,53 @@
+pack:
+  id: messaging-telegram
+  name: Messaging Telegram
+  version: "0.1.0"
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.telegram.bot
+  provider_id: telegram
+  ops:
+    - send
+    - reply
+  capabilities:
+    render_tiers:
+      - tier-d
+components:
+  adapter:
+    component_ref: local:../packs/messaging-telegram/components/messaging-provider-telegram.wasm
+    world: greentic:provider-schema-core/schema-core@1.0.0
+    export: schema-core-api
+    manifest: ../components/messaging-provider-telegram/component.manifest.json
+flows:
+  generate:
+    - setup_default
+    - diagnostics
+    - requirements
+setup:
+  questions:
+    - key: public_base_url
+      prompt: Public base URL
+      kind: string
+      required: false
+      help: "Example: https://xxxx.trycloudflare.com"
+      write_to: config:public_base_url
+    - key: bot_token
+      prompt: Telegram bot token
+      kind: string
+      required: true
+      write_to: secrets:TELEGRAM_BOT_TOKEN
+  emits_success_message: true
+requirements:
+  required_args:
+    - chat_id
+    - text
+  optional_args: []
+  examples:
+    - args:
+        chat_id: 123456789
+      text: Hello from telegram
+  notes: For egress-only tests, chat_id must be supplied.
+validators:
+  - id: greentic.validators.messaging
+    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest

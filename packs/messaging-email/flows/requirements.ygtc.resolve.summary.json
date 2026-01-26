@@ -1,18 +1,18 @@
 {
+  "schema_version": 1,
   "flow": "requirements.ygtc",
   "nodes": {
     "summary": {
       "component_id": "ai.greentic.component-templates",
-      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
-      "manifest": {
-        "version": "0.1.2",
-        "world": "greentic:component/component@0.5.0"
-      },
       "source": {
         "kind": "local",
-        "path": "file://../components/templates.wasm"
+        "path": "../components/templates/templates.wasm"
+      },
+      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.1.0"
       }
     }
-  },
-  "schema_version": 1
+  }
 }

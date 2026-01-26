@@ -1,0 +1,50 @@
+pack:
+  id: messaging-webex
+  name: Messaging Webex
+  version: 0.1.0
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.webex.bot
+  provider_id: webex
+  ops:
+  - send
+  - reply
+  capabilities:
+    render_tiers:
+    - tier-d
+components:
+  adapter:
+    id: messaging-provider-webex
+    component_ref: local:../../packs/messaging-webex/components/messaging-provider-webex.wasm
+    world: greentic:provider/schema-core@1.0.0
+    export: schema-core-api
+flows:
+  include:
+  - setup_default
+  - setup_custom
+  - diagnostics
+  - requirements
+  - verify_webhooks
+  - sync_subscriptions
+source:
+  pack_dir: ../../packs/messaging-webex
+  extensions:
+    include:
+    - greentic.provider-extension.v1
+    - greentic.messaging.validators.v1
+    - messaging.provider_flow_hints
+contract:
+  ingress:
+    mode: default
+  webhooks:
+    required: true
+  subscriptions:
+    required: false
+requirements:
+  required_args: []
+  optional_args: []
+  examples:
+  - args: {}
+    text: ''
+  notes: ''

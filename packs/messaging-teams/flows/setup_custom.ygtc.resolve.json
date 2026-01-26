@@ -5,31 +5,31 @@
     "setup_custom__apply": {
       "source": {
         "kind": "local",
-        "path": "file://../components/provision.wasm"
+        "path": "file://../components/provision/provision.wasm"
       }
     },
     "setup_custom__collect": {
       "source": {
         "kind": "local",
-        "path": "file://../components/templates.wasm"
+        "path": "file://../components/templates/templates.wasm"
       }
     },
     "setup_custom__emit_questions": {
       "source": {
         "kind": "local",
-        "path": "file://../components/questions.wasm"
+        "path": "file://../components/questions/questions.wasm"
       }
     },
     "setup_custom__summary": {
       "source": {
         "kind": "local",
-        "path": "file://../components/templates.wasm"
+        "path": "file://../components/templates/templates.wasm"
       }
     },
     "setup_custom__validate": {
       "source": {
         "kind": "local",
-        "path": "file://../components/questions.wasm"
+        "path": "file://../components/questions/questions.wasm"
       }
     }
   }

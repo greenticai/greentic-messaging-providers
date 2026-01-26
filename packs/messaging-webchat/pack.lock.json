@@ -2,104 +2,86 @@
   "schema_version": 1,
   "components": [
     {
-      "name": "diagnostics___check_secret",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates.wasm",
-      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
-      "component_id": "ai.greentic.component-templates"
-    },
-    {
-      "name": "diagnostics___optional_loopback",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates.wasm",
-      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
-      "component_id": "ai.greentic.component-templates"
-    },
-    {
       "name": "diagnostics___summary",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates.wasm",
-      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
-      "component_id": "ai.greentic.component-templates"
-    },
-    {
-      "name": "ingress_default___ingress_default__summary",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates.wasm",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates/templates.wasm",
       "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
       "component_id": "ai.greentic.component-templates"
     },
     {
       "name": "requirements___summary",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates.wasm",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates/templates.wasm",
       "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
       "component_id": "ai.greentic.component-templates"
     },
     {
       "name": "setup_custom___setup_custom__apply",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../../../components/provision/provision.wasm",
-      "digest": "sha256:2a4e436c0f6ea2310bfec0f934005a4ed5763ec007a8cd58e3254592e50f9c7a",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/provision/provision.wasm",
+      "digest": "sha256:b0c3acd26e5820ec02b0b7ed24c1b0fbd2b30109a1fbe7acb3b3216ae6cb9a54",
       "component_id": "ai.greentic.component-provision"
     },
     {
       "name": "setup_custom___setup_custom__collect",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates.wasm",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates/templates.wasm",
       "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
       "component_id": "ai.greentic.component-templates"
     },
     {
       "name": "setup_custom___setup_custom__emit_questions",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../../../components/questions/questions.wasm",
-      "digest": "sha256:6f111ad880dadbdce48e7562f930ceac680fc7d53aa6c786f46db2db6bb3e5f6",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/questions/questions.wasm",
+      "digest": "sha256:18ce71c0288aacf4ef7e2e20ddfe4cfce2b9b788d84e0b9ace93e8b6f505a7f8",
       "component_id": "ai.greentic.component-questions"
     },
     {
       "name": "setup_custom___setup_custom__summary",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates.wasm",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates/templates.wasm",
       "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
       "component_id": "ai.greentic.component-templates"
     },
     {
       "name": "setup_custom___setup_custom__validate",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../../../components/questions/questions.wasm",
-      "digest": "sha256:6f111ad880dadbdce48e7562f930ceac680fc7d53aa6c786f46db2db6bb3e5f6",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/questions/questions.wasm",
+      "digest": "sha256:18ce71c0288aacf4ef7e2e20ddfe4cfce2b9b788d84e0b9ace93e8b6f505a7f8",
       "component_id": "ai.greentic.component-questions"
     },
     {
       "name": "setup_default___setup_default__apply",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../../../components/provision/provision.wasm",
-      "digest": "sha256:2a4e436c0f6ea2310bfec0f934005a4ed5763ec007a8cd58e3254592e50f9c7a",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/provision/provision.wasm",
+      "digest": "sha256:b0c3acd26e5820ec02b0b7ed24c1b0fbd2b30109a1fbe7acb3b3216ae6cb9a54",
       "component_id": "ai.greentic.component-provision"
     },
     {
       "name": "setup_default___setup_default__collect",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates.wasm",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates/templates.wasm",
       "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
       "component_id": "ai.greentic.component-templates"
     },
     {
       "name": "setup_default___setup_default__emit_questions",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../../../components/questions/questions.wasm",
-      "digest": "sha256:6f111ad880dadbdce48e7562f930ceac680fc7d53aa6c786f46db2db6bb3e5f6",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/questions/questions.wasm",
+      "digest": "sha256:18ce71c0288aacf4ef7e2e20ddfe4cfce2b9b788d84e0b9ace93e8b6f505a7f8",
       "component_id": "ai.greentic.component-questions"
     },
     {
       "name": "setup_default___setup_default__summary",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates.wasm",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates/templates.wasm",
       "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
       "component_id": "ai.greentic.component-templates"
     },
     {
       "name": "setup_default___setup_default__validate",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../../../components/questions/questions.wasm",
-      "digest": "sha256:6f111ad880dadbdce48e7562f930ceac680fc7d53aa6c786f46db2db6bb3e5f6",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/questions/questions.wasm",
+      "digest": "sha256:18ce71c0288aacf4ef7e2e20ddfe4cfce2b9b788d84e0b9ace93e8b6f505a7f8",
       "component_id": "ai.greentic.component-questions"
     },
     {
-      "name": "sync_subscriptions___sync_subscriptions__summary",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates.wasm",
+      "name": "sync_subscriptions___summary",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates/templates.wasm",
       "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
       "component_id": "ai.greentic.component-templates"
     },
     {
-      "name": "verify_webhooks___steps",
-      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates.wasm",
+      "name": "verify_webhooks___summary",
+      "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-webchat/flows/../components/templates/templates.wasm",
       "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
       "component_id": "ai.greentic.component-templates"
     }

@@ -1,0 +1,49 @@
+pack:
+  id: messaging-email
+  name: Messaging Email
+  version: 0.1.0
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.email.smtp
+  provider_id: email
+  ops:
+  - send
+  - reply
+  capabilities:
+    render_tiers:
+    - tier-d
+components:
+  adapter:
+    id: messaging-provider-email
+    component_ref: local:../../packs/messaging-email/components/messaging-provider-email.wasm
+    world: greentic:provider/schema-core@1.0.0
+    export: schema-core-api
+flows:
+  include:
+  - setup_default
+  - setup_custom
+  - diagnostics
+  - requirements
+  - sync_subscriptions
+source:
+  pack_dir: ../../packs/messaging-email
+  extensions:
+    include:
+    - greentic.provider-extension.v1
+    - greentic.messaging.validators.v1
+    - messaging.provider_flow_hints
+contract:
+  ingress:
+    mode: none
+  webhooks:
+    required: false
+  subscriptions:
+    required: false
+requirements:
+  required_args: []
+  optional_args: []
+  examples:
+  - args: {}
+    text: ''
+  notes: ''

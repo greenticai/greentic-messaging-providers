@@ -1,0 +1,50 @@
+pack:
+  id: messaging-webchat
+  name: Messaging Webchat
+  version: 0.1.0
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.webchat
+  provider_id: webchat
+  ops:
+  - send
+  - ingest
+  capabilities:
+    render_tiers:
+    - tier-d
+components:
+  adapter:
+    id: messaging-provider-webchat
+    component_ref: local:../../packs/messaging-webchat/components/messaging-provider-webchat.wasm
+    world: greentic:provider/schema-core@1.0.0
+    export: schema-core-api
+flows:
+  include:
+  - setup_default
+  - setup_custom
+  - diagnostics
+  - requirements
+  - verify_webhooks
+  - sync_subscriptions
+source:
+  pack_dir: ../../packs/messaging-webchat
+  extensions:
+    include:
+    - greentic.provider-extension.v1
+    - greentic.messaging.validators.v1
+    - messaging.provider_flow_hints
+contract:
+  ingress:
+    mode: default
+  webhooks:
+    required: false
+  subscriptions:
+    required: false
+requirements:
+  required_args: []
+  optional_args: []
+  examples:
+  - args: {}
+    text: ''
+  notes: ''

@@ -2,28 +2,10 @@
   "schema_version": 1,
   "flow": "diagnostics.ygtc",
   "nodes": {
-    "optional_send": {
-      "source": {
-        "kind": "local",
-        "path": "../components/templates.wasm"
-      }
-    },
-    "preflight": {
-      "source": {
-        "kind": "local",
-        "path": "../components/templates.wasm"
-      }
-    },
     "summary": {
       "source": {
         "kind": "local",
-        "path": "../components/templates.wasm"
-      }
-    },
-    "verify_token": {
-      "source": {
-        "kind": "local",
-        "path": "../components/templates.wasm"
+        "path": "file://../components/templates/templates.wasm"
       }
     }
   }

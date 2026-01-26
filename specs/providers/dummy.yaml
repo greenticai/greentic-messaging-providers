@@ -1,0 +1,48 @@
+pack:
+  id: messaging-dummy
+  name: Messaging Dummy
+  version: 0.1.0
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.dummy
+  provider_id: dummy
+  ops:
+  - send
+  capabilities:
+    render_tiers:
+    - tier-d
+components:
+  adapter:
+    id: messaging-provider-dummy
+    component_ref: local:../../packs/messaging-dummy/components/messaging-provider-dummy.wasm
+    world: greentic:provider/schema-core@1.0.0
+    export: schema-core-api
+flows:
+  include:
+  - setup_default
+  - setup_custom
+  - diagnostics
+  - requirements
+  - sync_subscriptions
+source:
+  pack_dir: ../../packs/messaging-dummy
+  extensions:
+    include:
+    - greentic.provider-extension.v1
+    - greentic.messaging.validators.v1
+    - messaging.provider_flow_hints
+contract:
+  ingress:
+    mode: none
+  webhooks:
+    required: false
+  subscriptions:
+    required: false
+requirements:
+  required_args: []
+  optional_args: []
+  examples:
+  - args: {}
+    text: ''
+  notes: ''

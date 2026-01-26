@@ -1,8 +1,9 @@
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 mod bindings {
     wit_bindgen::generate!({
-        path: "../../wit/provider-core",
+        path: "wit/messaging-provider-dummy",
         world: "schema-core",
         generate_all
     });
@@ -10,7 +11,6 @@ mod bindings {
 
 use bindings::exports::greentic::provider_schema_core::schema_core_api::Guest;
 use greentic_types::ProviderManifest;
-use serde_json::{Value, json};
 
 const PROVIDER_TYPE: &str = "messaging.dummy";
 const CONFIG_SCHEMA_REF: &str = "schemas/messaging/dummy/public.config.schema.json";
@@ -22,7 +22,7 @@ impl Guest for Component {
         let manifest = ProviderManifest {
             provider_type: PROVIDER_TYPE.to_string(),
             capabilities: vec![],
-            ops: vec!["send".to_string()],
+            ops: vec!["send".to_string(), "reply".to_string()],
             config_schema_ref: Some(CONFIG_SCHEMA_REF.to_string()),
             state_schema_ref: None,
         };
@@ -31,28 +31,24 @@ impl Guest for Component {
 
     fn validate_config(config_json: Vec<u8>) -> Vec<u8> {
         match serde_json::from_slice::<Value>(&config_json) {
-            Ok(value) => json_bytes(&json!({
-                "ok": true,
-                "config": value,
-            })),
-            Err(err) => json_bytes(&json!({
-                "ok": false,
-                "error": err.to_string(),
-            })),
+            Ok(value) => json_bytes(&json!({"ok": true, "config": value})),
+            Err(err) => json_bytes(&json!({"ok": false, "error": err.to_string()})),
         }
     }
 
     fn healthcheck() -> Vec<u8> {
-        json_bytes(&json!({ "status": "ok" }))
+        json_bytes(&json!({"status": "ok"}))
     }
 
     fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
+        eprintln!(
+            "messaging-provider-dummy: invoke op={} input_bytes={}",
+            op,
+            input_json.len()
+        );
         match op.as_str() {
-            "send" | "reply" => handle_send_like(&op, &input_json),
-            other => json_bytes(&json!({
-                "ok": false,
-                "error": format!("unsupported op: {other}"),
-            })),
+            "send" | "reply" => handle_send_like(op.as_str(), &input_json),
+            other => json_bytes(&json!({"ok": false, "error": format!("unsupported op: {other}")})),
         }
     }
 }
@@ -95,6 +91,10 @@ fn handle_send_like(op: &str, input_json: &[u8]) -> Vec<u8> {
     json_bytes(&payload)
 }
 
+fn json_bytes(value: &impl serde::Serialize) -> Vec<u8> {
+    serde_json::to_vec(value).unwrap_or_default()
+}
+
 fn hex_sha256(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     let mut out = String::with_capacity(digest.len() * 2);
@@ -119,8 +119,4 @@ fn pseudo_uuid_from_hex(hex: &str) -> String {
         &padded[16..20],
         &padded[20..32]
     )
-}
-
-fn json_bytes<T: serde::Serialize>(value: &T) -> Vec<u8> {
-    serde_json::to_vec(value).unwrap_or_else(|_| b"{}".to_vec())
 }

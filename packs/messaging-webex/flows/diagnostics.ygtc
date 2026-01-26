@@ -1,59 +1,34 @@
 id: diagnostics
 type: job
-start: token_check
+start: summary
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  token_check:
-    routing:
-    - to: room_check
-    text:
-      config:
-        default_room_id: '{{ default_room_id }}'
-        public_base_url: '{{ public_base_url }}'
-      msg:
-        provider: messaging.webex.bot
-        message:
-          id: token_check
-          text: |
-            - Ensure access token exists.
-            - Call /people/me to confirm validity.
-  room_check:
-    routing:
-    - to: webhook_check
-    text:
-      config:
-        default_room_id: '{{ default_room_id }}'
-        public_base_url: '{{ public_base_url }}'
-      msg:
-        provider: messaging.webex.bot
-        message:
-          id: room_check
-          text: |
-            - If default or configured rooms exist, ensure membership and postability (dry-run or actual message if requested).
-  webhook_check:
-    routing:
-    - to: summary
-    text:
-      config:
-        default_room_id: '{{ default_room_id }}'
-        public_base_url: '{{ public_base_url }}'
-      msg:
-        provider: messaging.webex.bot
-        message:
-          id: webhook_check
-          text: |
-            - If webhook configured, list webhooks and ensure target URL matches; renew if needed.
   summary:
     routing: out
     text:
-      config:
-        default_room_id: '{{ default_room_id }}'
-        public_base_url: '{{ public_base_url }}'
       msg:
-        provider: messaging.webex.bot
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
         message:
-          id: summary
-          text: Diagnostics complete; token valid, rooms reachable, webhook {{#if payload.verify_webhook}}checked{{else}}not requested{{/if}}.
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.webex.bot
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: Diagnostics ok; no config/secrets required.
+      wrap: true
+x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/webex.yaml
+  spec-hash: sha256:c041286f382f828d0ca7b19cab3ef2b064a69442589680c59c55e56a2308e103
+  manifest-hash: sha256:119dfe93f286b9e336592ccc0ab3c73c8ed72fbdd62f98ac54f8713f9206ce4c
+  schemas-hash: sha256:eb5aee0cdf22bd72a36f6d49b014b255b4a96b73efd5aaa5313aa89fc64c642e

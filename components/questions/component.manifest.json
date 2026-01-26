@@ -28,15 +28,133 @@
     }
   },
   "config_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "additionalProperties": false,
-    "properties": {},
-    "required": [],
-    "type": "object"
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "spec_ref": {
+        "type": "string",
+        "minLength": 1
+      },
+      "spec_json": {
+        "type": "string",
+        "minLength": 1
+      },
+      "answers_json": {
+        "type": "string",
+        "minLength": 1
+      },
+      "context": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "anyOf": [
+      {
+        "required": [
+          "id",
+          "spec_ref"
+        ]
+      },
+      {
+        "required": [
+          "id",
+          "spec_json"
+        ]
+      },
+      {
+        "required": [
+          "spec_json",
+          "answers_json"
+        ]
+      }
+    ]
   },
   "default_operation": "emit",
   "describe_export": "get-manifest",
+  "dev_flows": {
+    "custom": {
+      "format": "flow-ir-json",
+      "graph": {
+        "description": "Auto-generated custom config for ai.greentic.component-questions",
+        "id": "ai.greentic.component-questions.custom",
+        "kind": "component-config",
+        "nodes": {
+          "ask_config": {
+            "questions": {
+              "fields": []
+            },
+            "routing": [
+              {
+                "to": "emit_config"
+              }
+            ]
+          },
+          "emit_config": {
+            "template": "{\n  \"node_id\": \"questions\",\n  \"node\": {\n    \"emit\": {\n      \"input\": {\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
+          }
+        }
+      }
+    },
+    "default": {
+      "format": "flow-ir-json",
+      "graph": {
+        "description": "Auto-generated default config for ai.greentic.component-questions",
+        "id": "ai.greentic.component-questions.default",
+        "kind": "component-config",
+        "nodes": {
+          "emit_config": {
+            "template": "{\n  \"node_id\": \"questions\",\n  \"node\": {\n    \"emit\": {\n      \"input\": {\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
+          }
+        }
+      }
+    },
+    "emit": {
+      "format": "flow-ir-json",
+      "graph": {
+        "description": "Auto-generated emit config for ai.greentic.component-questions",
+        "id": "ai.greentic.component-questions.emit",
+        "kind": "component-config",
+        "nodes": {
+          "emit_config": {
+            "template": "{\n  \"node_id\": \"questions\",\n  \"node\": {\n    \"emit\": {\n      \"input\": {\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
+          }
+        }
+      }
+    },
+    "validate": {
+      "format": "flow-ir-json",
+      "graph": {
+        "description": "Auto-generated validate config for ai.greentic.component-questions",
+        "id": "ai.greentic.component-questions.validate",
+        "kind": "component-config",
+        "nodes": {
+          "validate_config": {
+            "template": "{\n  \"node_id\": \"questions\",\n  \"node\": {\n    \"validate\": {\n      \"input\": {\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
+          }
+        }
+      }
+    },
+    "example-answers": {
+      "format": "flow-ir-json",
+      "graph": {
+        "description": "Auto-generated example-answers config for ai.greentic.component-questions",
+        "id": "ai.greentic.component-questions.example-answers",
+        "kind": "component-config",
+        "nodes": {
+          "example_answers_config": {
+            "template": "{\n  \"node_id\": \"questions\",\n  \"node\": {\n    \"example-answers\": {\n      \"input\": {\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
+          }
+        }
+      }
+    }
+  },
   "hashes": {
-    "component_wasm": "blake3:c9add5fcb45632e38102f6a3350c4ff08255768550c78f9ea1279683a4bbff50"
+    "component_wasm": "blake3:cbb35513ab892122efe0f1dad6f7ae89171fa2909145bb060ba89c3c38827003"
   },
   "id": "ai.greentic.component-questions",
   "limits": {
@@ -46,19 +164,31 @@
   "name": "questions",
   "operations": [
     {
-      "input_schema": {},
+      "input_schema": {
+        "$ref": "schemas/emit.input.schema.json"
+      },
       "name": "emit",
-      "output_schema": {}
+      "output_schema": {
+        "$ref": "schemas/emit.output.schema.json"
+      }
     },
     {
-      "input_schema": {},
+      "input_schema": {
+        "$ref": "schemas/validate.input.schema.json"
+      },
       "name": "validate",
-      "output_schema": {}
+      "output_schema": {
+        "$ref": "schemas/validate.output.schema.json"
+      }
     },
     {
-      "input_schema": {},
+      "input_schema": {
+        "$ref": "schemas/example-answers.input.schema.json"
+      },
       "name": "example-answers",
-      "output_schema": {}
+      "output_schema": {
+        "$ref": "schemas/example-answers.output.schema.json"
+      }
     }
   ],
   "profiles": {

@@ -1,0 +1,83 @@
+pack:
+  id: messaging-teams
+  name: Messaging Teams
+  version: "0.1.0"
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.teams.graph
+  provider_id: teams
+  ops:
+    - send
+    - reply
+  capabilities:
+    render_tiers:
+      - tier-d
+components:
+  adapter:
+    component_ref: local:../packs/messaging-teams/components/messaging-provider-teams.wasm
+    world: greentic:provider-schema-core/schema-core@1.0.0
+    export: schema-core-api
+    manifest: ../components/messaging-provider-teams/component.manifest.json
+flows:
+  generate:
+    - setup_default
+    - diagnostics
+    - requirements
+setup:
+  questions:
+    - key: tenant_id
+      prompt: Tenant ID
+      kind: string
+      required: true
+      write_to: config:tenant_id
+    - key: client_id
+      prompt: Client ID
+      kind: string
+      required: true
+      write_to: config:client_id
+    - key: public_base_url
+      prompt: Public base URL
+      kind: string
+      required: true
+      help: "Example: https://xxxx.trycloudflare.com"
+      validate:
+        regex: "^https://"
+      write_to: config:public_base_url
+    - key: team_id
+      prompt: Team ID
+      kind: string
+      required: false
+      write_to: config:team_id
+    - key: channel_id
+      prompt: Channel ID
+      kind: string
+      required: false
+      write_to: config:channel_id
+    - key: client_secret
+      prompt: Client secret
+      kind: string
+      required: true
+      write_to: secrets:MS_GRAPH_CLIENT_SECRET
+    - key: refresh_token
+      prompt: Refresh token
+      kind: string
+      required: false
+      write_to: secrets:MS_GRAPH_REFRESH_TOKEN
+  emits_success_message: true
+requirements:
+  required_args:
+    - text
+  optional_args:
+    - team_id
+    - channel_id
+  examples:
+    - args:
+        team_id: team-id
+        channel_id: channel-id
+        text: Hello from teams
+      text: Hello from teams
+  notes: team_id/channel_id are required unless configured in provider config.
+validators:
+  - id: greentic.validators.messaging
+    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest

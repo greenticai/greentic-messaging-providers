@@ -9,26 +9,26 @@ nodes:
   summary:
     routing: out
     text:
-      config:
-        default_channel: '{{ default_channel }}'
-        public_base_url: '{{ public_base_url }}'
       msg:
-        provider: messaging.slack.api
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
         message:
-          id: summary
-          text: |
-            Provider: messaging.slack.api
-            Config schema: schemas/messaging/slack/public.config.schema.json
-
-            Machine-readable requirements (JSON):
-            {
-              "provider": "messaging.slack.api",
-              "config_required": ["public_base_url"],
-              "config_optional": ["default_channel", "team_id"],
-              "secret_required": ["SLACK_BOT_TOKEN"],
-              "secret_optional": ["SLACK_SIGNING_SECRET"],
-              "oauth_required": true,
-              "subscriptions_required": false
-            }
-
-            Notes: Uses Slack Events API for inbound webhooks.
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.slack.api
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: '{"examples":[{"args":{},"text":""}],"notes":"","optional_args":[],"required_args":[]}'
+      wrap: true
+x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/slack.yaml
+  spec-hash: sha256:89b554d39939e4ec7e86024466a04a8670958f14fb9d6d1a8df1ad9bcf94f73e
+  manifest-hash: sha256:119dfe93f286b9e336592ccc0ab3c73c8ed72fbdd62f98ac54f8713f9206ce4c
+  schemas-hash: sha256:eb5aee0cdf22bd72a36f6d49b014b255b4a96b73efd5aaa5313aa89fc64c642e

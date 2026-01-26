@@ -1,0 +1,62 @@
+pack:
+  id: messaging-slack
+  name: Messaging Slack
+  version: "0.1.0"
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.slack.api
+  provider_id: slack
+  ops:
+    - send
+    - reply
+  capabilities:
+    render_tiers:
+      - tier-d
+components:
+  adapter:
+    component_ref: local:../packs/messaging-slack/components/messaging-provider-slack.wasm
+    world: greentic:provider-schema-core/schema-core@1.0.0
+    export: schema-core-api
+    manifest: ../components/messaging-provider-slack/component.manifest.json
+flows:
+  generate:
+    - setup_default
+    - diagnostics
+    - requirements
+setup:
+  questions:
+    - key: public_base_url
+      prompt: Public base URL
+      kind: string
+      required: true
+      help: "Example: https://xxxx.trycloudflare.com"
+      validate:
+        regex: "^https://"
+      write_to: config:public_base_url
+    - key: default_channel
+      prompt: Default channel
+      kind: string
+      required: false
+      write_to: config:default_channel
+    - key: bot_token
+      prompt: Slack bot token
+      kind: string
+      required: true
+      write_to: secrets:SLACK_BOT_TOKEN
+  emits_success_message: true
+requirements:
+  required_args:
+    - channel
+    - text
+  optional_args:
+    - thread_id
+  examples:
+    - args:
+        channel: C0123456
+        text: Hello from slack
+      text: Hello from slack
+  notes: Channel is required unless configured via default_channel.
+validators:
+  - id: greentic.validators.messaging
+    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest

@@ -9,27 +9,26 @@ nodes:
   summary:
     routing: out
     text:
-      config:
-        business_account_id: '{{ business_account_id }}'
-        phone_number_id: '{{ phone_number_id }}'
-        public_base_url: '{{ public_base_url }}'
       msg:
-        provider: messaging.whatsapp.cloud
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
         message:
-          id: summary
-          text: |
-            Provider: messaging.whatsapp.cloud
-            Config schema: schemas/messaging/whatsapp/public.config.schema.json
-
-            Machine-readable requirements (JSON):
-            {
-              "provider": "messaging.whatsapp.cloud",
-              "config_required": ["phone_number_id", "public_base_url"],
-              "config_optional": ["business_account_id"],
-              "secret_required": ["WHATSAPP_TOKEN"],
-              "secret_optional": ["WHATSAPP_VERIFY_TOKEN"],
-              "oauth_required": false,
-              "subscriptions_required": false
-            }
-
-            Notes: WhatsApp Cloud API uses webhook verification with verify token.
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.whatsapp.cloud
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: '{"examples":[{"args":{},"text":""}],"notes":"","optional_args":[],"required_args":[]}'
+      wrap: true
+x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/whatsapp.yaml
+  spec-hash: sha256:615475b5611106c913cd6818b3f81a28835263398cf41f883c3ad2eac7ba4d14
+  manifest-hash: sha256:119dfe93f286b9e336592ccc0ab3c73c8ed72fbdd62f98ac54f8713f9206ce4c
+  schemas-hash: sha256:eb5aee0cdf22bd72a36f6d49b014b255b4a96b73efd5aaa5313aa89fc64c642e

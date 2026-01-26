@@ -9,9 +9,26 @@ nodes:
   summary:
     routing: out
     text:
-      config: {}
       msg:
-        provider: messaging.dummy
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
         message:
-          id: summary
-          text: Dummy diagnostics completed; no external checks required.
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.dummy
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: Diagnostics ok; no config/secrets required.
+      wrap: true
+x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/dummy.yaml
+  spec-hash: sha256:189b3fc603bd9d0826ed314ced0a854ce340261782db3ab9addf2fdd27742263
+  manifest-hash: sha256:119dfe93f286b9e336592ccc0ab3c73c8ed72fbdd62f98ac54f8713f9206ce4c
+  schemas-hash: sha256:eb5aee0cdf22bd72a36f6d49b014b255b4a96b73efd5aaa5313aa89fc64c642e

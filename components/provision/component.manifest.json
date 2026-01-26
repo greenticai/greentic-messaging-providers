@@ -24,15 +24,121 @@
     }
   },
   "config_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "additionalProperties": false,
-    "properties": {},
-    "required": [],
-    "type": "object"
+    "properties": {
+      "plan": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "scope": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "key": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "value": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean",
+                    "object",
+                    "array",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "type",
+                "scope",
+                "key"
+              ]
+            }
+          }
+        },
+        "required": [
+          "actions"
+        ]
+      },
+      "dry_run": {
+        "type": [
+          "boolean",
+          "string"
+        ]
+      }
+    },
+    "required": [
+      "plan"
+    ]
   },
   "default_operation": "apply",
   "describe_export": "get-manifest",
+  "dev_flows": {
+    "custom": {
+      "format": "flow-ir-json",
+      "graph": {
+        "description": "Auto-generated custom config for ai.greentic.component-provision",
+        "id": "ai.greentic.component-provision.custom",
+        "kind": "component-config",
+        "nodes": {
+          "ask_config": {
+            "questions": {
+              "fields": []
+            },
+            "routing": [
+              {
+                "to": "emit_config"
+              }
+            ]
+          },
+          "emit_config": {
+            "template": "{\n  \"node_id\": \"provision\",\n  \"node\": {\n    \"apply\": {\n      \"input\": {\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
+          }
+        }
+      }
+    },
+    "default": {
+      "format": "flow-ir-json",
+      "graph": {
+        "description": "Auto-generated default config for ai.greentic.component-provision",
+        "id": "ai.greentic.component-provision.default",
+        "kind": "component-config",
+        "nodes": {
+          "emit_config": {
+            "template": "{\n  \"node_id\": \"provision\",\n  \"node\": {\n    \"apply\": {\n      \"input\": {\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
+          }
+        }
+      }
+    },
+    "apply": {
+      "format": "flow-ir-json",
+      "graph": {
+        "description": "Auto-generated apply config for ai.greentic.component-provision",
+        "id": "ai.greentic.component-provision.apply",
+        "kind": "component-config",
+        "nodes": {
+          "apply_config": {
+            "template": "{\n  \"node_id\": \"provision\",\n  \"node\": {\n    \"apply\": {\n      \"input\": {\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
+          }
+        }
+      }
+    }
+  },
   "hashes": {
-    "component_wasm": "blake3:0f48cb8c9f21850945f51946cde880e251ec7b910464cbfbac141360973be41f"
+    "component_wasm": "blake3:13e21928efa419914cb564a75428a575d89e0c1b9bfe06f4c8acbb25ac73b16a"
   },
   "id": "ai.greentic.component-provision",
   "limits": {
@@ -42,9 +148,13 @@
   "name": "provision",
   "operations": [
     {
-      "input_schema": {},
+      "input_schema": {
+        "$ref": "schemas/apply.input.schema.json"
+      },
       "name": "apply",
-      "output_schema": {}
+      "output_schema": {
+        "$ref": "schemas/apply.output.schema.json"
+      }
     }
   ],
   "profiles": {

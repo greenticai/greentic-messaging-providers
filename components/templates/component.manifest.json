@@ -27,8 +27,31 @@
   },
   "config_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "templates component configuration",
+    "type": "object",
     "additionalProperties": false,
     "properties": {
+      "msg": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "message": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
       "output_path": {
         "default": "text",
         "description": "Dot path where the rendered string is stored",
@@ -44,13 +67,28 @@
         "description": "Wrap output in an object when true; emit a raw string when false",
         "type": "boolean",
         "x-default-applied": true
+      },
+      "context": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "config": {
+        "type": "object",
+        "additionalProperties": true
       }
     },
-    "required": [
-      "template"
-    ],
-    "title": "templates component configuration",
-    "type": "object"
+    "anyOf": [
+      {
+        "required": [
+          "msg"
+        ]
+      },
+      {
+        "required": [
+          "template"
+        ]
+      }
+    ]
   },
   "default_operation": "text",
   "describe_export": "get-manifest",
@@ -64,25 +102,7 @@
         "nodes": {
           "ask_config": {
             "questions": {
-              "fields": [
-                {
-                  "default": "text",
-                  "id": "output_path",
-                  "prompt": "Dot path where the rendered string is stored",
-                  "type": "string"
-                },
-                {
-                  "id": "template",
-                  "prompt": "Handlebars template used to render the reply",
-                  "type": "string"
-                },
-                {
-                  "default": true,
-                  "id": "wrap",
-                  "prompt": "Wrap output in an object when true; emit a raw string when false",
-                  "type": "boolean"
-                }
-              ]
+              "fields": []
             },
             "routing": [
               {
@@ -91,7 +111,7 @@
             ]
           },
           "emit_config": {
-            "template": "{\n  \"node_id\": \"COMPONENT_STEP\",\n  \"node\": {\n    \"component.exec\": {\n      \"component\": \"ai.greentic.component-templates\",\n      \"operation\": \"text\",\n      \"input\": {\n        \"output_path\": \"{{state.output_path}}\",\n        \"template\": \"{{state.template}}\",\n        \"wrap\": {{state.wrap}}\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
+            "template": "{\n  \"node_id\": \"templates\",\n  \"node\": {\n    \"text\": {\n      \"input\": {\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
           }
         }
       }
@@ -104,7 +124,20 @@
         "kind": "component-config",
         "nodes": {
           "emit_config": {
-            "template": "{\n  \"node_id\": \"COMPONENT_STEP\",\n  \"node\": {\n    \"component.exec\": {\n      \"component\": \"ai.greentic.component-templates\",\n      \"operation\": \"text\",\n      \"input\": {\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
+            "template": "{\n  \"node_id\": \"templates\",\n  \"node\": {\n    \"text\": {\n      \"input\": {\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
+          }
+        }
+      }
+    },
+    "text": {
+      "format": "flow-ir-json",
+      "graph": {
+        "description": "Auto-generated text config for ai.greentic.component-templates",
+        "id": "ai.greentic.component-templates.text",
+        "kind": "component-config",
+        "nodes": {
+          "emit_config": {
+            "template": "{\n  \"node_id\": \"templates\",\n  \"node\": {\n    \"text\": {\n      \"input\": {\n      }\n    },\n    \"routing\": [\n      { \"to\": \"NEXT_NODE_PLACEHOLDER\" }\n    ]\n  }\n}"
           }
         }
       }
@@ -140,6 +173,6 @@
   "supports": [
     "messaging"
   ],
-  "version": "0.1.2",
+  "version": "0.1.0",
   "world": "greentic:component/component@0.5.0"
 }

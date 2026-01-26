@@ -9,29 +9,26 @@ nodes:
   summary:
     routing: out
     text:
-      config:
-        from_address: '{{ from_address }}'
-        host: '{{ host }}'
-        port: '{{ port }}'
-        tls_mode: '{{ tls_mode }}'
-        username: '{{ username }}'
       msg:
-        provider: messaging.email.smtp
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
         message:
-          id: summary
-          text: |
-            Provider: messaging.email.smtp
-            Config schema: schemas/messaging/email/public.config.schema.json
-
-            Machine-readable requirements (JSON):
-            {
-              "provider": "messaging.email.smtp",
-              "config_required": ["host", "username", "from_address"],
-              "config_optional": ["port", "use_tls"],
-              "secret_required": ["EMAIL_PASSWORD"],
-              "secret_optional": [],
-              "oauth_required": false,
-              "subscriptions_required": false
-            }
-
-            Notes: SMTP setup; no inbound webhooks.
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.email.smtp
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: '{"examples":[{"args":{},"text":""}],"notes":"","optional_args":[],"required_args":[]}'
+      wrap: true
+x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/email.yaml
+  spec-hash: sha256:65dfbbe5097c63b2dc15573c74715bb9859f94d97ef9cd0faf13d0faee0d14f3
+  manifest-hash: sha256:119dfe93f286b9e336592ccc0ab3c73c8ed72fbdd62f98ac54f8713f9206ce4c
+  schemas-hash: sha256:eb5aee0cdf22bd72a36f6d49b014b255b4a96b73efd5aaa5313aa89fc64c642e

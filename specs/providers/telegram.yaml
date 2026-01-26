@@ -1,0 +1,56 @@
+pack:
+  id: messaging-telegram
+  name: Messaging Telegram
+  version: 0.1.0
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.telegram.bot
+  provider_id: telegram
+  ops:
+  - send
+  - reply
+  capabilities:
+    render_tiers:
+    - tier-d
+components:
+  adapter:
+    id: messaging-provider-telegram
+    component_ref: local:../../packs/messaging-telegram/components/messaging-provider-telegram.wasm
+    world: greentic:provider/schema-core@1.0.0
+    export: schema-core-api
+  ingress:
+    id: messaging-ingress-telegram
+    component_ref: local:../../packs/messaging-telegram/components/messaging-ingress-telegram.wasm
+    world: greentic:messaging-ingress-telegram/messaging-ingress-telegram@0.0.1
+    export: handle-webhook
+flows:
+  include:
+  - setup_default
+  - setup_custom
+  - diagnostics
+  - requirements
+  - verify_webhooks
+  - sync_subscriptions
+source:
+  pack_dir: ../../packs/messaging-telegram
+  extensions:
+    include:
+    - greentic.provider-extension.v1
+    - greentic.messaging.validators.v1
+    - messaging.provider_flow_hints
+    - messaging.provider_ingress.v1
+contract:
+  ingress:
+    mode: custom
+  webhooks:
+    required: true
+  subscriptions:
+    required: false
+requirements:
+  required_args: []
+  optional_args: []
+  examples:
+  - args: {}
+    text: ''
+  notes: ''

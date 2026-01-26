@@ -1,64 +1,34 @@
 id: diagnostics
 type: job
-start: preflight
+start: summary
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  preflight:
-    routing:
-    - to: auth_test
-    text:
-      config:
-        default_channel: '{{ default_channel }}'
-        public_base_url: '{{ public_base_url }}'
-      msg:
-        provider: messaging.slack.api
-        message:
-          id: preflight
-          text: |
-            Checks performed:
-            - Ensure SLACK_BOT_TOKEN (and optional SLACK_SIGNING_SECRET) exist in greentic-secrets.
-            - Confirm config.default_channel/team_id available.
-            - If payload.verify_webhook true, check webhook subscription reachability (events endpoint responds 200).
-  auth_test:
-    routing:
-    - to: optional_send
-    text:
-      config:
-        default_channel: '{{ default_channel }}'
-        public_base_url: '{{ public_base_url }}'
-      msg:
-        provider: messaging.slack.api
-        message:
-          id: auth_test
-          text: |
-            Call Slack auth.test with stored bot token to verify scopes and workspace.
-            If default_channel is set, call conversations.info and conversations.history (limit 1) to ensure access.
-  optional_send:
-    routing:
-    - to: summary
-    text:
-      config:
-        default_channel: '{{ default_channel }}'
-        public_base_url: '{{ public_base_url }}'
-      msg:
-        provider: messaging.slack.api
-        message:
-          id: optional_send
-          text: |
-            If payload.send_test_message is true, post a test message to default_channel (or payload.target) with a diagnostics marker.
-            If false, skip send but report readiness.
   summary:
     routing: out
     text:
-      config:
-        default_channel: '{{ default_channel }}'
-        public_base_url: '{{ public_base_url }}'
       msg:
-        provider: messaging.slack.api
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
         message:
-          id: summary
-          text: |
-            Diagnostics complete. Token valid, channel reachable. Webhook status {{#if payload.verify_webhook}}checked{{else}}not requested{{/if}}.
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.slack.api
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: Diagnostics ok; no config/secrets required.
+      wrap: true
+x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/slack.yaml
+  spec-hash: sha256:89b554d39939e4ec7e86024466a04a8670958f14fb9d6d1a8df1ad9bcf94f73e
+  manifest-hash: sha256:119dfe93f286b9e336592ccc0ab3c73c8ed72fbdd62f98ac54f8713f9206ce4c
+  schemas-hash: sha256:eb5aee0cdf22bd72a36f6d49b014b255b4a96b73efd5aaa5313aa89fc64c642e

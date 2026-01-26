@@ -1,0 +1,56 @@
+pack:
+  id: messaging-whatsapp
+  name: Messaging WhatsApp
+  version: 0.1.0
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.whatsapp.cloud
+  provider_id: whatsapp
+  ops:
+  - send
+  - reply
+  capabilities:
+    render_tiers:
+    - tier-d
+components:
+  adapter:
+    id: messaging-provider-whatsapp
+    component_ref: local:../../packs/messaging-whatsapp/components/messaging-provider-whatsapp.wasm
+    world: greentic:provider/schema-core@1.0.0
+    export: schema-core-api
+  ingress:
+    id: messaging-ingress-whatsapp
+    component_ref: local:../../packs/messaging-whatsapp/components/messaging-ingress-whatsapp.wasm
+    world: greentic:messaging-ingress-whatsapp/messaging-ingress-whatsapp@0.0.1
+    export: handle-webhook
+flows:
+  include:
+  - setup_default
+  - setup_custom
+  - diagnostics
+  - requirements
+  - verify_webhooks
+  - sync_subscriptions
+source:
+  pack_dir: ../../packs/messaging-whatsapp
+  extensions:
+    include:
+    - greentic.provider-extension.v1
+    - greentic.messaging.validators.v1
+    - messaging.provider_flow_hints
+    - messaging.provider_ingress.v1
+contract:
+  ingress:
+    mode: custom
+  webhooks:
+    required: true
+  subscriptions:
+    required: false
+requirements:
+  required_args: []
+  optional_args: []
+  examples:
+  - args: {}
+    text: ''
+  notes: ''

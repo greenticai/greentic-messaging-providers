@@ -1,72 +1,34 @@
 id: diagnostics
 type: job
-start: token_check
+start: summary
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  token_check:
-    routing:
-    - to: channel_check
-    text:
-      config:
-        channel_id: '{{ channel_id }}'
-        client_id: '{{ client_id }}'
-        public_base_url: '{{ public_base_url }}'
-        team_id: '{{ team_id }}'
-        tenant_id: '{{ tenant_id }}'
-      msg:
-        provider: messaging.teams.graph
-        message:
-          id: token_check
-          text: |
-            - Ensure credentials present.
-            - Acquire access token from Azure AD.
-            - Call GET /v1.0/organization to confirm validity.
-  channel_check:
-    routing:
-    - to: subscription_check
-    text:
-      config:
-        channel_id: '{{ channel_id }}'
-        client_id: '{{ client_id }}'
-        public_base_url: '{{ public_base_url }}'
-        team_id: '{{ team_id }}'
-        tenant_id: '{{ tenant_id }}'
-      msg:
-        provider: messaging.teams.graph
-        message:
-          id: channel_check
-          text: |
-            - For default channel (or payload.target), attempt dry-run post or channel info lookup.
-  subscription_check:
-    routing:
-    - to: summary
-    text:
-      config:
-        channel_id: '{{ channel_id }}'
-        client_id: '{{ client_id }}'
-        public_base_url: '{{ public_base_url }}'
-        team_id: '{{ team_id }}'
-        tenant_id: '{{ tenant_id }}'
-      msg:
-        provider: messaging.teams.graph
-        message:
-          id: subscription_check
-          text: |
-            - If subscriptions configured, list existing subscriptions and ensure they target the desired webhook URL; renew if expiring soon.
   summary:
     routing: out
     text:
-      config:
-        channel_id: '{{ channel_id }}'
-        client_id: '{{ client_id }}'
-        public_base_url: '{{ public_base_url }}'
-        team_id: '{{ team_id }}'
-        tenant_id: '{{ tenant_id }}'
       msg:
-        provider: messaging.teams.graph
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
         message:
-          id: summary
-          text: Diagnostics complete; token valid, channel reachable, subscriptions reconciled.
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.teams.graph
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: Diagnostics ok; no config/secrets required.
+      wrap: true
+x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/teams.yaml
+  spec-hash: sha256:fe9cbd3c59ec1d4e0b5a52c58305ff9cd5b31e571bb738e54bb2a7a22c51a330
+  manifest-hash: sha256:119dfe93f286b9e336592ccc0ab3c73c8ed72fbdd62f98ac54f8713f9206ce4c
+  schemas-hash: sha256:eb5aee0cdf22bd72a36f6d49b014b255b4a96b73efd5aaa5313aa89fc64c642e

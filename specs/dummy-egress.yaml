@@ -1,0 +1,46 @@
+pack:
+  id: messaging-dummy
+  name: Messaging Dummy
+  version: "0.1.0"
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.dummy
+  provider_id: dummy
+  ops:
+    - send
+  capabilities:
+    render_tiers:
+      - tier-d
+components:
+  adapter:
+    component_ref: local:../components/messaging-provider-dummy/messaging-provider-dummy.wasm
+    world: greentic:provider-schema-core/schema-core@1.0.0
+    export: schema-core-api
+    manifest: ../components/messaging-provider-dummy/component.manifest.json
+flows:
+  generate:
+    - setup_default
+    - diagnostics
+    - requirements
+setup:
+  questions:
+    - key: public_base_url
+      prompt: Public base URL
+      kind: string
+      required: false
+      help: "Example: https://xxxx.trycloudflare.com"
+      write_to: config:public_base_url
+  emits_success_message: true
+requirements:
+  required_args:
+    - destination
+  optional_args: []
+  examples:
+    - args:
+        destination: dummy
+      text: Hello from dummy
+  notes: Dummy provider requires a destination for egress-only tests.
+validators:
+  - id: greentic.validators.messaging
+    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest

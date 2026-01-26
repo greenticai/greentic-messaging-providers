@@ -1,0 +1,64 @@
+pack:
+  id: messaging-webchat
+  name: Messaging Webchat
+  version: "0.1.0"
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.webchat
+  provider_id: webchat
+  ops:
+    - send
+    - ingest
+  capabilities:
+    render_tiers:
+      - tier-d
+components:
+  adapter:
+    component_ref: local:../packs/messaging-webchat/components/messaging-provider-webchat.wasm
+    world: greentic:provider-schema-core/schema-core@1.0.0
+    export: schema-core-api
+    manifest: ../components/messaging-provider-webchat/component.manifest.json
+flows:
+  generate:
+    - setup_default
+    - diagnostics
+    - requirements
+setup:
+  questions:
+    - key: public_base_url
+      prompt: Public base URL
+      kind: string
+      required: true
+      help: "Example: https://xxxx.trycloudflare.com"
+      validate:
+        regex: "^https://"
+      write_to: config:public_base_url
+    - key: mode
+      prompt: Mode
+      kind: choice
+      required: true
+      choices:
+        - webhook
+        - polling
+      write_to: config:mode
+    - key: ingress_path
+      prompt: Ingress path
+      kind: string
+      required: false
+      write_to: config:ingress_path
+  emits_success_message: true
+requirements:
+  required_args:
+    - text
+  optional_args:
+    - route
+    - tenant_channel_id
+  examples:
+    - args:
+        route: default
+      text: Hello from webchat
+  notes: Either route or tenant_channel_id must be provided.
+validators:
+  - id: greentic.validators.messaging
+    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest

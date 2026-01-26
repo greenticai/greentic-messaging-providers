@@ -10,18 +10,29 @@ nodes:
     routing:
     - to: setup_default__collect
     emit:
-      id: messaging-slack-setup_default
+      id: slack-setup_default
       spec_ref: assets/setup.yaml
   setup_default__collect:
     routing:
     - to: setup_default__validate
     text:
-      config: {}
       msg:
-        provider: messaging.slack.api
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
         message:
-          id: setup_default__collect
-          text: Collect inputs for setup_default.
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.slack.api
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: Collect inputs for setup_default.
+      wrap: true
   setup_default__validate:
     routing:
     - to: setup_default__apply
@@ -38,9 +49,26 @@ nodes:
   setup_default__summary:
     routing: out
     text:
-      config: {}
       msg:
-        provider: messaging.slack.api
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
         message:
-          id: setup_default__summary
-          text: messaging.slack setup_default complete.
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.slack.api
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: messaging.slack.api setup_default complete.
+      wrap: true
+x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/slack.yaml
+  spec-hash: sha256:89b554d39939e4ec7e86024466a04a8670958f14fb9d6d1a8df1ad9bcf94f73e
+  manifest-hash: sha256:119dfe93f286b9e336592ccc0ab3c73c8ed72fbdd62f98ac54f8713f9206ce4c
+  schemas-hash: sha256:eb5aee0cdf22bd72a36f6d49b014b255b4a96b73efd5aaa5313aa89fc64c642e

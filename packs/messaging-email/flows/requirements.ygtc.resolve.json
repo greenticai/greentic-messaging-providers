@@ -5,7 +5,7 @@
     "summary": {
       "source": {
         "kind": "local",
-        "path": "../components/templates.wasm"
+        "path": "file://../components/templates/templates.wasm"
       }
     }
   }

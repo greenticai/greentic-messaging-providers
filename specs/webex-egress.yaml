@@ -1,0 +1,62 @@
+pack:
+  id: messaging-webex
+  name: Messaging Webex
+  version: "0.1.0"
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.webex.bot
+  provider_id: webex
+  ops:
+    - send
+    - reply
+  capabilities:
+    render_tiers:
+      - tier-d
+components:
+  adapter:
+    component_ref: local:../packs/messaging-webex/components/messaging-provider-webex.wasm
+    world: greentic:provider-schema-core/schema-core@1.0.0
+    export: schema-core-api
+    manifest: ../components/messaging-provider-webex/component.manifest.json
+flows:
+  generate:
+    - setup_default
+    - diagnostics
+    - requirements
+setup:
+  questions:
+    - key: public_base_url
+      prompt: Public base URL
+      kind: string
+      required: true
+      help: "Example: https://xxxx.trycloudflare.com"
+      validate:
+        regex: "^https://"
+      write_to: config:public_base_url
+    - key: default_room_id
+      prompt: Default room ID
+      kind: string
+      required: false
+      write_to: config:default_room_id
+    - key: bot_token
+      prompt: Webex bot token
+      kind: string
+      required: true
+      write_to: secrets:WEBEX_BOT_TOKEN
+  emits_success_message: true
+requirements:
+  required_args:
+    - to
+    - text
+  optional_args: []
+  examples:
+    - args:
+        to:
+          kind: room
+          id: "room-id"
+      text: Hello from webex
+  notes: Destination required when no default_room_id is configured.
+validators:
+  - id: greentic.validators.messaging
+    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest

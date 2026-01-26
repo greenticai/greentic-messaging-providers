@@ -1,0 +1,81 @@
+pack:
+  id: messaging-email
+  name: Messaging Email
+  version: "0.1.0"
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.email.smtp
+  provider_id: email
+  ops:
+    - send
+    - reply
+  capabilities:
+    render_tiers:
+      - tier-d
+components:
+  adapter:
+    component_ref: local:../packs/messaging-email/components/messaging-provider-email.wasm
+    world: greentic:provider-schema-core/schema-core@1.0.0
+    export: schema-core-api
+    manifest: ../components/messaging-provider-email/component.manifest.json
+flows:
+  generate:
+    - setup_default
+    - diagnostics
+    - requirements
+setup:
+  questions:
+    - key: host
+      prompt: SMTP host
+      kind: string
+      required: true
+      write_to: config:host
+    - key: port
+      prompt: SMTP port
+      kind: number
+      required: false
+      default: 587
+      write_to: config:port
+    - key: username
+      prompt: SMTP username
+      kind: string
+      required: true
+      write_to: config:username
+    - key: from_address
+      prompt: From address
+      kind: string
+      required: true
+      write_to: config:from_address
+    - key: tls_mode
+      prompt: TLS mode
+      kind: choice
+      required: false
+      choices:
+        - starttls
+        - implicit
+        - none
+      default: starttls
+      write_to: config:tls_mode
+    - key: password
+      prompt: SMTP password
+      kind: string
+      required: true
+      write_to: secrets:EMAIL_PASSWORD
+  emits_success_message: true
+requirements:
+  required_args:
+    - to
+    - body
+  optional_args:
+    - subject
+  examples:
+    - args:
+        to: user@example.com
+        subject: Test email
+        body: Hello from email
+      text: Hello from email
+  notes: SMTP sends require at least to + body; subject is optional.
+validators:
+  - id: greentic.validators.messaging
+    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest
