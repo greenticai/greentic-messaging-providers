@@ -28,6 +28,28 @@ fi
 echo "==> tools/build_components.sh"
 ./tools/build_components.sh
 
+ensure_templates_component() {
+  local templates_src="${ROOT_DIR}/components/templates"
+  local wasm_src="${templates_src}/templates.wasm"
+  local manifest_src="${templates_src}/component.manifest.json"
+  if [ ! -f "${wasm_src}" ]; then
+    echo "Templates component missing at ${wasm_src}" >&2
+    exit 1
+  fi
+  for pack in "${ROOT_DIR}/packs"/*; do
+    [ -d "${pack}" ] || continue
+    local dest_dir="${pack}/components/templates"
+    mkdir -p "${dest_dir}"
+    cp -f "${wasm_src}" "${dest_dir}/templates.wasm"
+    if [ -f "${manifest_src}" ]; then
+      cp -f "${manifest_src}" "${dest_dir}/component.manifest.json"
+    fi
+  done
+}
+
+echo "==> ensuring shared templates component is available for each pack"
+ensure_templates_component
+
 echo "==> tools/check_op_schemas.py"
 python3 tools/check_op_schemas.py
 
