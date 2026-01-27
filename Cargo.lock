@@ -3676,6 +3676,7 @@ dependencies = [
  "anyhow",
  "glob",
  "greentic-runner-desktop",
+ "once_cell",
  "schemars 1.2.0",
  "serde",
  "serde_json",

@@ -1,13 +1,83 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::env;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Result, anyhow};
+use once_cell::sync::OnceCell;
 use serde_json::{Map, Value};
 use serde_yaml_bw::Value as YamlValue;
 use tempfile::tempdir;
+
+static GREENTIC_PACK_BIN: OnceCell<PathBuf> = OnceCell::new();
+
+fn greentic_pack_path() -> PathBuf {
+    GREENTIC_PACK_BIN
+        .get_or_init(|| {
+            env::var_os("GREENTIC_PACK_BIN")
+                .map(PathBuf::from)
+                .or_else(|| find_in_path("greentic-pack"))
+                .unwrap_or_else(|| install_greentic_pack())
+        })
+        .clone()
+}
+
+fn greentic_pack_command() -> Command {
+    Command::new(greentic_pack_path())
+}
+
+fn find_in_path(name: &str) -> Option<PathBuf> {
+    env::var_os("PATH").and_then(|paths| {
+        env::split_paths(&paths).find_map(|dir| find_executable_in_dir(name, &dir))
+    })
+}
+
+fn install_greentic_pack() -> PathBuf {
+    println!("greentic-pack not found; installing via `cargo install greentic-pack --locked`");
+    let status = Command::new("cargo")
+        .arg("install")
+        .arg("--locked")
+        .arg("greentic-pack")
+        .status()
+        .expect("failed to run `cargo install greentic-pack`");
+    assert!(status.success(), "cargo install greentic-pack failed");
+    candidate_bin_dirs()
+        .into_iter()
+        .find_map(|dir| find_executable_in_dir("greentic-pack", &dir))
+        .expect("greentic-pack installation succeeded but binary not found")
+}
+
+fn candidate_bin_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Some(cargo_home) = env::var_os("CARGO_HOME") {
+        dirs.push(PathBuf::from(cargo_home).join("bin"));
+    }
+    if let Some(home) = env::var_os("HOME") {
+        dirs.push(PathBuf::from(home).join(".cargo").join("bin"));
+    }
+    #[cfg(windows)]
+    if let Some(user_profile) = env::var_os("USERPROFILE") {
+        dirs.push(PathBuf::from(user_profile).join(".cargo").join("bin"));
+    }
+    dirs
+}
+
+fn find_executable_in_dir(name: &str, dir: &Path) -> Option<PathBuf> {
+    let candidate = dir.join(name);
+    if candidate.exists() {
+        return Some(candidate);
+    }
+    #[cfg(windows)]
+    {
+        let candidate_exe = dir.join(format!("{name}.exe"));
+        if candidate_exe.exists() {
+            return Some(candidate_exe);
+        }
+    }
+    None
+}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -169,7 +239,7 @@ fn build_dummy_pack() -> Result<(tempfile::TempDir, PathBuf)> {
     }
 
     let gtpack_path = pack_dir.join("build").join("messaging-dummy.gtpack");
-    let mut command = Command::new("greentic-pack");
+    let mut command = greentic_pack_command();
     command
         .arg("build")
         .arg("--no-update")
@@ -436,7 +506,7 @@ fn greentic_pack_doctor_requires_config_schema() -> Result<()> {
         "schemas/messaging/dummy/public.config.schema.json",
     )?;
 
-    let output = Command::new("greentic-pack")
+    let output = greentic_pack_command()
         .arg("doctor")
         .arg("--json")
         .arg("--pack")
