@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ok": { "type": "boolean" },
+    "expected_url": { "type": "string" },
+    "current_url": { "type": ["string", "null"] },
+    "final_url": { "type": ["string", "null"] },
+    "webhook_reconciled": { "type": "boolean" },
+    "set_attempted": { "type": "boolean" },
+    "set_skipped_dry_run": { "type": "boolean" },
+    "set_response": { "type": ["object", "null"] },
+    "webhook_info": { "type": "object" }
+  },
+  "required": [
+    "ok",
+    "expected_url",
+    "webhook_reconciled",
+    "set_attempted",
+    "set_skipped_dry_run",
+    "webhook_info"
+  ]
+}

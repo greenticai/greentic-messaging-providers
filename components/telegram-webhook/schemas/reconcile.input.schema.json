@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "public_base_url": {
+      "type": "string",
+      "description": "Base URL used to build Telegram's webhook endpoint."
+    },
+    "webhook_path": {
+      "type": "string",
+      "description": "Optional path appended to the base URL."
+    },
+    "secret_token": {
+      "type": "string",
+      "description": "Optional secret token to surface to Telegram when registering the webhook."
+    },
+    "api_base_url": {
+      "type": "string",
+      "description": "Optional override for the Telegram API base URL."
+    },
+    "dry_run": {
+      "type": "boolean",
+      "description": "If true, skip the call to setWebhook even when the paths differ."
+    }
+  },
+  "required": ["public_base_url"]
+}
