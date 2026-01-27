@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: MIT
+
+package greentic:telegram-webhook@0.0.1;
+
+use greentic:http/http-client@1.0.0;
+use greentic:secrets-store/secrets-store@1.0.0;
+
+world telegram-webhook {
+  import http-client;
+  import secrets-store;
+}

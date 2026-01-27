@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "msg": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "text": {
+      "type": "string"
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "value": {
+      "type": "string"
+    }
+  }
+}
