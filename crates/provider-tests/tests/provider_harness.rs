@@ -1,6 +1,8 @@
 #![allow(non_snake_case)]
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::sync::Once;
 
 use provider_common::{RenderPlan, RenderTier};
 use serde::Deserialize;
@@ -153,6 +155,8 @@ fn fixtures_root() -> PathBuf {
     workspace_root().join("tests/fixtures")
 }
 
+static BUILD_COMPONENTS_ONCE: Once = Once::new();
+
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -161,7 +165,23 @@ fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
+fn ensure_components_built() {
+    BUILD_COMPONENTS_ONCE.call_once(|| {
+        let script = workspace_root().join("tools/build_components.sh");
+        if !script.exists() {
+            return;
+        }
+        let status = Command::new("bash")
+            .arg(script)
+            .current_dir(workspace_root())
+            .status()
+            .expect("failed to run tools/build_components.sh");
+        assert!(status.success(), "tools/build_components.sh failed");
+    });
+}
+
 fn component_path(provider: ProviderId) -> PathBuf {
+    ensure_components_built();
     let name = provider.as_str();
     let candidates = [
         workspace_root().join(format!("target/components/{name}.wasm")),
