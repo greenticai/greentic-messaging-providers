@@ -1,12 +1,16 @@
 use base64::{decode as base64_decode, encode as base64_encode};
+use chrono::{DateTime, Duration, SecondsFormat, TimeZone, Utc};
 use messaging_universal_dto::{
-    EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
-    SendPayloadInV1, SendPayloadResultV1,
+    AuthUserRefV1, EncodeInV1, Header, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1,
+    RenderPlanOutV1, SendPayloadInV1, SendPayloadResultV1, SubscriptionDeleteInV1,
+    SubscriptionDeleteOutV1, SubscriptionEnsureInV1, SubscriptionEnsureOutV1,
+    SubscriptionRenewInV1, SubscriptionRenewOutV1,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use urlencoding::decode as url_decode;
 
 mod bindings {
     wit_bindgen::generate!({
@@ -16,11 +20,18 @@ mod bindings {
     });
 }
 
+mod auth;
+
 use bindings::exports::greentic::provider_schema_core::schema_core_api::Guest;
-use greentic_types::ProviderManifest;
+use bindings::greentic::http::client;
+use greentic_types::{
+    ChannelMessageEnvelope, EnvId, MessageMetadata, ProviderManifest, TenantCtx, TenantId,
+};
 
 const PROVIDER_TYPE: &str = "messaging.email.smtp";
 const CONFIG_SCHEMA_REF: &str = "schemas/messaging/email/public.config.schema.json";
+const DEFAULT_GRAPH_BASE: &str = "https://graph.microsoft.com/v1.0";
+const GRAPH_MAX_EXPIRATION_MINUTES: u32 = 4230;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -32,6 +43,16 @@ struct ProviderConfig {
     from_address: String,
     #[serde(default = "default_tls")]
     tls_mode: String,
+    #[serde(default)]
+    graph_tenant_id: Option<String>,
+    #[serde(default)]
+    graph_authority: Option<String>,
+    #[serde(default)]
+    graph_base_url: Option<String>,
+    #[serde(default)]
+    graph_token_endpoint: Option<String>,
+    #[serde(default)]
+    graph_scope: Option<String>,
 }
 
 fn default_port() -> u16 {
@@ -49,7 +70,17 @@ impl Guest for Component {
         let manifest = ProviderManifest {
             provider_type: PROVIDER_TYPE.to_string(),
             capabilities: vec![],
-            ops: vec!["send".to_string(), "reply".to_string()],
+            ops: vec![
+                "send".to_string(),
+                "reply".to_string(),
+                "ingest_http".to_string(),
+                "render_plan".to_string(),
+                "encode".to_string(),
+                "send_payload".to_string(),
+                "subscription_ensure".to_string(),
+                "subscription_renew".to_string(),
+                "subscription_delete".to_string(),
+            ],
             config_schema_ref: Some(CONFIG_SCHEMA_REF.to_string()),
             state_schema_ref: None,
         };
@@ -66,6 +97,11 @@ impl Guest for Component {
                     "username": cfg.username,
                     "from_address": cfg.from_address,
                     "tls_mode": cfg.tls_mode,
+                    "graph_tenant_id": cfg.graph_tenant_id,
+                    "graph_authority": cfg.graph_authority,
+                    "graph_base_url": cfg.graph_base_url,
+                    "graph_token_endpoint": cfg.graph_token_endpoint,
+                    "graph_scope": cfg.graph_scope,
                 }
             })),
             Err(err) => json_bytes(&json!({"ok": false, "error": err})),
@@ -84,6 +120,9 @@ impl Guest for Component {
             "render_plan" => render_plan(&input_json),
             "encode" => encode(&input_json),
             "send_payload" => send_payload(&input_json),
+            "subscription_ensure" => subscription_ensure(&input_json),
+            "subscription_renew" => subscription_renew(&input_json),
+            "subscription_delete" => subscription_delete(&input_json),
             other => json_bytes(&json!({"ok": false, "error": format!("unsupported op: {other}")})),
         }
     }
@@ -204,9 +243,16 @@ fn handle_reply(_input_json: &[u8]) -> Vec<u8> {
     }))
 }
 
-fn ingest_http(_input_json: &[u8]) -> Vec<u8> {
-    let _ = serde_json::from_slice::<HttpInV1>(_input_json);
-    http_out_error(404, "email ingress not supported")
+fn ingest_http(input_json: &[u8]) -> Vec<u8> {
+    let http = match serde_json::from_slice::<HttpInV1>(input_json) {
+        Ok(value) => value,
+        Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+    };
+    match http.method.to_uppercase().as_str() {
+        "GET" => handle_validation(&http),
+        "POST" => handle_graph_notifications(&http),
+        _ => http_out_error(405, "method not allowed"),
+    }
 }
 
 fn render_plan(input_json: &[u8]) -> Vec<u8> {
@@ -292,12 +338,75 @@ fn send_payload(input_json: &[u8]) -> Vec<u8> {
         }
     };
     let payload: Value = serde_json::from_slice(&payload_bytes).unwrap_or(Value::Null);
-    let deb = payload.get("subject").and_then(Value::as_str).unwrap_or("");
-    if payload.is_null() || !payload.get("to").is_some() {
+    let subject = payload
+        .get("subject")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let to = payload
+        .get("to")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let body = payload
+        .get("body")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    if to.is_empty() {
         return send_payload_error("missing email target", false);
     }
-    if deb.is_empty() {
+    if subject.is_empty() {
         return send_payload_error("subject required", false);
+    }
+    let auth_user = match send_in.auth_user {
+        Some(user) => user,
+        None => return send_payload_error("auth_user missing", false),
+    };
+    let mut config_value = serde_json::Map::new();
+    for key in [
+        "host",
+        "port",
+        "username",
+        "from_address",
+        "tls_mode",
+        "graph_tenant_id",
+        "graph_authority",
+        "graph_base_url",
+        "graph_token_endpoint",
+        "graph_scope",
+    ] {
+        if let Some(value) = send_in.payload.metadata.get(key) {
+            config_value.insert(key.to_string(), value.clone());
+        }
+    }
+    let cfg = if !config_value.is_empty() {
+        match parse_config_value(&Value::Object(config_value)) {
+            Ok(cfg) => cfg,
+            Err(err) => return send_payload_error(&err, false),
+        }
+    } else {
+        return send_payload_error("config metadata required for send_payload", false);
+    };
+    let token = match auth::acquire_graph_token(&cfg, &auth_user) {
+        Ok(value) => value,
+        Err(err) => return send_payload_error(&err, true),
+    };
+    let mail_body = json!({
+        "message": {
+            "subject": subject,
+            "body": { "contentType": "Text", "content": body },
+            "toRecipients": [
+                { "emailAddress": { "address": to } }
+            ]
+        },
+        "saveToSentItems": false
+    });
+    let url = format!("{}/me/sendMail", graph_base_url(&cfg));
+    if let Err(err) = graph_post(&token, &url, &mail_body) {
+        return send_payload_error(&err, true);
     }
     send_payload_success()
 }
@@ -336,6 +445,489 @@ fn send_payload_success() -> Vec<u8> {
         retryable: false,
     };
     json_bytes(&result)
+}
+
+fn subscription_ensure(input_json: &[u8]) -> Vec<u8> {
+    let parsed = match serde_json::from_slice::<Value>(input_json) {
+        Ok(value) => value,
+        Err(err) => {
+            return subscription_error(&format!("invalid subscription input: {err}"));
+        }
+    };
+    let dto = match serde_json::from_value::<SubscriptionEnsureInV1>(parsed.clone()) {
+        Ok(value) => value,
+        Err(err) => {
+            return subscription_error(&format!("invalid subscription payload: {err}"));
+        }
+    };
+    if let Err(err) = ensure_provider(&dto.provider) {
+        return subscription_error(&err);
+    }
+    let cfg = match load_config(&parsed) {
+        Ok(cfg) => cfg,
+        Err(err) => return subscription_error(&err),
+    };
+    let token = match auth::acquire_graph_token(&cfg, &dto.user) {
+        Ok(value) => value,
+        Err(err) => return subscription_error(&err),
+    };
+    let change_types = if dto.change_types.is_empty() {
+        vec!["created".to_string()]
+    } else {
+        dto.change_types.clone()
+    };
+    let expiration = target_expiration(dto.expiration_minutes, dto.expiration_target_unix_ms);
+    let expiration = clamp_expiration(expiration);
+    let iso_expiration = expiration.to_rfc3339_opts(SecondsFormat::Secs, true);
+    let mut body = json!({
+        "changeType": change_types.join(","),
+        "notificationUrl": dto.notification_url,
+        "resource": dto.resource,
+        "expirationDateTime": iso_expiration,
+    });
+    if let Some(client_state) = &dto.client_state {
+        body["clientState"] = Value::String(client_state.clone());
+    }
+    if let Some(metadata) = &dto.metadata {
+        body["metadata"] = metadata.clone();
+    }
+    let url = format!("{}/subscriptions", graph_base_url(&cfg));
+    let resp = match graph_post(&token, &url, &body) {
+        Ok(value) => value,
+        Err(err) => return subscription_error(&err),
+    };
+    let subscription_id = resp
+        .get("id")
+        .and_then(Value::as_str)
+        .map(|s| s.to_string())
+        .unwrap_or_default();
+    if subscription_id.is_empty() {
+        return subscription_error("subscription response missing id");
+    }
+    let expiration_ms = resp
+        .get("expirationDateTime")
+        .and_then(Value::as_str)
+        .and_then(parse_datetime)
+        .map(|dt| dt.timestamp_millis() as u64)
+        .unwrap_or_else(|| expiration.timestamp_millis() as u64);
+    let out = SubscriptionEnsureOutV1 {
+        v: 1,
+        subscription_id,
+        expiration_unix_ms: expiration_ms,
+        resource: dto.resource,
+        change_types,
+        client_state: dto.client_state.clone(),
+        metadata: dto.metadata.clone(),
+        binding_id: dto.binding_id.clone(),
+        user: dto.user,
+    };
+    json_bytes(&json!({"ok": true, "subscription": out}))
+}
+
+fn subscription_renew(input_json: &[u8]) -> Vec<u8> {
+    let parsed = match serde_json::from_slice::<Value>(input_json) {
+        Ok(value) => value,
+        Err(err) => {
+            return subscription_error(&format!("invalid subscription input: {err}"));
+        }
+    };
+    let dto = match serde_json::from_value::<SubscriptionRenewInV1>(parsed.clone()) {
+        Ok(value) => value,
+        Err(err) => {
+            return subscription_error(&format!("invalid subscription payload: {err}"));
+        }
+    };
+    if let Err(err) = ensure_provider(&dto.provider) {
+        return subscription_error(&err);
+    }
+    let cfg = match load_config(&parsed) {
+        Ok(cfg) => cfg,
+        Err(err) => return subscription_error(&err),
+    };
+    let token = match auth::acquire_graph_token(&cfg, &dto.user) {
+        Ok(value) => value,
+        Err(err) => return subscription_error(&err),
+    };
+    let expiration = target_expiration(dto.expiration_minutes, dto.expiration_target_unix_ms);
+    let expiration = clamp_expiration(expiration);
+    let iso_expiration = expiration.to_rfc3339_opts(SecondsFormat::Secs, true);
+    let body = json!({
+        "expirationDateTime": iso_expiration,
+    });
+    let url = format!(
+        "{}/subscriptions/{}",
+        graph_base_url(&cfg),
+        dto.subscription_id
+    );
+    let resp = match graph_patch(&token, &url, &body) {
+        Ok(value) => value,
+        Err(err) => return subscription_error(&err),
+    };
+    let expiration_ms = resp
+        .get("expirationDateTime")
+        .and_then(Value::as_str)
+        .and_then(parse_datetime)
+        .map(|dt| dt.timestamp_millis() as u64)
+        .unwrap_or_else(|| expiration.timestamp_millis() as u64);
+    let out = SubscriptionRenewOutV1 {
+        v: 1,
+        subscription_id: dto.subscription_id,
+        expiration_unix_ms: expiration_ms,
+        metadata: dto.metadata.clone(),
+        user: dto.user,
+    };
+    json_bytes(&json!({"ok": true, "subscription": out}))
+}
+
+fn subscription_delete(input_json: &[u8]) -> Vec<u8> {
+    let parsed = match serde_json::from_slice::<Value>(input_json) {
+        Ok(value) => value,
+        Err(err) => {
+            return subscription_error(&format!("invalid subscription input: {err}"));
+        }
+    };
+    let dto = match serde_json::from_value::<SubscriptionDeleteInV1>(parsed.clone()) {
+        Ok(value) => value,
+        Err(err) => {
+            return subscription_error(&format!("invalid subscription payload: {err}"));
+        }
+    };
+    if let Err(err) = ensure_provider(&dto.provider) {
+        return subscription_error(&err);
+    }
+    let cfg = match load_config(&parsed) {
+        Ok(cfg) => cfg,
+        Err(err) => return subscription_error(&err),
+    };
+    let token = match auth::acquire_graph_token(&cfg, &dto.user) {
+        Ok(value) => value,
+        Err(err) => return subscription_error(&err),
+    };
+    let url = format!(
+        "{}/subscriptions/{}",
+        graph_base_url(&cfg),
+        dto.subscription_id
+    );
+    if let Err(err) = graph_delete(&token, &url) {
+        return subscription_error(&err);
+    }
+    let out = SubscriptionDeleteOutV1 {
+        v: 1,
+        subscription_id: dto.subscription_id,
+        user: dto.user,
+    };
+    json_bytes(&json!({"ok": true, "subscription": out}))
+}
+
+fn subscription_error(message: &str) -> Vec<u8> {
+    json_bytes(&json!({"ok": false, "error": message}))
+}
+
+fn ensure_provider(provider: &str) -> Result<(), String> {
+    if provider != PROVIDER_TYPE {
+        return Err(format!(
+            "provider mismatch: expected {PROVIDER_TYPE}, got {provider}"
+        ));
+    }
+    Ok(())
+}
+
+fn target_expiration(minutes: Option<u32>, target_unix_ms: Option<u64>) -> DateTime<Utc> {
+    if let Some(ms) = target_unix_ms {
+        if let Some(dt) = parse_datetime_value(ms) {
+            return dt;
+        }
+    }
+    if let Some(mins) = minutes {
+        return Utc::now() + Duration::minutes(mins as i64);
+    }
+    Utc::now() + Duration::minutes(GRAPH_MAX_EXPIRATION_MINUTES as i64)
+}
+
+fn clamp_expiration(expiration: DateTime<Utc>) -> DateTime<Utc> {
+    let now = Utc::now();
+    let max = now + Duration::minutes(GRAPH_MAX_EXPIRATION_MINUTES as i64);
+    if expiration > max {
+        max
+    } else if expiration < now {
+        now
+    } else {
+        expiration
+    }
+}
+
+fn parse_datetime(value: &str) -> Option<DateTime<Utc>> {
+    DateTime::parse_from_rfc3339(value)
+        .ok()
+        .map(|dt| dt.with_timezone(&Utc))
+}
+
+fn parse_datetime_value(unix_ms: u64) -> Option<DateTime<Utc>> {
+    Utc.timestamp_millis_opt(unix_ms as i64).single()
+}
+
+fn graph_base_url(cfg: &ProviderConfig) -> String {
+    cfg.graph_base_url
+        .as_ref()
+        .cloned()
+        .unwrap_or_else(|| DEFAULT_GRAPH_BASE.to_string())
+        .trim_end_matches('/')
+        .to_string()
+}
+
+fn graph_post(token: &str, url: &str, body: &Value) -> Result<Value, String> {
+    graph_request(token, "POST", url, Some(body))
+}
+
+fn graph_patch(token: &str, url: &str, body: &Value) -> Result<Value, String> {
+    graph_request(token, "PATCH", url, Some(body))
+}
+
+fn graph_delete(token: &str, url: &str) -> Result<Value, String> {
+    graph_request(token, "DELETE", url, None)
+}
+
+fn graph_get(token: &str, url: &str) -> Result<Value, String> {
+    graph_request(token, "GET", url, None)
+}
+
+fn graph_request(
+    token: &str,
+    method: &str,
+    url: &str,
+    body: Option<&Value>,
+) -> Result<Value, String> {
+    let mut headers = vec![("Authorization".into(), format!("Bearer {token}"))];
+    let (body_vec, _needs_content) = if let Some(value) = body {
+        let bytes = serde_json::to_vec(value).map_err(|e| format!("invalid graph body: {e}"))?;
+        headers.push(("Content-Type".into(), "application/json".into()));
+        (Some(bytes), true)
+    } else {
+        (None, false)
+    };
+    let request = client::Request {
+        method: method.into(),
+        url: url.to_string(),
+        headers,
+        body: body_vec,
+    };
+    let resp = client::send(&request, None, None)
+        .map_err(|e| format!("graph request error: {}", e.message))?;
+    if resp.status < 200 || resp.status >= 300 {
+        return Err(format!("graph request returned {}", resp.status));
+    }
+    let body = match resp.body {
+        Some(body) if !body.is_empty() => body,
+        _ => return Ok(Value::Null),
+    };
+    serde_json::from_slice(&body).map_err(|e| format!("graph response decode failed: {e}"))
+}
+
+fn handle_validation(http: &HttpInV1) -> Vec<u8> {
+    let token = http
+        .query
+        .as_deref()
+        .and_then(|query| query_param_value(query, "validationToken"))
+        .unwrap_or_default();
+    if token.is_empty() {
+        return http_out_error(400, "validationToken missing");
+    }
+    let mut headers = Vec::new();
+    headers.push(Header {
+        name: "Content-Type".into(),
+        value: "text/plain".into(),
+    });
+    let out = HttpOutV1 {
+        status: 200,
+        headers,
+        body_b64: base64_encode(token.as_bytes()),
+        events: Vec::new(),
+    };
+    json_bytes(&out)
+}
+
+fn handle_graph_notifications(http: &HttpInV1) -> Vec<u8> {
+    let config_value = match http.config.as_ref() {
+        Some(cfg) => cfg,
+        None => return http_out_error(400, "config required for ingest"),
+    };
+    let cfg = match parse_config_value(config_value) {
+        Ok(cfg) => cfg,
+        Err(err) => return http_out_error(400, &err),
+    };
+    let user = match binding_to_user(http.binding_id.as_ref()) {
+        Ok(value) => value,
+        Err(err) => return http_out_error(400, &err),
+    };
+    let token = match auth::acquire_graph_token(&cfg, &user) {
+        Ok(value) => value,
+        Err(err) => return http_out_error(500, &err),
+    };
+    let notifications = match parse_graph_notifications(&http.body_b64) {
+        Ok(value) => value,
+        Err(err) => return http_out_error(400, &err),
+    };
+    let mut events = Vec::new();
+    for (resource, message_id) in notifications {
+        match fetch_graph_message(&token, &cfg, &message_id) {
+            Ok(message) => {
+                events.push(channel_message_envelope(
+                    &message,
+                    &user,
+                    &message_id,
+                    &resource,
+                ));
+            }
+            Err(err) => return http_out_error(500, &err),
+        }
+    }
+    let out = HttpOutV1 {
+        status: 200,
+        headers: Vec::new(),
+        body_b64: String::new(),
+        events,
+    };
+    json_bytes(&out)
+}
+
+fn query_param_value(query: &str, key: &str) -> Option<String> {
+    for part in query.split('&') {
+        let mut kv = part.splitn(2, '=');
+        if let Some(k) = kv.next() {
+            if k == key {
+                if let Some(v) = kv.next() {
+                    return url_decode(v).ok().map(|cow| cow.into_owned());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn binding_to_user(binding: Option<&String>) -> Result<AuthUserRefV1, String> {
+    let binding = binding.ok_or_else(|| "binding_id required".to_string())?;
+    let parts: Vec<&str> = binding.splitn(2, '|').collect();
+    let (user_id, token_key) = if parts.len() == 2 {
+        (parts[0], parts[1])
+    } else {
+        (binding.as_str(), binding.as_str())
+    };
+    Ok(AuthUserRefV1 {
+        user_id: user_id.to_string(),
+        token_key: token_key.to_string(),
+        tenant_id: None,
+        email: None,
+        display_name: None,
+    })
+}
+
+fn parse_graph_notifications(body_b64: &str) -> Result<Vec<(String, String)>, String> {
+    let bytes =
+        base64_decode(body_b64).map_err(|err| format!("invalid notification body: {err}"))?;
+    let json: Value = serde_json::from_slice(&bytes)
+        .map_err(|err| format!("notification decode failed: {err}"))?;
+    let entries = json
+        .get("value")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "missing notification value array".to_string())?;
+    let mut parsed = Vec::new();
+    for entry in entries {
+        let resource = entry
+            .get("resource")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let message_id = entry
+            .get("resourceData")
+            .and_then(|rd| rd.get("id"))
+            .and_then(Value::as_str)
+            .or_else(|| {
+                entry
+                    .get("resourceData")
+                    .and_then(|rd| rd.get("@odata.id"))
+                    .and_then(Value::as_str)
+            })
+            .ok_or_else(|| "notification missing resourceData.id".to_string())?
+            .to_string();
+        parsed.push((resource, message_id));
+    }
+    Ok(parsed)
+}
+
+fn fetch_graph_message(
+    token: &str,
+    cfg: &ProviderConfig,
+    message_id: &str,
+) -> Result<Value, String> {
+    let base = graph_base_url(cfg);
+    let url = format!(
+        "{}/me/messages/{}?$select=subject,bodyPreview,receivedDateTime,from,toRecipients,webLink,internetMessageId",
+        base, message_id
+    );
+    graph_get(token, &url)
+}
+
+fn channel_message_envelope(
+    message: &Value,
+    user: &AuthUserRefV1,
+    message_id: &str,
+    resource: &str,
+) -> ChannelMessageEnvelope {
+    let subject = message
+        .get("subject")
+        .and_then(Value::as_str)
+        .unwrap_or("email message")
+        .to_string();
+    let preview = message
+        .get("bodyPreview")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let received = message
+        .get("receivedDateTime")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let from_address = message
+        .get("from")
+        .and_then(|from| from.get("emailAddress"))
+        .and_then(|ea| ea.get("address"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let mut metadata = MessageMetadata::new();
+    metadata.insert("graph_message_id".to_string(), message_id.to_string());
+    metadata.insert("subject".to_string(), subject.clone());
+    if !preview.is_empty() {
+        metadata.insert("body_preview".to_string(), preview);
+    }
+    if !received.is_empty() {
+        metadata.insert("receivedDateTime".to_string(), received.to_string());
+    }
+    if !from_address.is_empty() {
+        metadata.insert("from".to_string(), from_address.to_string());
+    }
+    metadata.insert("resource".to_string(), resource.to_string());
+    let env = default_env();
+    let tenant = default_tenant();
+    ChannelMessageEnvelope {
+        id: format!("email-{message_id}"),
+        tenant: TenantCtx::new(env, tenant),
+        channel: "email".to_string(),
+        session_id: message_id.to_string(),
+        reply_scope: None,
+        user_id: Some(user.user_id.clone()),
+        correlation_id: Some(resource.to_string()),
+        text: Some(subject),
+        attachments: Vec::new(),
+        metadata,
+    }
+}
+
+fn default_env() -> EnvId {
+    EnvId::try_from("default").expect("default env id present")
+}
+
+fn default_tenant() -> TenantId {
+    TenantId::try_from("default").expect("default tenant id present")
 }
 
 fn parse_config_bytes(bytes: &[u8]) -> Result<ProviderConfig, String> {

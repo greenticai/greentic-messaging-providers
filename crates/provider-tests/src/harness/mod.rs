@@ -1,4 +1,10 @@
-use std::{cell::RefCell, collections::HashMap, path::PathBuf, process::Command, sync::Once};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    path::PathBuf,
+    process::Command,
+    sync::{Arc, Mutex, Once},
+};
 
 use anyhow::Result;
 use greentic_interfaces_wasmtime::host_helpers::v1::{
@@ -12,25 +18,41 @@ use wasmtime::{
 };
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 
+type HttpResponder = dyn Fn(
+        http_client::RequestV1_1,
+    ) -> Result<http_client::ResponseV1_1, http_client::HttpClientErrorV1_1>
+    + Send
+    + Sync;
+
 pub struct TestHostState {
     pub table: ResourceTable,
     pub wasi_ctx: WasiCtx,
     pub last_request: RefCell<Option<http_client::RequestV1_1>>,
     secrets: HashMap<String, Vec<u8>>,
+    http_handler: Arc<Mutex<Box<HttpResponder>>>,
 }
 
 impl TestHostState {
-    pub fn with_secrets(secrets: HashMap<String, Vec<u8>>) -> Self {
+    pub fn with_secrets<F>(secrets: HashMap<String, Vec<u8>>, handler: F) -> Self
+    where
+        F: Fn(
+                http_client::RequestV1_1,
+            ) -> Result<http_client::ResponseV1_1, http_client::HttpClientErrorV1_1>
+            + Send
+            + Sync
+            + 'static,
+    {
         Self {
             table: ResourceTable::new(),
             wasi_ctx: WasiCtxBuilder::new().inherit_stdio().build(),
             last_request: RefCell::new(None),
             secrets,
+            http_handler: Arc::new(Mutex::new(Box::new(handler))),
         }
     }
 
     pub fn with_default_secrets() -> Self {
-        Self::with_secrets(default_secret_values())
+        Self::with_secrets(default_secret_values(), default_http_handler)
     }
 }
 
@@ -49,6 +71,17 @@ impl WasiView for TestHostState {
     }
 }
 
+fn default_http_handler(
+    _req: http_client::RequestV1_1,
+) -> Result<http_client::ResponseV1_1, http_client::HttpClientErrorV1_1> {
+    let body = serde_json::to_vec(&json!({"status": "ok"})).unwrap_or_else(|_| b"{}".to_vec());
+    Ok(http_client::ResponseV1_1 {
+        status: 200,
+        headers: Vec::new(),
+        body: Some(body),
+    })
+}
+
 impl http_client::HttpClientHostV1_1 for TestHostState {
     fn send(
         &mut self,
@@ -57,12 +90,8 @@ impl http_client::HttpClientHostV1_1 for TestHostState {
         _ctx: Option<http_client::TenantCtxV1_1>,
     ) -> Result<http_client::ResponseV1_1, http_client::HttpClientErrorV1_1> {
         self.last_request.replace(Some(req.clone()));
-        let body = serde_json::to_vec(&json!({"status": "ok"})).unwrap_or_else(|_| b"{}".to_vec());
-        Ok(http_client::ResponseV1_1 {
-            status: 200,
-            headers: Vec::new(),
-            body: Some(body),
-        })
+        let handler = self.http_handler.lock().unwrap();
+        handler(req)
     }
 }
 

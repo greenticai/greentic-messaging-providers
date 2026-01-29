@@ -22,6 +22,10 @@ pub struct HttpInV1 {
     pub body_b64: String,
     #[serde(default)]
     pub route_hint: Option<String>,
+    #[serde(default)]
+    pub binding_id: Option<String>,
+    #[serde(default)]
+    pub config: Option<Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -62,11 +66,25 @@ pub struct EncodeInV1 {
     pub plan: RenderPlanInV1,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct AuthUserRefV1 {
+    pub user_id: String,
+    pub token_key: String,
+    #[serde(default)]
+    pub tenant_id: Option<String>,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub display_name: Option<String>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SendPayloadInV1 {
     pub provider_type: String,
     #[serde(default)]
     pub tenant_id: Option<String>,
+    #[serde(default)]
+    pub auth_user: Option<AuthUserRefV1>,
     pub payload: ProviderPayloadV1,
 }
 
@@ -81,7 +99,7 @@ pub struct SendPayloadResultV1 {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SubscriptionEnsureInV1 {
-    pub v: u8,
+    pub v: u32,
     pub provider: String,
     #[serde(default)]
     pub tenant_hint: Option<String>,
@@ -94,16 +112,20 @@ pub struct SubscriptionEnsureInV1 {
     pub change_types: Vec<String>,
     pub notification_url: String,
     #[serde(default)]
+    pub expiration_minutes: Option<u32>,
+    #[serde(default)]
     pub expiration_target_unix_ms: Option<u64>,
     #[serde(default)]
     pub client_state: Option<String>,
     #[serde(default)]
     pub metadata: Option<Value>,
+    #[serde(default)]
+    pub user: AuthUserRefV1,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SubscriptionEnsureOutV1 {
-    pub v: u8,
+    pub v: u32,
     pub subscription_id: String,
     pub expiration_unix_ms: u64,
     pub resource: String,
@@ -114,36 +136,49 @@ pub struct SubscriptionEnsureOutV1 {
     pub metadata: Option<Value>,
     #[serde(default)]
     pub binding_id: Option<String>,
+    #[serde(default)]
+    pub user: AuthUserRefV1,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SubscriptionRenewInV1 {
-    pub v: u8,
+    pub v: u32,
     pub provider: String,
     pub subscription_id: String,
-    pub expiration_target_unix_ms: u64,
+    #[serde(default)]
+    pub expiration_minutes: Option<u32>,
+    #[serde(default)]
+    pub expiration_target_unix_ms: Option<u64>,
     #[serde(default)]
     pub metadata: Option<Value>,
+    #[serde(default)]
+    pub user: AuthUserRefV1,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SubscriptionRenewOutV1 {
-    pub v: u8,
+    pub v: u32,
     pub subscription_id: String,
     pub expiration_unix_ms: u64,
     #[serde(default)]
     pub metadata: Option<Value>,
+    #[serde(default)]
+    pub user: AuthUserRefV1,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SubscriptionDeleteInV1 {
-    pub v: u8,
+    pub v: u32,
     pub provider: String,
     pub subscription_id: String,
+    #[serde(default)]
+    pub user: AuthUserRefV1,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SubscriptionDeleteOutV1 {
-    pub v: u8,
+    pub v: u32,
     pub subscription_id: String,
+    #[serde(default)]
+    pub user: AuthUserRefV1,
 }

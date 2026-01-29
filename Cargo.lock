@@ -1830,7 +1830,7 @@ dependencies = [
 
 [[package]]
 name = "greentic-messaging-cardkit"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "anyhow",
  "clap",
@@ -1840,7 +1840,7 @@ dependencies = [
 
 [[package]]
 name = "greentic-messaging-packgen"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "anyhow",
  "clap",
@@ -3019,7 +3019,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-cardkit-bin"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "anyhow",
  "axum",
@@ -3032,14 +3032,14 @@ dependencies = [
 
 [[package]]
 name = "messaging-core"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "messaging-ingress-slack"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "hmac",
  "serde",
@@ -3050,7 +3050,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-teams"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "serde",
  "serde_json",
@@ -3060,7 +3060,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-telegram"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "serde",
  "serde_json",
@@ -3069,7 +3069,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-whatsapp"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "serde",
  "serde_json",
@@ -3078,7 +3078,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-dummy"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "base64 0.13.1",
  "greentic-types",
@@ -3091,20 +3091,22 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-email"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "base64 0.13.1",
+ "chrono",
  "greentic-types",
  "messaging-universal-dto",
  "serde",
  "serde_json",
  "sha2",
+ "urlencoding",
  "wit-bindgen",
 ]
 
 [[package]]
 name = "messaging-provider-slack"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "base64 0.13.1",
  "greentic-types",
@@ -3116,7 +3118,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-teams"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "base64 0.13.1",
  "chrono",
@@ -3130,7 +3132,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-telegram"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "base64 0.13.1",
  "greentic-types",
@@ -3142,7 +3144,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webchat"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "base64 0.13.1",
  "greentic-types",
@@ -3155,7 +3157,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webex"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "base64 0.13.1",
  "greentic-types",
@@ -3167,7 +3169,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-whatsapp"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "base64 0.13.1",
  "greentic-types",
@@ -3179,7 +3181,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-universal-dto"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "greentic-types",
  "serde",
@@ -3829,7 +3831,7 @@ dependencies = [
 
 [[package]]
 name = "provider-common"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "anyhow",
  "glob",
@@ -3847,7 +3849,7 @@ dependencies = [
 
 [[package]]
 name = "provider-runtime-config"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "serde",
  "serde_json",
@@ -3855,7 +3857,7 @@ dependencies = [
 
 [[package]]
 name = "provider-tests"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -3874,7 +3876,7 @@ dependencies = [
 
 [[package]]
 name = "provision"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "greentic-interfaces-guest",
  "serde",
@@ -3906,7 +3908,7 @@ dependencies = [
 
 [[package]]
 name = "questions"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "anyhow",
  "greentic-interfaces-guest",
@@ -3920,7 +3922,7 @@ dependencies = [
 
 [[package]]
 name = "questions-cli"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "anyhow",
  "rpassword",
@@ -4645,7 +4647,7 @@ dependencies = [
 
 [[package]]
 name = "secrets-probe"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "wit-bindgen",
 ]
@@ -4945,7 +4947,7 @@ checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
 
 [[package]]
 name = "slack"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "hmac",
  "provider-common",
@@ -5085,7 +5087,7 @@ checksum = "b1dd07eb858a2067e2f3c7155d54e929265c264e6f37efe3ee7a8d1b5a1dd0ba"
 
 [[package]]
 name = "teams"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -5097,7 +5099,7 @@ dependencies = [
 
 [[package]]
 name = "telegram"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "htmlescape",
  "provider-common",
@@ -5109,7 +5111,7 @@ dependencies = [
 
 [[package]]
 name = "telegram-webhook"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "greentic-interfaces-guest",
  "serde",
@@ -6284,7 +6286,7 @@ dependencies = [
 
 [[package]]
 name = "webchat"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -6295,7 +6297,7 @@ dependencies = [
 
 [[package]]
 name = "webex"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -6324,7 +6326,7 @@ dependencies = [
 
 [[package]]
 name = "whatsapp"
-version = "0.4.25"
+version = "0.4.26"
 dependencies = [
  "provider-common",
  "provider-runtime-config",

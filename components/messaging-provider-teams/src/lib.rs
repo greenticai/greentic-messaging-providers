@@ -686,6 +686,7 @@ fn subscription_ensure(input_json: &[u8]) -> Vec<u8> {
         client_state,
         metadata: dto.metadata.clone(),
         binding_id: dto.binding_id.clone(),
+        user: dto.user.clone(),
     };
     json_bytes(&json!({"ok": true, "subscription": out}))
 }
@@ -721,7 +722,15 @@ fn subscription_renew(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let expiration_iso = match expiration_ms_to_iso(dto.expiration_target_unix_ms) {
+    let expiration_target_ms = match dto.expiration_target_unix_ms {
+        Some(ms) => ms,
+        None => {
+            return json_bytes(
+                &json!({"ok": false, "error": "expiration_target_unix_ms required"}),
+            );
+        }
+    };
+    let expiration_iso = match expiration_ms_to_iso(expiration_target_ms) {
         Ok(text) => text,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
@@ -730,13 +739,13 @@ fn subscription_renew(input_json: &[u8]) -> Vec<u8> {
         return json_bytes(&json!({"ok": false, "error": err.to_string()}));
     }
 
-    let expiration_unix_ms =
-        parse_expiration_ms(&expiration_iso).unwrap_or(dto.expiration_target_unix_ms);
+    let expiration_unix_ms = parse_expiration_ms(&expiration_iso).unwrap_or(expiration_target_ms);
     let out = SubscriptionRenewOutV1 {
         v: 1,
         subscription_id: dto.subscription_id,
         expiration_unix_ms,
         metadata: dto.metadata,
+        user: dto.user.clone(),
     };
     json_bytes(&json!({"ok": true, "subscription": out}))
 }
@@ -779,6 +788,7 @@ fn subscription_delete(input_json: &[u8]) -> Vec<u8> {
     let out = SubscriptionDeleteOutV1 {
         v: 1,
         subscription_id: dto.subscription_id,
+        user: dto.user.clone(),
     };
     json_bytes(&json!({"ok": true, "subscription": out}))
 }
