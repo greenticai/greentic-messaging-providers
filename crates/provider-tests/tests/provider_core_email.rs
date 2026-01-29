@@ -3,11 +3,16 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Context, Result};
+use greentic_interfaces_wasmtime::host_helpers::v1::http_client::HttpClientHostV1_1;
+use greentic_interfaces_wasmtime::host_helpers::v1::{
+    HostFns, add_all_v1_to_linker, http_client, secrets_store, state_store,
+};
+use greentic_interfaces_wasmtime::http_client_client_v1_1::greentic::http::http_client as http_client_client_alias;
 use greentic_types::{ProviderManifest, provider::PROVIDER_EXTENSION_ID};
 use serde_json::{Value, json};
 use wasmtime::component::{Component, ComponentExportIndex, Linker, ResourceTable, TypedFunc};
 use wasmtime::{Config, Engine, Store};
-use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
+use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView, p2};
 
 mod bindings {
     wasmtime::component::bindgen!({
@@ -86,10 +91,18 @@ fn new_engine() -> Engine {
     Engine::new(&config).expect("engine")
 }
 
-#[derive(Default)]
 struct HostState {
     table: ResourceTable,
     wasi_ctx: WasiCtx,
+}
+
+impl Default for HostState {
+    fn default() -> Self {
+        Self {
+            table: ResourceTable::new(),
+            wasi_ctx: WasiCtxBuilder::new().inherit_stdio().build(),
+        }
+    }
 }
 
 impl WasiView for HostState {
@@ -101,8 +114,181 @@ impl WasiView for HostState {
     }
 }
 
+impl http_client::HttpClientHostV1_1 for HostState {
+    fn send(
+        &mut self,
+        _req: http_client::RequestV1_1,
+        _opts: Option<http_client::RequestOptionsV1_1>,
+        _ctx: Option<http_client::TenantCtxV1_1>,
+    ) -> Result<http_client::ResponseV1_1, http_client::HttpClientErrorV1_1> {
+        let body = serde_json::to_vec(&json!({"status":"ok"})).unwrap_or_else(|_| b"{}".to_vec());
+        Ok(http_client::ResponseV1_1 {
+            status: 200,
+            headers: Vec::new(),
+            body: Some(body),
+        })
+    }
+}
+
 fn add_wasi_to_linker(linker: &mut Linker<HostState>) {
-    wasmtime_wasi::p2::add_to_linker_sync(linker).expect("add wasi");
+    add_all_v1_to_linker(
+        linker,
+        HostFns {
+            secrets_store_v1_1: Some(|state| state as &mut dyn secrets_store::SecretsStoreHostV1_1),
+            state_store: Some(|state| state as &mut dyn state_store::StateStoreHost),
+            ..Default::default()
+        },
+    )
+    .expect("add wasi");
+    p2::add_to_linker_sync(linker).expect("add wasi p2");
+}
+
+fn add_http_client_http_client_world(linker: &mut Linker<HostState>) -> Result<()> {
+    let mut inst = linker.instance("greentic:http/http-client@1.1.0")?;
+    inst.func_wrap(
+        "send",
+        move |_caller: wasmtime::StoreContextMut<'_, HostState>,
+              (req, opts, ctx): (
+            http_client::RequestV1_1,
+            Option<http_client::RequestOptionsV1_1>,
+            Option<http_client::TenantCtxV1_1>,
+        )| {
+            let mut state = HostState::default();
+            let result = state.send(req, opts, ctx);
+            Ok((result,))
+        },
+    )?;
+    Ok(())
+}
+
+fn add_http_client_client_world(linker: &mut Linker<HostState>) -> Result<()> {
+    let mut inst = linker.instance("greentic:http/client@1.1.0")?;
+    inst.func_wrap(
+        "send",
+        move |_caller: wasmtime::StoreContextMut<'_, HostState>,
+              (req, opts, ctx): (
+            http_client_client_alias::Request,
+            Option<http_client_client_alias::RequestOptions>,
+            Option<http_client_client_alias::TenantCtx>,
+        )| {
+            let mut state = HostState::default();
+            let result = state.send(
+                alias_request_to_host(req),
+                opts.map(alias_request_options_to_host),
+                ctx.map(alias_tenant_ctx_to_host),
+            );
+            Ok((match result {
+                Ok(resp) => Ok(alias_response_from_host(resp)),
+                Err(err) => Err(alias_error_from_host(err)),
+            },))
+        },
+    )?;
+    Ok(())
+}
+
+fn alias_request_to_host(req: http_client_client_alias::Request) -> http_client::RequestV1_1 {
+    http_client::RequestV1_1 {
+        method: req.method,
+        url: req.url,
+        headers: req.headers,
+        body: req.body,
+    }
+}
+
+fn alias_request_options_to_host(
+    opts: http_client_client_alias::RequestOptions,
+) -> http_client::RequestOptionsV1_1 {
+    http_client::RequestOptionsV1_1 {
+        timeout_ms: opts.timeout_ms,
+        allow_insecure: opts.allow_insecure,
+        follow_redirects: opts.follow_redirects,
+    }
+}
+
+fn alias_tenant_ctx_to_host(
+    ctx: http_client_client_alias::TenantCtx,
+) -> http_client::TenantCtxV1_1 {
+    http_client::TenantCtxV1_1 {
+        env: ctx.env,
+        tenant: ctx.tenant,
+        tenant_id: ctx.tenant_id,
+        team: ctx.team,
+        team_id: ctx.team_id,
+        user: ctx.user,
+        user_id: ctx.user_id,
+        trace_id: ctx.trace_id,
+        correlation_id: ctx.correlation_id,
+        attributes: ctx.attributes,
+        session_id: ctx.session_id,
+        flow_id: ctx.flow_id,
+        node_id: ctx.node_id,
+        provider_id: ctx.provider_id,
+        deadline_ms: ctx.deadline_ms,
+        attempt: ctx.attempt,
+        idempotency_key: ctx.idempotency_key,
+        impersonation: ctx.impersonation,
+    }
+}
+
+fn alias_response_from_host(resp: http_client::ResponseV1_1) -> http_client_client_alias::Response {
+    http_client_client_alias::Response {
+        status: resp.status,
+        headers: resp.headers,
+        body: resp.body,
+    }
+}
+
+fn alias_error_from_host(
+    err: http_client::HttpClientErrorV1_1,
+) -> http_client_client_alias::HostError {
+    http_client_client_alias::HostError {
+        code: err.code,
+        message: err.message,
+    }
+}
+
+impl secrets_store::SecretsStoreHostV1_1 for HostState {
+    fn get(&mut self, _key: String) -> Result<Option<Vec<u8>>, secrets_store::SecretsErrorV1_1> {
+        Ok(None)
+    }
+
+    fn put(&mut self, _key: String, _value: Vec<u8>) {}
+}
+
+impl state_store::StateStoreHost for HostState {
+    fn read(
+        &mut self,
+        _key: state_store::StateKey,
+        _ctx: Option<state_store::TenantCtx>,
+    ) -> Result<Vec<u8>, state_store::StateStoreError> {
+        Err(state_store::StateStoreError {
+            code: "unimplemented".into(),
+            message: "state store not available in provider_core_email tests".into(),
+        })
+    }
+
+    fn write(
+        &mut self,
+        _key: state_store::StateKey,
+        _bytes: Vec<u8>,
+        _ctx: Option<state_store::TenantCtx>,
+    ) -> Result<state_store::OpAck, state_store::StateStoreError> {
+        Err(state_store::StateStoreError {
+            code: "unimplemented".into(),
+            message: "state store not available in provider_core_email tests".into(),
+        })
+    }
+
+    fn delete(
+        &mut self,
+        _key: state_store::StateKey,
+        _ctx: Option<state_store::TenantCtx>,
+    ) -> Result<state_store::OpAck, state_store::StateStoreError> {
+        Err(state_store::StateStoreError {
+            code: "unimplemented".into(),
+            message: "state store not available in provider_core_email tests".into(),
+        })
+    }
 }
 
 #[test]
@@ -184,6 +370,8 @@ fn invoke_send_smoke_test() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
+    add_http_client_http_client_world(&mut linker)?;
+    add_http_client_client_world(&mut linker)?;
 
     let mut describe_store = Store::new(&engine, HostState::default());
     let instance = linker
@@ -266,6 +454,8 @@ fn invoke_reply_smoke_test() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
+    add_http_client_http_client_world(&mut linker)?;
+    add_http_client_client_world(&mut linker)?;
 
     let mut store = Store::new(&engine, HostState::default());
     let instance = linker
@@ -328,6 +518,8 @@ fn reply_requires_to() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
+    add_http_client_http_client_world(&mut linker)?;
+    add_http_client_client_world(&mut linker)?;
 
     let mut store = Store::new(&engine, HostState::default());
     let instance = linker
