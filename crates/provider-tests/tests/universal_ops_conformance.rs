@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context, Error, Result};
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use greentic_types::{EnvId, MessageMetadata, TenantCtx, TenantId};
 use messaging_universal_dto::{
     ChannelMessageEnvelope, EncodeInV1, Header, HttpInV1, HttpOutV1, ProviderPayloadV1,
@@ -462,7 +462,8 @@ fn decode_challenge(out: &HttpOutV1) -> Option<String> {
     if out.body_b64.is_empty() {
         return None;
     }
-    STANDARD.decode(&out.body_b64)
+    STANDARD
+        .decode(&out.body_b64)
         .ok()
         .and_then(|bytes| String::from_utf8(bytes).ok())
 }
