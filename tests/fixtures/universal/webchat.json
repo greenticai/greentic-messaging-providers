@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "path": "/webchat",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "text": "hi webchat",
+    "route": "webchat-route",
+    "user_id": "visitor-1"
+  }
+}

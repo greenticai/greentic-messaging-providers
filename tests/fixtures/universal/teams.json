@@ -1,0 +1,15 @@
+{
+  "method": "POST",
+  "path": "/teams/notifications",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "resourceData": {
+      "id": "teams-evt",
+      "channelIdentity": { "channelId": "general" },
+      "body": { "content": "hello teams" },
+      "from": { "user": "user-1" }
+    }
+  }
+}

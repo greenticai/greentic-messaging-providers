@@ -7,16 +7,16 @@ use wasmtime::{
 };
 
 // Generate bindings for the slack world, mapping imported interfaces to our host.
-wasmtime::component::bindgen!({
-    path: "components/slack/wit/slack",
-    world: "slack",
-    with: {
-        "greentic:http/http-client@1.0.0": HttpHost,
-        "greentic:secrets-store/secrets-store@1.0.0": SecretsHost,
-        "greentic:state/state-store@1.0.0": StateHost,
-        "greentic:telemetry/logger-api@1.0.0": TelemetryHost,
-    },
-});
+    wasmtime::component::bindgen!({
+        path: "components/slack/wit/slack",
+        world: "slack",
+        with: {
+            "greentic:http/client@1.1.0": HttpHost,
+            "greentic:secrets-store/secrets-store@1.0.0": SecretsHost,
+            "greentic:state/state-store@1.0.0": StateHost,
+            "greentic:telemetry/logger-api@1.0.0": TelemetryHost,
+        },
+    });
 
 #[derive(Clone)]
 struct HostState {
@@ -24,7 +24,7 @@ struct HostState {
     http_fail_first: bool,
     http_calls: Cell<u32>,
     telemetry_calls: Cell<u32>,
-    http_options: RefCell<Option<bindings::greentic::http::http_client::RequestOptions>>,
+    http_options: RefCell<Option<bindings::greentic::http::client::RequestOptions>>,
 }
 
 struct HttpHost;
@@ -32,23 +32,23 @@ struct SecretsHost;
 struct StateHost;
 struct TelemetryHost;
 
-impl bindings::greentic::http::http_client::Host for HostState {
+impl bindings::greentic::http::client::Host for HostState {
     fn send(
         &mut self,
-        _req: bindings::greentic::http::http_client::Request,
-        options: Option<bindings::greentic::http::http_client::RequestOptions>,
+        _req: bindings::greentic::http::client::Request,
+        options: Option<bindings::greentic::http::client::RequestOptions>,
         _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
-    ) -> Result<bindings::greentic::http::http_client::Response, bindings::greentic::http::http_client::HostError> {
+    ) -> Result<bindings::greentic::http::client::Response, bindings::greentic::http::client::HostError> {
         let call = self.http_calls.get();
         self.http_calls.set(call + 1);
         self.http_options.replace(options);
         if self.http_fail_first && call == 0 {
-            return Err(bindings::greentic::http::http_client::HostError {
+            return Err(bindings::greentic::http::client::HostError {
                 code: "timeout".into(),
                 message: "simulated timeout".into(),
             });
         }
-        Ok(bindings::greentic::http::http_client::Response {
+        Ok(bindings::greentic::http::client::Response {
             status: 200,
             headers: vec![],
             body: None,
@@ -199,8 +199,8 @@ fn slack_injected_config_controls_retries() {
         .borrow()
         .clone()
         .expect("options");
-    assert!(matches!(opts.proxy, bindings::greentic::http::http_client::ProxyMode::Inherit));
-    assert!(matches!(opts.tls, bindings::greentic::http::http_client::TlsMode::Strict));
+    assert!(matches!(opts.proxy, bindings::greentic::http::client::ProxyMode::Inherit));
+    assert!(matches!(opts.tls, bindings::greentic::http::client::TlsMode::Strict));
     assert_eq!(store.data().telemetry_calls.get(), 1, "should emit one telemetry log");
 }
 

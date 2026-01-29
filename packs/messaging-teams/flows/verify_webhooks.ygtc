@@ -29,6 +29,6 @@ nodes:
 x-generated-by: greentic-messaging-packgen
 x-generated-from:
   spec: specs/providers/teams.yaml
-  spec-hash: sha256:fe9cbd3c59ec1d4e0b5a52c58305ff9cd5b31e571bb738e54bb2a7a22c51a330
+  spec-hash: sha256:870720645ca3f427953fd53cb573e56739e514edf33a00401421c9c263d033a5
   manifest-hash: sha256:119dfe93f286b9e336592ccc0ab3c73c8ed72fbdd62f98ac54f8713f9206ce4c
   schemas-hash: sha256:eb5aee0cdf22bd72a36f6d49b014b255b4a96b73efd5aaa5313aa89fc64c642e

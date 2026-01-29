@@ -98,8 +98,8 @@ struct HostState {
     table: ResourceTable,
     wasi_ctx: WasiCtx,
     secrets: HashMap<String, String>,
-    responses: RefCell<Vec<bindings::greentic::http::http_client::Response>>, // queued responses
-    sent_requests: RefCell<Vec<bindings::greentic::http::http_client::Request>>,
+    responses: RefCell<Vec<bindings::greentic::http::client::Response>>, // queued responses
+    sent_requests: RefCell<Vec<bindings::greentic::http::client::Request>>,
 }
 
 impl HostState {
@@ -125,21 +125,21 @@ impl WasiView for HostState {
     }
 }
 
-impl bindings::greentic::http::http_client::Host for HostState {
+impl bindings::greentic::http::client::Host for HostState {
     fn send(
         &mut self,
-        req: bindings::greentic::http::http_client::Request,
-        _options: Option<bindings::greentic::http::http_client::RequestOptions>,
+        req: bindings::greentic::http::client::Request,
+        _options: Option<bindings::greentic::http::client::RequestOptions>,
         _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
     ) -> Result<
-        bindings::greentic::http::http_client::Response,
-        bindings::greentic::http::http_client::HostError,
+        bindings::greentic::http::client::Response,
+        bindings::greentic::http::client::HostError,
     > {
         self.sent_requests.borrow_mut().push(req);
         if let Some(resp) = self.responses.borrow_mut().pop() {
             Ok(resp)
         } else {
-            Ok(bindings::greentic::http::http_client::Response {
+            Ok(bindings::greentic::http::client::Response {
                 status: 200,
                 headers: vec![],
                 body: None,
@@ -279,7 +279,7 @@ fn invoke_send_smoke_test() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
-    bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
+    bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
         &mut linker,
         |state: &mut HostState| state,
     )
@@ -329,7 +329,7 @@ fn invoke_send_smoke_test() -> Result<()> {
     state
         .responses
         .borrow_mut()
-        .push(bindings::greentic::http::http_client::Response {
+        .push(bindings::greentic::http::client::Response {
             status: 201,
             headers: vec![],
             body: Some(serde_json::to_vec(&json!({"id":"msg-1"}))?),
@@ -337,7 +337,7 @@ fn invoke_send_smoke_test() -> Result<()> {
     state
         .responses
         .borrow_mut()
-        .push(bindings::greentic::http::http_client::Response {
+        .push(bindings::greentic::http::client::Response {
             status: 200,
             headers: vec![],
             body: Some(serde_json::to_vec(&json!({"access_token":"tok-123"}))?),
@@ -437,7 +437,7 @@ fn invoke_reply_smoke_test() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
-    bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
+    bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
         &mut linker,
         |state: &mut HostState| state,
     )
@@ -460,7 +460,7 @@ fn invoke_reply_smoke_test() -> Result<()> {
     state
         .responses
         .borrow_mut()
-        .push(bindings::greentic::http::http_client::Response {
+        .push(bindings::greentic::http::client::Response {
             status: 201,
             headers: vec![],
             body: Some(serde_json::to_vec(&json!({"id":"reply-1"}))?),
@@ -468,7 +468,7 @@ fn invoke_reply_smoke_test() -> Result<()> {
     state
         .responses
         .borrow_mut()
-        .push(bindings::greentic::http::http_client::Response {
+        .push(bindings::greentic::http::client::Response {
             status: 200,
             headers: vec![],
             body: Some(serde_json::to_vec(&json!({"access_token":"tok-123"}))?),
@@ -537,7 +537,7 @@ fn reply_requires_thread_id() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
-    bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
+    bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
         &mut linker,
         |state: &mut HostState| state,
     )

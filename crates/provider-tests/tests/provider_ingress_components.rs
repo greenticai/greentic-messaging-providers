@@ -142,17 +142,17 @@ mod slack {
         }
     }
 
-    impl bindings::greentic::http::http_client::Host for HostState {
+    impl bindings::greentic::http::client::Host for HostState {
         fn send(
             &mut self,
-            _req: bindings::greentic::http::http_client::Request,
-            _options: Option<bindings::greentic::http::http_client::RequestOptions>,
+            _req: bindings::greentic::http::client::Request,
+            _options: Option<bindings::greentic::http::client::RequestOptions>,
             _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
         ) -> Result<
-            bindings::greentic::http::http_client::Response,
-            bindings::greentic::http::http_client::HostError,
+            bindings::greentic::http::client::Response,
+            bindings::greentic::http::client::HostError,
         > {
-            Ok(bindings::greentic::http::http_client::Response {
+            Ok(bindings::greentic::http::client::Response {
                 status: 200,
                 headers: vec![],
                 body: None,
@@ -229,7 +229,7 @@ mod slack {
         let component = Component::from_file(&engine, &path).context("loading component")?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
-        bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
+        bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
             &mut linker,
             |state| state,
         )
@@ -284,7 +284,7 @@ mod slack {
         let component = Component::from_file(&engine, &path).context("loading component")?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
-        bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
+        bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
             &mut linker,
             |state| state,
         )
@@ -382,17 +382,17 @@ mod telegram {
         }
     }
 
-    impl bindings::greentic::http::http_client::Host for HostState {
+    impl bindings::greentic::http::client::Host for HostState {
         fn send(
             &mut self,
-            _req: bindings::greentic::http::http_client::Request,
-            _options: Option<bindings::greentic::http::http_client::RequestOptions>,
+            _req: bindings::greentic::http::client::Request,
+            _options: Option<bindings::greentic::http::client::RequestOptions>,
             _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
         ) -> Result<
-            bindings::greentic::http::http_client::Response,
-            bindings::greentic::http::http_client::HostError,
+            bindings::greentic::http::client::Response,
+            bindings::greentic::http::client::HostError,
         > {
-            Ok(bindings::greentic::http::http_client::Response {
+            Ok(bindings::greentic::http::client::Response {
                 status: 200,
                 headers: vec![],
                 body: None,
@@ -467,7 +467,7 @@ mod telegram {
         let component = Component::from_file(&engine, &path).context("loading component")?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
-        bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
+        bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
             &mut linker,
             |state| state,
         )
@@ -554,17 +554,17 @@ mod whatsapp {
         }
     }
 
-    impl bindings::greentic::http::http_client::Host for HostState {
+    impl bindings::greentic::http::client::Host for HostState {
         fn send(
             &mut self,
-            _req: bindings::greentic::http::http_client::Request,
-            _options: Option<bindings::greentic::http::http_client::RequestOptions>,
+            _req: bindings::greentic::http::client::Request,
+            _options: Option<bindings::greentic::http::client::RequestOptions>,
             _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
         ) -> Result<
-            bindings::greentic::http::http_client::Response,
-            bindings::greentic::http::http_client::HostError,
+            bindings::greentic::http::client::Response,
+            bindings::greentic::http::client::HostError,
         > {
-            Ok(bindings::greentic::http::http_client::Response {
+            Ok(bindings::greentic::http::client::Response {
                 status: 200,
                 headers: vec![],
                 body: None,
@@ -639,7 +639,7 @@ mod whatsapp {
         let component = Component::from_file(&engine, &path).context("loading component")?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
-        bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
+        bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
             &mut linker,
             |state| state,
         )
@@ -695,7 +695,7 @@ mod whatsapp {
         let component = Component::from_file(&engine, &path).context("loading component")?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
-        bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
+        bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
             &mut linker,
             |state| state,
         )
@@ -762,7 +762,7 @@ mod teams {
         table: ResourceTable,
         wasi_ctx: WasiCtx,
         secrets: HashMap<String, String>,
-        responses: RefCell<Vec<bindings::greentic::http::http_client::Response>>,
+        responses: RefCell<Vec<bindings::greentic::http::client::Response>>,
         last_state_write: RefCell<Option<(String, Vec<u8>)>>,
     }
 
@@ -789,20 +789,20 @@ mod teams {
         }
     }
 
-    impl bindings::greentic::http::http_client::Host for HostState {
+    impl bindings::greentic::http::client::Host for HostState {
         fn send(
             &mut self,
-            _req: bindings::greentic::http::http_client::Request,
-            _options: Option<bindings::greentic::http::http_client::RequestOptions>,
+            _req: bindings::greentic::http::client::Request,
+            _options: Option<bindings::greentic::http::client::RequestOptions>,
             _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
         ) -> Result<
-            bindings::greentic::http::http_client::Response,
-            bindings::greentic::http::http_client::HostError,
+            bindings::greentic::http::client::Response,
+            bindings::greentic::http::client::HostError,
         > {
             if let Some(resp) = self.responses.borrow_mut().pop() {
                 Ok(resp)
             } else {
-                Ok(bindings::greentic::http::http_client::Response {
+                Ok(bindings::greentic::http::client::Response {
                     status: 200,
                     headers: vec![],
                     body: None,
@@ -878,7 +878,7 @@ mod teams {
         let component = Component::from_file(&engine, &path).context("loading component")?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
-        bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
+        bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
             &mut linker,
             |state| state,
         )
@@ -907,7 +907,7 @@ mod teams {
         let host = HostState::with_secret("MS_GRAPH_CLIENT_SECRET", "secret");
         host.responses
             .borrow_mut()
-            .push(bindings::greentic::http::http_client::Response {
+            .push(bindings::greentic::http::client::Response {
                 status: 201,
                 headers: vec![],
                 body: Some(serde_json::to_vec(&json!({
@@ -920,14 +920,14 @@ mod teams {
             });
         host.responses
             .borrow_mut()
-            .push(bindings::greentic::http::http_client::Response {
+            .push(bindings::greentic::http::client::Response {
                 status: 200,
                 headers: vec![],
                 body: Some(serde_json::to_vec(&json!({ "value": [] }))?),
             });
         host.responses
             .borrow_mut()
-            .push(bindings::greentic::http::http_client::Response {
+            .push(bindings::greentic::http::client::Response {
                 status: 200,
                 headers: vec![],
                 body: Some(serde_json::to_vec(&json!({ "access_token": "tok-123" }))?),

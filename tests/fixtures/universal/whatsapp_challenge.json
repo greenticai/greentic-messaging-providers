@@ -1,0 +1,6 @@
+{
+  "method": "GET",
+  "path": "/whatsapp",
+  "query": "hub.challenge=verify123&hub.mode=subscribe&hub.verify_token=test-token",
+  "headers": {}
+}

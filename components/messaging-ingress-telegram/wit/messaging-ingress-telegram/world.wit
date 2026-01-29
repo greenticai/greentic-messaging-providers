@@ -2,7 +2,7 @@
 
 package greentic:messaging-ingress-telegram@0.0.1;
 
-use greentic:http/http-client@1.0.0;
+use greentic:http/client@1.1.0 as http-client;
 use greentic:secrets-store/secrets-store@1.0.0;
 use greentic:state/state-store@1.0.0;
 use greentic:telemetry/logger-api@1.0.0;

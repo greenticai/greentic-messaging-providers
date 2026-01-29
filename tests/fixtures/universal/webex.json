@@ -1,0 +1,13 @@
+{
+  "method": "POST",
+  "path": "/webex/messages",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": "webex-evt",
+    "text": "hello webex",
+    "roomId": "room-1",
+    "personId": "person-1"
+  }
+}

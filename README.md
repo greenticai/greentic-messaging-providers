@@ -6,6 +6,10 @@ Current layout:
 - `crates/`: shared libraries for message types and provider utilities.
 - `crates/component_questions`: CLI-first questions component (WASM) for emitting/validating setup questions.
 - `crates/questions-cli`: helper CLI to render QuestionSpec JSON and collect answers.
+- `crates/messaging-cardkit`: lightweight CardKit renderer + profile source helpers built on `gsm-core` for rendering MessageCard fixtures without GSM gateway/egress plumbing.
+- `crates/messaging-cardkit-bin`: CLI/server companion that renders MessageCard fixtures via CardKit, exposes `render` and `serve` subcommands, and ships the same fixtures used by the golden tests.
+- `crates/greentic-messaging-cardkit`: installable wrapper that delegates to `messaging-cardkit-bin`, making the CLI available via `cargo binstall greentic-messaging-cardkit`.
+- `crates/messaging-universal-dto`: shared JSON DTOs for the universal operator-provider protocol (`HttpInV1`, `HttpOutV1`, `RenderPlanInV1`, `EncodeInV1`, `ProviderPayloadV1`, `SendPayloadInV1`/`SendPayloadResultV1`).
 - `components/`: provider WASM components. Includes `secrets-probe`, `slack`, `teams`, `telegram`, `webchat`, `webex`, `whatsapp`, and the provider-core `messaging-provider-dummy`.
 - `components/provision`: provisioning apply component used by setup flows to write config/secrets.
 - `schemas/`: JSON Schemas for provider configuration (e.g., `schemas/messaging/dummy/public.config.schema.json`).
@@ -31,6 +35,10 @@ CI will reject any direct edits to `packs/*/flows/*.ygtc`.
   - `cargo install cargo-component --locked`
 - Run the full check/build pipeline: `./ci/local_check.sh` (fmt, tests, and component builds).
 - Component artifacts are copied to `target/components/*.wasm`; the build script uses `cargo component build` by default.
+
+## CardKit CLI
+- `cargo run -p greentic-messaging-cardkit -- render --provider slack --fixture crates/messaging-cardkit/tests/fixtures/cards/basic.json`
+- `cargo binstall greentic-messaging-cardkit --no-confirm --locked` to install the CLI globally (runs the same rendering/demo server as `messaging-cardkit-bin`).
 
 ## Questions component
 - Build the component: `./tools/build_components.sh` (produces `target/components/questions.wasm`).

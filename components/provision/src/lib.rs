@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use greentic_interfaces_guest::component::node::{InvokeResult, NodeError};
 use greentic_interfaces_guest::component_entrypoint;
 use greentic_interfaces_guest::state_store;

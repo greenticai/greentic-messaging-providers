@@ -7,15 +7,17 @@ publish = false
 
 [dependencies]
 provider-common = { path = "../provider-common" }
+anyhow = { workspace = true }
+base64 = { workspace = true }
+greentic-interfaces-wasmtime = { workspace = true }
+serde_json = { workspace = true }
+wasmtime = { version = "=41.0.1", features = ["component-model", "cache"] }
+wasmtime-wasi = "=41.0.1"
 
 [dev-dependencies]
 serde = { workspace = true }
-serde_json = { workspace = true }
-greentic-interfaces-wasmtime = { workspace = true }
 greentic-types = { workspace = true }
-anyhow = { workspace = true }
 insta = { workspace = true }
-wasmtime = { version = "40", features = ["component-model", "cache"] }
-wasmtime-wasi = "40"
 hmac = { workspace = true }
 sha2 = { workspace = true }
+messaging-universal-dto = { workspace = true }

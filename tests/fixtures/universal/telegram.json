@@ -1,0 +1,15 @@
+{
+  "method": "POST",
+  "path": "/telegram/webhook",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "message": {
+      "message_id": 42,
+      "chat": { "id": 999 },
+      "from": { "id": 111 },
+      "text": "hello telegram"
+    }
+  }
+}

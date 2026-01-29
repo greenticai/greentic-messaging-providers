@@ -95,6 +95,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Lint for legacy HTTP imports
+        run: |
+          if rg -n 'greentic:http/http-client@' components/ -S; then
+            echo "legacy greentic:http/http-client@ import still present in components/"
+            exit 1
+          fi
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:

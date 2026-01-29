@@ -1,0 +1,13 @@
+{
+  "method": "POST",
+  "path": "/email",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "from": "incoming@example.com",
+    "to": "user@example.com",
+    "subject": "test email",
+    "body": "hello email"
+  }
+}

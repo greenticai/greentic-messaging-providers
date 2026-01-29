@@ -95,7 +95,7 @@ fn new_engine() -> Engine {
 struct HostState {
     table: ResourceTable,
     wasi_ctx: WasiCtx,
-    last_request: RefCell<Option<bindings::greentic::http::http_client::Request>>,
+    last_request: RefCell<Option<bindings::greentic::http::client::Request>>,
     secret_value: String,
 }
 
@@ -119,18 +119,18 @@ impl WasiView for HostState {
     }
 }
 
-impl bindings::greentic::http::http_client::Host for HostState {
+impl bindings::greentic::http::client::Host for HostState {
     fn send(
         &mut self,
-        req: bindings::greentic::http::http_client::Request,
-        _options: Option<bindings::greentic::http::http_client::RequestOptions>,
+        req: bindings::greentic::http::client::Request,
+        _options: Option<bindings::greentic::http::client::RequestOptions>,
         _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
     ) -> Result<
-        bindings::greentic::http::http_client::Response,
-        bindings::greentic::http::http_client::HostError,
+        bindings::greentic::http::client::Response,
+        bindings::greentic::http::client::HostError,
     > {
         self.last_request.replace(Some(req));
-        Ok(bindings::greentic::http::http_client::Response {
+        Ok(bindings::greentic::http::client::Response {
             status: 200,
             headers: vec![],
             body: Some(serde_json::to_vec(&json!({"ts":"123.456"})).expect("resp bytes")),
@@ -263,7 +263,7 @@ fn invoke_send_smoke_test() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
-    bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
+    bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
         &mut linker,
         |state: &mut HostState| state,
     )
@@ -393,7 +393,7 @@ fn invoke_reply_smoke_test() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
-    bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
+    bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
         &mut linker,
         |state: &mut HostState| state,
     )
@@ -466,7 +466,7 @@ fn reply_fails_without_channel() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
-    bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
+    bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
         &mut linker,
         |state: &mut HostState| state,
     )

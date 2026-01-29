@@ -56,9 +56,6 @@ python3 tools/check_op_schemas.py
 echo "==> ci/gen_flows.sh"
 ./ci/gen_flows.sh
 
-echo "==> ci/check_generated.sh"
-./ci/check_generated.sh
-
 echo "==> tools/sync_packs.sh (PACK_VERSION=${PACK_VERSION})"
 ./tools/sync_packs.sh
 

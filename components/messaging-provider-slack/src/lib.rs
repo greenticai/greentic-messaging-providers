@@ -1,5 +1,11 @@
+use base64::{decode as base64_decode, encode as base64_encode};
+use messaging_universal_dto::{
+    EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
+    SendPayloadInV1, SendPayloadResultV1,
+};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use std::collections::HashMap;
 
 mod bindings {
     wit_bindgen::generate!({
@@ -10,7 +16,7 @@ mod bindings {
 }
 
 use bindings::exports::greentic::provider_schema_core::schema_core_api::Guest;
-use bindings::greentic::http::http_client;
+use bindings::greentic::http::client;
 use bindings::greentic::secrets_store::secrets_store;
 use greentic_types::ProviderManifest;
 
@@ -63,6 +69,10 @@ impl Guest for Component {
         match op.as_str() {
             "send" => handle_send(&input_json, false),
             "reply" => handle_send(&input_json, true),
+            "ingest_http" => ingest_http(&input_json),
+            "render_plan" => render_plan(&input_json),
+            "encode" => encode(&input_json),
+            "send_payload" => send_payload(&input_json),
             other => json_bytes(&json!({"ok": false, "error": format!("unsupported op: {other}")})),
         }
     }
@@ -109,21 +119,9 @@ fn handle_send(input_json: &[u8], is_reply: bool) -> Vec<u8> {
 
     let (format, blocks) = parse_blocks(&parsed);
 
-    let token = match secrets_store::get(DEFAULT_BOT_TOKEN_KEY) {
-        Ok(Some(bytes)) => match String::from_utf8(bytes) {
-            Ok(s) => s,
-            Err(_) => return json_bytes(&json!({"ok": false, "error": "bot token not utf-8"})),
-        },
-        Ok(None) => {
-            return json_bytes(
-                &json!({"ok": false, "error": format!("missing secret: {}", DEFAULT_BOT_TOKEN_KEY)}),
-            );
-        }
-        Err(e) => {
-            return json_bytes(
-                &json!({"ok": false, "error": format!("secret store error: {e:?}")}),
-            );
-        }
+    let token = match get_secret_string(DEFAULT_BOT_TOKEN_KEY) {
+        Ok(tok) => tok,
+        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
     let api_base = cfg
@@ -149,7 +147,7 @@ fn handle_send(input_json: &[u8], is_reply: bool) -> Vec<u8> {
             .insert("blocks".into(), b);
     }
 
-    let request = http_client::Request {
+    let request = client::Request {
         method: "POST".into(),
         url,
         headers: vec![
@@ -159,7 +157,7 @@ fn handle_send(input_json: &[u8], is_reply: bool) -> Vec<u8> {
         body: Some(serde_json::to_vec(&payload).unwrap_or_else(|_| b"{}".to_vec())),
     };
 
-    let resp = match http_client::send(&request, None, None) {
+    let resp = match client::send(&request, None, None) {
         Ok(resp) => resp,
         Err(err) => {
             return json_bytes(
@@ -244,6 +242,189 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
 
 fn json_bytes<T: serde::Serialize>(value: &T) -> Vec<u8> {
     serde_json::to_vec(value).unwrap_or_else(|_| b"{}".to_vec())
+}
+
+fn ingest_http(input_json: &[u8]) -> Vec<u8> {
+    let request = match serde_json::from_slice::<HttpInV1>(input_json) {
+        Ok(req) => req,
+        Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+    };
+    let body_bytes = match base64_decode(&request.body_b64) {
+        Ok(bytes) => bytes,
+        Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
+    };
+    let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
+    let normalized = json!({
+        "ok": true,
+        "event": body_val,
+    });
+    let normalized_bytes = serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
+    let out = HttpOutV1 {
+        status: 200,
+        headers: Vec::new(),
+        body_b64: base64_encode(&normalized_bytes),
+        events: Vec::new(),
+    };
+    json_bytes(&out)
+}
+
+fn render_plan(input_json: &[u8]) -> Vec<u8> {
+    let plan_in = match serde_json::from_slice::<RenderPlanInV1>(input_json) {
+        Ok(value) => value,
+        Err(err) => return render_plan_error(&format!("invalid render input: {err}")),
+    };
+    let summary = plan_in
+        .message
+        .text
+        .clone()
+        .filter(|t| !t.trim().is_empty())
+        .unwrap_or_else(|| "slack message".to_string());
+    let plan_obj = json!({
+        "tier": "TierC",
+        "summary_text": summary,
+        "actions": [],
+        "attachments": [],
+        "warnings": [],
+        "debug": plan_in.metadata,
+    });
+    let plan_json =
+        serde_json::to_string(&plan_obj).unwrap_or_else(|_| "{\"tier\":\"TierC\"}".to_string());
+    let plan_out = RenderPlanOutV1 { plan_json };
+    json_bytes(&json!({"ok": true, "plan": plan_out}))
+}
+
+fn encode(input_json: &[u8]) -> Vec<u8> {
+    let encode_in = match serde_json::from_slice::<EncodeInV1>(input_json) {
+        Ok(value) => value,
+        Err(err) => return encode_error(&format!("invalid encode input: {err}")),
+    };
+    let channel = encode_in.message.channel.trim();
+    if channel.is_empty() {
+        return encode_error("channel required");
+    }
+    let channel = channel.to_string();
+    let text = encode_in
+        .message
+        .text
+        .clone()
+        .filter(|t| !t.trim().is_empty())
+        .unwrap_or_else(|| "slack universal payload".to_string());
+    let url = format!("{}/chat.postMessage", DEFAULT_API_BASE);
+    let body = json!({
+        "channel": channel,
+        "text": text,
+    });
+    let body_bytes = serde_json::to_vec(&body).unwrap_or_else(|_| b"{}".to_vec());
+    let mut metadata = HashMap::new();
+    metadata.insert("url".to_string(), Value::String(url));
+    metadata.insert("method".to_string(), Value::String("POST".to_string()));
+    metadata.insert("channel".to_string(), Value::String(channel));
+    let payload = ProviderPayloadV1 {
+        content_type: "application/json".to_string(),
+        body_b64: base64_encode(&body_bytes),
+        metadata,
+    };
+    json_bytes(&json!({"ok": true, "payload": payload}))
+}
+
+fn send_payload(input_json: &[u8]) -> Vec<u8> {
+    let send_in = match serde_json::from_slice::<SendPayloadInV1>(input_json) {
+        Ok(value) => value,
+        Err(err) => {
+            return send_payload_error(&format!("invalid send_payload input: {err}"), false);
+        }
+    };
+    if send_in.provider_type != PROVIDER_TYPE {
+        return send_payload_error("provider type mismatch", false);
+    }
+    let ProviderPayloadV1 {
+        content_type,
+        body_b64,
+        metadata,
+    } = send_in.payload;
+    let url = metadata_string(&metadata, "url")
+        .unwrap_or_else(|| format!("{}/chat.postMessage", DEFAULT_API_BASE));
+    let method = metadata_string(&metadata, "method").unwrap_or_else(|| "POST".to_string());
+    let body_bytes = match base64_decode(&body_b64) {
+        Ok(bytes) => bytes,
+        Err(err) => return send_payload_error(&format!("payload decode failed: {err}"), false),
+    };
+    let token = match get_secret_string(DEFAULT_BOT_TOKEN_KEY) {
+        Ok(value) => value,
+        Err(err) => return send_payload_error(&err, false),
+    };
+    let request = client::Request {
+        method,
+        url,
+        headers: vec![
+            ("Content-Type".into(), content_type.clone()),
+            ("Authorization".into(), format!("Bearer {token}")),
+        ],
+        body: Some(body_bytes),
+    };
+    let resp = match client::send(&request, None, None) {
+        Ok(value) => value,
+        Err(err) => {
+            return send_payload_error(&format!("transport error: {}", err.message), true);
+        }
+    };
+    if resp.status < 200 || resp.status >= 300 {
+        return send_payload_error(
+            &format!("slack returned status {}", resp.status),
+            resp.status >= 500,
+        );
+    }
+    send_payload_success()
+}
+
+fn metadata_string(metadata: &HashMap<String, Value>, key: &str) -> Option<String> {
+    metadata
+        .get(key)
+        .and_then(|value| value.as_str().map(|s| s.to_string()))
+}
+
+fn http_out_error(status: u16, message: &str) -> Vec<u8> {
+    let out = HttpOutV1 {
+        status,
+        headers: Vec::new(),
+        body_b64: base64_encode(message.as_bytes()),
+        events: Vec::new(),
+    };
+    json_bytes(&out)
+}
+
+fn render_plan_error(message: &str) -> Vec<u8> {
+    json_bytes(&json!({"ok": false, "error": message}))
+}
+
+fn encode_error(message: &str) -> Vec<u8> {
+    json_bytes(&json!({"ok": false, "error": message}))
+}
+
+fn send_payload_error(message: &str, retryable: bool) -> Vec<u8> {
+    let result = SendPayloadResultV1 {
+        ok: false,
+        message: Some(message.to_string()),
+        retryable,
+    };
+    json_bytes(&result)
+}
+
+fn send_payload_success() -> Vec<u8> {
+    let result = SendPayloadResultV1 {
+        ok: true,
+        message: None,
+        retryable: false,
+    };
+    json_bytes(&result)
+}
+
+fn get_secret_string(key: &str) -> Result<String, String> {
+    match secrets_store::get(key) {
+        Ok(Some(bytes)) => String::from_utf8(bytes).map_err(|_| "secret not valid utf-8".into()),
+        Ok(None) => Err(format!("missing secret: {key}")),
+        Err(e) => Err(format!("secret store error: {e:?}")),
+    }
 }
 
 #[cfg(test)]

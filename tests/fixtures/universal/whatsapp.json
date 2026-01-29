@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "path": "/whatsapp",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": "wa-evt",
+    "from": "whatsapp-user",
+    "text": { "body": "hello whatsapp" }
+  }
+}

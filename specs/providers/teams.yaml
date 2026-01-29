@@ -10,6 +10,9 @@ provider:
   ops:
   - send
   - reply
+  - subscription_ensure
+  - subscription_renew
+  - subscription_delete
   capabilities:
     render_tiers:
     - tier-d

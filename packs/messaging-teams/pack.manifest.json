@@ -992,7 +992,10 @@
             ],
             "ops": [
               "send",
-              "reply"
+              "reply",
+              "subscription_ensure",
+              "subscription_renew",
+              "subscription_delete"
             ],
             "config_schema_ref": "schemas/messaging/teams/public.config.schema.json",
             "state_schema_ref": "",

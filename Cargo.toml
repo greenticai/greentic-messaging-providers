@@ -18,7 +18,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2024"
-version = "0.4.24"
+version = "0.4.25"
 license = "MIT"
 
 [workspace.dependencies]
@@ -36,5 +36,11 @@ greentic-interfaces-guest = { version = "0.4", default-features = false }
 anyhow = "1"
 tempfile = "3"
 zip = "7"
+chrono = "0.4"
 schemars = "1"
 insta = { version = "1", features = ["json"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+axum = "0.8"
+clap = "4"
+base64 = "0"
+messaging-universal-dto = { path = "crates/messaging-universal-dto" }

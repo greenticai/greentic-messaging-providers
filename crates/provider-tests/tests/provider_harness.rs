@@ -13,17 +13,17 @@ use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 
 macro_rules! impl_common_hosts {
     ($bindings:ident) => {
-        impl $bindings::greentic::http::http_client::Host for HostState {
+        impl $bindings::greentic::http::client::Host for HostState {
             fn send(
                 &mut self,
-                _req: $bindings::greentic::http::http_client::Request,
-                _options: Option<$bindings::greentic::http::http_client::RequestOptions>,
+                _req: $bindings::greentic::http::client::Request,
+                _options: Option<$bindings::greentic::http::client::RequestOptions>,
                 _ctx: Option<$bindings::greentic::interfaces_types::types::TenantCtx>,
             ) -> Result<
-                $bindings::greentic::http::http_client::Response,
-                $bindings::greentic::http::http_client::HostError,
+                $bindings::greentic::http::client::Response,
+                $bindings::greentic::http::client::HostError,
             > {
-                Ok($bindings::greentic::http::http_client::Response {
+                Ok($bindings::greentic::http::client::Response {
                     status: 200,
                     headers: vec![],
                     body: None,

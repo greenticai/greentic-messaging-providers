@@ -353,7 +353,16 @@ fn allowed_flow_names() -> BTreeSet<&'static str> {
 
 fn allowed_provider_ops() -> BTreeSet<&'static str> {
     // TODO: source from greentic-types/greentic-interfaces once canonical ops are exposed.
-    ["send", "reply", "ingest"].into_iter().collect()
+    [
+        "send",
+        "reply",
+        "ingest",
+        "subscription_ensure",
+        "subscription_renew",
+        "subscription_delete",
+    ]
+    .into_iter()
+    .collect()
 }
 
 fn validate_spec(spec_path: &Path, spec: &Spec) -> Result<()> {

@@ -1,6 +1,13 @@
+use base64::{decode as base64_decode, encode as base64_encode};
+use greentic_types::{ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use messaging_universal_dto::{
+    EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
+    SendPayloadInV1, SendPayloadResultV1,
+};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 
 mod bindings {
     wit_bindgen::generate!({
@@ -42,7 +49,14 @@ impl Guest for Component {
         let manifest = ProviderManifest {
             provider_type: PROVIDER_TYPE.to_string(),
             capabilities: vec![],
-            ops: vec!["send".to_string(), "ingest".to_string()],
+            ops: vec![
+                "send".to_string(),
+                "ingest".to_string(),
+                "ingest_http".to_string(),
+                "render_plan".to_string(),
+                "encode".to_string(),
+                "send_payload".to_string(),
+            ],
             config_schema_ref: Some(CONFIG_SCHEMA_REF.to_string()),
             state_schema_ref: None,
         };
@@ -79,6 +93,10 @@ impl Guest for Component {
         match op.as_str() {
             "send" => handle_send(&input_json),
             "ingest" => handle_ingest(&input_json),
+            "ingest_http" => ingest_http(&input_json),
+            "render_plan" => render_plan(&input_json),
+            "encode" => encode(&input_json),
+            "send_payload" => send_payload(&input_json),
             other => json_bytes(&json!({"ok": false, "error": format!("unsupported op: {other}")})),
         }
     }
@@ -184,6 +202,267 @@ fn handle_ingest(input_json: &[u8]) -> Vec<u8> {
         "raw": parsed,
     });
     json_bytes(&json!({"ok": true, "envelope": envelope}))
+}
+
+fn ingest_http(input_json: &[u8]) -> Vec<u8> {
+    let request = match serde_json::from_slice::<HttpInV1>(input_json) {
+        Ok(req) => req,
+        Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+    };
+    let body_bytes = match base64_decode(&request.body_b64) {
+        Ok(bytes) => bytes,
+        Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
+    };
+    let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
+    let text = extract_text(&body_val);
+    let user = user_from_value(&body_val);
+    let route =
+        non_empty_string(request.route_hint.as_deref()).or_else(|| route_from_value(&body_val));
+    let tenant_channel_id = tenant_channel_from_value(&body_val);
+    let envelope = build_webchat_envelope(
+        text.clone(),
+        user.clone(),
+        route.clone(),
+        tenant_channel_id.clone(),
+    );
+    let normalized = json!({
+        "ok": true,
+        "event": body_val,
+        "route": route,
+        "tenant_channel_id": tenant_channel_id,
+    });
+    let normalized_bytes = serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
+    let out = HttpOutV1 {
+        status: 200,
+        headers: Vec::new(),
+        body_b64: base64_encode(&normalized_bytes),
+        events: vec![envelope],
+    };
+    json_bytes(&out)
+}
+
+fn render_plan(input_json: &[u8]) -> Vec<u8> {
+    let plan_in = match serde_json::from_slice::<RenderPlanInV1>(input_json) {
+        Ok(value) => value,
+        Err(err) => return render_plan_error(&format!("invalid render input: {err}")),
+    };
+    let summary = plan_in
+        .message
+        .text
+        .clone()
+        .filter(|text| !text.trim().is_empty())
+        .unwrap_or_else(|| "webchat message".to_string());
+    let plan_obj = json!({
+        "tier": "TierD",
+        "summary_text": summary,
+        "actions": [],
+        "attachments": [],
+        "warnings": [],
+        "debug": plan_in.metadata,
+    });
+    let plan_json =
+        serde_json::to_string(&plan_obj).unwrap_or_else(|_| "{\"tier\":\"TierD\"}".to_string());
+    let plan_out = RenderPlanOutV1 { plan_json };
+    json_bytes(&json!({"ok": true, "plan": plan_out}))
+}
+
+fn encode(input_json: &[u8]) -> Vec<u8> {
+    let encode_in = match serde_json::from_slice::<EncodeInV1>(input_json) {
+        Ok(value) => value,
+        Err(err) => return encode_error(&format!("invalid encode input: {err}")),
+    };
+    let text = encode_in
+        .message
+        .text
+        .clone()
+        .filter(|t| !t.trim().is_empty())
+        .unwrap_or_else(|| "webchat universal payload".to_string());
+    let metadata_route = encode_in.message.metadata.get("route").cloned();
+    let route = metadata_route
+        .clone()
+        .or_else(|| Some(encode_in.message.session_id.clone()));
+    let route_value = route.clone().unwrap_or_else(|| "webchat".to_string());
+    let payload_body = json!({
+        "text": text,
+        "route": route_value.clone(),
+        "session_id": encode_in.message.session_id,
+    });
+    let body_bytes = serde_json::to_vec(&payload_body).unwrap_or_else(|_| b"{}".to_vec());
+    let mut metadata = HashMap::new();
+    metadata.insert("route".to_string(), Value::String(route_value.clone()));
+    metadata.insert("method".to_string(), Value::String("POST".to_string()));
+    let payload = ProviderPayloadV1 {
+        content_type: "application/json".to_string(),
+        body_b64: base64_encode(&body_bytes),
+        metadata,
+    };
+    json_bytes(&json!({"ok": true, "payload": payload}))
+}
+
+fn send_payload(input_json: &[u8]) -> Vec<u8> {
+    let send_in = match serde_json::from_slice::<SendPayloadInV1>(input_json) {
+        Ok(value) => value,
+        Err(err) => {
+            return send_payload_error(&format!("invalid send_payload input: {err}"), false);
+        }
+    };
+    if send_in.provider_type != PROVIDER_TYPE {
+        return send_payload_error("provider type mismatch", false);
+    }
+    let payload_bytes = match base64_decode(&send_in.payload.body_b64) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            return send_payload_error(&format!("payload decode failed: {err}"), false);
+        }
+    };
+    let payload: Value = serde_json::from_slice(&payload_bytes).unwrap_or(Value::Null);
+    match persist_send_payload(&payload) {
+        Ok(_) => send_payload_success(),
+        Err(err) => send_payload_error(&err, false),
+    }
+}
+
+fn persist_send_payload(payload: &Value) -> Result<(), String> {
+    let route = route_from_value(payload);
+    let tenant_channel_id = tenant_channel_from_value(payload);
+    let key = route
+        .clone()
+        .or(tenant_channel_id.clone())
+        .ok_or_else(|| "route or tenant_channel_id required".to_string())?;
+    let text = extract_text(payload);
+    if text.is_empty() {
+        return Err("text required".into());
+    }
+    let mode = mode_from_value(payload).unwrap_or_else(|| DEFAULT_MODE.to_string());
+    let base_url = base_url_from_value(payload);
+    let stored = json!({
+        "route": route,
+        "tenant_channel_id": tenant_channel_id,
+        "mode": mode,
+        "base_url": base_url,
+        "text": text,
+    });
+    state_store::write(&key, &json_bytes(&stored), None)
+        .map_err(|err| format!("state write error: {}", err.message))?;
+    Ok(())
+}
+
+fn build_webchat_envelope(
+    text: String,
+    user_id: Option<String>,
+    route: Option<String>,
+    tenant_channel_id: Option<String>,
+) -> ChannelMessageEnvelope {
+    let env = EnvId::try_from("default").expect("env id");
+    let tenant = TenantId::try_from("default").expect("tenant id");
+    let mut metadata = MessageMetadata::new();
+    metadata.insert("universal".to_string(), "true".to_string());
+    if let Some(route) = &route {
+        metadata.insert("route".to_string(), route.clone());
+    }
+    if let Some(channel) = &tenant_channel_id {
+        metadata.insert("tenant_channel_id".to_string(), channel.clone());
+    }
+    let channel = route
+        .clone()
+        .or_else(|| tenant_channel_id.clone())
+        .unwrap_or_else(|| "webchat".to_string());
+    ChannelMessageEnvelope {
+        id: format!("webchat-{channel}"),
+        tenant: TenantCtx::new(env.clone(), tenant.clone()),
+        channel: channel.clone(),
+        session_id: channel,
+        reply_scope: None,
+        user_id,
+        correlation_id: None,
+        text: Some(text),
+        attachments: Vec::new(),
+        metadata,
+    }
+}
+
+fn extract_text(value: &Value) -> String {
+    value
+        .get("text")
+        .or_else(|| value.get("message"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string()
+}
+
+fn user_from_value(value: &Value) -> Option<String> {
+    value
+        .get("user_id")
+        .or_else(|| value.get("from"))
+        .and_then(|v| v.as_str())
+        .and_then(|s| non_empty_string(Some(s)))
+}
+
+fn route_from_value(value: &Value) -> Option<String> {
+    value_as_trimmed_string(value.get("route"))
+}
+
+fn tenant_channel_from_value(value: &Value) -> Option<String> {
+    value_as_trimmed_string(value.get("tenant_channel_id"))
+}
+
+fn mode_from_value(value: &Value) -> Option<String> {
+    value_as_trimmed_string(value.get("mode"))
+}
+
+fn base_url_from_value(value: &Value) -> Option<String> {
+    value_as_trimmed_string(value.get("base_url"))
+}
+
+fn value_as_trimmed_string(value: Option<&Value>) -> Option<String> {
+    value
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+}
+
+fn non_empty_string(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+}
+
+fn http_out_error(status: u16, message: &str) -> Vec<u8> {
+    let out = HttpOutV1 {
+        status,
+        headers: Vec::new(),
+        body_b64: base64_encode(message.as_bytes()),
+        events: Vec::new(),
+    };
+    json_bytes(&out)
+}
+
+fn render_plan_error(message: &str) -> Vec<u8> {
+    json_bytes(&json!({"ok": false, "error": message}))
+}
+
+fn encode_error(message: &str) -> Vec<u8> {
+    json_bytes(&json!({"ok": false, "error": message}))
+}
+
+fn send_payload_error(message: &str, retryable: bool) -> Vec<u8> {
+    let result = SendPayloadResultV1 {
+        ok: false,
+        message: Some(message.to_string()),
+        retryable,
+    };
+    json_bytes(&result)
+}
+
+fn send_payload_success() -> Vec<u8> {
+    let result = SendPayloadResultV1 {
+        ok: true,
+        message: None,
+        retryable: false,
+    };
+    json_bytes(&result)
 }
 
 fn parse_config_bytes(bytes: &[u8]) -> Result<ProviderConfig, String> {

@@ -1,0 +1,15 @@
+{
+  "method": "sendMessage",
+  "parse_mode": "HTML",
+  "reply_markup": {
+    "inline_keyboard": [
+      [
+        {
+          "text": "Docs",
+          "url": "https://example.com/docs"
+        }
+      ]
+    ]
+  },
+  "text": "Hello from fixtures"
+}

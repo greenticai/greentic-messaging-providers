@@ -29,6 +29,22 @@
   - **Role:** CLI helper that renders QuestionSpec JSON and collects answers.
   - **Key functionality:** Reads spec JSON from `--spec` or stdin, prompts for answers (hides secret input), and prints JSON answers.
   - **Key dependencies / integration points:** Uses `rpassword` for secret input.
+- **Path:** `crates/messaging-cardkit`
+  - **Role:** Lightweight CardKit renderer + profile helpers backed by `gsm-core`.
+  - **Key functionality:** Exposes `CardKit`, `ProfileSource`, `StaticProfiles`, `PackProfiles`, and stable preview/response structs so downstream tooling can render MessageCard fixtures without GSM egress or pack discovery.
+  - **Key dependencies / integration points:** Wraps `gsm-core`, re-exports renderers and tiers, and drives renderer selection via `greentic-types` provider metadata.
+- **Path:** `crates/messaging-cardkit-bin`
+  - **Role:** CLI/HTTP server companion to `messaging-cardkit`.
+  - **Key functionality:** Offers `render` and `serve` commands, command-line tier overrides, and a deterministic fixture directory so operators can inspect render responses and JSON previews. The HTTP server exposes `/render` and `/providers` and reuses the same fixtures as the library golden tests.
+  - **Key dependencies / integration points:** Relies on `messaging-cardkit` for rendering, `axum`/`tokio`/`clap` for CLI/HTTP plumbing, and shares fixtures under `tests/fixtures`.
+- **Path:** `crates/greentic-messaging-cardkit`
+  - **Role:** Installable wrapper that reuses `messaging-cardkit-bin` (`Cli` + `run`) so the CLI can be distributed via `cargo binstall greentic-messaging-cardkit`.
+  - **Key functionality:** Provides the same rendering/demo server as `messaging-cardkit-bin` but exposes the `greentic-messaging-cardkit` binary for rust install workflows.
+  - **Key dependencies / integration points:** Depends on `messaging-cardkit-bin`, `tokio`, and `anyhow` from the workspace; `cargo binstall greentic-messaging-cardkit` installs this binary.
+- **Path:** `crates/messaging-universal-dto`
+  - **Role:** Shared DTO crate for operator↔provider universal ops (HTTP ingress + render/encode/send payload).
+  - **Key functionality:** Defines `HttpInV1`/`HttpOutV1`, `RenderPlanInV1`/`EncodeInV1`, `ProviderPayloadV1`, and `SendPayloadInV1`/`SendPayloadResultV1` plus helpers for `ChannelMessageEnvelope`.
+  - **Key dependencies / integration points:** Depends on `greentic-types` for `ChannelMessageEnvelope` and exposes serde (de)serializable structs used by each provider component.
 - **Path:** `components/messaging-provider-dummy`
   - **Role:** Deterministic provider-core messaging provider for CI and smoke tests.
   - **Key functionality:** Implements provider-core `describe` (emits `ProviderManifest` for `messaging.dummy`), `validate-config` (accepts any JSON), `healthcheck`, and `invoke` (`send`/`reply` return deterministic `message_id`/`provider_message_id` based on hashed input and set status to sent/replied). Ships config schema under `schemas/messaging/dummy/public.config.schema.json` and manifest with empty `secret_requirements`.
@@ -163,7 +179,8 @@
   - **Key functionality:** Ensure manifests carry `secret_requirements`, expected WIT exports exist, env vars are unused; provider-core dummy test builds/loads the dummy WASM, validates pack metadata, and smokes `invoke("send")` via Wasmtime.
 
 ## 3. Work In Progress, TODOs, and Stubs
-- None noted.
+- Migrating all messaging providers to the universal ops surface (`ingest_http`, `render_plan`, `encode`, `send_payload`) per PR-MP-01, starting with Slack and now Webex so the operator-facing harness can rely on a consistent DTO flow; Webex now decodes/encodes the universal DTOs with base64 payloads, builds HTTP metadata, and sends via `grid-http` client before the remaining providers are refactored.
+- Making sure the new harness/instantiation tests were added and that the `greentic:http/client@1.1.0` import identity is enforced through the CI lint step added to the workflow.
 
 ## 4. Broken, Failing, or Conflicting Areas
 - `ci/local_check.sh` passes (fmt + component builds + workspace tests). `cargo-component` still emits nested `wasm32-wasip1` dirs during builds, but the script cleans them.

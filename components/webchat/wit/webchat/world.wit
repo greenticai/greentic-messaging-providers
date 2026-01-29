@@ -2,7 +2,7 @@ package provider:webchat@0.0.2;
 
 use provider:common/capabilities@0.0.2;
 use provider:common/render@0.0.2;
-use greentic:http/http-client@1.0.0;
+use greentic:http/client@1.1.0 as http-client;
 use greentic:secrets-store/secrets-store@1.0.0;
 use greentic:state/state-store@1.0.0;
 use greentic:telemetry/logger-api@1.0.0;

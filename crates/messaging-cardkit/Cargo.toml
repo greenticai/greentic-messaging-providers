@@ -1,0 +1,19 @@
+[package]
+name = "messaging-cardkit"
+version = "0.1.0"
+edition = "2024"
+authors = ["Greentic AI"]
+license = "MIT"
+description = "Standalone MessageCard rendering + downgrade kit for operator/runner consumers."
+readme = "README.md"
+
+[dependencies]
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+greentic-types = { workspace = true }
+gsm-core = "0.4"
+insta = { workspace = true, optional = true }
+
+[features]
+default = ["render"]
+render = []

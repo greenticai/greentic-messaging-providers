@@ -1,0 +1,17 @@
+{
+  "method": "POST",
+  "path": "/slack/events",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "type": "event_callback",
+    "event": {
+      "event_id": "evt-123",
+      "event_ts": "123.456",
+      "channel": "C_UNIVERSAL",
+      "text": "hello from slack",
+      "user": "U123"
+    }
+  }
+}

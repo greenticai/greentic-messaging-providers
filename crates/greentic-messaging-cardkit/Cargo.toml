@@ -1,0 +1,12 @@
+[package]
+name = "greentic-messaging-cardkit"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+anyhow.workspace = true
+tokio.workspace = true
+messaging-cardkit-bin = { path = "../messaging-cardkit-bin" }
+clap = { workspace = true, features = ["derive"] }

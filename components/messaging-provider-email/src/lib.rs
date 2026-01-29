@@ -1,6 +1,12 @@
+use base64::{decode as base64_decode, encode as base64_encode};
+use messaging_universal_dto::{
+    EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
+    SendPayloadInV1, SendPayloadResultV1,
+};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 
 mod bindings {
     wit_bindgen::generate!({
@@ -74,6 +80,10 @@ impl Guest for Component {
         match op.as_str() {
             "send" => handle_send(&input_json),
             "reply" => handle_reply(&input_json),
+            "ingest_http" => ingest_http(&input_json),
+            "render_plan" => render_plan(&input_json),
+            "encode" => encode(&input_json),
+            "send_payload" => send_payload(&input_json),
             other => json_bytes(&json!({"ok": false, "error": format!("unsupported op: {other}")})),
         }
     }
@@ -192,6 +202,140 @@ fn handle_reply(_input_json: &[u8]) -> Vec<u8> {
         "provider_message_id": provider_message_id,
         "payload": payload
     }))
+}
+
+fn ingest_http(_input_json: &[u8]) -> Vec<u8> {
+    let _ = serde_json::from_slice::<HttpInV1>(_input_json);
+    http_out_error(404, "email ingress not supported")
+}
+
+fn render_plan(input_json: &[u8]) -> Vec<u8> {
+    let plan_in = match serde_json::from_slice::<RenderPlanInV1>(input_json) {
+        Ok(value) => value,
+        Err(err) => return render_plan_error(&format!("invalid render input: {err}")),
+    };
+    let summary = plan_in
+        .message
+        .text
+        .clone()
+        .filter(|text| !text.trim().is_empty())
+        .unwrap_or_else(|| "email message".to_string());
+    let plan_obj = json!({
+        "tier": "TierD",
+        "summary_text": summary,
+        "actions": [],
+        "attachments": [],
+        "warnings": [],
+        "debug": plan_in.metadata,
+    });
+    let plan_json =
+        serde_json::to_string(&plan_obj).unwrap_or_else(|_| "{\"tier\":\"TierD\"}".to_string());
+    let plan_out = RenderPlanOutV1 { plan_json };
+    json_bytes(&json!({"ok": true, "plan": plan_out}))
+}
+
+fn encode(input_json: &[u8]) -> Vec<u8> {
+    let encode_in = match serde_json::from_slice::<EncodeInV1>(input_json) {
+        Ok(value) => value,
+        Err(err) => return encode_error(&format!("invalid encode input: {err}")),
+    };
+    let text = encode_in
+        .message
+        .text
+        .clone()
+        .filter(|t| !t.trim().is_empty())
+        .unwrap_or_else(|| "universal email payload".to_string());
+    let to = encode_in
+        .message
+        .metadata
+        .get("to")
+        .cloned()
+        .unwrap_or_else(|| "recipient@example.com".to_string());
+    let subject = encode_in
+        .message
+        .metadata
+        .get("subject")
+        .cloned()
+        .unwrap_or_else(|| "universal subject".to_string());
+    let payload_body = json!({
+        "to": to.clone(),
+        "subject": subject.clone(),
+        "body": text,
+    });
+    let body_bytes = serde_json::to_vec(&payload_body).unwrap_or_else(|_| b"{}".to_vec());
+    let mut metadata = HashMap::new();
+    metadata.insert("to".to_string(), Value::String(to));
+    metadata.insert("subject".to_string(), Value::String(subject));
+    metadata.insert("method".to_string(), Value::String("POST".to_string()));
+    let payload = ProviderPayloadV1 {
+        content_type: "application/json".to_string(),
+        body_b64: base64_encode(&body_bytes),
+        metadata,
+    };
+    json_bytes(&json!({"ok": true, "payload": payload}))
+}
+
+fn send_payload(input_json: &[u8]) -> Vec<u8> {
+    let send_in = match serde_json::from_slice::<SendPayloadInV1>(input_json) {
+        Ok(value) => value,
+        Err(err) => {
+            return send_payload_error(&format!("invalid send_payload input: {err}"), false);
+        }
+    };
+    if send_in.provider_type != PROVIDER_TYPE {
+        return send_payload_error("provider type mismatch", false);
+    }
+    let payload_bytes = match base64_decode(&send_in.payload.body_b64) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            return send_payload_error(&format!("payload decode failed: {err}"), false);
+        }
+    };
+    let payload: Value = serde_json::from_slice(&payload_bytes).unwrap_or(Value::Null);
+    let deb = payload.get("subject").and_then(Value::as_str).unwrap_or("");
+    if payload.is_null() || !payload.get("to").is_some() {
+        return send_payload_error("missing email target", false);
+    }
+    if deb.is_empty() {
+        return send_payload_error("subject required", false);
+    }
+    send_payload_success()
+}
+
+fn http_out_error(status: u16, message: &str) -> Vec<u8> {
+    let out = HttpOutV1 {
+        status,
+        headers: Vec::new(),
+        body_b64: base64_encode(message.as_bytes()),
+        events: Vec::new(),
+    };
+    json_bytes(&out)
+}
+
+fn render_plan_error(message: &str) -> Vec<u8> {
+    json_bytes(&json!({"ok": false, "error": message}))
+}
+
+fn encode_error(message: &str) -> Vec<u8> {
+    json_bytes(&json!({"ok": false, "error": message}))
+}
+
+fn send_payload_error(message: &str, retryable: bool) -> Vec<u8> {
+    let result = SendPayloadResultV1 {
+        ok: false,
+        message: Some(message.to_string()),
+        retryable,
+    };
+    json_bytes(&result)
+}
+
+fn send_payload_success() -> Vec<u8> {
+    let result = SendPayloadResultV1 {
+        ok: true,
+        message: None,
+        retryable: false,
+    };
+    json_bytes(&result)
 }
 
 fn parse_config_bytes(bytes: &[u8]) -> Result<ProviderConfig, String> {

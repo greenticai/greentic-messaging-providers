@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use greentic_interfaces_guest::component::node::{InvokeResult, NodeError};
 use greentic_interfaces_guest::component_entrypoint;
 use serde::{Deserialize, Serialize};
@@ -11,7 +13,7 @@ mod bindings {
     });
 }
 
-use bindings::greentic::http::http_client;
+use bindings::greentic::http::client;
 use bindings::greentic::secrets_store::secrets_store;
 
 const DEFAULT_API_BASE: &str = "https://api.telegram.org";
@@ -159,7 +161,7 @@ fn load_token() -> Result<String, String> {
 
 fn get_webhook_info(api_base: &str, token: &str) -> Result<Value, String> {
     let url = format!("{api_base}/bot{token}/getWebhookInfo");
-    let request = http_client::Request {
+    let request = client::Request {
         method: "GET".into(),
         url,
         headers: vec![],
@@ -183,7 +185,7 @@ fn set_webhook(
             Value::String(secret.to_string()),
         );
     }
-    let request = http_client::Request {
+    let request = client::Request {
         method: "POST".into(),
         url: format!("{api_base}/bot{token}/setWebhook"),
         headers: vec![("Content-Type".into(), "application/json".into())],
@@ -197,8 +199,8 @@ fn set_webhook(
     Ok(response)
 }
 
-fn send_request(request: &http_client::Request) -> Result<Value, String> {
-    let resp = http_client::send(request, None, None).map_err(|err| err.message.clone())?;
+fn send_request(request: &client::Request) -> Result<Value, String> {
+    let resp = client::send(request, None, None).map_err(|err| err.message.clone())?;
     if resp.status < 200 || resp.status >= 300 {
         return Err(format!("telegram returned status {}", resp.status));
     }

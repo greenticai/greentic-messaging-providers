@@ -8,7 +8,7 @@ mod bindings {
 
 use bindings::exports::provider::common::ingress::Guest as IngressGuest;
 use bindings::exports::provider::common::subscriptions::Guest as SubscriptionsGuest;
-use bindings::greentic::http::http_client;
+use bindings::greentic::http::client;
 use bindings::greentic::secrets_store::secrets_store;
 use bindings::greentic::state::state_store;
 use serde::Deserialize;
@@ -251,7 +251,7 @@ fn acquire_token(cfg: &ProviderConfig) -> Result<String, String> {
 }
 
 fn send_token_request(url: &str, form: &str) -> Result<String, String> {
-    let request = http_client::Request {
+    let request = client::Request {
         method: "POST".into(),
         url: url.to_string(),
         headers: vec![(
@@ -261,7 +261,7 @@ fn send_token_request(url: &str, form: &str) -> Result<String, String> {
         body: Some(form.as_bytes().to_vec()),
     };
 
-    let resp = http_client::send(&request, None, None)
+    let resp = client::send(&request, None, None)
         .map_err(|e| format!("transport error: {}", e.message))?;
     if resp.status < 200 || resp.status >= 300 {
         return Err(format!("token endpoint returned status {}", resp.status));
@@ -285,13 +285,13 @@ fn list_subscriptions(
         .clone()
         .unwrap_or_else(|| DEFAULT_GRAPH_BASE.to_string());
     let url = format!("{}/subscriptions", graph_base);
-    let request = http_client::Request {
+    let request = client::Request {
         method: "GET".into(),
         url,
         headers: vec![("Authorization".into(), format!("Bearer {}", token))],
         body: None,
     };
-    let resp = http_client::send(&request, None, None)
+    let resp = client::send(&request, None, None)
         .map_err(|e| format!("transport error: {}", e.message))?;
     if resp.status < 200 || resp.status >= 300 {
         return Err(format!("graph returned status {}", resp.status));
@@ -357,7 +357,7 @@ fn create_subscription(
             .insert("clientState".into(), Value::String(client_state.clone()));
     }
 
-    let request = http_client::Request {
+    let request = client::Request {
         method: "POST".into(),
         url,
         headers: vec![
@@ -366,7 +366,7 @@ fn create_subscription(
         ],
         body: Some(serde_json::to_vec(&payload).unwrap_or_else(|_| b"{}".to_vec())),
     };
-    let resp = http_client::send(&request, None, None)
+    let resp = client::send(&request, None, None)
         .map_err(|e| format!("transport error: {}", e.message))?;
     if resp.status < 200 || resp.status >= 300 {
         return Err(format!("create subscription status {}", resp.status));
@@ -403,7 +403,7 @@ fn renew_subscription(
         .unwrap_or_else(|| DEFAULT_GRAPH_BASE.to_string());
     let url = format!("{}/subscriptions/{}", graph_base, subscription_id);
     let payload = json!({ "expirationDateTime": expiration });
-    let request = http_client::Request {
+    let request = client::Request {
         method: "PATCH".into(),
         url,
         headers: vec![
@@ -412,7 +412,7 @@ fn renew_subscription(
         ],
         body: Some(serde_json::to_vec(&payload).unwrap_or_else(|_| b"{}".to_vec())),
     };
-    let resp = http_client::send(&request, None, None)
+    let resp = client::send(&request, None, None)
         .map_err(|e| format!("transport error: {}", e.message))?;
     if resp.status < 200 || resp.status >= 300 {
         return Err(format!("renew subscription status {}", resp.status));

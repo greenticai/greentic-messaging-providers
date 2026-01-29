@@ -6,7 +6,7 @@ mod bindings {
 }
 
 use bindings::Guest;
-use bindings::greentic::http::http_client;
+use bindings::greentic::http::client;
 use bindings::greentic::secrets_store::secrets_store;
 use bindings::greentic::telemetry::logger_api;
 use bindings::provider::common::capabilities::{
@@ -62,7 +62,7 @@ impl Guest for Component {
         );
         let body = format_message_json(&destination_json, &text);
 
-        let req = http_client::Request {
+        let req = client::Request {
             method: "POST".into(),
             url,
             headers: vec![
@@ -135,7 +135,7 @@ fn get_access_token() -> Result<String, String> {
         encode(TOKEN_SCOPE)
     );
 
-    let req = http_client::Request {
+    let req = client::Request {
         method: "POST".into(),
         url: token_url,
         headers: vec![(
@@ -294,7 +294,7 @@ fn runtime_config() -> &'static ProviderRuntimeConfig {
     RUNTIME_CONFIG.get_or_init(ProviderRuntimeConfig::default)
 }
 
-fn send_with_retries(req: &http_client::Request) -> Result<http_client::Response, String> {
+fn send_with_retries(req: &client::Request) -> Result<client::Response, String> {
     let attempts = runtime_config().network.max_attempts.clamp(1, 10);
     let options = request_options();
     let mut last_err: Option<String> = None;
@@ -334,18 +334,15 @@ fn log_if_enabled(event: &str) {
     let _ = logger_api::log(&span, &fields, None);
 }
 
-fn request_options() -> http_client::RequestOptions {
+fn request_options() -> client::RequestOptions {
     let cfg = runtime_config();
-    http_client::RequestOptions {
+    client::RequestOptions {
         timeout_ms: None,
-        proxy: match cfg.network.proxy {
-            provider_runtime_config::ProxyMode::Inherit => http_client::ProxyMode::Inherit,
-            provider_runtime_config::ProxyMode::Disabled => http_client::ProxyMode::Disabled,
-        },
-        tls: match cfg.network.tls {
-            provider_runtime_config::TlsMode::Strict => http_client::TlsMode::Strict,
-            provider_runtime_config::TlsMode::Insecure => http_client::TlsMode::Insecure,
-        },
+        allow_insecure: Some(matches!(
+            cfg.network.tls,
+            provider_runtime_config::TlsMode::Insecure
+        )),
+        follow_redirects: None,
     }
 }
 
@@ -361,16 +358,16 @@ fn secrets_get(key: &str) -> Result<Option<Vec<u8>>, secrets_store::SecretsError
 }
 
 fn http_send(
-    req: &http_client::Request,
-    options: &http_client::RequestOptions,
-) -> Result<http_client::Response, http_client::HostError> {
+    req: &client::Request,
+    options: &client::RequestOptions,
+) -> Result<client::Response, client::HostError> {
     #[cfg(test)]
     {
         http_send_test(req, options)
     }
     #[cfg(not(test))]
     {
-        http_client::send(req, Some(*options), None)
+        client::send(req, Some(*options), None)
     }
 }
 
@@ -379,9 +376,9 @@ type SecretsGetMock = dyn Fn(&str) -> Result<Option<Vec<u8>>, secrets_store::Sec
 
 #[cfg(test)]
 type HttpSendMock = dyn Fn(
-    &http_client::Request,
-    &http_client::RequestOptions,
-) -> Result<http_client::Response, http_client::HostError>;
+    &client::Request,
+    &client::RequestOptions,
+) -> Result<client::Response, client::HostError>;
 
 #[cfg(test)]
 thread_local! {
@@ -408,9 +405,9 @@ where
 #[cfg(test)]
 fn with_http_send_mock<F, R>(
     mock: impl Fn(
-        &http_client::Request,
-        &http_client::RequestOptions,
-    ) -> Result<http_client::Response, http_client::HostError>
+        &client::Request,
+        &client::RequestOptions,
+    ) -> Result<client::Response, client::HostError>
     + 'static,
     f: F,
 ) -> R
@@ -433,12 +430,12 @@ fn secrets_get_test(key: &str) -> Result<Option<Vec<u8>>, secrets_store::Secrets
 
 #[cfg(test)]
 fn http_send_test(
-    req: &http_client::Request,
-    options: &http_client::RequestOptions,
-) -> Result<http_client::Response, http_client::HostError> {
+    req: &client::Request,
+    options: &client::RequestOptions,
+) -> Result<client::Response, client::HostError> {
     HTTP_SEND_MOCK.with(|cell| match &*cell.borrow() {
         Some(mock) => mock(req, options),
-        None => Err(http_client::HostError {
+        None => Err(client::HostError {
             code: "unconfigured".into(),
             message: "http_send_test mock not set".into(),
         }),
@@ -613,7 +610,7 @@ mod tests {
         )
         .expect("init");
 
-        let req = http_client::Request {
+        let req = client::Request {
             method: "GET".into(),
             url: "https://example.invalid".into(),
             headers: vec![],
@@ -623,16 +620,16 @@ mod tests {
         let calls = Rc::new(Cell::new(0u32));
         let calls_for_mock = Rc::clone(&calls);
         super::with_http_send_mock(
-            move |_: &http_client::Request, _: &http_client::RequestOptions| {
+            move |_: &client::Request, _: &client::RequestOptions| {
                 let n = calls_for_mock.get() + 1;
                 calls_for_mock.set(n);
                 if n == 1 {
-                    Err(http_client::HostError {
+                    Err(client::HostError {
                         code: "timeout".into(),
                         message: "first attempt fails".into(),
                     })
                 } else {
-                    Ok(http_client::Response {
+                    Ok(client::Response {
                         status: 200,
                         headers: vec![],
                         body: None,
