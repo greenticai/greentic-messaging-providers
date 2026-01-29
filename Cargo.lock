@@ -3858,7 +3858,7 @@ name = "provider-tests"
 version = "0.4.25"
 dependencies = [
  "anyhow",
- "base64 0.13.1",
+ "base64 0.22.1",
  "greentic-interfaces-wasmtime",
  "greentic-types",
  "hmac",
