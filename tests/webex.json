@@ -1,0 +1,11 @@
+{
+  "config": {
+    "public_base_url": "https://example.com",
+    "api_base_url": "https://webexapis.com/v1"
+  },
+  "secrets": {
+    "WEBEX_BOT_TOKEN": "dummy-token"
+  },
+  "http": "mock",
+  "state": {}
+}

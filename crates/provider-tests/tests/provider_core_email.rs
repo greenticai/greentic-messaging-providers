@@ -8,7 +8,10 @@ use greentic_interfaces_wasmtime::host_helpers::v1::{
     HostFns, add_all_v1_to_linker, http_client, secrets_store, state_store,
 };
 use greentic_interfaces_wasmtime::http_client_client_v1_1::greentic::http::http_client as http_client_client_alias;
-use greentic_types::{ProviderManifest, provider::PROVIDER_EXTENSION_ID};
+use greentic_types::{
+    ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, ProviderManifest, TenantCtx,
+    TenantId, provider::PROVIDER_EXTENSION_ID,
+};
 use serde_json::{Value, json};
 use wasmtime::component::{Component, ComponentExportIndex, Linker, ResourceTable, TypedFunc};
 use wasmtime::{Config, Engine, Store};
@@ -112,6 +115,30 @@ impl WasiView for HostState {
             table: &mut self.table,
         }
     }
+}
+
+fn build_envelope(
+    channel: &str,
+    destination: Destination,
+    text: &str,
+    metadata: MessageMetadata,
+) -> Value {
+    let env = EnvId::try_from("default").expect("env id");
+    let tenant = TenantId::try_from("default").expect("tenant id");
+    let envelope = ChannelMessageEnvelope {
+        id: format!("{channel}-envelope"),
+        tenant: TenantCtx::new(env, tenant),
+        channel: channel.to_string(),
+        session_id: format!("{channel}-session"),
+        reply_scope: None,
+        from: None,
+        to: vec![destination],
+        correlation_id: None,
+        text: Some(text.to_string()),
+        attachments: Vec::new(),
+        metadata,
+    };
+    serde_json::to_value(&envelope).expect("serialize envelope")
 }
 
 impl http_client::HttpClientHostV1_1 for HostState {
@@ -420,17 +447,26 @@ fn invoke_send_smoke_test() -> Result<()> {
         .get_typed_func(&mut store, invoke_index)
         .context("get invoke func")?;
 
-    let input = json!({
-        "to": "test@example.com",
-        "subject": "hello",
-        "body": "hi there",
-        "config": {
+    let mut metadata = MessageMetadata::new();
+    metadata.insert("subject".to_string(), "hello".to_string());
+    let mut input = build_envelope(
+        "email",
+        Destination {
+            id: "test@example.com".to_string(),
+            kind: Some("email".to_string()),
+        },
+        "hi there",
+        metadata,
+    );
+    input.as_object_mut().expect("envelope object").insert(
+        "config".to_string(),
+        json!({
             "host": "smtp.example.com",
             "port": 2525,
             "username": "user",
             "from_address": "no-reply@example.com"
-        }
-    });
+        }),
+    );
     let input_bytes = serde_json::to_vec(&input)?;
     let (resp,) = invoke
         .call(&mut store, ("send".to_string(), input_bytes))
@@ -476,18 +512,28 @@ fn invoke_reply_smoke_test() -> Result<()> {
         .get_typed_func(&mut store, invoke_index)
         .context("get invoke func")?;
 
-    let input = json!({
-        "to": "user@example.com",
-        "subject": "Re: hello",
-        "body": "reply body",
-        "reply_to_id": "msg-123",
-        "config": {
+    let mut metadata = MessageMetadata::new();
+    metadata.insert("subject".to_string(), "Re: hello".to_string());
+    let mut input = build_envelope(
+        "email",
+        Destination {
+            id: "user@example.com".to_string(),
+            kind: Some("email".to_string()),
+        },
+        "reply body",
+        metadata,
+    );
+    let envelope_obj = input.as_object_mut().expect("envelope object");
+    envelope_obj.insert("reply_to_id".to_string(), json!("msg-123"));
+    envelope_obj.insert(
+        "config".to_string(),
+        json!({
             "host": "smtp.example.com",
             "port": 25,
             "username": "u",
             "from_address": "noreply@example.com"
-        }
-    });
+        }),
+    );
     let (resp,) = invoke
         .call(
             &mut store,

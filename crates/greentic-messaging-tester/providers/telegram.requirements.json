@@ -10,12 +10,6 @@
       { "key": "TELEGRAM_BOT_TOKEN", "example": "xxxxx" }
     ]
   },
-  "to": {
-    "shape": {
-      "chat_id": "123456789",
-      "channel": "telegram"
-    }
-  },
   "values": {
     "config": {
       "api_base": "https://api.telegram.org"

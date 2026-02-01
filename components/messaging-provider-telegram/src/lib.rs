@@ -1,5 +1,7 @@
 use base64::{Engine as _, engine::general_purpose};
-use greentic_types::{ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_types::{
+    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
+};
 use messaging_universal_dto::{
     EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
     SendPayloadInV1, SendPayloadResultV1,
@@ -104,28 +106,36 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         }
     };
 
-    let cfg = match load_config(&parsed) {
+    let envelope = match serde_json::from_value::<ChannelMessageEnvelope>(parsed.clone()) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}")}));
+        }
+    };
+
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
+    }
+
+    let cfg = match load_config(&parsed, Some(&envelope.metadata)) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let text = match parsed
-        .get("text")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-    {
-        Some(t) if !t.is_empty() => t,
-        _ => return json_bytes(&json!({"ok": false, "error": "text required"})),
-    };
+    let text = envelope
+        .text
+        .as_ref()
+        .map(|t| t.trim())
+        .filter(|t| !t.is_empty())
+        .map(ToString::to_string)
+        .unwrap_or_default();
+    if text.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "text required"}));
+    }
 
-    let chat_id = match parsed
-        .get("chat_id")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| cfg.default_chat_id.clone())
-    {
-        Some(chat) if !chat.is_empty() => chat,
-        _ => return json_bytes(&json!({"ok": false, "error": "chat_id required"})),
+    let chat_id = match resolve_telegram_destination(&envelope, &cfg) {
+        Ok(chat) => chat,
+        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
     let token = match secrets_store::get(TOKEN_SECRET) {
@@ -198,35 +208,50 @@ fn handle_reply(input_json: &[u8]) -> Vec<u8> {
         }
     };
 
-    let cfg = match load_config(&parsed) {
+    let envelope = match serde_json::from_value::<ChannelMessageEnvelope>(parsed.clone()) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}")}));
+        }
+    };
+
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
+    }
+
+    let cfg = match load_config(&parsed, Some(&envelope.metadata)) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let text = match parsed
-        .get("text")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-    {
-        Some(t) if !t.is_empty() => t,
-        _ => return json_bytes(&json!({"ok": false, "error": "text required"})),
+    let text = envelope
+        .text
+        .as_ref()
+        .map(|t| t.trim())
+        .filter(|t| !t.is_empty())
+        .map(ToString::to_string)
+        .unwrap_or_default();
+    if text.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "text required"}));
+    }
+
+    let chat_id = match resolve_telegram_destination(&envelope, &cfg) {
+        Ok(chat) => chat,
+        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let chat_id = match parsed
-        .get("chat_id")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| cfg.default_chat_id.clone())
-    {
-        Some(chat) if !chat.is_empty() => chat,
-        _ => return json_bytes(&json!({"ok": false, "error": "chat_id required"})),
-    };
-
-    let reply_to = parsed
-        .get("reply_to_id")
-        .or_else(|| parsed.get("thread_id"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let reply_to = envelope
+        .reply_scope
+        .as_ref()
+        .and_then(|scope| scope.reply_to.clone())
+        .or_else(|| {
+            parsed
+                .get("reply_to_id")
+                .or_else(|| parsed.get("thread_id"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_default();
     if reply_to.is_empty() {
         return json_bytes(&json!({"ok": false, "error": "reply_to_id or thread_id required"}));
     }
@@ -295,6 +320,34 @@ fn handle_reply(input_json: &[u8]) -> Vec<u8> {
         "provider_message_id": provider_message_id,
         "response": body_json
     }))
+}
+
+fn resolve_telegram_destination(
+    envelope: &ChannelMessageEnvelope,
+    cfg: &ProviderConfig,
+) -> Result<String, String> {
+    if let Some(dest) = envelope.to.iter().find(|dest| !dest.id.trim().is_empty()) {
+        return map_telegram_destination(dest);
+    }
+
+    if let Some(default_chat) = cfg.default_chat_id.clone() {
+        if !default_chat.trim().is_empty() {
+            return Ok(default_chat);
+        }
+    }
+
+    Err("chat_id required".to_string())
+}
+
+fn map_telegram_destination(destination: &Destination) -> Result<String, String> {
+    let id = destination.id.trim();
+    if id.is_empty() {
+        return Err("chat_id required".to_string());
+    }
+    match destination.kind.as_deref() {
+        Some("chat") | None => Ok(destination.id.clone()),
+        Some(kind) => Err(format!("unsupported destination kind: {kind}")),
+    }
 }
 
 fn ingest_http(input_json: &[u8]) -> Vec<u8> {
@@ -369,25 +422,13 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
-    let text = encode_in
-        .message
-        .text
-        .clone()
-        .filter(|t| !t.trim().is_empty())
-        .unwrap_or_else(|| "universal telegram payload".to_string());
-    let chat_id = encode_in
-        .message
-        .metadata
-        .get("chat_id")
-        .cloned()
-        .unwrap_or_else(|| "chat-universal".to_string());
-    let payload_body = json!({
-        "chat_id": chat_id.clone(),
-        "text": text,
-    });
-    let body_bytes = serde_json::to_vec(&payload_body).unwrap_or_else(|_| b"{}".to_vec());
+    let payload_body = serde_json::to_value(&encode_in.message).unwrap_or_else(|_| Value::Null);
+    let body_bytes = serde_json::to_vec(&payload_body)
+        .unwrap_or_else(|_| serde_json::to_vec(&json!({})).unwrap());
     let mut metadata = HashMap::new();
-    metadata.insert("chat_id".to_string(), Value::String(chat_id));
+    if let Some(destination) = encode_in.message.to.first() {
+        metadata.insert("chat_id".to_string(), Value::String(destination.id.clone()));
+    }
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
     let payload = ProviderPayloadV1 {
         content_type: "application/json".to_string(),
@@ -464,7 +505,11 @@ fn build_telegram_envelope(
         channel: channel.clone(),
         session_id: channel,
         reply_scope: None,
-        user_id: from,
+        from: from.clone().map(|id| Actor {
+            id,
+            kind: Some("user".to_string()),
+        }),
+        to: Vec::new(),
         correlation_id: None,
         text: Some(text),
         attachments: Vec::new(),
@@ -555,7 +600,10 @@ fn parse_config_bytes(bytes: &[u8]) -> Result<ProviderConfig, String> {
     serde_json::from_slice::<ProviderConfig>(bytes).map_err(|e| format!("invalid config: {e}"))
 }
 
-fn load_config(input: &Value) -> Result<ProviderConfig, String> {
+fn load_config(
+    input: &Value,
+    metadata: Option<&MessageMetadata>,
+) -> Result<ProviderConfig, String> {
     if let Some(cfg) = input.get("config") {
         return parse_config_value(cfg);
     }
@@ -565,6 +613,15 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
     }
     if let Some(v) = input.get("api_base_url") {
         partial.insert("api_base_url".into(), v.clone());
+    }
+    if let Some(meta) = metadata {
+        for key in ["default_chat_id", "api_base_url"] {
+            if partial.get(key).is_none() {
+                if let Some(value) = meta.get(key) {
+                    partial.insert(key.to_string(), Value::String(value.clone()));
+                }
+            }
+        }
     }
     if !partial.is_empty() {
         return parse_config_value(&Value::Object(partial));
@@ -591,14 +648,14 @@ mod tests {
                 "default_chat_id": "abc",
             },
         });
-        let cfg = load_config(&input).expect("config");
+        let cfg = load_config(&input, None).expect("config");
         assert_eq!(cfg.default_chat_id.as_deref(), Some("abc"));
     }
 
     #[test]
     fn load_config_defaults_to_empty_values() {
         let input = json!({"text": "hi"});
-        let cfg = load_config(&input).expect("config");
+        let cfg = load_config(&input, None).expect("config");
         assert!(cfg.default_chat_id.is_none());
     }
 

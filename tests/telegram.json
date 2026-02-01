@@ -1,0 +1,10 @@
+{
+  "config": {
+    "api_base": "https://api.telegram.org"
+  },
+  "secrets": {
+    "TELEGRAM_BOT_TOKEN": "dummy-token"
+  },
+  "http": "mock",
+  "state": {}
+}

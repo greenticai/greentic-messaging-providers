@@ -1,4 +1,4 @@
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use chrono::{DateTime, Duration, SecondsFormat, TimeZone, Utc};
 use messaging_universal_dto::{
     AuthUserRefV1, EncodeInV1, Header, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1,
@@ -25,7 +25,8 @@ mod auth;
 use bindings::exports::greentic::provider_schema_core::schema_core_api::Guest;
 use bindings::greentic::http::client;
 use greentic_types::{
-    ChannelMessageEnvelope, EnvId, MessageMetadata, ProviderManifest, TenantCtx, TenantId,
+    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, ProviderManifest,
+    TenantCtx, TenantId,
 };
 
 const PROVIDER_TYPE: &str = "messaging.email.smtp";
@@ -140,25 +141,47 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         }
     };
 
-    let cfg = match load_config(&parsed) {
+    let envelope = match serde_json::from_value::<ChannelMessageEnvelope>(parsed.clone()) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}")}));
+        }
+    };
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
+    }
+
+    let cfg = match load_config(&parsed, Some(&envelope.metadata)) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let to = match parsed.get("to").and_then(|v| v.as_str()) {
-        Some(addr) if !addr.is_empty() => addr.to_string(),
-        _ => return json_bytes(&json!({"ok": false, "error": "to required"})),
+    let to = match resolve_email_destination(&envelope) {
+        Ok(dest) => dest,
+        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
-    let subject = parsed
+    let subject = envelope
+        .metadata
         .get("subject")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    let body = parsed
-        .get("body")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+        .cloned()
+        .or_else(|| {
+            parsed
+                .get("subject")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_default();
+    let body = envelope
+        .text
+        .as_ref()
+        .map(|t| t.to_string())
+        .or_else(|| {
+            parsed
+                .get("body")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_default();
 
     let payload = json!({
         "from": cfg.from_address,
@@ -192,31 +215,59 @@ fn handle_reply(_input_json: &[u8]) -> Vec<u8> {
         }
     };
 
-    let cfg = match load_config(&parsed) {
+    let envelope = match serde_json::from_value::<ChannelMessageEnvelope>(parsed.clone()) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}")}));
+        }
+    };
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
+    }
+
+    let cfg = match load_config(&parsed, Some(&envelope.metadata)) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let to = match parsed.get("to").and_then(|v| v.as_str()) {
-        Some(addr) if !addr.is_empty() => addr.to_string(),
-        _ => return json_bytes(&json!({"ok": false, "error": "to required"})),
+    let to = match resolve_email_destination(&envelope) {
+        Ok(dest) => dest,
+        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
-    let subject = parsed
+    let subject = envelope
+        .metadata
         .get("subject")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    let body = parsed
-        .get("body")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    let thread_ref = parsed
-        .get("reply_to_id")
-        .or_else(|| parsed.get("thread_id"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+        .cloned()
+        .or_else(|| {
+            parsed
+                .get("subject")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_default();
+    let body = envelope
+        .text
+        .as_ref()
+        .map(|t| t.to_string())
+        .or_else(|| {
+            parsed
+                .get("body")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_default();
+    let thread_ref = envelope
+        .reply_scope
+        .as_ref()
+        .and_then(|scope| scope.reply_to.clone())
+        .or_else(|| {
+            parsed
+                .get("reply_to_id")
+                .or_else(|| parsed.get("thread_id"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_default();
 
     let payload = json!({
         "from": cfg.from_address,
@@ -285,39 +336,21 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
-    let text = encode_in
-        .message
-        .text
-        .clone()
-        .filter(|t| !t.trim().is_empty())
-        .unwrap_or_else(|| "universal email payload".to_string());
-    let to = encode_in
-        .message
-        .metadata
-        .get("to")
-        .cloned()
-        .unwrap_or_else(|| "recipient@example.com".to_string());
-    let subject = encode_in
-        .message
-        .metadata
-        .get("subject")
-        .cloned()
-        .unwrap_or_else(|| "universal subject".to_string());
-    let payload_body = json!({
-        "to": to.clone(),
-        "subject": subject.clone(),
-        "body": text,
-    });
-    let body_bytes = serde_json::to_vec(&payload_body).unwrap_or_else(|_| b"{}".to_vec());
+    let body_bytes = serde_json::to_vec(&encode_in.message)
+        .unwrap_or_else(|_| serde_json::to_vec(&json!({})).unwrap());
     let mut metadata = HashMap::new();
-    metadata.insert("to".to_string(), Value::String(to));
-    metadata.insert("subject".to_string(), Value::String(subject));
+    if let Some(to) = encode_in.message.metadata.get("to") {
+        metadata.insert("to".to_string(), Value::String(to.clone()));
+    }
+    if let Some(subject) = encode_in.message.metadata.get("subject") {
+        metadata.insert("subject".to_string(), Value::String(subject.clone()));
+    }
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
-        let payload = ProviderPayloadV1 {
-            content_type: "application/json".to_string(),
-            body_b64: STANDARD.encode(&body_bytes),
-            metadata,
-        };
+    let payload = ProviderPayloadV1 {
+        content_type: "application/json".to_string(),
+        body_b64: STANDARD.encode(&body_bytes),
+        metadata,
+    };
     json_bytes(&json!({"ok": true, "payload": payload}))
 }
 
@@ -463,7 +496,7 @@ fn subscription_ensure(input_json: &[u8]) -> Vec<u8> {
     if let Err(err) = ensure_provider(&dto.provider) {
         return subscription_error(&err);
     }
-    let cfg = match load_config(&parsed) {
+    let cfg = match load_config(&parsed, None) {
         Ok(cfg) => cfg,
         Err(err) => return subscription_error(&err),
     };
@@ -540,7 +573,7 @@ fn subscription_renew(input_json: &[u8]) -> Vec<u8> {
     if let Err(err) = ensure_provider(&dto.provider) {
         return subscription_error(&err);
     }
-    let cfg = match load_config(&parsed) {
+    let cfg = match load_config(&parsed, None) {
         Ok(cfg) => cfg,
         Err(err) => return subscription_error(&err),
     };
@@ -595,7 +628,7 @@ fn subscription_delete(input_json: &[u8]) -> Vec<u8> {
     if let Err(err) = ensure_provider(&dto.provider) {
         return subscription_error(&err);
     }
-    let cfg = match load_config(&parsed) {
+    let cfg = match load_config(&parsed, None) {
         Ok(cfg) => cfg,
         Err(err) => return subscription_error(&err),
     };
@@ -822,7 +855,8 @@ fn binding_to_user(binding: Option<&String>) -> Result<AuthUserRefV1, String> {
 }
 
 fn parse_graph_notifications(body_b64: &str) -> Result<Vec<(String, String)>, String> {
-    let bytes = STANDARD.decode(body_b64)
+    let bytes = STANDARD
+        .decode(body_b64)
         .map_err(|err| format!("invalid notification body: {err}"))?;
     let json: Value = serde_json::from_slice(&bytes)
         .map_err(|err| format!("notification decode failed: {err}"))?;
@@ -914,7 +948,11 @@ fn channel_message_envelope(
         channel: "email".to_string(),
         session_id: message_id.to_string(),
         reply_scope: None,
-        user_id: Some(user.user_id.clone()),
+        from: Some(Actor {
+            id: user.user_id.clone(),
+            kind: Some("user".to_string()),
+        }),
+        to: Vec::new(),
         correlation_id: Some(resource.to_string()),
         text: Some(subject),
         attachments: Vec::new(),
@@ -939,7 +977,29 @@ fn parse_config_value(val: &Value) -> Result<ProviderConfig, String> {
         .map_err(|e| format!("invalid config: {e}"))
 }
 
-fn load_config(input: &Value) -> Result<ProviderConfig, String> {
+fn resolve_email_destination(envelope: &ChannelMessageEnvelope) -> Result<String, String> {
+    if let Some(dest) = envelope.to.iter().find(|dest| !dest.id.trim().is_empty()) {
+        return map_email_destination(dest);
+    }
+
+    Err("to required".to_string())
+}
+
+fn map_email_destination(dest: &Destination) -> Result<String, String> {
+    let id = dest.id.trim();
+    if id.is_empty() {
+        return Err("to required".to_string());
+    }
+    match dest.kind.as_deref() {
+        Some("email") | None => Ok(dest.id.clone()),
+        Some(kind) => Err(format!("unsupported destination kind: {kind}")),
+    }
+}
+
+fn load_config(
+    input: &Value,
+    metadata: Option<&MessageMetadata>,
+) -> Result<ProviderConfig, String> {
     if let Some(cfg) = input.get("config") {
         return parse_config_value(cfg);
     }
@@ -947,6 +1007,15 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
     for key in ["host", "port", "username", "from_address", "tls_mode"] {
         if let Some(v) = input.get(key) {
             partial.insert(key.to_string(), v.clone());
+        }
+    }
+    if let Some(meta) = metadata {
+        for key in ["host", "port", "username", "from_address", "tls_mode"] {
+            if partial.get(key).is_none() {
+                if let Some(value) = meta.get(key) {
+                    partial.insert(key.to_string(), Value::String(value.clone()));
+                }
+            }
         }
     }
     if !partial.is_empty() {
@@ -1011,7 +1080,7 @@ mod tests {
             "config": {"host":"a","port":25,"username":"u","from_address":"f"},
             "host": "b"
         });
-        let cfg = load_config(&input).unwrap();
+        let cfg = load_config(&input, None).unwrap();
         assert_eq!(cfg.host, "a");
         assert_eq!(cfg.port, 25);
     }

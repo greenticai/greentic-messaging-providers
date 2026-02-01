@@ -1,5 +1,7 @@
 use base64::{Engine as _, engine::general_purpose};
-use greentic_types::{ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_types::{
+    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
+};
 use messaging_universal_dto::{
     EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
     SendPayloadInV1, SendPayloadResultV1,
@@ -117,49 +119,67 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         }
     };
 
-    let cfg = match load_config(&parsed) {
+    let envelope = match serde_json::from_value::<ChannelMessageEnvelope>(parsed.clone()) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}")}));
+        }
+    };
+
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
+    }
+
+    let cfg = match load_config(&parsed, Some(&envelope.metadata)) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let route = parsed
-        .get("route")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| cfg.route.clone());
-    let tenant_channel_id = parsed
-        .get("tenant_channel_id")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| cfg.tenant_channel_id.clone());
-
-    if route.is_none() && tenant_channel_id.is_none() {
-        return json_bytes(&json!({"ok": false, "error": "route or tenant_channel_id required"}));
-    }
-
-    let text = parsed
-        .get("text")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+    let text = envelope
+        .text
+        .as_ref()
+        .map(|t| t.trim())
+        .filter(|t| !t.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| {
+            parsed
+                .get("text")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_default();
     if text.is_empty() {
         return json_bytes(&json!({"ok": false, "error": "text required"}));
     }
 
+    let destination = match resolve_webchat_destination(&envelope, &cfg) {
+        Ok(dest) => dest,
+        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
+    };
+
+    let public_base_url = cfg
+        .public_base_url
+        .clone()
+        .or_else(|| public_base_url_from_value(&parsed))
+        .unwrap_or_default();
+    if public_base_url.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "public_base_url required"}));
+    }
+
     let payload = json!({
-        "route": route,
-        "tenant_channel_id": tenant_channel_id,
-        "public_base_url": cfg.public_base_url,
+        "route": destination.route,
+        "tenant_channel_id": destination.tenant_channel_id,
+        "public_base_url": public_base_url,
         "text": text,
     });
     let payload_bytes = json_bytes(&payload);
-    let key = route
+    let key = destination
+        .route
         .clone()
-        .or(tenant_channel_id.clone())
+        .or_else(|| destination.tenant_channel_id.clone())
         .unwrap_or_else(|| "webchat".to_string());
 
-    let write_result = state_store::write(&key, &payload_bytes, None);
-    if let Err(err) = write_result {
+    if let Err(err) = state_store::write(&key, &payload_bytes, None) {
         return json_bytes(
             &json!({"ok": false, "error": format!("state write error: {}", err.message)}),
         );
@@ -279,25 +299,13 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
-    let text = encode_in
-        .message
-        .text
-        .clone()
-        .filter(|t| !t.trim().is_empty())
-        .unwrap_or_else(|| "webchat universal payload".to_string());
-    let metadata_route = encode_in.message.metadata.get("route").cloned();
-    let route = metadata_route
-        .clone()
-        .or_else(|| Some(encode_in.message.session_id.clone()));
-    let route_value = route.clone().unwrap_or_else(|| "webchat".to_string());
-    let payload_body = json!({
-        "text": text,
-        "route": route_value.clone(),
-        "session_id": encode_in.message.session_id,
-    });
-    let body_bytes = serde_json::to_vec(&payload_body).unwrap_or_else(|_| b"{}".to_vec());
+    let envelope_value = serde_json::to_value(&encode_in.message).unwrap_or_else(|_| json!({}));
+    let body_bytes = serde_json::to_vec(&envelope_value)
+        .unwrap_or_else(|_| serde_json::to_vec(&json!({})).unwrap());
     let mut metadata = HashMap::new();
-    metadata.insert("route".to_string(), Value::String(route_value.clone()));
+    if let Some(route) = encode_in.message.metadata.get("route") {
+        metadata.insert("route".to_string(), Value::String(route.clone()));
+    }
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
     let payload = ProviderPayloadV1 {
         content_type: "application/json".to_string(),
@@ -355,7 +363,7 @@ fn persist_send_payload(payload: &Value) -> Result<(), String> {
 
 fn build_webchat_envelope(
     text: String,
-    user_id: Option<String>,
+    from_id: Option<String>,
     route: Option<String>,
     tenant_channel_id: Option<String>,
 ) -> ChannelMessageEnvelope {
@@ -379,7 +387,11 @@ fn build_webchat_envelope(
         channel: channel.clone(),
         session_id: channel,
         reply_scope: None,
-        user_id,
+        from: from_id.clone().map(|id| Actor {
+            id,
+            kind: Some("user".to_string()),
+        }),
+        to: Vec::new(),
         correlation_id: None,
         text: Some(text),
         attachments: Vec::new(),
@@ -404,8 +416,73 @@ fn user_from_value(value: &Value) -> Option<String> {
         .and_then(|s| non_empty_string(Some(s)))
 }
 
+struct WebchatDestination {
+    route: Option<String>,
+    tenant_channel_id: Option<String>,
+}
+
+fn resolve_webchat_destination(
+    envelope: &ChannelMessageEnvelope,
+    cfg: &ProviderConfig,
+) -> Result<WebchatDestination, String> {
+    if let Some(dest) = envelope.to.iter().find(|dest| !dest.id.trim().is_empty()) {
+        return map_webchat_destination(dest);
+    }
+
+    if let Some(route) = cfg.route.clone().filter(|value| !value.trim().is_empty()) {
+        return Ok(WebchatDestination {
+            route: Some(route),
+            tenant_channel_id: None,
+        });
+    }
+
+    if let Some(channel) = cfg
+        .tenant_channel_id
+        .clone()
+        .filter(|value| !value.trim().is_empty())
+    {
+        return Ok(WebchatDestination {
+            route: None,
+            tenant_channel_id: Some(channel),
+        });
+    }
+
+    Err("route or tenant_channel_id required".to_string())
+}
+
+fn map_webchat_destination(dest: &Destination) -> Result<WebchatDestination, String> {
+    let id = dest.id.trim();
+    if id.is_empty() {
+        return Err("route or tenant_channel_id required".to_string());
+    }
+    match dest.kind.as_deref() {
+        Some(kind)
+            if kind.eq_ignore_ascii_case("tenant_channel")
+                || kind.eq_ignore_ascii_case("tenant-channel") =>
+        {
+            Ok(WebchatDestination {
+                route: None,
+                tenant_channel_id: Some(dest.id.clone()),
+            })
+        }
+        Some("route") | None => Ok(WebchatDestination {
+            route: Some(dest.id.clone()),
+            tenant_channel_id: None,
+        }),
+        Some(kind) => Err(format!("unsupported destination kind: {kind}")),
+    }
+}
+
 fn route_from_value(value: &Value) -> Option<String> {
-    value_as_trimmed_string(value.get("route"))
+    value_as_trimmed_string(value.get("route")).or_else(|| {
+        value
+            .get("to")
+            .and_then(|to| to.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|dest| dest.get("id"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+    })
 }
 
 fn tenant_channel_from_value(value: &Value) -> Option<String> {
@@ -476,7 +553,10 @@ fn parse_config_value(val: &Value) -> Result<ProviderConfig, String> {
         .map_err(|e| format!("invalid config: {e}"))
 }
 
-fn load_config(input: &Value) -> Result<ProviderConfig, String> {
+fn load_config(
+    input: &Value,
+    metadata: Option<&MessageMetadata>,
+) -> Result<ProviderConfig, String> {
     if let Some(cfg) = input.get("config") {
         return parse_config_value(cfg);
     }
@@ -484,6 +564,15 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
     for key in ["route", "tenant_channel_id", "public_base_url"] {
         if let Some(v) = input.get(key) {
             partial.insert(key.to_string(), v.clone());
+        }
+    }
+    if let Some(meta) = metadata {
+        for key in ["route", "tenant_channel_id", "public_base_url"] {
+            if partial.get(key).is_none() {
+                if let Some(value) = meta.get(key) {
+                    partial.insert(key.to_string(), Value::String(value.clone()));
+                }
+            }
         }
     }
     if !partial.is_empty() {
@@ -541,7 +630,7 @@ mod tests {
             "config": {"route":"inner","public_base_url":"https://example.com"},
             "route": "outer"
         });
-        let cfg = load_config(&input).unwrap();
+        let cfg = load_config(&input, None).unwrap();
         assert_eq!(cfg.route.as_deref(), Some("inner"));
         assert_eq!(cfg.public_base_url.as_deref(), Some("https://example.com"));
     }

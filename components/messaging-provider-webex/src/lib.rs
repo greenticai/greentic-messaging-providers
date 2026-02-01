@@ -1,5 +1,7 @@
 use base64::{Engine as _, engine::general_purpose};
-use greentic_types::{ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_types::{
+    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
+};
 use messaging_universal_dto::{
     EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
     SendPayloadInV1, SendPayloadResultV1,
@@ -98,51 +100,40 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         }
     };
 
-    if parsed.get("attachments").is_some() {
+    let envelope = match serde_json::from_value::<ChannelMessageEnvelope>(parsed.clone()) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}")}));
+        }
+    };
+
+    if !envelope.attachments.is_empty() {
         return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
     }
 
-    let cfg = match load_config(&parsed) {
+    let cfg = match load_config(&parsed, Some(&envelope.metadata)) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let destination = parsed.get("to").and_then(|v| v.as_object());
-    let (room_id, person_id) =
-        match destination.and_then(|o| o.get("kind").and_then(|k| k.as_str())) {
-            Some("room") => {
-                let id = destination
-                    .and_then(|o| o.get("id"))
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-                    .or(cfg.default_room_id.clone());
-                (id, None)
-            }
-            Some("user") => {
-                let id = destination
-                    .and_then(|o| o.get("id"))
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-                (None, id)
-            }
-            _ => (cfg.default_room_id.clone(), None),
-        };
-
-    let (room_id, person_id) = match (room_id, person_id) {
-        (Some(r), p) if !r.is_empty() => (Some(r), p),
-        (None, Some(p)) if !p.is_empty() => (None, Some(p)),
-        _ => return json_bytes(&json!({"ok": false, "error": "destination required"})),
-    };
-
-    let text = parsed
-        .get("text")
-        .or_else(|| parsed.get("markdown"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+    let text = envelope
+        .text
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(ToString::to_string)
+        .unwrap_or_default();
     if text.is_empty() {
-        return json_bytes(&json!({"ok": false, "error": "text or markdown required"}));
+        return json_bytes(&json!({"ok": false, "error": "text required"}));
     }
+
+    let dest = match resolve_webex_destination(&envelope, &cfg) {
+        Ok(dest) => dest,
+        Err(err) if err == "destination required" => {
+            return json_bytes(&destination_required_response());
+        }
+        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
+    };
 
     let token = match secrets_store::get(DEFAULT_TOKEN_KEY) {
         Ok(Some(bytes)) => match String::from_utf8(bytes) {
@@ -166,15 +157,23 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         .unwrap_or_else(|| DEFAULT_API_BASE.to_string());
     let url = format!("{}/messages", api_base);
     let mut body = json!({ "text": text });
-    if let Some(room) = room_id {
+    eprintln!(
+        "resolved destination -> room={:?}, personEmail={:?}, personId={:?}",
+        dest.room_id, dest.person_email, dest.person_id
+    );
+    if let Some(room) = dest.room_id.clone() {
         body.as_object_mut()
             .expect("body object")
             .insert("roomId".into(), Value::String(room));
     }
-    if let Some(person) = person_id {
+    if let Some(person) = dest.person_email.clone() {
         body.as_object_mut()
             .expect("body object")
-            .insert("personId".into(), Value::String(person));
+            .insert("toPersonEmail".into(), Value::String(person));
+    } else if let Some(person_id) = dest.person_id.clone() {
+        body.as_object_mut()
+            .expect("body object")
+            .insert("toPersonId".into(), Value::String(person_id));
     }
 
     let request = client::Request {
@@ -187,19 +186,39 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         body: Some(serde_json::to_vec(&body).unwrap_or_else(|_| b"{}".to_vec())),
     };
 
+    if let Some(body_bytes) = &request.body {
+        let body_text = String::from_utf8_lossy(body_bytes);
+        eprintln!(
+            "webex send request -> method={} url={} body={}",
+            request.method, request.url, body_text,
+        );
+    }
+    let request_method = request.method.clone();
+    let request_url = request.url.clone();
+    let request_body_text = request
+        .body
+        .as_ref()
+        .map(|bytes| String::from_utf8_lossy(bytes).to_string())
+        .unwrap_or_default();
+
     let resp = match client::send(&request, None, None) {
         Ok(resp) => resp,
         Err(err) => {
-            return json_bytes(
-                &json!({"ok": false, "error": format!("transport error: {}", err.message)}),
-            );
+            return json_bytes(&json!({
+                "ok": false,
+                "error": format!("transport error: {} ({} {} body={})", err.message, request_method, request_url, request_body_text)
+            }));
         }
     };
 
     if resp.status < 200 || resp.status >= 300 {
-        return json_bytes(
-            &json!({"ok": false, "error": format!("webex returned status {}", resp.status)}),
-        );
+        let body = resp.body.clone().unwrap_or_default();
+        let body_text = String::from_utf8_lossy(&body);
+        eprintln!("webex send failure (status {}): {}", resp.status, body_text);
+        return json_bytes(&json!({
+            "ok": false,
+            "error": format!("webex returned status {} for {} {} body={}", resp.status, request_method, request_url, body_text)
+        }));
     }
 
     let body_bytes = resp.body.unwrap_or_default();
@@ -221,6 +240,79 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
     }))
 }
 
+fn resolve_webex_destination(
+    envelope: &ChannelMessageEnvelope,
+    cfg: &ProviderConfig,
+) -> Result<WebexDestination, String> {
+    if let Some(dest) = envelope.to.iter().find(|dest| !dest.id.trim().is_empty()) {
+        return map_webex_destination(dest);
+    }
+
+    if let Some(default_room) = cfg.default_room_id.clone() {
+        if !default_room.trim().is_empty() {
+            return Ok(WebexDestination {
+                room_id: Some(default_room),
+                person_email: None,
+                person_id: None,
+            });
+        }
+    }
+
+    Err("destination required".to_string())
+}
+
+fn map_webex_destination(destination: &Destination) -> Result<WebexDestination, String> {
+    let id = destination.id.trim();
+    if id.is_empty() {
+        return Err("destination required".to_string());
+    }
+    fn infer_kind(id: &str) -> Option<String> {
+        if id.contains("/ROOM/") {
+            Some("room".to_string())
+        } else if id.contains("/PEOPLE/") {
+            Some("personId".to_string())
+        } else {
+            None
+        }
+    }
+    match destination.kind.as_deref() {
+        Some("room") => Ok(WebexDestination {
+            room_id: Some(destination.id.clone()),
+            person_email: None,
+            person_id: None,
+        }),
+        Some("personId") | Some("person_id") | Some("user") => Ok(WebexDestination {
+            room_id: None,
+            person_email: None,
+            person_id: Some(destination.id.clone()),
+        }),
+        Some("personEmail") | Some("person_email") | Some("email") => Ok(WebexDestination {
+            room_id: None,
+            person_email: Some(destination.id.clone()),
+            person_id: None,
+        }),
+        None => match infer_kind(id) {
+            Some(kind) if kind == "room" => Ok(WebexDestination {
+                room_id: Some(destination.id.clone()),
+                person_email: None,
+                person_id: None,
+            }),
+            _ => Ok(WebexDestination {
+                room_id: None,
+                person_email: Some(destination.id.clone()),
+                person_id: None,
+            }),
+        },
+        Some(kind) => Err(format!("unsupported destination kind: {kind}")),
+    }
+}
+
+struct WebexDestination {
+    room_id: Option<String>,
+    person_email: Option<String>,
+    person_id: Option<String>,
+}
+
 fn handle_reply(_input_json: &[u8]) -> Vec<u8> {
     let parsed: Value = match serde_json::from_slice(_input_json) {
         Ok(val) => val,
@@ -228,7 +320,7 @@ fn handle_reply(_input_json: &[u8]) -> Vec<u8> {
             return json_bytes(&json!({"ok": false, "error": format!("invalid json: {err}")}));
         }
     };
-    let cfg = match load_config(&parsed) {
+    let cfg = match load_config(&parsed, None) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
@@ -319,7 +411,10 @@ fn parse_config_value(val: &Value) -> Result<ProviderConfig, String> {
         .map_err(|e| format!("invalid config: {e}"))
 }
 
-fn load_config(input: &Value) -> Result<ProviderConfig, String> {
+fn load_config(
+    input: &Value,
+    metadata: Option<&MessageMetadata>,
+) -> Result<ProviderConfig, String> {
     if let Some(cfg) = input.get("config") {
         return parse_config_value(cfg);
     }
@@ -327,6 +422,15 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
     for key in ["default_room_id", "api_base_url"] {
         if let Some(v) = input.get(key) {
             partial.insert(key.to_string(), v.clone());
+        }
+    }
+    if let Some(meta) = metadata {
+        for key in ["default_room_id", "api_base_url"] {
+            if partial.get(key).is_none() {
+                if let Some(value) = meta.get(key) {
+                    partial.insert(key.to_string(), Value::String(value.clone()));
+                }
+            }
         }
     }
     if !partial.is_empty() {
@@ -359,8 +463,14 @@ fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let (room_id, person_id) = extract_destination(&body_val);
-    let envelope = build_envelope("webex", text, room_id.clone(), person_id.clone());
+    let (room_id, person_email, person_id) = extract_destination(&body_val);
+    let envelope = build_envelope(
+        "webex",
+        text,
+        room_id.clone(),
+        person_email.clone(),
+        person_id.clone(),
+    );
     let normalized = json!({
         "ok": true,
         "event": body_val,
@@ -405,48 +515,14 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
-    let text = encode_in
-        .message
-        .text
-        .clone()
-        .filter(|t| !t.trim().is_empty())
-        .unwrap_or_else(|| "webex universal payload".to_string());
-    let room_id = encode_in
-        .message
-        .metadata
-        .get("room_id")
-        .map(|s| s.clone())
-        .or_else(|| Some(encode_in.message.channel.clone()))
-        .filter(|s| !s.trim().is_empty());
-    let person_id = encode_in
-        .message
-        .metadata
-        .get("person_id")
-        .map(|s| s.clone());
+    let body_bytes = serde_json::to_vec(&encode_in.message)
+        .unwrap_or_else(|_| serde_json::to_vec(&json!({})).unwrap());
     let mut metadata = HashMap::new();
     metadata.insert(
         "url".to_string(),
         Value::String(format!("{}/messages", DEFAULT_API_BASE)),
     );
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
-    if let Some(room) = &room_id {
-        metadata.insert("room_id".to_string(), Value::String(room.clone()));
-    }
-    if let Some(person) = &person_id {
-        metadata.insert("person_id".to_string(), Value::String(person.clone()));
-    }
-    let mut body = json!({ "text": text });
-    if let Some(room) = room_id {
-        body.as_object_mut()
-            .expect("body object")
-            .insert("roomId".into(), Value::String(room));
-    }
-    if let Some(person) = person_id {
-        body.as_object_mut()
-            .expect("body object")
-            .insert("personId".into(), Value::String(person));
-    }
-    let body_bytes = serde_json::to_vec(&body).unwrap_or_else(|_| b"{}".to_vec());
     let payload = ProviderPayloadV1 {
         content_type: "application/json".to_string(),
         body_b64: general_purpose::STANDARD.encode(&body_bytes),
@@ -465,93 +541,59 @@ fn send_payload(input_json: &[u8]) -> Vec<u8> {
     if send_in.provider_type != PROVIDER_TYPE {
         return send_payload_error("provider type mismatch", false);
     }
-    let ProviderPayloadV1 {
-        content_type,
-        body_b64,
-        metadata,
-    } = send_in.payload;
-    let url = metadata
-        .get("url")
-        .and_then(|value| value.as_str())
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| format!("{}/messages", DEFAULT_API_BASE));
-    let method = metadata
-        .get("method")
-        .and_then(|value| value.as_str())
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| "POST".to_string());
-    let body_bytes = match general_purpose::STANDARD.decode(&body_b64) {
+    let body_bytes = match general_purpose::STANDARD.decode(&send_in.payload.body_b64) {
         Ok(bytes) => bytes,
         Err(err) => return send_payload_error(&format!("payload decode failed: {err}"), false),
     };
     let payload: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
-    let text = payload
-        .get("text")
-        .or_else(|| payload.get("markdown"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("webex message")
-        .to_string();
-    let (room_id, person_id) = extract_destination(&payload);
-    let (room_id, person_id) = match (room_id, person_id) {
-        (Some(room), _) if !room.trim().is_empty() => (Some(room), None),
-        (None, Some(person)) if !person.trim().is_empty() => (None, Some(person)),
-        _ => return send_payload_error("destination required", false),
-    };
-    let mut body_req = json!({ "text": text });
-    if let Some(room) = room_id.clone() {
-        body_req
-            .as_object_mut()
-            .expect("body object")
-            .insert("roomId".into(), Value::String(room));
+    match invoke_handle_send(&payload) {
+        Ok(_) => send_payload_success(),
+        Err(err) => send_payload_error(&err, false),
     }
-    if let Some(person) = person_id.clone() {
-        body_req
-            .as_object_mut()
-            .expect("body object")
-            .insert("personId".into(), Value::String(person));
-    }
-    let token = match get_secret_string(DEFAULT_TOKEN_KEY) {
-        Ok(value) => value,
-        Err(err) => return send_payload_error(&err, false),
-    };
-    let request = client::Request {
-        method,
-        url,
-        headers: vec![
-            ("Content-Type".into(), content_type.clone()),
-            ("Authorization".into(), format!("Bearer {token}")),
-        ],
-        body: Some(serde_json::to_vec(&body_req).unwrap_or_else(|_| b"{}".to_vec())),
-    };
-    let resp = match client::send(&request, None, None) {
-        Ok(value) => value,
-        Err(err) => {
-            return send_payload_error(&format!("transport error: {}", err.message), true);
-        }
-    };
-    if resp.status < 200 || resp.status >= 300 {
-        return send_payload_error(
-            &format!("webex returned status {}", resp.status),
-            resp.status >= 500,
-        );
-    }
-    send_payload_success()
 }
 
-fn extract_destination(payload: &Value) -> (Option<String>, Option<String>) {
+fn invoke_handle_send(payload: &Value) -> Result<(), String> {
+    let payload_bytes =
+        serde_json::to_vec(payload).map_err(|err| format!("serialize failed: {err}"))?;
+    let result = handle_send(&payload_bytes);
+    let result_value: Value =
+        serde_json::from_slice(&result).map_err(|err| format!("parse send result: {err}"))?;
+    let ok = result_value
+        .get("ok")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if ok {
+        Ok(())
+    } else {
+        let message = result_value
+            .get("error")
+            .and_then(Value::as_str)
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "send_payload failed".to_string());
+        Err(message)
+    }
+}
+
+fn extract_destination(payload: &Value) -> (Option<String>, Option<String>, Option<String>) {
     let direct_room = payload
         .get("roomId")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
     if direct_room.is_some() {
-        return (direct_room, None);
+        return (direct_room, None, None);
     }
-    let direct_person = payload
-        .get("personId")
+    let direct_person_email = payload
+        .get("toPersonEmail")
+        .or_else(|| payload.get("personId"))
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
-    if direct_person.is_some() {
-        return (None, direct_person);
+    let direct_person_id = payload
+        .get("toPersonId")
+        .or_else(|| payload.get("personId"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    if direct_person_email.is_some() || direct_person_id.is_some() {
+        return (None, direct_person_email, direct_person_id);
     }
     let to = payload.get("to").and_then(|v| v.as_object());
     let kind = to
@@ -569,18 +611,20 @@ fn extract_destination(payload: &Value) -> (Option<String>, Option<String>) {
         .map(|s| s.to_string());
     if let Some(choice) = kind {
         match choice.as_str() {
-            "room" => return (id.or(config_room), None),
-            "user" => return (None, id),
-            _ => {}
+            "room" => return (id.or(config_room), None, None),
+            "personEmail" | "person_email" | "email" => return (None, id, None),
+            "personId" | "person_id" => return (None, None, id),
+            _ => return (None, id, None),
         }
     }
-    (config_room, None)
+    (config_room, None, None)
 }
 
 fn build_envelope(
     channel_prefix: &str,
     text: String,
     room_id: Option<String>,
+    person_email: Option<String>,
     person_id: Option<String>,
 ) -> ChannelMessageEnvelope {
     let env = EnvId::try_from("default").expect("env id");
@@ -590,11 +634,15 @@ fn build_envelope(
     if let Some(room) = &room_id {
         metadata.insert("room_id".to_string(), room.clone());
     }
+    if let Some(person) = &person_email {
+        metadata.insert("person_email".to_string(), person.clone());
+    }
     if let Some(person) = &person_id {
         metadata.insert("person_id".to_string(), person.clone());
     }
     let channel = room_id
         .clone()
+        .or(person_email.clone())
         .or(person_id.clone())
         .unwrap_or_else(|| channel_prefix.to_string());
     ChannelMessageEnvelope {
@@ -603,7 +651,11 @@ fn build_envelope(
         channel: channel.clone(),
         session_id: channel,
         reply_scope: None,
-        user_id: person_id,
+        from: person_id.clone().or(person_email.clone()).map(|id| Actor {
+            id,
+            kind: Some("user".to_string()),
+        }),
+        to: Vec::new(),
         correlation_id: None,
         text: Some(text),
         attachments: Vec::new(),
@@ -655,6 +707,14 @@ fn get_secret_string(key: &str) -> Result<String, String> {
     }
 }
 
+fn destination_required_response() -> Value {
+    json!({
+        "message": "to field  required, either of kind person or room. person will be used if kind is not set.",
+        "ok": false,
+        "retryable": false,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -670,7 +730,7 @@ mod tests {
     #[test]
     fn load_config_defaults_to_token_key() {
         let input = json!({});
-        let cfg = load_config(&input).unwrap();
+        let cfg = load_config(&input, None).unwrap();
         assert!(cfg.default_room_id.is_none());
     }
 
@@ -679,5 +739,18 @@ mod tests {
         let cfg = br#"{"default_room_id":"k","unexpected":true}"#;
         let err = parse_config_bytes(cfg).unwrap_err();
         assert!(err.contains("unknown field"));
+    }
+
+    #[test]
+    fn destination_required_response_contains_message() {
+        let resp = destination_required_response();
+        assert_eq!(
+            resp.get("message")
+                .and_then(|v| v.as_str())
+                .expect("message field"),
+            "to field  required, either of kind person or room. person will be used if kind is not set."
+        );
+        assert_eq!(resp.get("ok"), Some(&Value::Bool(false)));
+        assert_eq!(resp.get("retryable"), Some(&Value::Bool(false)));
     }
 }

@@ -22,7 +22,9 @@ use axum::{
 use base64::{Engine as _, engine::general_purpose};
 use clap::{ArgGroup, Parser, Subcommand};
 use greentic_interfaces_wasmtime::host_helpers::v1::http_client;
-use greentic_types::{ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_types::{
+    ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
+};
 use http::Request;
 use messaging_universal_dto::{
     EncodeInV1, Header, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, SendPayloadInV1,
@@ -33,6 +35,7 @@ use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tokio::runtime::Builder;
 use tokio::signal;
+use uuid::Uuid;
 
 use crate::http_mock::new_history;
 use crate::requirements::ValidationReport;
@@ -63,6 +66,10 @@ enum Command {
         provider: String,
         #[arg(long, value_name = "VALUES_JSON")]
         values: PathBuf,
+        #[arg(long, value_name = "DESTINATION")]
+        to: String,
+        #[arg(long, value_name = "DEST_KIND")]
+        to_kind: Option<String>,
         #[arg(long, group = "message")]
         text: Option<String>,
         #[arg(long, value_name = "CARD_JSON", group = "message")]
@@ -138,9 +145,11 @@ fn run(cli: Cli) -> Result<(), CliError> {
         Command::Send {
             provider,
             values,
+            to,
+            to_kind,
             text,
             card,
-        } => handle_send(provider, values, text, card),
+        } => handle_send(provider, values, to, to_kind, text, card),
         Command::Ingress {
             provider,
             values,
@@ -203,6 +212,8 @@ fn handle_requirements(provider: String) -> Result<(), CliError> {
 fn handle_send(
     provider: String,
     values_path: PathBuf,
+    to: String,
+    to_kind: Option<String>,
     text: Option<String>,
     card: Option<PathBuf>,
 ) -> Result<(), CliError> {
@@ -234,7 +245,38 @@ fn handle_send(
     };
 
     let metadata = values.to_metadata();
-    let message = build_message_envelope(&provider, text, card_value, metadata);
+    let final_text = match text {
+        Some(t) if !t.trim().is_empty() => Some(t),
+        _ => card_value.as_ref().and_then(|card: &Value| {
+            card.get("text")
+                .and_then(|v| v.as_str())
+                .map(ToString::to_string)
+        }),
+    }
+    .or_else(|| {
+        if card_value.is_some() {
+            Some("adaptive card".to_string())
+        } else {
+            None
+        }
+    });
+    let sanitized_to = to.trim();
+    if sanitized_to.is_empty() {
+        return Err(CliError::ProviderOp(anyhow!("--to cannot be empty")));
+    }
+    let sanitized_kind = to_kind.and_then(|kind| {
+        let trimmed = kind.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    });
+    let destination = Destination {
+        id: sanitized_to.to_string(),
+        kind: sanitized_kind,
+    };
+    let message = build_message_envelope(&provider, destination, final_text, card_value, metadata);
     let plan_in = RenderPlanInV1 {
         message: message.clone(),
         metadata: HashMap::new(),
@@ -595,6 +637,7 @@ fn print_missing(report: &ValidationReport) {
 
 fn build_message_envelope(
     provider: &str,
+    destination: Destination,
     text: Option<String>,
     card: Option<Value>,
     metadata: HashMap<String, String>,
@@ -615,12 +658,13 @@ fn build_message_envelope(
         }
     }
     ChannelMessageEnvelope {
-        id: format!("tester-{provider}-{channel}"),
+        id: format!("tester-{provider}-{channel}-{uuid}", uuid = Uuid::new_v4()),
         tenant: TenantCtx::new(env, tenant),
         channel: channel.clone(),
         session_id: channel.clone(),
         reply_scope: None,
-        user_id: None,
+        from: None,
+        to: vec![destination],
         correlation_id: None,
         text,
         attachments: Vec::new(),

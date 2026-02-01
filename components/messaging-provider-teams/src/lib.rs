@@ -1,6 +1,8 @@
 use base64::{Engine as _, engine::general_purpose};
 use chrono::{DateTime, LocalResult, SecondsFormat, TimeZone, Utc};
-use greentic_types::{ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_types::{
+    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
+};
 use messaging_universal_dto::{
     EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
     SendPayloadInV1, SendPayloadResultV1, SubscriptionDeleteInV1, SubscriptionDeleteOutV1,
@@ -120,37 +122,40 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
     let parsed: Value = match serde_json::from_slice(input_json) {
         Ok(val) => val,
         Err(err) => {
-            return json_bytes(&json!({"ok": false, "error": format!("invalid json: {err}")}));
+            return json_bytes(&json!({"ok": false, "error": format!("invalid json: {err}") }));
         }
     };
 
-    let cfg = match load_config(&parsed) {
+    let envelope = match serde_json::from_value::<ChannelMessageEnvelope>(parsed.clone()) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}") }));
+        }
+    };
+
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
+    }
+
+    let cfg = match load_config(&parsed, Some(&envelope.metadata)) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let text = match parsed
-        .get("text")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-    {
-        Some(t) if !t.is_empty() => t,
-        _ => return json_bytes(&json!({"ok": false, "error": "text required"})),
-    };
+    let text = envelope
+        .text
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(ToString::to_string)
+        .unwrap_or_default();
+    if text.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "text required"}));
+    }
 
-    let team_id = parsed
-        .get("team_id")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| cfg.team_id.clone());
-    let channel_id = parsed
-        .get("channel_id")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| cfg.channel_id.clone());
-
-    let (Some(team_id), Some(channel_id)) = (team_id, channel_id) else {
-        return json_bytes(&json!({"ok": false, "error": "team_id and channel_id required"}));
+    let destination = match resolve_teams_destination(&envelope, &cfg) {
+        Ok(dest) => dest,
+        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
     let token = match acquire_token(&cfg) {
@@ -161,16 +166,32 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
     let graph_base = cfg
         .graph_base_url
         .unwrap_or_else(|| DEFAULT_GRAPH_BASE.to_string());
-    let url = format!(
-        "{}/teams/{}/channels/{}/messages",
-        graph_base, team_id, channel_id
-    );
-    let body = json!({
-        "body": {
-            "content": text,
-            "contentType": "html"
-        }
-    });
+    let (url, body) = match destination {
+        TeamsDestination::Channel {
+            team_id,
+            channel_id,
+        } => (
+            format!(
+                "{}/teams/{}/channels/{}/messages",
+                graph_base, team_id, channel_id
+            ),
+            json!({
+                "body": {
+                    "content": text,
+                    "contentType": "html"
+                }
+            }),
+        ),
+        TeamsDestination::Chat { chat_id } => (
+            format!("{}/chats/{}/messages", graph_base, chat_id),
+            json!({
+                "body": {
+                    "content": text,
+                    "contentType": "html"
+                }
+            }),
+        ),
+    };
 
     let request = client::Request {
         method: "POST".into(),
@@ -203,10 +224,10 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
     let body_json: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
     let message_id = body_json
         .get("id")
-        .and_then(Value::as_str)
+        .and_then(|v| v.as_str())
         .map(|s| s.to_string())
         .unwrap_or_else(|| "graph-message".to_string());
-    let provider_message_id = format!("teams:{message_id}");
+    let provider_message_id = format!("graph:{message_id}");
 
     json_bytes(&json!({
         "ok": true,
@@ -214,37 +235,115 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         "provider_type": PROVIDER_TYPE,
         "message_id": message_id,
         "provider_message_id": provider_message_id,
-        "response": body_json,
+        "response": body_json
     }))
 }
 
+enum TeamsDestination {
+    Channel { team_id: String, channel_id: String },
+    Chat { chat_id: String },
+}
+
+fn resolve_teams_destination(
+    envelope: &ChannelMessageEnvelope,
+    cfg: &ProviderConfig,
+) -> Result<TeamsDestination, String> {
+    if let Some(dest) = envelope.to.iter().find(|dest| !dest.id.trim().is_empty()) {
+        return map_teams_destination(dest);
+    }
+
+    if let (Some(team_id), Some(channel_id)) = (cfg.team_id.clone(), cfg.channel_id.clone()) {
+        if !team_id.trim().is_empty() && !channel_id.trim().is_empty() {
+            return Ok(TeamsDestination::Channel {
+                team_id,
+                channel_id,
+            });
+        }
+    }
+
+    Err("team_id and channel_id required".to_string())
+}
+
+fn map_teams_destination(dest: &Destination) -> Result<TeamsDestination, String> {
+    let id = dest.id.trim();
+    if id.is_empty() {
+        return Err("destination id required".to_string());
+    }
+    match dest.kind.as_deref() {
+        Some("chat") => Ok(TeamsDestination::Chat {
+            chat_id: dest.id.clone(),
+        }),
+        Some("channel") | None => {
+            let (team_id, channel_id) = id
+                .split_once(':')
+                .ok_or_else(|| "channel destination must use teamId:channelId".to_string())?;
+            let team_id = team_id.trim();
+            let channel_id = channel_id.trim();
+            if team_id.is_empty() || channel_id.is_empty() {
+                return Err("team_id and channel_id required".to_string());
+            }
+            Ok(TeamsDestination::Channel {
+                team_id: team_id.to_string(),
+                channel_id: channel_id.to_string(),
+            })
+        }
+        Some(kind) => Err(format!("unsupported destination kind: {kind}")),
+    }
+}
 fn handle_reply(input_json: &[u8]) -> Vec<u8> {
     let parsed: Value = match serde_json::from_slice(input_json) {
         Ok(val) => val,
         Err(err) => {
-            return json_bytes(&json!({"ok": false, "error": format!("invalid json: {err}")}));
+            return json_bytes(&json!({"ok": false, "error": format!("invalid json: {err}") }));
         }
     };
 
-    let cfg = match load_config(&parsed) {
+    let envelope = match serde_json::from_value::<ChannelMessageEnvelope>(parsed.clone()) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}") }));
+        }
+    };
+
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
+    }
+
+    let cfg = match load_config(&parsed, Some(&envelope.metadata)) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
-    let thread_id = parsed
-        .get("reply_to_id")
-        .or_else(|| parsed.get("thread_id"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    if thread_id.is_empty() {
-        return json_bytes(&json!({"ok": false, "error": "reply_to_id or thread_id required"}));
-    }
-    let text = parsed
-        .get("text")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+
+    let text = envelope
+        .text
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(ToString::to_string)
+        .unwrap_or_default();
     if text.is_empty() {
         return json_bytes(&json!({"ok": false, "error": "text required"}));
+    }
+
+    let destination = match resolve_teams_destination(&envelope, &cfg) {
+        Ok(dest) => dest,
+        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
+    };
+
+    let reply_to = envelope
+        .reply_scope
+        .as_ref()
+        .and_then(|scope| scope.reply_to.clone())
+        .or_else(|| {
+            parsed
+                .get("reply_to_id")
+                .or_else(|| parsed.get("thread_id"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_default();
+    if reply_to.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "reply_to_id or thread_id required"}));
     }
 
     let token = match acquire_token(&cfg) {
@@ -255,30 +354,34 @@ fn handle_reply(input_json: &[u8]) -> Vec<u8> {
     let graph_base = cfg
         .graph_base_url
         .unwrap_or_else(|| DEFAULT_GRAPH_BASE.to_string());
-    let team_id = parsed
-        .get("team_id")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| cfg.team_id.clone());
-    let channel_id = parsed
-        .get("channel_id")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| cfg.channel_id.clone());
-    let (Some(team_id), Some(channel_id)) = (team_id, channel_id) else {
-        return json_bytes(&json!({"ok": false, "error": "team_id and channel_id required"}));
+    let (url, body) = match destination {
+        TeamsDestination::Channel {
+            team_id,
+            channel_id,
+        } => (
+            format!(
+                "{}/teams/{}/channels/{}/messages/{}/replies",
+                graph_base, team_id, channel_id, reply_to
+            ),
+            json!({
+                "body": {
+                    "content": text,
+                    "contentType": "html"
+                }
+            }),
+        ),
+        TeamsDestination::Chat { chat_id } => (
+            format!("{}/chats/{}/messages", graph_base, chat_id),
+            json!({
+                "body": {
+                    "content": text,
+                    "contentType": "html"
+                },
+                "replyToId": reply_to
+            }),
+        ),
     };
 
-    let url = format!(
-        "{}/teams/{}/channels/{}/messages/{}/replies",
-        graph_base, team_id, channel_id, thread_id
-    );
-    let body = json!({
-        "body": {
-            "content": text,
-            "contentType": "html"
-        }
-    });
     let request = client::Request {
         method: "POST".into(),
         url,
@@ -298,12 +401,14 @@ fn handle_reply(input_json: &[u8]) -> Vec<u8> {
             }));
         }
     };
+
     if resp.status < 200 || resp.status >= 300 {
         return json_bytes(&json!({
             "ok": false,
             "error": format!("graph returned status {}", resp.status),
         }));
     }
+
     let body_bytes = resp.body.unwrap_or_default();
     let body_json: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
     let message_id = body_json
@@ -322,7 +427,6 @@ fn handle_reply(input_json: &[u8]) -> Vec<u8> {
         "response": body_json,
     }))
 }
-
 fn ingest_http(input_json: &[u8]) -> Vec<u8> {
     let request = match serde_json::from_slice::<HttpInV1>(input_json) {
         Ok(req) => req,
@@ -384,38 +488,14 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
-    let text = encode_in
-        .message
-        .text
-        .clone()
-        .filter(|t| !t.trim().is_empty())
-        .unwrap_or_else(|| "universal teams payload".to_string());
-    let team_id = encode_in.message.metadata.get("team_id").cloned();
-    let channel_id = encode_in
-        .message
-        .metadata
-        .get("channel_id")
-        .cloned()
-        .or_else(|| {
-            let channel = encode_in.message.channel.clone();
-            if channel.is_empty() {
-                None
-            } else {
-                Some(channel)
-            }
-        });
-    let payload_body = json!({
-        "text": text,
-        "team_id": team_id.clone(),
-        "channel_id": channel_id.clone(),
-    });
-    let body_bytes = serde_json::to_vec(&payload_body).unwrap_or_else(|_| b"{}".to_vec());
+    let body_bytes = serde_json::to_vec(&encode_in.message)
+        .unwrap_or_else(|_| serde_json::to_vec(&json!({})).unwrap());
     let mut metadata = HashMap::new();
-    if let Some(team) = team_id {
-        metadata.insert("team_id".to_string(), Value::String(team));
+    if let Some(team) = encode_in.message.metadata.get("team_id") {
+        metadata.insert("team_id".to_string(), Value::String(team.clone()));
     }
-    if let Some(channel) = channel_id {
-        metadata.insert("channel_id".to_string(), Value::String(channel));
+    if let Some(channel) = encode_in.message.metadata.get("channel_id") {
+        metadata.insert("channel_id".to_string(), Value::String(channel.clone()));
     }
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
     let payload = ProviderPayloadV1 {
@@ -464,7 +544,7 @@ fn send_payload(input_json: &[u8]) -> Vec<u8> {
 
 fn build_team_envelope(
     text: String,
-    user_id: Option<String>,
+    from_id: Option<String>,
     team_id: Option<String>,
     channel_id: Option<String>,
 ) -> ChannelMessageEnvelope {
@@ -478,6 +558,9 @@ fn build_team_envelope(
     if let Some(channel) = &channel_id {
         metadata.insert("channel_id".to_string(), channel.clone());
     }
+    if let Some(sender) = &from_id {
+        metadata.insert("from".to_string(), sender.clone());
+    }
     let channel = channel_id
         .clone()
         .or_else(|| team_id.clone())
@@ -488,7 +571,11 @@ fn build_team_envelope(
         channel: channel.clone(),
         session_id: channel,
         reply_scope: None,
-        user_id,
+        from: from_id.clone().map(|id| Actor {
+            id,
+            kind: Some("user".to_string()),
+        }),
+        to: Vec::new(),
         correlation_id: None,
         text: Some(text),
         attachments: Vec::new(),
@@ -600,7 +687,7 @@ fn subscription_ensure(input_json: &[u8]) -> Vec<u8> {
         }
     }
 
-    let cfg = match load_config(&config_value) {
+    let cfg = match load_config(&config_value, None) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
@@ -712,7 +799,7 @@ fn subscription_renew(input_json: &[u8]) -> Vec<u8> {
         return json_bytes(&json!({"ok": false, "error": err}));
     }
 
-    let cfg = match load_config(&parsed) {
+    let cfg = match load_config(&parsed, None) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
@@ -771,7 +858,7 @@ fn subscription_delete(input_json: &[u8]) -> Vec<u8> {
         return json_bytes(&json!({"ok": false, "error": err}));
     }
 
-    let cfg = match load_config(&parsed) {
+    let cfg = match load_config(&parsed, None) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
@@ -870,7 +957,10 @@ fn parse_config_value(val: &Value) -> Result<ProviderConfig, String> {
         .map_err(|e| format!("invalid config: {e}"))
 }
 
-fn load_config(input: &Value) -> Result<ProviderConfig, String> {
+fn load_config(
+    input: &Value,
+    metadata: Option<&MessageMetadata>,
+) -> Result<ProviderConfig, String> {
     if let Some(cfg) = input.get("config") {
         return parse_config_value(cfg);
     }
@@ -887,6 +977,15 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
     for key in keys {
         if let Some(v) = input.get(key) {
             partial.insert(key.to_string(), v.clone());
+        }
+    }
+    if let Some(meta) = metadata {
+        for key in ["team_id", "channel_id"] {
+            if partial.get(key).is_none() {
+                if let Some(value) = meta.get(key) {
+                    partial.insert(key.to_string(), Value::String(value.clone()));
+                }
+            }
         }
     }
     if !partial.is_empty() {
@@ -1138,7 +1237,7 @@ mod tests {
             },
             "tenant_id": "outer"
         });
-        let cfg = load_config(&input).expect("cfg");
+        let cfg = load_config(&input, None).expect("cfg");
         assert_eq!(cfg.tenant_id, "t");
     }
 

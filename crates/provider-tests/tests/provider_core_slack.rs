@@ -4,7 +4,10 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Context, Result};
-use greentic_types::{ProviderManifest, provider::PROVIDER_EXTENSION_ID};
+use greentic_types::{
+    ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, ProviderManifest, TenantCtx,
+    TenantId, provider::PROVIDER_EXTENSION_ID,
+};
 use serde_json::{Value, json};
 use wasmtime::component::{
     Component, ComponentExportIndex, HasSelf, Linker, ResourceTable, TypedFunc,
@@ -117,6 +120,44 @@ impl WasiView for HostState {
             table: &mut self.table,
         }
     }
+}
+
+fn build_envelope(channel: &str, destination: Destination, text: &str) -> Value {
+    let env = EnvId::try_from("default").expect("env id");
+    let tenant = TenantId::try_from("default").expect("tenant id");
+    let envelope = ChannelMessageEnvelope {
+        id: format!("{channel}-envelope"),
+        tenant: TenantCtx::new(env, tenant),
+        channel: channel.to_string(),
+        session_id: format!("{channel}-session"),
+        reply_scope: None,
+        from: None,
+        to: vec![destination],
+        correlation_id: None,
+        text: Some(text.to_string()),
+        attachments: Vec::new(),
+        metadata: MessageMetadata::new(),
+    };
+    serde_json::to_value(&envelope).expect("serialize envelope")
+}
+
+fn build_envelope_without_destination(channel: &str, text: &str) -> Value {
+    let env = EnvId::try_from("default").expect("env id");
+    let tenant = TenantId::try_from("default").expect("tenant id");
+    let envelope = ChannelMessageEnvelope {
+        id: format!("{channel}-envelope"),
+        tenant: TenantCtx::new(env, tenant),
+        channel: channel.to_string(),
+        session_id: format!("{channel}-session"),
+        reply_scope: None,
+        from: None,
+        to: Vec::new(),
+        correlation_id: None,
+        text: Some(text.to_string()),
+        attachments: Vec::new(),
+        metadata: MessageMetadata::new(),
+    };
+    serde_json::to_value(&envelope).expect("serialize envelope without dest")
 }
 
 impl bindings::greentic::http::client::Host for HostState {
@@ -327,14 +368,23 @@ fn invoke_send_smoke_test() -> Result<()> {
         .get_typed_func(&mut store, invoke_index)
         .context("get invoke func")?;
 
-    let input = json!({
-        "to": {"kind": "channel", "id": "C123"},
-        "text": "hello slack",
-        "rich": {"format": "slack_blocks", "blocks": [{"type":"section","text":{"type":"mrkdwn","text":"hello"}}]},
-        "config": {
-            "api_base_url": "https://slack.com/api"
-        }
-    });
+    let mut input = build_envelope(
+        "slack",
+        Destination {
+            id: "C123".to_string(),
+            kind: Some("channel".to_string()),
+        },
+        "hello slack",
+    );
+    let envelope_obj = input.as_object_mut().expect("envelope object");
+    envelope_obj.insert(
+        "rich".to_string(),
+        json!({"format": "slack_blocks", "blocks": [{"type":"section","text":{"type":"mrkdwn","text":"hello"}}]}),
+    );
+    envelope_obj.insert(
+        "config".to_string(),
+        json!({ "api_base_url": "https://slack.com/api" }),
+    );
     let input_bytes = serde_json::to_vec(&input)?;
     let (first,) = invoke
         .call(&mut store, ("send".to_string(), input_bytes))
@@ -427,12 +477,17 @@ fn invoke_reply_smoke_test() -> Result<()> {
         .get_typed_func(&mut store, invoke_index)
         .context("get invoke func")?;
 
-    let input = json!({
-        "thread_id": "ts-thread",
-        "text": "reply slack",
-        "to": {"kind":"channel","id":"C123"},
-        "config": {}
-    });
+    let mut input = build_envelope(
+        "slack",
+        Destination {
+            id: "C123".to_string(),
+            kind: Some("channel".to_string()),
+        },
+        "reply slack",
+    );
+    let envelope_obj = input.as_object_mut().expect("envelope object");
+    envelope_obj.insert("thread_id".to_string(), json!("ts-thread"));
+    envelope_obj.insert("config".to_string(), json!({}));
     let (resp,) = invoke
         .call(
             &mut store,
@@ -500,11 +555,10 @@ fn reply_fails_without_channel() -> Result<()> {
         .get_typed_func(&mut store, invoke_index)
         .context("get invoke func")?;
 
-    let input = json!({
-        "text": "reply slack",
-        "thread_id": "ts-thread",
-        "config": {}
-    });
+    let mut input = build_envelope_without_destination("slack", "reply slack");
+    let envelope_obj = input.as_object_mut().expect("envelope object");
+    envelope_obj.insert("thread_id".to_string(), json!("ts-thread"));
+    envelope_obj.insert("config".to_string(), json!({}));
     let (resp,) = invoke
         .call(
             &mut store,

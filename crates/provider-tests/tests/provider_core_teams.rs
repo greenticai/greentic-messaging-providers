@@ -5,7 +5,10 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Context, Result};
-use greentic_types::{ProviderManifest, provider::PROVIDER_EXTENSION_ID};
+use greentic_types::{
+    ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, ProviderManifest, TenantCtx,
+    TenantId, provider::PROVIDER_EXTENSION_ID,
+};
 use serde_json::{Value, json};
 use wasmtime::component::{
     Component, ComponentExportIndex, HasSelf, Linker, ResourceTable, TypedFunc,
@@ -123,6 +126,25 @@ impl WasiView for HostState {
             table: &mut self.table,
         }
     }
+}
+
+fn build_envelope(channel: &str, destination: Destination, text: &str) -> Value {
+    let env = EnvId::try_from("default").expect("env id");
+    let tenant = TenantId::try_from("default").expect("tenant id");
+    let envelope = ChannelMessageEnvelope {
+        id: format!("{channel}-envelope"),
+        tenant: TenantCtx::new(env, tenant),
+        channel: channel.to_string(),
+        session_id: format!("{channel}-session"),
+        reply_scope: None,
+        from: None,
+        to: vec![destination],
+        correlation_id: None,
+        text: Some(text.to_string()),
+        attachments: Vec::new(),
+        metadata: MessageMetadata::new(),
+    };
+    serde_json::to_value(&envelope).expect("serialize envelope")
 }
 
 impl bindings::greentic::http::client::Host for HostState {
@@ -362,15 +384,21 @@ fn invoke_send_smoke_test() -> Result<()> {
         .get_typed_func(&mut store, invoke_index)
         .context("get invoke func")?;
 
-    let input = json!({
-        "text": "hello teams",
-        "team_id": "team-1",
-        "channel_id": "channel-1",
-        "config": {
+    let mut input = build_envelope(
+        "teams",
+        Destination {
+            id: "team-1:channel-1".to_string(),
+            kind: Some("channel".to_string()),
+        },
+        "hello teams",
+    );
+    input.as_object_mut().expect("envelope object").insert(
+        "config".to_string(),
+        json!({
             "tenant_id": "tenant-123",
             "client_id": "client-123"
-        }
-    });
+        }),
+    );
     let input_bytes = serde_json::to_vec(&input)?;
     let (first,) = invoke
         .call(&mut store, ("send".to_string(), input_bytes))
@@ -493,16 +521,23 @@ fn invoke_reply_smoke_test() -> Result<()> {
         .get_typed_func(&mut store, invoke_index)
         .context("get invoke func")?;
 
-    let input = json!({
-        "text": "reply to teams",
-        "team_id": "team-1",
-        "channel_id": "channel-1",
-        "reply_to_id": "thread-42",
-        "config": {
+    let mut input = build_envelope(
+        "teams",
+        Destination {
+            id: "team-1:channel-1".to_string(),
+            kind: Some("channel".to_string()),
+        },
+        "reply to teams",
+    );
+    let envelope_obj = input.as_object_mut().expect("envelope object");
+    envelope_obj.insert("reply_to_id".to_string(), json!("thread-42"));
+    envelope_obj.insert(
+        "config".to_string(),
+        json!({
             "tenant_id": "tenant-123",
             "client_id": "client-123"
-        }
-    });
+        }),
+    );
     let (resp,) = invoke
         .call(
             &mut store,
@@ -574,15 +609,21 @@ fn reply_requires_thread_id() -> Result<()> {
         .get_typed_func(&mut store, invoke_index)
         .context("get invoke func")?;
 
-    let input = json!({
-        "text": "reply",
-        "team_id": "team-1",
-        "channel_id": "channel-1",
-        "config": {
+    let mut input = build_envelope(
+        "teams",
+        Destination {
+            id: "team-1:channel-1".to_string(),
+            kind: Some("channel".to_string()),
+        },
+        "reply",
+    );
+    input.as_object_mut().expect("envelope object").insert(
+        "config".to_string(),
+        json!({
             "tenant_id": "tenant-123",
             "client_id": "client-123"
-        }
-    });
+        }),
+    );
     let (resp,) = invoke
         .call(
             &mut store,

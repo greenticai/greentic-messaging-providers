@@ -5,7 +5,7 @@ Minimal CLI for driving a provider WASM component through the render/encode/send
 ## Commands
 
 - `requirements --provider <name>`: prints `providers/<name>.requirements.json`.
-- `send --provider <name> --values values.json (--text "..." | --card path/to/card.json)`: renders a plan, encodes it, performs `send_payload`, and prints the plan/encode/http_calls/result payload.
+- `send --provider <name> --values values.json --to <destination> [--to-kind <kind>] (--text "..." | --card path/to/card.json)`: renders a plan, encodes it, performs `send_payload`, and prints the plan/encode/http_calls/result payload.
 - `ingress --provider <name> --values values.json --http-in webhook.json --public-base-url https://example.com`: calls `ingest_http` with the supplied HTTP payload and prints the normalized envelopes.
 
 ## Sample `values.json`
@@ -33,8 +33,12 @@ Minimal CLI for driving a provider WASM component through the render/encode/send
 greentic-messaging-tester send \
   --provider telegram \
   --values values.json \
+  --to 123456789 \
+  --to-kind chat \
   --text "hello from the tester"
 ```
+
+You must provide `--to` (the destination identifier) and can optionally override the destination kind with `--to-kind`; when omitted, providers typically default to their primary destination type (e.g., `room` for Webex, `chat` for Telegram).
 
 The command prints a JSON object containing the render plan, encode output, captured HTTP calls, and the final `send_payload` result.
 

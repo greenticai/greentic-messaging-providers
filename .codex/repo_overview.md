@@ -179,7 +179,7 @@
   - **Key functionality:** Ensure manifests carry `secret_requirements`, expected WIT exports exist, env vars are unused; provider-core dummy test builds/loads the dummy WASM, validates pack metadata, and smokes `invoke("send")` via Wasmtime.
 
 ## 3. Work In Progress, TODOs, and Stubs
-- Migrating all messaging providers to the universal ops surface (`ingest_http`, `render_plan`, `encode`, `send_payload`) per PR-MP-01, starting with Slack and now Webex so the operator-facing harness can rely on a consistent DTO flow; Webex now decodes/encodes the universal DTOs with base64 payloads, builds HTTP metadata, and sends via `grid-http` client before the remaining providers are refactored.
+- PR-MP-01/PR-02: Migrating every messaging provider to the universal ops surface (`ingest_http`, `render_plan`, `encode`, `send_payload`) and making `send` consume `ChannelMessageEnvelope`. All providers now prioritize `envelope.to` destinations (with provider-config fallbacks), inbound `ingest_http` fillers populate `from`, and the universal ops conformance test serializes fresh envelopes so the operator-facing harness can rely on a consistent DTO flow.
 - Making sure the new harness/instantiation tests were added and that the `greentic:http/client@1.1.0` import identity is enforced through the CI lint step added to the workflow.
 
 ## 4. Broken, Failing, or Conflicting Areas

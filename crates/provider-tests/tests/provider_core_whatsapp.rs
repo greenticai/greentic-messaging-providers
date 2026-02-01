@@ -4,7 +4,10 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Context, Result};
-use greentic_types::{ProviderManifest, provider::PROVIDER_EXTENSION_ID};
+use greentic_types::{
+    ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, ProviderManifest, TenantCtx,
+    TenantId, provider::PROVIDER_EXTENSION_ID,
+};
 use serde_json::{Value, json};
 use wasmtime::component::{
     Component, ComponentExportIndex, HasSelf, Linker, ResourceTable, TypedFunc,
@@ -118,6 +121,25 @@ impl WasiView for HostState {
             table: &mut self.table,
         }
     }
+}
+
+fn build_envelope(channel: &str, destination: Destination, text: &str) -> Value {
+    let env = EnvId::try_from("default").expect("env id");
+    let tenant = TenantId::try_from("default").expect("tenant id");
+    let envelope = ChannelMessageEnvelope {
+        id: format!("{channel}-envelope"),
+        tenant: TenantCtx::new(env, tenant),
+        channel: channel.to_string(),
+        session_id: format!("{channel}-session"),
+        reply_scope: None,
+        from: None,
+        to: vec![destination],
+        correlation_id: None,
+        text: Some(text.to_string()),
+        attachments: Vec::new(),
+        metadata: MessageMetadata::new(),
+    };
+    serde_json::to_value(&envelope).expect("serialize envelope")
 }
 
 impl bindings::greentic::http::client::Host for HostState {
@@ -316,14 +338,21 @@ fn invoke_send_smoke_test() -> Result<()> {
         .get_typed_func(&mut store, invoke_index)
         .context("get invoke func")?;
 
-    let input = json!({
-        "to": {"kind": "user", "id": "+15551234567"},
-        "text": "hello whatsapp",
-        "config": {
+    let mut input = build_envelope(
+        "whatsapp",
+        Destination {
+            id: "+15551234567".to_string(),
+            kind: Some("user".to_string()),
+        },
+        "hello whatsapp",
+    );
+    input.as_object_mut().expect("envelope object").insert(
+        "config".to_string(),
+        json!({
             "phone_number_id": "12345",
             "api_version": "v19.0"
-        }
-    });
+        }),
+    );
     let input_bytes = serde_json::to_vec(&input)?;
     let (resp,) = invoke
         .call(&mut store, ("send".to_string(), input_bytes))
@@ -407,13 +436,20 @@ fn reply_requires_context() -> Result<()> {
         .get_typed_func(&mut store, invoke_index)
         .context("get invoke func")?;
 
-    let input = json!({
-        "to": {"kind": "user", "id": "+15551234567"},
-        "text": "reply whatsapp",
-        "config": {
+    let mut input = build_envelope(
+        "whatsapp",
+        Destination {
+            id: "+15551234567".to_string(),
+            kind: Some("user".to_string()),
+        },
+        "reply whatsapp",
+    );
+    input.as_object_mut().expect("envelope object").insert(
+        "config".to_string(),
+        json!({
             "phone_number_id": "12345"
-        }
-    });
+        }),
+    );
     let (resp,) = invoke
         .call(
             &mut store,
@@ -468,15 +504,23 @@ fn invoke_reply_smoke_test() -> Result<()> {
         .get_typed_func(&mut store, invoke_index)
         .context("get invoke func")?;
 
-    let input = json!({
-        "to": {"kind": "user", "id": "+15551234567"},
-        "text": "reply whatsapp",
-        "reply_to_id": "wamid.abc",
-        "config": {
+    let mut input = build_envelope(
+        "whatsapp",
+        Destination {
+            id: "+15551234567".to_string(),
+            kind: Some("user".to_string()),
+        },
+        "reply whatsapp",
+    );
+    let envelope_obj = input.as_object_mut().expect("envelope object");
+    envelope_obj.insert("reply_to_id".to_string(), json!("wamid.abc"));
+    envelope_obj.insert(
+        "config".to_string(),
+        json!({
             "phone_number_id": "12345",
             "api_version": "v19.0"
-        }
-    });
+        }),
+    );
     let (resp,) = invoke
         .call(
             &mut store,

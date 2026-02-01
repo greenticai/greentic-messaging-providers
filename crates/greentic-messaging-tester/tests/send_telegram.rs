@@ -2,7 +2,6 @@ use assert_cmd::cargo::cargo_bin_cmd;
 use serde_json::Value;
 
 #[test]
-#[ignore]
 fn send_telegram_records_http_calls() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = cargo_bin_cmd!("greentic-messaging-tester");
     cmd.arg("send")
@@ -10,6 +9,10 @@ fn send_telegram_records_http_calls() -> Result<(), Box<dyn std::error::Error>> 
         .arg("telegram")
         .arg("--values")
         .arg("tests/fixtures/values/telegram.json")
+        .arg("--to")
+        .arg("123456789")
+        .arg("--to-kind")
+        .arg("chat")
         .arg("--text")
         .arg("hello from test");
     let output = cmd.assert().success().get_output().stdout.clone();

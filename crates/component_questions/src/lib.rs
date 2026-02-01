@@ -64,7 +64,7 @@ fn describe_payload() -> String {
             "name": "questions",
             "org": "ai.greentic",
             "version": "0.1.0",
-            "world": "greentic:component/component@0.5.0"
+            "world": "greentic:component/node@0.5.0"
         }
     })
     .to_string()

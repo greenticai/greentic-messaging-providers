@@ -1,4 +1,5 @@
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
+use greentic_types::{ChannelMessageEnvelope, Destination, MessageMetadata};
 use messaging_universal_dto::{
     EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
     SendPayloadInV1, SendPayloadResultV1,
@@ -90,29 +91,46 @@ fn handle_send(input_json: &[u8], is_reply: bool) -> Vec<u8> {
         }
     };
 
-    let cfg = match load_config(&parsed) {
+    let envelope = match serde_json::from_value::<ChannelMessageEnvelope>(parsed.clone()) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}")}));
+        }
+    };
+
+    let cfg = match load_config(&parsed, Some(&envelope.metadata)) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let channel = destination_channel(&parsed, &cfg);
-    let channel = match channel {
-        Some(c) if !c.is_empty() => c,
-        _ => return json_bytes(&json!({"ok": false, "error": "channel required"})),
+    let channel = match resolve_slack_destination(&envelope, &cfg) {
+        Ok(chan) => chan,
+        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let text = parsed
-        .get("text")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+    let text = envelope
+        .text
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(ToString::to_string)
+        .unwrap_or_default();
+    if text.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "text required"}));
+    }
 
     let thread_ts = if is_reply {
-        parsed
-            .get("thread_id")
-            .or_else(|| parsed.get("reply_to_id"))
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
+        envelope
+            .reply_scope
+            .as_ref()
+            .and_then(|scope| scope.thread.clone().or(scope.reply_to.clone()))
+            .or_else(|| {
+                parsed
+                    .get("thread_id")
+                    .or_else(|| parsed.get("reply_to_id"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            })
     } else {
         None
     };
@@ -192,13 +210,33 @@ fn handle_send(input_json: &[u8], is_reply: bool) -> Vec<u8> {
     }))
 }
 
-fn destination_channel(parsed: &Value, cfg: &ProviderConfig) -> Option<String> {
-    if let Some(to) = parsed.get("to").and_then(|v| v.as_object())
-        && let Some(id) = to.get("id").and_then(|v| v.as_str())
-    {
-        return Some(id.to_string());
+fn resolve_slack_destination(
+    envelope: &ChannelMessageEnvelope,
+    cfg: &ProviderConfig,
+) -> Result<String, String> {
+    if let Some(dest) = envelope.to.iter().find(|dest| !dest.id.trim().is_empty()) {
+        return map_slack_destination(dest);
     }
-    cfg.default_channel.clone()
+
+    cfg.default_channel
+        .as_ref()
+        .map(|value| value.trim().to_string())
+        .filter(|chan| !chan.is_empty())
+        .ok_or_else(|| "channel required".to_string())
+}
+
+fn map_slack_destination(destination: &Destination) -> Result<String, String> {
+    match destination.kind.as_deref() {
+        Some("channel") | None => {
+            let trimmed = destination.id.trim();
+            if trimmed.is_empty() {
+                Err("channel required".to_string())
+            } else {
+                Ok(destination.id.clone())
+            }
+        }
+        Some(kind) => Err(format!("unsupported destination kind: {kind}")),
+    }
 }
 
 fn parse_blocks(parsed: &Value) -> (Option<String>, Option<Value>) {
@@ -220,7 +258,10 @@ fn parse_config_value(val: &Value) -> Result<ProviderConfig, String> {
         .map_err(|e| format!("invalid config: {e}"))
 }
 
-fn load_config(input: &Value) -> Result<ProviderConfig, String> {
+fn load_config(
+    input: &Value,
+    metadata: Option<&MessageMetadata>,
+) -> Result<ProviderConfig, String> {
     if let Some(cfg) = input.get("config") {
         return parse_config_value(cfg);
     }
@@ -228,6 +269,15 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
     for key in ["default_channel", "api_base_url"] {
         if let Some(v) = input.get(key) {
             partial.insert(key.to_string(), v.clone());
+        }
+    }
+    if let Some(meta) = metadata {
+        for key in ["default_channel", "api_base_url"] {
+            if partial.get(key).is_none() {
+                if let Some(value) = meta.get(key) {
+                    partial.insert(key.to_string(), Value::String(value.clone()));
+                }
+            }
         }
     }
     if !partial.is_empty() {
@@ -302,23 +352,13 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
     if channel.is_empty() {
         return encode_error("channel required");
     }
-    let channel = channel.to_string();
-    let text = encode_in
-        .message
-        .text
-        .clone()
-        .filter(|t| !t.trim().is_empty())
-        .unwrap_or_else(|| "slack universal payload".to_string());
     let url = format!("{}/chat.postMessage", DEFAULT_API_BASE);
-    let body = json!({
-        "channel": channel,
-        "text": text,
-    });
-    let body_bytes = serde_json::to_vec(&body).unwrap_or_else(|_| b"{}".to_vec());
+    let body_bytes = serde_json::to_vec(&encode_in.message)
+        .unwrap_or_else(|_| serde_json::to_vec(&json!({})).unwrap());
     let mut metadata = HashMap::new();
     metadata.insert("url".to_string(), Value::String(url));
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
-    metadata.insert("channel".to_string(), Value::String(channel));
+    metadata.insert("channel".to_string(), Value::String(channel.to_string()));
     let payload = ProviderPayloadV1 {
         content_type: "application/json".to_string(),
         body_b64: STANDARD.encode(&body_bytes),
@@ -434,7 +474,7 @@ mod tests {
     #[test]
     fn load_config_defaults_to_empty_values() {
         let input = json!({"text":"hi"});
-        let cfg = load_config(&input).unwrap();
+        let cfg = load_config(&input, None).unwrap();
         assert!(cfg.default_channel.is_none());
     }
 

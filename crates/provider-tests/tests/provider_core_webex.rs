@@ -4,7 +4,10 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Context, Result};
-use greentic_types::{ProviderManifest, provider::PROVIDER_EXTENSION_ID};
+use greentic_types::{
+    ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, ProviderManifest, TenantCtx,
+    TenantId, provider::PROVIDER_EXTENSION_ID,
+};
 use serde_json::{Value, json};
 use wasmtime::component::{
     Component, ComponentExportIndex, HasSelf, Linker, ResourceTable, TypedFunc,
@@ -117,6 +120,25 @@ impl WasiView for HostState {
             table: &mut self.table,
         }
     }
+}
+
+fn build_envelope(channel: &str, destination: Destination, text: &str) -> Value {
+    let env = EnvId::try_from("default").expect("env id");
+    let tenant = TenantId::try_from("default").expect("tenant id");
+    let envelope = ChannelMessageEnvelope {
+        id: format!("{channel}-envelope"),
+        tenant: TenantCtx::new(env, tenant),
+        channel: channel.to_string(),
+        session_id: format!("{channel}-session"),
+        reply_scope: None,
+        from: None,
+        to: vec![destination],
+        correlation_id: None,
+        text: Some(text.to_string()),
+        attachments: Vec::new(),
+        metadata: MessageMetadata::new(),
+    };
+    serde_json::to_value(&envelope).expect("serialize envelope")
 }
 
 impl bindings::greentic::http::client::Host for HostState {
@@ -301,13 +323,18 @@ fn invoke_send_smoke_test() -> Result<()> {
         .get_typed_func(&mut store, invoke_index)
         .context("get invoke func")?;
 
-    let input = json!({
-        "to": {"kind": "room", "id": "room-1"},
-        "text": "hello webex",
-        "config": {
-            "api_base_url": "https://webexapis.com/v1"
-        }
-    });
+    let mut input = build_envelope(
+        "webex",
+        Destination {
+            id: "room-1".to_string(),
+            kind: Some("room".to_string()),
+        },
+        "hello webex",
+    );
+    input.as_object_mut().expect("envelope object").insert(
+        "config".to_string(),
+        json!({ "api_base_url": "https://webexapis.com/v1" }),
+    );
     let input_bytes = serde_json::to_vec(&input)?;
     let (resp,) = invoke
         .call(&mut store, ("send".to_string(), input_bytes))

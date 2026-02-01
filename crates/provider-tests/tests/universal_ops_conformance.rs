@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, Error, Result};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use greentic_interfaces_wasmtime::host_helpers::v1::http_client;
-use greentic_types::{EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_types::{Actor, Destination, EnvId, MessageMetadata, TenantCtx, TenantId};
 use messaging_universal_dto::{
     ChannelMessageEnvelope, EncodeInV1, Header, HttpInV1, HttpOutV1, ProviderPayloadV1,
     RenderPlanInV1, RenderPlanOutV1, SendPayloadInV1, SendPayloadResultV1,
@@ -409,7 +409,11 @@ fn build_envelope(id: ProviderId) -> ChannelMessageEnvelope {
         channel: channel.to_string(),
         session_id: channel.to_string(),
         reply_scope: None,
-        user_id: Some("universal-user".to_string()),
+        from: Some(Actor {
+            id: "universal-user".to_string(),
+            kind: Some("user".to_string()),
+        }),
+        to: Vec::new(),
         correlation_id: None,
         text: Some(format!("universal {} message", channel)),
         attachments: Vec::new(),
@@ -419,62 +423,121 @@ fn build_envelope(id: ProviderId) -> ChannelMessageEnvelope {
 
 fn send_payload_body(id: ProviderId) -> Value {
     match id {
-        ProviderId::Slack => json!({
-            "to": {"kind": "channel", "id": "C_UNIVERSAL"},
-            "text": "universal slack",
-            "config": {"default_channel": "C_UNIVERSAL"}
-        }),
-        ProviderId::Telegram => json!({
-            "chat_id": "922337",
-            "text": "universal telegram",
-            "config": {"default_chat_id": "922337"}
-        }),
-        ProviderId::Teams => json!({
-            "text": "universal teams",
-            "team_id": "team-universal",
-            "channel_id": "channel-universal",
-            "config": {
-                "tenant_id": "tenant-universal",
-                "client_id": "client-universal",
-                "team_id": "team-universal",
-                "channel_id": "channel-universal"
-            }
-        }),
-        ProviderId::Webchat => json!({
-            "text": "universal webchat",
-            "route": "universal-route",
-            "tenant_channel_id": "tenant-channel",
-            "config": {
-                "route": "universal-route",
-                "tenant_channel_id": "tenant-channel",
-                "mode": "universal-mode",
-                "base_url": "https://webchat.example"
-            }
-        }),
-        ProviderId::Webex => json!({
-            "text": "universal webex",
-            "to": {"kind": "room", "id": "room-universal"},
-            "config": {"default_room_id": "room-universal"}
-        }),
-        ProviderId::Whatsapp => json!({
-            "text": "universal whatsapp",
-            "to": {"kind": "user", "id": "whatsapp-user"},
-            "config": {"phone_number_id": "phone-universal"}
-        }),
-        ProviderId::Email => json!({
-            "to": "recipient@example.com",
-            "subject": "universal email",
-            "body": "hello universal",
-            "config": {
-                "host": "smtp.example",
-                "username": "user",
-                "from_address": "sender@example.com"
-            }
-        }),
+        ProviderId::Slack => channel_message_envelope_json(
+            "slack",
+            "universal slack",
+            vec![destination("C_UNIVERSAL", Some("channel"))],
+            metadata_from_pairs(&[
+                ("universal", "true"),
+                ("default_channel", "C_UNIVERSAL"),
+                ("api_base_url", "https://slack.com/api"),
+            ]),
+        ),
+        ProviderId::Telegram => channel_message_envelope_json(
+            "telegram",
+            "universal telegram",
+            vec![destination("922337", Some("chat"))],
+            metadata_from_pairs(&[("universal", "true"), ("default_chat_id", "922337")]),
+        ),
+        ProviderId::Teams => channel_message_envelope_json(
+            "teams",
+            "universal teams",
+            vec![destination(
+                "team-universal:channel-universal",
+                Some("channel"),
+            )],
+            metadata_from_pairs(&[
+                ("universal", "true"),
+                ("tenant_id", "tenant-universal"),
+                ("client_id", "client-universal"),
+                ("team_id", "team-universal"),
+                ("channel_id", "channel-universal"),
+            ]),
+        ),
+        ProviderId::Webchat => channel_message_envelope_json(
+            "webchat",
+            "universal webchat",
+            vec![destination("universal-route", Some("route"))],
+            metadata_from_pairs(&[
+                ("universal", "true"),
+                ("route", "universal-route"),
+                ("tenant_channel_id", "tenant-channel"),
+                ("public_base_url", "https://webchat.example"),
+            ]),
+        ),
+        ProviderId::Webex => channel_message_envelope_json(
+            "webex",
+            "universal webex",
+            vec![destination("room-universal", Some("room"))],
+            metadata_from_pairs(&[
+                ("universal", "true"),
+                ("public_base_url", "https://example.invalid"),
+                ("default_room_id", "room-universal"),
+            ]),
+        ),
+        ProviderId::Whatsapp => channel_message_envelope_json(
+            "whatsapp",
+            "universal whatsapp",
+            vec![destination("whatsapp-user", Some("user"))],
+            metadata_from_pairs(&[
+                ("universal", "true"),
+                ("phone_number_id", "phone-universal"),
+            ]),
+        ),
+        ProviderId::Email => channel_message_envelope_json(
+            "email",
+            "universal email",
+            vec![destination("recipient@example.com", Some("email"))],
+            metadata_from_pairs(&[
+                ("universal", "true"),
+                ("host", "smtp.example"),
+                ("username", "user"),
+                ("from_address", "sender@example.com"),
+            ]),
+        ),
         ProviderId::Dummy => json!({
             "text": "universal dummy"
         }),
     }
+}
+
+fn destination(id: &str, kind: Option<&str>) -> Destination {
+    Destination {
+        id: id.to_string(),
+        kind: kind.map(|k| k.to_string()),
+    }
+}
+
+fn metadata_from_pairs(pairs: &[(&str, &str)]) -> MessageMetadata {
+    let mut metadata = MessageMetadata::new();
+    for (key, value) in pairs {
+        metadata.insert(key.to_string(), value.to_string());
+    }
+    metadata
+}
+
+fn channel_message_envelope_json(
+    channel: &str,
+    text: &str,
+    to: Vec<Destination>,
+    metadata: MessageMetadata,
+) -> Value {
+    let env = EnvId::try_from("default").expect("default env");
+    let tenant = TenantId::try_from("default").expect("default tenant");
+    let envelope = ChannelMessageEnvelope {
+        id: format!("{channel}-envelope"),
+        tenant: TenantCtx::new(env.clone(), tenant.clone()),
+        channel: channel.to_string(),
+        session_id: format!("{channel}-session"),
+        reply_scope: None,
+        from: None,
+        to,
+        correlation_id: None,
+        text: Some(text.to_string()),
+        attachments: Vec::new(),
+        metadata,
+    };
+    serde_json::to_value(&envelope).expect("serialize envelope")
 }
 
 fn send_payload_in(spec: &ProviderSpec) -> Result<Vec<u8>> {

@@ -1,5 +1,7 @@
 use base64::{Engine as _, engine::general_purpose};
-use greentic_types::{ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_types::{
+    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
+};
 use messaging_universal_dto::{
     EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
     SendPayloadInV1, SendPayloadResultV1,
@@ -110,30 +112,40 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         return json_bytes(&json!({"ok": false, "error": "template messages not supported yet"}));
     }
 
-    let cfg = match load_config(&parsed) {
+    let envelope = match serde_json::from_value::<ChannelMessageEnvelope>(parsed.clone()) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}")}));
+        }
+    };
+
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
+    }
+
+    let cfg = match load_config(&parsed, Some(&envelope.metadata)) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let to_kind = parsed
-        .get("to")
-        .and_then(|v| v.get("kind"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let to_id = parsed
-        .get("to")
-        .and_then(|v| v.get("id"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    if to_kind != "user" || to_id.is_empty() {
-        return json_bytes(&json!({"ok": false, "error": "to.kind=user with to.id required"}));
-    }
+    let destination = match resolve_whatsapp_destination(&envelope) {
+        Ok(dest) => dest,
+        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
+    };
 
-    let text = parsed
-        .get("text")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+    let text = envelope
+        .text
+        .as_ref()
+        .map(|t| t.trim())
+        .filter(|t| !t.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| {
+            parsed
+                .get("text")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_default();
     if text.is_empty() {
         return json_bytes(&json!({"ok": false, "error": "text required"}));
     }
@@ -168,7 +180,7 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
 
     let payload = json!({
         "messaging_product": "whatsapp",
-        "to": to_id,
+        "to": destination,
         "type": "text",
         "text": {"body": text},
     });
@@ -227,43 +239,75 @@ fn handle_reply(_input_json: &[u8]) -> Vec<u8> {
             return json_bytes(&json!({"ok": false, "error": format!("invalid json: {err}")}));
         }
     };
-    let cfg = match load_config(&parsed) {
+
+    let envelope = match serde_json::from_value::<ChannelMessageEnvelope>(parsed.clone()) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}")}));
+        }
+    };
+
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
+    }
+
+    let cfg = match load_config(&parsed, Some(&envelope.metadata)) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
-    let to_kind = parsed
-        .get("to")
-        .and_then(|v| v.get("kind"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let to_id = parsed
-        .get("to")
-        .and_then(|v| v.get("id"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    if to_kind != "user" || to_id.is_empty() {
-        return json_bytes(&json!({"ok": false, "error": "to.kind=user with to.id required"}));
-    }
-    let text = parsed
-        .get("text")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+
+    let destination = match resolve_whatsapp_destination(&envelope) {
+        Ok(dest) => dest,
+        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
+    };
+
+    let text = envelope
+        .text
+        .as_ref()
+        .map(|t| t.trim())
+        .filter(|t| !t.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| {
+            parsed
+                .get("text")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_default();
     if text.is_empty() {
         return json_bytes(&json!({"ok": false, "error": "text required"}));
     }
-    let reply_to = parsed
-        .get("reply_to_id")
-        .or_else(|| parsed.get("thread_id"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let reply_to = envelope
+        .reply_scope
+        .as_ref()
+        .and_then(|scope| scope.reply_to.clone())
+        .or_else(|| {
+            parsed
+                .get("reply_to_id")
+                .or_else(|| parsed.get("thread_id"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_default();
     if reply_to.is_empty() {
         return json_bytes(&json!({"ok": false, "error": "reply_to_id or thread_id required"}));
     }
 
     let token = match secrets_store::get(DEFAULT_TOKEN_KEY) {
-        Ok(Some(bytes)) => String::from_utf8(bytes).unwrap_or_default(),
-        _ => return json_bytes(&json!({"ok": false, "error": "missing access token"})),
+        Ok(Some(bytes)) => match String::from_utf8(bytes) {
+            Ok(s) => s,
+            Err(_) => return json_bytes(&json!({"ok": false, "error": "access_token not utf-8"})),
+        },
+        Ok(None) => {
+            return json_bytes(
+                &json!({"ok": false, "error": format!("missing secret: {}", DEFAULT_TOKEN_KEY)}),
+            );
+        }
+        Err(e) => {
+            return json_bytes(
+                &json!({"ok": false, "error": format!("secret store error: {e:?}")}),
+            );
+        }
     };
     if token.is_empty() {
         return json_bytes(&json!({"ok": false, "error": "access token empty"}));
@@ -280,7 +324,7 @@ fn handle_reply(_input_json: &[u8]) -> Vec<u8> {
     );
     let payload = json!({
         "messaging_product": "whatsapp",
-        "to": to_id,
+        "to": destination,
         "type": "text",
         "context": {"message_id": reply_to},
         "text": { "body": text }
@@ -410,39 +454,16 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
-    let text = encode_in
-        .message
-        .text
-        .clone()
-        .filter(|t| !t.trim().is_empty())
-        .unwrap_or_else(|| "universal whatsapp payload".to_string());
-    let to_id = encode_in
-        .message
-        .metadata
-        .get("from")
-        .cloned()
-        .unwrap_or_else(|| "whatsapp-user".to_string());
-    let phone_number_id = encode_in
-        .message
-        .metadata
-        .get("phone_number_id")
-        .cloned()
-        .unwrap_or_else(|| "phone-universal".to_string());
-    let to = json!({
-        "kind": "user",
-        "id": to_id,
-    });
-    let config = json!({
-        "phone_number_id": phone_number_id,
-    });
-    let payload_body = json!({
-        "text": text,
-        "to": to,
-        "config": config,
-    });
-    let body_bytes = serde_json::to_vec(&payload_body).unwrap_or_else(|_| b"{}".to_vec());
+    let body_bytes = serde_json::to_vec(&encode_in.message)
+        .unwrap_or_else(|_| serde_json::to_vec(&json!({})).unwrap());
     let mut metadata = HashMap::new();
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
+    if let Some(phone_number_id) = encode_in.message.metadata.get("phone_number_id") {
+        metadata.insert(
+            "phone_number_id".to_string(),
+            Value::String(phone_number_id.clone()),
+        );
+    }
     let payload = ProviderPayloadV1 {
         content_type: "application/json".to_string(),
         body_b64: general_purpose::STANDARD.encode(&body_bytes),
@@ -511,7 +532,11 @@ fn build_whatsapp_envelope(text: String, from: Option<String>) -> ChannelMessage
         channel: "whatsapp".to_string(),
         session_id: "whatsapp".to_string(),
         reply_scope: None,
-        user_id: from,
+        from: from.clone().map(|id| Actor {
+            id,
+            kind: Some("user".to_string()),
+        }),
+        to: Vec::new(),
         correlation_id: None,
         text: Some(text),
         attachments: Vec::new(),
@@ -529,6 +554,25 @@ fn parse_query(query: &Option<String>) -> Option<HashMap<String, String>> {
         }
     }
     if map.is_empty() { None } else { Some(map) }
+}
+
+fn resolve_whatsapp_destination(envelope: &ChannelMessageEnvelope) -> Result<String, String> {
+    if let Some(dest) = envelope.to.iter().find(|dest| !dest.id.trim().is_empty()) {
+        return map_whatsapp_destination(dest);
+    }
+
+    Err("destination required".to_string())
+}
+
+fn map_whatsapp_destination(dest: &Destination) -> Result<String, String> {
+    let id = dest.id.trim();
+    if id.is_empty() {
+        return Err("to.kind=user with to.id required".to_string());
+    }
+    match dest.kind.as_deref() {
+        Some("user") | None => Ok(dest.id.clone()),
+        Some(kind) => Err(format!("unsupported destination kind: {kind}")),
+    }
 }
 
 fn http_out_error(status: u16, message: &str) -> Vec<u8> {
@@ -576,7 +620,10 @@ fn parse_config_value(val: &Value) -> Result<ProviderConfig, String> {
         .map_err(|e| format!("invalid config: {e}"))
 }
 
-fn load_config(input: &Value) -> Result<ProviderConfig, String> {
+fn load_config(
+    input: &Value,
+    metadata: Option<&MessageMetadata>,
+) -> Result<ProviderConfig, String> {
     if let Some(cfg) = input.get("config") {
         return parse_config_value(cfg);
     }
@@ -589,6 +636,20 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
     ] {
         if let Some(v) = input.get(key) {
             partial.insert(key.to_string(), v.clone());
+        }
+    }
+    if let Some(meta) = metadata {
+        for key in [
+            "phone_number_id",
+            "business_account_id",
+            "api_base_url",
+            "api_version",
+        ] {
+            if partial.get(key).is_none() {
+                if let Some(value) = meta.get(key) {
+                    partial.insert(key.to_string(), Value::String(value.clone()));
+                }
+            }
         }
     }
     if !partial.is_empty() {
@@ -627,7 +688,7 @@ mod tests {
             "config": {"phone_number_id":"pn","api_version":"v20.0"},
             "api_version": "outer"
         });
-        let cfg = load_config(&input).unwrap();
+        let cfg = load_config(&input, None).unwrap();
         assert_eq!(cfg.api_version.as_deref(), Some("v20.0"));
         assert_eq!(cfg.phone_number_id, "pn");
     }

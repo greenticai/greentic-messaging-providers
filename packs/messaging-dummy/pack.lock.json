@@ -16,7 +16,7 @@
     {
       "name": "setup_custom___setup_custom__apply",
       "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-dummy/flows/../components/provision/provision.wasm",
-      "digest": "sha256:4580e7a974fdeb06524515861ff053a1de9cf4d1382b0ae153d95831c98af1f4",
+      "digest": "sha256:a633d9535c5467e492805eae6513a16ed9828011942aa8b6c4cdbe3c99be0d34",
       "component_id": "ai.greentic.component-provision"
     },
     {
@@ -28,7 +28,7 @@
     {
       "name": "setup_custom___setup_custom__emit_questions",
       "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-dummy/flows/../components/questions/questions.wasm",
-      "digest": "sha256:def5a5be91e09c4eb5bbfdf4ed4a88d438e959a2aa00368588b8fae91d3e753a",
+      "digest": "sha256:589d0d7c5a2dedf4700aa84fe207dd541736c772ffaeca77e68cb45d876e641d",
       "component_id": "ai.greentic.component-questions"
     },
     {
@@ -40,13 +40,13 @@
     {
       "name": "setup_custom___setup_custom__validate",
       "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-dummy/flows/../components/questions/questions.wasm",
-      "digest": "sha256:def5a5be91e09c4eb5bbfdf4ed4a88d438e959a2aa00368588b8fae91d3e753a",
+      "digest": "sha256:589d0d7c5a2dedf4700aa84fe207dd541736c772ffaeca77e68cb45d876e641d",
       "component_id": "ai.greentic.component-questions"
     },
     {
       "name": "setup_default___setup_default__apply",
       "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-dummy/flows/../components/provision/provision.wasm",
-      "digest": "sha256:4580e7a974fdeb06524515861ff053a1de9cf4d1382b0ae153d95831c98af1f4",
+      "digest": "sha256:a633d9535c5467e492805eae6513a16ed9828011942aa8b6c4cdbe3c99be0d34",
       "component_id": "ai.greentic.component-provision"
     },
     {
@@ -58,7 +58,7 @@
     {
       "name": "setup_default___setup_default__emit_questions",
       "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-dummy/flows/../components/questions/questions.wasm",
-      "digest": "sha256:def5a5be91e09c4eb5bbfdf4ed4a88d438e959a2aa00368588b8fae91d3e753a",
+      "digest": "sha256:589d0d7c5a2dedf4700aa84fe207dd541736c772ffaeca77e68cb45d876e641d",
       "component_id": "ai.greentic.component-questions"
     },
     {
@@ -70,7 +70,7 @@
     {
       "name": "setup_default___setup_default__validate",
       "ref": "file:///projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-dummy/flows/../components/questions/questions.wasm",
-      "digest": "sha256:def5a5be91e09c4eb5bbfdf4ed4a88d438e959a2aa00368588b8fae91d3e753a",
+      "digest": "sha256:589d0d7c5a2dedf4700aa84fe207dd541736c772ffaeca77e68cb45d876e641d",
       "component_id": "ai.greentic.component-questions"
     },
     {
