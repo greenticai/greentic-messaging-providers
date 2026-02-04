@@ -1,6 +1,8 @@
-use base64::{Engine as _, engine::general_purpose};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use chrono::{DateTime, LocalResult, SecondsFormat, TimeZone, Utc};
-use greentic_types::{ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_types::{
+    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
+};
 use messaging_universal_dto::{
     EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
     SendPayloadInV1, SendPayloadResultV1, SubscriptionDeleteInV1, SubscriptionDeleteOutV1,
@@ -120,7 +122,7 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
     let parsed: Value = match serde_json::from_slice(input_json) {
         Ok(val) => val,
         Err(err) => {
-            return json_bytes(&json!({"ok": false, "error": format!("invalid json: {err}")}));
+            return json_bytes(&json!({"ok": false, "error": format!("invalid json: {err}") }));
         }
     };
 
@@ -129,28 +131,84 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let text = match parsed
-        .get("text")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-    {
-        Some(t) if !t.is_empty() => t,
-        _ => return json_bytes(&json!({"ok": false, "error": "text required"})),
+    let envelope: ChannelMessageEnvelope = match serde_json::from_slice(input_json) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}") }));
+        }
     };
 
-    let team_id = parsed
-        .get("team_id")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| cfg.team_id.clone());
-    let channel_id = parsed
-        .get("channel_id")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| cfg.channel_id.clone());
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
+    }
 
-    let (Some(team_id), Some(channel_id)) = (team_id, channel_id) else {
-        return json_bytes(&json!({"ok": false, "error": "team_id and channel_id required"}));
+    let text = envelope
+        .text
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let text = match text {
+        Some(value) => value,
+        None => return json_bytes(&json!({"ok": false, "error": "text required"})),
+    };
+
+    let destination = envelope
+        .to
+        .first()
+        .cloned()
+        .or_else(|| default_channel_destination(&cfg));
+    let destination = match destination {
+        Some(dest) => dest,
+        None => return json_bytes(&json!({"ok": false, "error": "destination required"})),
+    };
+
+    let dest_id = destination.id.trim();
+    if dest_id.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "destination id required"}));
+    }
+    let dest_id = dest_id.to_string();
+    let kind = destination.kind.as_deref().unwrap_or("channel");
+    let graph_base = cfg
+        .graph_base_url
+        .clone()
+        .unwrap_or_else(|| DEFAULT_GRAPH_BASE.to_string());
+
+    let url = match kind {
+        "channel" => {
+            let (team_id, channel_id) = match dest_id.split_once(':') {
+                Some((team, channel)) => {
+                    let team = team.trim();
+                    let channel = channel.trim();
+                    if team.is_empty() || channel.is_empty() {
+                        return json_bytes(&json!({
+                            "ok": false,
+                            "error": "channel destination must include team_id and channel_id",
+                        }));
+                    }
+                    (team.to_string(), channel.to_string())
+                }
+                None => {
+                    return json_bytes(&json!({
+                        "ok": false,
+                        "error": "channel destination must be team_id:channel_id",
+                    }));
+                }
+            };
+            format!("{graph_base}/teams/{team_id}/channels/{channel_id}/messages")
+        }
+        "chat" => {
+            if dest_id.is_empty() {
+                return json_bytes(&json!({"ok": false, "error": "destination id required"}));
+            }
+            format!("{graph_base}/chats/{dest_id}/messages")
+        }
+        other => {
+            return json_bytes(&json!({
+                "ok": false,
+                "error": format!("unsupported destination kind: {other}"),
+            }));
+        }
     };
 
     let token = match acquire_token(&cfg) {
@@ -158,13 +216,6 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let graph_base = cfg
-        .graph_base_url
-        .unwrap_or_else(|| DEFAULT_GRAPH_BASE.to_string());
-    let url = format!(
-        "{}/teams/{}/channels/{}/messages",
-        graph_base, team_id, channel_id
-    );
     let body = json!({
         "body": {
             "content": text,
@@ -217,7 +268,6 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         "response": body_json,
     }))
 }
-
 fn handle_reply(input_json: &[u8]) -> Vec<u8> {
     let parsed: Value = match serde_json::from_slice(input_json) {
         Ok(val) => val,
@@ -328,7 +378,7 @@ fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         Ok(req) => req,
         Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
     };
-    let body_bytes = match general_purpose::STANDARD.decode(&request.body_b64) {
+    let body_bytes = match STANDARD.decode(&request.body_b64) {
         Ok(bytes) => bytes,
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
@@ -348,7 +398,7 @@ fn ingest_http(input_json: &[u8]) -> Vec<u8> {
     let out = HttpOutV1 {
         status: 200,
         headers: Vec::new(),
-        body_b64: general_purpose::STANDARD.encode(&normalized_bytes),
+        body_b64: STANDARD.encode(&normalized_bytes),
         events: vec![envelope],
     };
     json_bytes(&out)
@@ -420,7 +470,7 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
     let payload = ProviderPayloadV1 {
         content_type: "application/json".to_string(),
-        body_b64: general_purpose::STANDARD.encode(&body_bytes),
+        body_b64: STANDARD.encode(&body_bytes),
         metadata,
     };
     json_bytes(&json!({"ok": true, "payload": payload}))
@@ -436,7 +486,7 @@ fn send_payload(input_json: &[u8]) -> Vec<u8> {
     if send_in.provider_type != PROVIDER_TYPE {
         return send_payload_error("provider type mismatch", false);
     }
-    let payload_bytes = match general_purpose::STANDARD.decode(&send_in.payload.body_b64) {
+    let payload_bytes = match STANDARD.decode(&send_in.payload.body_b64) {
         Ok(bytes) => bytes,
         Err(err) => {
             return send_payload_error(&format!("payload decode failed: {err}"), false);
@@ -478,17 +528,25 @@ fn build_team_envelope(
     if let Some(channel) = &channel_id {
         metadata.insert("channel_id".to_string(), channel.clone());
     }
-    let channel = channel_id
+    if let Some(sender) = &user_id {
+        metadata.insert("from".to_string(), sender.clone());
+    }
+    let channel_name = channel_id
         .clone()
         .or_else(|| team_id.clone())
         .unwrap_or_else(|| "teams".to_string());
+    let sender = user_id.map(|id| Actor {
+        id,
+        kind: Some("user".into()),
+    });
     ChannelMessageEnvelope {
-        id: format!("teams-{channel}"),
+        id: format!("teams-{channel_name}"),
         tenant: TenantCtx::new(env.clone(), tenant.clone()),
-        channel: channel.clone(),
-        session_id: channel,
+        channel: channel_name.clone(),
+        session_id: channel_name,
         reply_scope: None,
-        user_id,
+        from: sender,
+        to: Vec::new(),
         correlation_id: None,
         text: Some(text),
         attachments: Vec::new(),
@@ -537,7 +595,7 @@ fn http_out_error(status: u16, message: &str) -> Vec<u8> {
     let out = HttpOutV1 {
         status,
         headers: Vec::new(),
-        body_b64: general_purpose::STANDARD.encode(message.as_bytes()),
+        body_b64: STANDARD.encode(message.as_bytes()),
         events: Vec::new(),
     };
     json_bytes(&out)
@@ -894,6 +952,20 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
     }
 
     Err("config required".into())
+}
+
+fn default_channel_destination(cfg: &ProviderConfig) -> Option<Destination> {
+    let team = cfg.team_id.as_ref()?;
+    let channel = cfg.channel_id.as_ref()?;
+    let team = team.trim();
+    let channel = channel.trim();
+    if team.is_empty() || channel.is_empty() {
+        return None;
+    }
+    Some(Destination {
+        id: format!("{team}:{channel}"),
+        kind: Some("channel".into()),
+    })
 }
 
 fn ensure_provider(provider: &str) -> Result<(), String> {

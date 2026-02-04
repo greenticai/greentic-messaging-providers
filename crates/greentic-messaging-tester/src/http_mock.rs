@@ -1,7 +1,7 @@
 use std::io::Read;
 use std::sync::{Arc, Mutex};
 
-use base64::{Engine as _, engine::general_purpose};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use greentic_interfaces_wasmtime::host_helpers::v1::http_client;
 use http::{Request, Response as RawResponse};
 use serde::Serialize;
@@ -9,16 +9,11 @@ use ureq::{Body, agent};
 
 pub type HttpHistory = Arc<Mutex<Vec<HttpCall>>>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum HttpMode {
+    #[default]
     Mock,
     Real,
-}
-
-impl Default for HttpMode {
-    fn default() -> Self {
-        HttpMode::Mock
-    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -50,10 +45,7 @@ pub struct Header {
 
 impl HttpRequest {
     pub fn from_host(req: &http_client::RequestV1_1) -> Self {
-        let body_b64 = req
-            .body
-            .as_ref()
-            .map(|bytes| general_purpose::STANDARD.encode(bytes));
+        let body_b64 = req.body.as_ref().map(|bytes| STANDARD.encode(bytes));
         let headers = req
             .headers
             .iter()
@@ -73,10 +65,7 @@ impl HttpRequest {
 
 impl HttpResponseRecord {
     pub fn from_host(resp: &http_client::ResponseV1_1) -> Self {
-        let body_b64 = resp
-            .body
-            .as_ref()
-            .map(|bytes| general_purpose::STANDARD.encode(bytes));
+        let body_b64 = resp.body.as_ref().map(|bytes| STANDARD.encode(bytes));
         let headers = resp
             .headers
             .iter()
@@ -117,6 +106,12 @@ pub fn send_real_request(
         builder = builder.header(name.as_str(), value.as_str());
     }
     let body_bytes = req.body.clone().unwrap_or_default();
+    println!(
+        "real http request {} {} body_b64={}",
+        req.method,
+        req.url,
+        STANDARD.encode(&body_bytes)
+    );
     let request =
         builder
             .body(body_bytes.clone())

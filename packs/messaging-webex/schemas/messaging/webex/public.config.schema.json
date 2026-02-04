@@ -7,6 +7,10 @@
       "type": "string",
       "description": "Default room ID used when invocation omits destination."
     },
+    "default_to_person_email": {
+      "type": "string",
+      "description": "Default recipient email used when invocation omits destination."
+    },
     "api_base_url": {
       "type": "string",
       "description": "Webex API base URL.",

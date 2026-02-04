@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, Error, Result};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use greentic_interfaces_wasmtime::host_helpers::v1::http_client;
-use greentic_types::{EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_types::{Actor, EnvId, MessageMetadata, TenantCtx, TenantId};
 use messaging_universal_dto::{
     ChannelMessageEnvelope, EncodeInV1, Header, HttpInV1, HttpOutV1, ProviderPayloadV1,
     RenderPlanInV1, RenderPlanOutV1, SendPayloadInV1, SendPayloadResultV1,
@@ -409,8 +409,12 @@ fn build_envelope(id: ProviderId) -> ChannelMessageEnvelope {
         channel: channel.to_string(),
         session_id: channel.to_string(),
         reply_scope: None,
-        user_id: Some("universal-user".to_string()),
+        from: Some(Actor {
+            id: "universal-user".to_string(),
+            kind: Some("user".into()),
+        }),
         correlation_id: None,
+        to: Vec::new(),
         text: Some(format!("universal {} message", channel)),
         attachments: Vec::new(),
         metadata,

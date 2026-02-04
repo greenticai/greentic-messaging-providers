@@ -9,10 +9,6 @@ questions:
     help: "Example: https://xxxx.trycloudflare.com"
     validate:
       regex: "^https://"
-  - name: default_room_id
-    title: Default room ID
-    kind: string
-    required: false
   - name: bot_token
     title: Webex bot token
     kind: string

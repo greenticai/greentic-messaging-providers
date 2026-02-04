@@ -1,5 +1,5 @@
 use base64::{Engine as _, engine::general_purpose};
-use greentic_types::{ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_types::{Actor, ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
 use messaging_universal_dto::{
     EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
     SendPayloadInV1, SendPayloadResultV1,
@@ -115,27 +115,44 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let to_kind = parsed
-        .get("to")
-        .and_then(|v| v.get("kind"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let to_id = parsed
-        .get("to")
-        .and_then(|v| v.get("id"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    if to_kind != "user" || to_id.is_empty() {
-        return json_bytes(&json!({"ok": false, "error": "to.kind=user with to.id required"}));
+    let envelope: ChannelMessageEnvelope = match serde_json::from_slice(input_json) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}") }));
+        }
+    };
+
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
     }
 
-    let text = parsed
-        .get("text")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    if text.is_empty() {
-        return json_bytes(&json!({"ok": false, "error": "text required"}));
+    let text = envelope
+        .text
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let text = match text {
+        Some(value) => value,
+        None => return json_bytes(&json!({"ok": false, "error": "text required"})),
+    };
+
+    let destination = envelope.to.first().cloned();
+    let destination = match destination {
+        Some(dest) => dest,
+        None => return json_bytes(&json!({"ok": false, "error": "destination required"})),
+    };
+
+    let dest_id = destination.id.trim();
+    if dest_id.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "destination id required"}));
+    }
+    let kind = destination.kind.as_deref().unwrap_or("phone");
+    if kind != "phone" {
+        return json_bytes(&json!({
+            "ok": false,
+            "error": format!("unsupported destination kind: {kind}"),
+        }));
     }
 
     let token = match secrets_store::get(DEFAULT_TOKEN_KEY) {
@@ -168,7 +185,7 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
 
     let payload = json!({
         "messaging_product": "whatsapp",
-        "to": to_id,
+        "to": dest_id,
         "type": "text",
         "text": {"body": text},
     });
@@ -501,17 +518,22 @@ fn build_whatsapp_envelope(text: String, from: Option<String>) -> ChannelMessage
     let tenant = TenantId::try_from("default").expect("tenant id");
     let mut metadata = MessageMetadata::new();
     metadata.insert("universal".to_string(), "true".to_string());
-    if let Some(sender) = &from {
-        metadata.insert("from".to_string(), sender.clone());
-    }
     metadata.insert("channel_id".to_string(), "whatsapp".to_string());
+    let sender = from.map(|id| Actor {
+        id,
+        kind: Some("user".into()),
+    });
+    if let Some(actor) = &sender {
+        metadata.insert("from".to_string(), actor.id.clone());
+    }
     ChannelMessageEnvelope {
         id: format!("whatsapp-{}", text),
         tenant: TenantCtx::new(env.clone(), tenant.clone()),
         channel: "whatsapp".to_string(),
         session_id: "whatsapp".to_string(),
         reply_scope: None,
-        user_id: from,
+        from: sender,
+        to: Vec::new(),
         correlation_id: None,
         text: Some(text),
         attachments: Vec::new(),

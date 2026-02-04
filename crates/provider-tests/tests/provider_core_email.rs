@@ -436,6 +436,7 @@ fn invoke_send_smoke_test() -> Result<()> {
         .call(&mut store, ("send".to_string(), input_bytes))
         .context("call invoke send")?;
     let resp_json: Value = serde_json::from_slice(&resp).context("parse invoke output")?;
+    eprintln!("resp_json = {resp_json:?}");
     assert_eq!(resp_json.get("status"), Some(&Value::String("sent".into())));
     assert_eq!(
         resp_json.get("provider_type"),

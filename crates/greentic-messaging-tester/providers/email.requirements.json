@@ -12,12 +12,6 @@
       { "key": "EMAIL_PASSWORD", "example": "s3cret" }
     ]
   },
-  "to": {
-    "shape": {
-      "to": "recipient@example.com",
-      "subject": "test"
-    }
-  },
   "values": {
     "config": {
       "host": "smtp.example.com",
@@ -27,10 +21,6 @@
     },
     "secrets": {
       "EMAIL_PASSWORD": "secret"
-    },
-    "to": {
-      "to": "recipient@example.com",
-      "subject": "hello"
     },
     "http": "mock",
     "state": {}

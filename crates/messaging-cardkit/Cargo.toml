@@ -10,9 +10,8 @@ readme = "README.md"
 [dependencies]
 anyhow = { workspace = true }
 serde_json = { workspace = true }
+serde = { workspace = true }
 greentic-types = { workspace = true }
-gsm-core = "0.4"
-insta = { workspace = true, optional = true }
 
 [features]
 default = ["render"]

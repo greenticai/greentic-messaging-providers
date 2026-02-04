@@ -3,58 +3,58 @@
     {
       "name": "messaging-dummy",
       "file": "dist/packs/messaging-dummy.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-dummy:0.4.26",
-      "digest": "sha256:258d4ca9addf527d562866df7a17ea2b05f9d06a40ea49e869f7649f29ab694f",
-      "built_at": "2026-01-30T20:22:37Z"
+      "ref": "ghcr.io/greentic/greentic-packs/messaging-dummy:0.4.29",
+      "digest": "sha256:49a30a9fbe548944be90d225f2200b02f78ee5c05a8d2b44624dec13c089396b",
+      "built_at": "2026-02-03T21:27:46Z"
     },
     {
       "name": "messaging-email",
       "file": "dist/packs/messaging-email.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-email:0.4.26",
-      "digest": "sha256:9ead3722eddfb572ab6cedb099e0e75970837f7549089e48048028bf32882965",
-      "built_at": "2026-01-30T20:22:37Z"
+      "ref": "ghcr.io/greentic/greentic-packs/messaging-email:0.4.29",
+      "digest": "sha256:5ffec3d8b5453a92d4ce86cf77ca8377fd5814a043e696acc214f8524b05ce4c",
+      "built_at": "2026-02-03T21:27:46Z"
     },
     {
       "name": "messaging-slack",
       "file": "dist/packs/messaging-slack.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-slack:0.4.26",
-      "digest": "sha256:322bb74d885e871ef092eabd3fe2fa415246a30f45dc2cc7305b216bf3f00f2b",
-      "built_at": "2026-01-30T20:22:37Z"
+      "ref": "ghcr.io/greentic/greentic-packs/messaging-slack:0.4.29",
+      "digest": "sha256:68cabe081db311ce7d06a288c741ace76f8d3bbf506b28448aab54548a26f3bc",
+      "built_at": "2026-02-03T21:27:46Z"
     },
     {
       "name": "messaging-teams",
       "file": "dist/packs/messaging-teams.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-teams:0.4.26",
-      "digest": "sha256:2404aa8a4fa1ed9f940e98306e4b69f23c0ae8670fea8ca9ff8cbfea40a1b1c4",
-      "built_at": "2026-01-30T20:22:37Z"
+      "ref": "ghcr.io/greentic/greentic-packs/messaging-teams:0.4.29",
+      "digest": "sha256:ce310f21d2fe05d80d50ba362b7db62730857b325f18fc5a0752b4b21fe312cc",
+      "built_at": "2026-02-03T21:27:46Z"
     },
     {
       "name": "messaging-telegram",
       "file": "dist/packs/messaging-telegram.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-telegram:0.4.26",
-      "digest": "sha256:18fad403a1614f1db5f5b980df8b105cee97d03ab64c2f817c86eea65249ffdc",
-      "built_at": "2026-01-30T20:22:37Z"
+      "ref": "ghcr.io/greentic/greentic-packs/messaging-telegram:0.4.29",
+      "digest": "sha256:13a541cefe1427c995635dfad1b1647119dc719631c86a36344c1c968d06dee9",
+      "built_at": "2026-02-03T21:27:46Z"
     },
     {
       "name": "messaging-webchat",
       "file": "dist/packs/messaging-webchat.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-webchat:0.4.26",
-      "digest": "sha256:edb5fa7ad5013b56ad8ce8345d6cd27418b7828db03bc204364ab763b20d154b",
-      "built_at": "2026-01-30T20:22:37Z"
+      "ref": "ghcr.io/greentic/greentic-packs/messaging-webchat:0.4.29",
+      "digest": "sha256:915cf3b3ea5e54d16d953b8e714971b5e2f7ad2ad4af6273b9bf6880577e8c2a",
+      "built_at": "2026-02-03T21:27:46Z"
     },
     {
       "name": "messaging-webex",
       "file": "dist/packs/messaging-webex.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-webex:0.4.26",
-      "digest": "sha256:8fe81214892e11e64860e50c85a11b7f53d0f62aa1b7a1e583ca8b43c2d9a9b8",
-      "built_at": "2026-01-30T20:22:37Z"
+      "ref": "ghcr.io/greentic/greentic-packs/messaging-webex:0.4.29",
+      "digest": "sha256:457bd2d9d1289ec5d9e600f683f977b17d47bdd01f855d7d0ce7ecbdf2bddc1f",
+      "built_at": "2026-02-03T21:27:46Z"
     },
     {
       "name": "messaging-whatsapp",
       "file": "dist/packs/messaging-whatsapp.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-whatsapp:0.4.26",
-      "digest": "sha256:306fc793ed8f284e9d6f581a8095f19168fda1ef23396e0eee14b6bcbabbd769",
-      "built_at": "2026-01-30T20:22:37Z"
+      "ref": "ghcr.io/greentic/greentic-packs/messaging-whatsapp:0.4.29",
+      "digest": "sha256:00e7374d958c9e508179e4ab745befec58cffc0fd10b61e04e7447e896b66997",
+      "built_at": "2026-02-03T21:27:46Z"
     }
   ]
 }

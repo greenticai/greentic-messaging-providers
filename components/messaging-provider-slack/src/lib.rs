@@ -1,4 +1,7 @@
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
+use greentic_types::{
+    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
+};
 use messaging_universal_dto::{
     EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
     SendPayloadInV1, SendPayloadResultV1,
@@ -95,17 +98,51 @@ fn handle_send(input_json: &[u8], is_reply: bool) -> Vec<u8> {
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let channel = destination_channel(&parsed, &cfg);
-    let channel = match channel {
-        Some(c) if !c.is_empty() => c,
-        _ => return json_bytes(&json!({"ok": false, "error": "channel required"})),
+    let envelope: ChannelMessageEnvelope = match serde_json::from_slice(input_json) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}")}));
+        }
     };
 
-    let text = parsed
-        .get("text")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
+    }
+
+    let text = envelope
+        .text
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let text = match text {
+        Some(value) => value,
+        None => return json_bytes(&json!({"ok": false, "error": "text required"})),
+    };
+
+    let destination = envelope.to.first().cloned().or_else(|| {
+        cfg.default_channel.clone().map(|channel| Destination {
+            id: channel,
+            kind: Some("channel".into()),
+        })
+    });
+    let destination = match destination {
+        Some(dest) => dest,
+        None => return json_bytes(&json!({"ok": false, "error": "destination required"})),
+    };
+
+    let dest_id = destination.id.trim();
+    if dest_id.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "destination id required"}));
+    }
+    let dest_id = dest_id.to_string();
+    let kind = destination.kind.as_deref().unwrap_or("channel");
+    if kind != "channel" && kind != "user" && !kind.is_empty() {
+        return json_bytes(&json!({
+            "ok": false,
+            "error": format!("unsupported destination kind: {kind}")
+        }));
+    }
 
     let thread_ts = if is_reply {
         parsed
@@ -126,10 +163,11 @@ fn handle_send(input_json: &[u8], is_reply: bool) -> Vec<u8> {
 
     let api_base = cfg
         .api_base_url
+        .clone()
         .unwrap_or_else(|| DEFAULT_API_BASE.to_string());
     let url = format!("{}/chat.postMessage", api_base);
     let mut payload = json!({
-        "channel": channel,
+        "channel": dest_id,
         "text": text,
     });
     if let Some(ts) = thread_ts {
@@ -192,15 +230,6 @@ fn handle_send(input_json: &[u8], is_reply: bool) -> Vec<u8> {
     }))
 }
 
-fn destination_channel(parsed: &Value, cfg: &ProviderConfig) -> Option<String> {
-    if let Some(to) = parsed.get("to").and_then(|v| v.as_object())
-        && let Some(id) = to.get("id").and_then(|v| v.as_str())
-    {
-        return Some(id.to_string());
-    }
-    cfg.default_channel.clone()
-}
-
 fn parse_blocks(parsed: &Value) -> (Option<String>, Option<Value>) {
     let format = parsed
         .get("rich")
@@ -254,16 +283,33 @@ fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
     let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
+    let payload = body_val.get("body").cloned().unwrap_or(Value::Null);
+    let text = payload
+        .get("text")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let channel = payload
+        .get("channel")
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
+    let sender = payload
+        .get("user")
+        .or_else(|| payload.get("user_id"))
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
+    let envelope = build_slack_envelope(text, channel.clone(), sender);
     let normalized = json!({
         "ok": true,
         "event": body_val,
+        "channel": channel,
     });
     let normalized_bytes = serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
     let out = HttpOutV1 {
         status: 200,
         headers: Vec::new(),
         body_b64: STANDARD.encode(&normalized_bytes),
-        events: Vec::new(),
+        events: vec![envelope],
     };
     json_bytes(&out)
 }
@@ -399,6 +445,41 @@ fn render_plan_error(message: &str) -> Vec<u8> {
 
 fn encode_error(message: &str) -> Vec<u8> {
     json_bytes(&json!({"ok": false, "error": message}))
+}
+
+fn build_slack_envelope(
+    text: String,
+    channel: Option<String>,
+    sender: Option<String>,
+) -> ChannelMessageEnvelope {
+    let env = EnvId::try_from("default").expect("env id");
+    let tenant = TenantId::try_from("default").expect("tenant id");
+    let mut metadata = MessageMetadata::new();
+    metadata.insert("universal".to_string(), "true".to_string());
+    if let Some(channel_id) = &channel {
+        metadata.insert("channel".to_string(), channel_id.clone());
+    }
+    if let Some(sender_id) = &sender {
+        metadata.insert("from".to_string(), sender_id.clone());
+    }
+    let channel_name = channel.clone().unwrap_or_else(|| "slack".to_string());
+    let actor = sender.map(|id| Actor {
+        id,
+        kind: Some("user".into()),
+    });
+    ChannelMessageEnvelope {
+        id: format!("slack-{channel_name}"),
+        tenant: TenantCtx::new(env.clone(), tenant.clone()),
+        channel: channel_name.clone(),
+        session_id: channel_name,
+        reply_scope: None,
+        from: actor,
+        to: Vec::new(),
+        correlation_id: None,
+        text: Some(text),
+        attachments: Vec::new(),
+        metadata,
+    }
 }
 
 fn send_payload_error(message: &str, retryable: bool) -> Vec<u8> {

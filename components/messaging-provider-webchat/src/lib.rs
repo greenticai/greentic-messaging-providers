@@ -1,5 +1,5 @@
 use base64::{Engine as _, engine::general_purpose};
-use greentic_types::{ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_types::{Actor, ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
 use messaging_universal_dto::{
     EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
     SendPayloadInV1, SendPayloadResultV1,
@@ -379,7 +379,11 @@ fn build_webchat_envelope(
         channel: channel.clone(),
         session_id: channel,
         reply_scope: None,
-        user_id,
+        from: user_id.map(|id| Actor {
+            id,
+            kind: Some("user".into()),
+        }),
+        to: Vec::new(),
         correlation_id: None,
         text: Some(text),
         attachments: Vec::new(),

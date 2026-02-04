@@ -1,0 +1,12 @@
+---
+source: crates/greentic-messaging-planned/src/lib.rs
+assertion_line: 221
+expression: payload
+---
+{
+  "content_type": "application/json",
+  "body_b64": "ZGF0YQ==",
+  "metadata": {
+    "provider": "planned"
+  }
+}

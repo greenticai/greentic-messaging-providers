@@ -10,12 +10,6 @@
       { "key": "WHATSAPP_TOKEN", "example": "xxxxx" }
     ]
   },
-  "to": {
-    "shape": {
-      "from": "whatsapp-user",
-      "phone_number_id": "123456789"
-    }
-  },
   "values": {
     "config": {
       "phone_number_id": "123456789",
@@ -24,10 +18,6 @@
     },
     "secrets": {
       "WHATSAPP_TOKEN": "dummy-token"
-    },
-    "to": {
-      "from": "whatsapp-user",
-      "phone_number_id": "123456789"
     },
     "http": "mock",
     "state": {}
