@@ -58,6 +58,20 @@ impl WasmHarness {
         })
     }
 
+    #[cfg(test)]
+    pub fn new_with_path(component_path: &Path) -> Result<Self> {
+        let engine = new_engine();
+        let component = Component::from_file(&engine, component_path)
+            .context("failed to load provider component")?;
+        let (manifest, invoke_strategy) = describe_manifest(&engine, &component, component_path)?;
+        Ok(Self {
+            engine,
+            component,
+            manifest,
+            invoke_strategy,
+        })
+    }
+
     pub fn provider_type(&self) -> &str {
         &self.manifest.provider_type
     }
@@ -203,15 +217,24 @@ fn describe_manifest(
     component: &Component,
     component_path: &Path,
 ) -> Result<(ProviderManifest, InvokeStrategy)> {
-    let node_result = describe_manifest_from_node(engine, component, component_path);
-    let node_err = node_result.as_ref().err().map(|e| e.to_string());
-    if let Ok(manifest) = node_result {
-        return Ok((manifest, InvokeStrategy::Node));
-    }
     let schema_result = describe_manifest_from_schema(engine, component);
     let schema_err = schema_result.as_ref().err().map(|e| e.to_string());
     if let Ok(manifest) = schema_result {
         return Ok((manifest, InvokeStrategy::SchemaCore));
+    }
+
+    if let Some(manifest_path) = manifest_from_component_path(component_path) {
+        let contents = std::fs::read_to_string(&manifest_path)
+            .with_context(|| format!("failed to read manifest {}", manifest_path.display()))?;
+        let manifest: ProviderManifest =
+            serde_json::from_str(&contents).context("failed to parse manifest file")?;
+        return Ok((manifest, InvokeStrategy::SchemaCore));
+    }
+
+    let node_result = describe_manifest_from_node(engine, component, component_path);
+    let node_err = node_result.as_ref().err().map(|e| e.to_string());
+    if let Ok(manifest) = node_result {
+        return Ok((manifest, InvokeStrategy::Node));
     }
 
     if let Some(manifest_path) = manifest_from_component_path(component_path) {
@@ -461,19 +484,12 @@ mod tests {
     use greentic_types::{ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
     use messaging_universal_dto::RenderPlanInV1;
     use serde_json::{Value, json};
-    use std::{
-        collections::HashMap,
-        env,
-        ffi::OsString,
-        path::{Path, PathBuf},
-        process::Command,
-    };
+    use std::{collections::HashMap, path::PathBuf, process::Command};
 
     #[test]
     fn node_world_strategy_detected() {
         let wasm = ensure_component_built("telegram-webhook");
-        let _temp = TempEnv::set("GREENTIC_PROVIDER_WASM", &wasm);
-        let harness = WasmHarness::new("ignored").expect("instantiate node component");
+        let harness = WasmHarness::new_with_path(&wasm).expect("instantiate node component");
         assert_eq!(harness.invoke_strategy(), InvokeStrategy::Node);
     }
 
@@ -487,8 +503,7 @@ mod tests {
     #[test]
     fn node_world_can_invoke_reconcile_webhook() {
         let wasm = ensure_component_built("telegram-webhook");
-        let _temp = TempEnv::set("GREENTIC_PROVIDER_WASM", &wasm);
-        let harness = WasmHarness::new("ignored").expect("instantiate node component");
+        let harness = WasmHarness::new_with_path(&wasm).expect("instantiate node component");
         assert_eq!(harness.invoke_strategy(), InvokeStrategy::Node);
 
         let input = json!({
@@ -574,34 +589,12 @@ mod tests {
             channel: channel.to_string(),
             session_id: channel.to_string(),
             reply_scope: None,
-            user_id: None,
+            from: None,
+            to: Vec::new(),
             correlation_id: None,
             text: Some("plan input".to_string()),
             attachments: Vec::new(),
             metadata,
-        }
-    }
-
-    struct TempEnv {
-        key: &'static str,
-        previous: Option<OsString>,
-    }
-
-    impl TempEnv {
-        fn set(key: &'static str, value: &Path) -> Self {
-            let previous = env::var_os(key);
-            unsafe { env::set_var(key, value) };
-            TempEnv { key, previous }
-        }
-    }
-
-    impl Drop for TempEnv {
-        fn drop(&mut self) {
-            if let Some(val) = self.previous.take() {
-                unsafe { env::set_var(self.key, val) };
-            } else {
-                unsafe { env::remove_var(self.key) };
-            }
         }
     }
 }
@@ -713,10 +706,9 @@ impl secrets_store::SecretsStoreHostV1_1 for TesterHostState {
 impl state_store::StateStoreHost for TesterHostState {
     fn read(
         &mut self,
-        _key: state_store::StateKey,
+        key: state_store::StateKey,
         _ctx: Option<state_store::TenantCtx>,
     ) -> Result<Vec<u8>, state_store::StateStoreError> {
-        let key: String = _key.into();
         match self.state_store.get(&key) {
             Some(value) => Ok(value.clone()),
             None => Err(state_store::StateStoreError {
@@ -728,21 +720,19 @@ impl state_store::StateStoreHost for TesterHostState {
 
     fn write(
         &mut self,
-        _key: state_store::StateKey,
+        key: state_store::StateKey,
         _bytes: Vec<u8>,
         _ctx: Option<state_store::TenantCtx>,
     ) -> Result<state_store::OpAck, state_store::StateStoreError> {
-        let key: String = _key.into();
         self.state_store.insert(key, _bytes);
         Ok(state_store::OpAck::Ok)
     }
 
     fn delete(
         &mut self,
-        _key: state_store::StateKey,
+        key: state_store::StateKey,
         _ctx: Option<state_store::TenantCtx>,
     ) -> Result<state_store::OpAck, state_store::StateStoreError> {
-        let key: String = _key.into();
         self.state_store.remove(&key);
         Ok(state_store::OpAck::Ok)
     }
@@ -775,7 +765,9 @@ fn workspace_root() -> PathBuf {
 }
 
 fn find_wasm_path(provider: &str) -> Result<PathBuf> {
+    eprintln!("find_wasm_path provider={provider}");
     if let Ok(override_path) = std::env::var("GREENTIC_PROVIDER_WASM") {
+        eprintln!("find_wasm_path override={override_path}");
         return Ok(PathBuf::from(override_path));
     }
     let root = workspace_root();
@@ -815,7 +807,7 @@ fn find_wasm_path(provider: &str) -> Result<PathBuf> {
             let mtime = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
             if best
                 .as_ref()
-                .map_or(true, |(_, best_time)| mtime > *best_time)
+                .is_none_or(|(_, best_time)| mtime > *best_time)
             {
                 best = Some((candidate, mtime));
             }
@@ -924,7 +916,7 @@ fn latest_candidate(candidates: &[PathBuf]) -> Option<PathBuf> {
             let mtime = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
             if best
                 .as_ref()
-                .map_or(true, |(_, best_time)| mtime > *best_time)
+                .is_none_or(|(_, best_time)| mtime > *best_time)
             {
                 best = Some((candidate.clone(), mtime));
             }

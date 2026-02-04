@@ -1,4 +1,4 @@
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use chrono::{DateTime, Duration, SecondsFormat, TimeZone, Utc};
 use messaging_universal_dto::{
     AuthUserRefV1, EncodeInV1, Header, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1,
@@ -25,7 +25,8 @@ mod auth;
 use bindings::exports::greentic::provider_schema_core::schema_core_api::Guest;
 use bindings::greentic::http::client;
 use greentic_types::{
-    ChannelMessageEnvelope, EnvId, MessageMetadata, ProviderManifest, TenantCtx, TenantId,
+    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, ProviderManifest,
+    TenantCtx, TenantId,
 };
 
 const PROVIDER_TYPE: &str = "messaging.email.smtp";
@@ -43,6 +44,8 @@ struct ProviderConfig {
     from_address: String,
     #[serde(default = "default_tls")]
     tls_mode: String,
+    #[serde(default)]
+    default_to_address: Option<String>,
     #[serde(default)]
     graph_tenant_id: Option<String>,
     #[serde(default)]
@@ -96,6 +99,7 @@ impl Guest for Component {
                     "port": cfg.port,
                     "username": cfg.username,
                     "from_address": cfg.from_address,
+                    "default_to_address": cfg.default_to_address,
                     "tls_mode": cfg.tls_mode,
                     "graph_tenant_id": cfg.graph_tenant_id,
                     "graph_authority": cfg.graph_authority,
@@ -145,24 +149,64 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let to = match parsed.get("to").and_then(|v| v.as_str()) {
-        Some(addr) if !addr.is_empty() => addr.to_string(),
-        _ => return json_bytes(&json!({"ok": false, "error": "to required"})),
+    let envelope = match serde_json::from_slice::<ChannelMessageEnvelope>(input_json) {
+        Ok(env) => {
+            eprintln!("parsed envelope to={:?}", env.to);
+            env
+        }
+        Err(err) => {
+            eprintln!("fallback envelope due to parse error: {err}");
+            build_channel_envelope(&parsed, &cfg)
+        }
     };
-    let subject = parsed
+
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
+    }
+
+    let body = envelope
+        .text
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let body = match body {
+        Some(value) => value,
+        None => return json_bytes(&json!({"ok": false, "error": "text required"})),
+    };
+
+    let destination = envelope.to.first().cloned().or_else(|| {
+        cfg.default_to_address.clone().map(|addr| Destination {
+            id: addr,
+            kind: Some("email".into()),
+        })
+    });
+    let destination = match destination {
+        Some(dest) => dest,
+        None => return json_bytes(&json!({"ok": false, "error": "destination required"})),
+    };
+
+    let dest_id = destination.id.trim();
+    if dest_id.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "destination id required"}));
+    }
+    let kind = destination.kind.as_deref().unwrap_or("email");
+    if kind != "email" && !kind.is_empty() {
+        return json_bytes(&json!({
+            "ok": false,
+            "error": format!("unsupported destination kind: {kind}"),
+        }));
+    }
+
+    let subject = envelope
+        .metadata
         .get("subject")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    let body = parsed
-        .get("body")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+        .cloned()
+        .unwrap_or_else(|| "email message".to_string());
 
     let payload = json!({
         "from": cfg.from_address,
-        "to": to,
+        "to": dest_id,
         "subject": subject,
         "body": body,
         "host": cfg.host,
@@ -313,11 +357,11 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
     metadata.insert("to".to_string(), Value::String(to));
     metadata.insert("subject".to_string(), Value::String(subject));
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
-        let payload = ProviderPayloadV1 {
-            content_type: "application/json".to_string(),
-            body_b64: STANDARD.encode(&body_bytes),
-            metadata,
-        };
+    let payload = ProviderPayloadV1 {
+        content_type: "application/json".to_string(),
+        body_b64: STANDARD.encode(&body_bytes),
+        metadata,
+    };
     json_bytes(&json!({"ok": true, "payload": payload}))
 }
 
@@ -331,7 +375,7 @@ fn send_payload(input_json: &[u8]) -> Vec<u8> {
     if send_in.provider_type != PROVIDER_TYPE {
         return send_payload_error("provider type mismatch", false);
     }
-    let payload_bytes = match STANDARD.decode(&send_in.payload.body_b64) {
+    let payload_bytes: Vec<u8> = match STANDARD.decode(&send_in.payload.body_b64) {
         Ok(bytes) => bytes,
         Err(err) => {
             return send_payload_error(&format!("payload decode failed: {err}"), false);
@@ -822,7 +866,8 @@ fn binding_to_user(binding: Option<&String>) -> Result<AuthUserRefV1, String> {
 }
 
 fn parse_graph_notifications(body_b64: &str) -> Result<Vec<(String, String)>, String> {
-    let bytes = STANDARD.decode(body_b64)
+    let bytes = STANDARD
+        .decode(body_b64)
         .map_err(|err| format!("invalid notification body: {err}"))?;
     let json: Value = serde_json::from_slice(&bytes)
         .map_err(|err| format!("notification decode failed: {err}"))?;
@@ -914,7 +959,11 @@ fn channel_message_envelope(
         channel: "email".to_string(),
         session_id: message_id.to_string(),
         reply_scope: None,
-        user_id: Some(user.user_id.clone()),
+        from: Some(Actor {
+            id: user.user_id.clone(),
+            kind: Some("user".into()),
+        }),
+        to: Vec::new(),
         correlation_id: Some(resource.to_string()),
         text: Some(subject),
         attachments: Vec::new(),
@@ -944,7 +993,14 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         return parse_config_value(cfg);
     }
     let mut partial = serde_json::Map::new();
-    for key in ["host", "port", "username", "from_address", "tls_mode"] {
+    for key in [
+        "host",
+        "port",
+        "username",
+        "from_address",
+        "default_to_address",
+        "tls_mode",
+    ] {
         if let Some(v) = input.get(key) {
             partial.insert(key.to_string(), v.clone());
         }
@@ -953,6 +1009,42 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         return parse_config_value(&Value::Object(partial));
     }
     Err("config required".into())
+}
+
+fn build_channel_envelope(parsed: &Value, cfg: &ProviderConfig) -> ChannelMessageEnvelope {
+    let to_addr = parsed
+        .get("to")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| cfg.default_to_address.clone().unwrap_or_else(|| "recipient@example.com".to_string()));
+    let subject = parsed
+        .get("subject")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| "universal subject".to_string());
+    let body_text = parsed
+        .get("body")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let mut metadata = MessageMetadata::new();
+    metadata.insert("to".to_string(), to_addr.clone());
+    metadata.insert("subject".to_string(), subject.clone());
+    ChannelMessageEnvelope {
+        id: "synthetic-envelope".to_string(),
+        tenant: TenantCtx::new(default_env(), default_tenant()),
+        channel: PROVIDER_TYPE.to_string(),
+        session_id: "synthetic-session".to_string(),
+        reply_scope: None,
+        from: None,
+        to: vec![Destination {
+            id: to_addr,
+            kind: Some("email".to_string()),
+        }],
+        correlation_id: None,
+        text: body_text,
+        attachments: Vec::new(),
+        metadata,
+    }
 }
 
 fn hex_sha256(bytes: &[u8]) -> String {

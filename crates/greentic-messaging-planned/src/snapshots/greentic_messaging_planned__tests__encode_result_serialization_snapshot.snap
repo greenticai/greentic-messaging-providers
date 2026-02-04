@@ -1,0 +1,23 @@
+---
+source: crates/greentic-messaging-planned/src/lib.rs
+assertion_line: 243
+expression: result
+---
+{
+  "ok": true,
+  "payload": {
+    "content_type": "application/json",
+    "body_b64": "ZmFsbGJhY2s=",
+    "metadata": {
+      "kind": "fallback"
+    }
+  },
+  "warnings": [
+    {
+      "code": "example",
+      "message": "ok",
+      "details": null
+    }
+  ],
+  "error": null
+}

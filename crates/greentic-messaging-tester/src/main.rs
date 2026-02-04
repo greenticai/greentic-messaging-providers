@@ -19,13 +19,16 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use base64::{Engine as _, engine::general_purpose};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use clap::{ArgGroup, Parser, Subcommand};
 use greentic_interfaces_wasmtime::host_helpers::v1::http_client;
-use greentic_types::{ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_messaging_planned::encode_from_render_plan;
+use greentic_types::{
+    ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
+};
 use http::Request;
 use messaging_universal_dto::{
-    EncodeInV1, Header, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, SendPayloadInV1,
+    Header, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, SendPayloadInV1,
     SendPayloadResultV1,
 };
 use serde::{Deserialize, Serialize};
@@ -34,7 +37,7 @@ use tokio::net::TcpListener;
 use tokio::runtime::Builder;
 use tokio::signal;
 
-use crate::http_mock::new_history;
+use crate::http_mock::{HttpHistory, new_history};
 use crate::requirements::ValidationReport;
 use crate::values::Values;
 use crate::wasm_harness::{ComponentHarness, WasmHarness, find_component_wasm_path};
@@ -67,6 +70,10 @@ enum Command {
         text: Option<String>,
         #[arg(long, value_name = "CARD_JSON", group = "message")]
         card: Option<PathBuf>,
+        #[arg(long, value_name = "DESTINATION")]
+        to: Option<String>,
+        #[arg(long, value_name = "DESTINATION_KIND")]
+        to_kind: Option<String>,
     },
     Ingress {
         #[arg(long)]
@@ -118,6 +125,21 @@ enum Command {
     },
 }
 
+struct ListenParams {
+    provider: String,
+    values_path: PathBuf,
+    host: String,
+    port: u16,
+    path: String,
+    http_in: Option<PathBuf>,
+    http_method: String,
+    http_query: Option<String>,
+    http_body: Option<String>,
+    http_body_file: Option<PathBuf>,
+    http_header: Vec<String>,
+    public_base_url: String,
+}
+
 fn main() {
     let cli = Cli::parse();
     let exit_code = match run(cli) {
@@ -140,7 +162,9 @@ fn run(cli: Cli) -> Result<(), CliError> {
             values,
             text,
             card,
-        } => handle_send(provider, values, text, card),
+            to,
+            to_kind,
+        } => handle_send(provider, values, text, card, to, to_kind),
         Command::Ingress {
             provider,
             values,
@@ -160,9 +184,9 @@ fn run(cli: Cli) -> Result<(), CliError> {
             http_body_file,
             http_header,
             public_base_url,
-        } => handle_listen(
+        } => handle_listen(ListenParams {
             provider,
-            values,
+            values_path: values,
             host,
             port,
             path,
@@ -173,7 +197,7 @@ fn run(cli: Cli) -> Result<(), CliError> {
             http_body_file,
             http_header,
             public_base_url,
-        ),
+        }),
         Command::Webhook {
             provider,
             values,
@@ -205,9 +229,11 @@ fn handle_send(
     values_path: PathBuf,
     text: Option<String>,
     card: Option<PathBuf>,
+    to: Option<String>,
+    to_kind: Option<String>,
 ) -> Result<(), CliError> {
-    let values = Values::load(&values_path)
-        .map_err(|err| CliError::ValuesLoad(values_path.clone(), err.into()))?;
+    let values =
+        Values::load(&values_path).map_err(|err| CliError::ValuesLoad(values_path.clone(), err))?;
     let requirements = requirements::Requirements::load(&provider)
         .map_err(|_| CliError::RequirementsMissing(provider.clone()))?;
     let report = requirements.validate(&values);
@@ -234,7 +260,18 @@ fn handle_send(
     };
 
     let metadata = values.to_metadata();
-    let message = build_message_envelope(&provider, text, card_value, metadata);
+    let mut destinations = Vec::new();
+    if let Some(destination) = to {
+        let trimmed = destination.trim();
+        if trimmed.is_empty() {
+            return Err(CliError::ProviderOp(anyhow!("--to cannot be empty")));
+        }
+        destinations.push(Destination {
+            id: trimmed.to_string(),
+            kind: to_kind,
+        });
+    }
+    let message = build_message_envelope(&provider, text, card_value, metadata, destinations);
     let plan_in = RenderPlanInV1 {
         message: message.clone(),
         metadata: HashMap::new(),
@@ -246,37 +283,43 @@ fn handle_send(
 
     let plan_input =
         serde_json::to_vec(&plan_in).map_err(|err| CliError::ProviderOp(err.into()))?;
-    let plan_output = harness
-        .invoke(
-            "render_plan",
-            plan_input,
-            &secrets,
-            http_mode,
-            history.clone(),
-        )
-        .map_err(map_invoke_error)?;
+    let plan_output = match harness.invoke(
+        "render_plan",
+        plan_input,
+        &secrets,
+        http_mode,
+        history.clone(),
+    ) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            log_http_history("render_plan", &history);
+            return Err(map_invoke_error(err));
+        }
+    };
     let plan_value: Value =
         serde_json::from_slice(&plan_output).map_err(|err| CliError::ProviderOp(err.into()))?;
     ensure_ok(&plan_value, "render_plan")?;
-
-    let encode_in = EncodeInV1 {
-        message: message.clone(),
-        plan: plan_in.clone(),
+    let plan_json = plan_value
+        .get("plan")
+        .and_then(|plan| plan.get("plan_json"))
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| CliError::ProviderOp(anyhow!("render_plan missing plan_json")))?;
+    let encode_result = encode_from_render_plan(plan_json, &message, Some(harness.provider_type()));
+    if !encode_result.ok {
+        return Err(CliError::ProviderOp(anyhow!(
+            "encode_from_render_plan failed: {}",
+            encode_result.error.unwrap_or_else(|| "unknown".to_string())
+        )));
+    }
+    let provider_payload = encode_result
+        .payload
+        .as_ref()
+        .ok_or_else(|| CliError::ProviderOp(anyhow!("encode_from_render_plan missing payload")))?;
+    let payload = ProviderPayloadV1 {
+        content_type: provider_payload.content_type.clone(),
+        body_b64: provider_payload.body_b64.clone(),
+        metadata: provider_payload.metadata.clone().into_iter().collect(),
     };
-    let encode_input =
-        serde_json::to_vec(&encode_in).map_err(|err| CliError::ProviderOp(err.into()))?;
-    let encode_output = harness
-        .invoke("encode", encode_input, &secrets, http_mode, history.clone())
-        .map_err(map_invoke_error)?;
-    let encode_value: Value =
-        serde_json::from_slice(&encode_output).map_err(|err| CliError::ProviderOp(err.into()))?;
-    ensure_ok(&encode_value, "encode")?;
-    let payload_value = encode_value
-        .get("payload")
-        .cloned()
-        .ok_or_else(|| CliError::ProviderOp(anyhow!("encode output missing payload")))?;
-    let payload: ProviderPayloadV1 = serde_json::from_value(payload_value.clone())
-        .map_err(|err| CliError::ProviderOp(err.into()))?;
 
     let send_in = SendPayloadInV1 {
         provider_type: harness.provider_type().to_string(),
@@ -286,18 +329,23 @@ fn handle_send(
     };
     let send_input =
         serde_json::to_vec(&send_in).map_err(|err| CliError::ProviderOp(err.into()))?;
-    let send_output = harness
-        .invoke(
-            "send_payload",
-            send_input,
-            &secrets,
-            http_mode,
-            history.clone(),
-        )
-        .map_err(map_invoke_error)?;
+    let send_output = match harness.invoke(
+        "send_payload",
+        send_input,
+        &secrets,
+        http_mode,
+        history.clone(),
+    ) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            log_http_history("send_payload", &history);
+            return Err(map_invoke_error(err));
+        }
+    };
     let send_result: SendPayloadResultV1 =
         serde_json::from_slice(&send_output).map_err(|err| CliError::ProviderOp(err.into()))?;
     if !send_result.ok {
+        log_http_history("send_payload", &history);
         return Err(CliError::ProviderOp(anyhow!(
             "send_payload failed: {}",
             send_result
@@ -312,7 +360,7 @@ fn handle_send(
         .unwrap_or_default();
     let output = json!({
         "plan": plan_value,
-        "encoded": encode_value,
+        "encode_result": encode_result,
         "http_calls": http_calls,
         "result": send_result,
     });
@@ -326,8 +374,8 @@ fn handle_ingress(
     http_in_path: PathBuf,
     public_base_url: String,
 ) -> Result<(), CliError> {
-    let mut values = Values::load(&values_path)
-        .map_err(|err| CliError::ValuesLoad(values_path.clone(), err.into()))?;
+    let mut values =
+        Values::load(&values_path).map_err(|err| CliError::ValuesLoad(values_path.clone(), err))?;
     let requirements = requirements::Requirements::load(&provider)
         .map_err(|_| CliError::RequirementsMissing(provider.clone()))?;
     inject_public_base_url(&mut values, &public_base_url);
@@ -357,22 +405,23 @@ fn handle_ingress(
     Ok(())
 }
 
-fn handle_listen(
-    provider: String,
-    values_path: PathBuf,
-    host: String,
-    port: u16,
-    path: String,
-    http_in: Option<PathBuf>,
-    http_method: String,
-    http_query: Option<String>,
-    http_body: Option<String>,
-    http_body_file: Option<PathBuf>,
-    http_header: Vec<String>,
-    public_base_url: String,
-) -> Result<(), CliError> {
-    let mut values = Values::load(&values_path)
-        .map_err(|err| CliError::ValuesLoad(values_path.clone(), err.into()))?;
+fn handle_listen(params: ListenParams) -> Result<(), CliError> {
+    let ListenParams {
+        provider,
+        values_path,
+        host,
+        port,
+        path,
+        http_in,
+        http_method,
+        http_query,
+        http_body,
+        http_body_file,
+        http_header,
+        public_base_url,
+    } = params;
+    let mut values =
+        Values::load(&values_path).map_err(|err| CliError::ValuesLoad(values_path.clone(), err))?;
     let requirements = requirements::Requirements::load(&provider)
         .map_err(|_| CliError::RequirementsMissing(provider.clone()))?;
     inject_public_base_url(&mut values, &public_base_url);
@@ -410,8 +459,8 @@ fn handle_webhook(
     public_base_url: String,
     dry_run: bool,
 ) -> Result<(), CliError> {
-    let values = Values::load(&values_path)
-        .map_err(|err| CliError::ValuesLoad(values_path.clone(), err.into()))?;
+    let values =
+        Values::load(&values_path).map_err(|err| CliError::ValuesLoad(values_path.clone(), err))?;
 
     let component = webhook_component_for(&provider)
         .ok_or_else(|| CliError::WebhookUnsupported(provider.clone()))?;
@@ -593,12 +642,33 @@ fn print_missing(report: &ValidationReport) {
     println!("{}", serde_json::to_string_pretty(&message).unwrap());
 }
 
+fn log_http_history(op: &str, history: &HttpHistory) {
+    if let Ok(calls) = history.lock() {
+        if calls.is_empty() {
+            println!("http history [{}]: <empty>", op);
+            return;
+        }
+        for (idx, call) in calls.iter().enumerate() {
+            println!(
+                "http history [{}] call #{idx} {} {} status={} body={}",
+                op,
+                call.request.method,
+                call.request.url,
+                call.response.status,
+                call.request.body_b64.as_deref().unwrap_or("<no body>")
+            );
+        }
+    }
+}
+
 fn build_message_envelope(
     provider: &str,
     text: Option<String>,
     card: Option<Value>,
     metadata: HashMap<String, String>,
+    destinations: Vec<Destination>,
 ) -> ChannelMessageEnvelope {
+    println!("tester envelope to={:?}", destinations);
     let env = EnvId::try_from("manual").expect("manual env id");
     let tenant = TenantId::try_from("manual").expect("manual tenant id");
     let channel = metadata
@@ -609,10 +679,10 @@ fn build_message_envelope(
     for (key, value) in metadata {
         message_metadata.insert(key, value);
     }
-    if let Some(card_value) = card {
-        if let Ok(card_str) = serde_json::to_string(&card_value) {
-            message_metadata.insert("adaptive_card".to_string(), card_str);
-        }
+    if let Some(card_value) = card
+        && let Ok(card_str) = serde_json::to_string(&card_value)
+    {
+        message_metadata.insert("adaptive_card".to_string(), card_str);
     }
     ChannelMessageEnvelope {
         id: format!("tester-{provider}-{channel}"),
@@ -620,7 +690,8 @@ fn build_message_envelope(
         channel: channel.clone(),
         session_id: channel.clone(),
         reply_scope: None,
-        user_id: None,
+        from: None,
+        to: destinations,
         correlation_id: None,
         text,
         attachments: Vec::new(),
@@ -628,12 +699,54 @@ fn build_message_envelope(
     }
 }
 
-fn ensure_ok(value: &Value, op: &str) -> Result<(), CliError> {
-    if let Some(ok) = value.get("ok").and_then(Value::as_bool) {
-        if !ok {
-            return Err(CliError::ProviderOp(anyhow!("{} reported failure", op)));
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_message_envelope_stores_destination() {
+        let metadata = HashMap::new();
+        let dest = Destination {
+            id: "room-123".to_string(),
+            kind: Some("room".to_string()),
+        };
+        let envelope = build_message_envelope(
+            "webex",
+            Some("hi".to_string()),
+            None,
+            metadata,
+            vec![dest.clone()],
+        );
+        assert_eq!(envelope.to, vec![dest]);
     }
+
+    #[test]
+    fn build_message_envelope_preserves_destination_kind() {
+        let metadata = HashMap::new();
+        let dest = Destination {
+            id: "dm-123".to_string(),
+            kind: Some("user".to_string()),
+        };
+        let envelope = build_message_envelope(
+            "slack",
+            Some("hey".to_string()),
+            None,
+            metadata,
+            vec![dest.clone()],
+        );
+        assert_eq!(envelope.to.len(), 1);
+        let stored = &envelope.to[0];
+        assert_eq!(stored.kind, dest.kind);
+    }
+}
+
+fn ensure_ok(value: &Value, op: &str) -> Result<(), CliError> {
+    if let Some(ok) = value.get("ok").and_then(Value::as_bool)
+        && !ok
+    {
+        return Err(CliError::ProviderOp(anyhow!("{} reported failure", op)));
+    }
+
     Ok(())
 }
 
@@ -651,7 +764,7 @@ fn parse_http_in(path: &Path) -> Result<HttpInV1, CliError> {
     let spec: HttpInFile = serde_json::from_str(&contents)
         .map_err(|err| CliError::HttpInput(path.to_path_buf(), err.into()))?;
     let body_bytes = spec.body.map(|body| body.into_bytes()).unwrap_or_default();
-    let body_b64 = general_purpose::STANDARD.encode(body_bytes);
+    let body_b64 = STANDARD.encode(body_bytes);
     let headers = spec
         .headers
         .into_iter()

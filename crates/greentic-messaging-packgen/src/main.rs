@@ -777,7 +777,7 @@ fn known_render_tiers_from_interfaces() -> Result<BTreeSet<String>> {
     let mut in_enum = false;
     for line in contents.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with("enum render-tier") {
+        if trimmed.starts_with("enum render-tier") || trimmed.starts_with("enum tier") {
             in_enum = true;
             continue;
         }

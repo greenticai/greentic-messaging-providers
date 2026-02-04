@@ -20,6 +20,10 @@
       "type": "string",
       "description": "Default from address"
     },
+    "default_to_address": {
+      "type": "string",
+      "description": "Optional fallback recipient email when the envelope misses a destination"
+    },
     "tls_mode": {
       "type": "string",
       "enum": ["starttls", "implicit", "none"],

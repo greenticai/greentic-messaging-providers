@@ -10,12 +10,6 @@
       { "key": "WEBEX_BOT_TOKEN", "example": "xxxxx" }
     ]
   },
-  "to": {
-    "shape": {
-      "room_id": "room123",
-      "person_id": "user123"
-    }
-  },
   "values": {
     "config": {
       "public_base_url": "https://example.com",
@@ -23,10 +17,6 @@
     },
     "secrets": {
       "WEBEX_BOT_TOKEN": "dummy-token"
-    },
-    "to": {
-      "room_id": "room123",
-      "person_id": "user123"
     },
     "http": "mock",
     "state": {}

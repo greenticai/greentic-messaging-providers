@@ -11,8 +11,8 @@ anyhow = { workspace = true }
 base64 = "0.22"
 greentic-interfaces-wasmtime = { workspace = true }
 serde_json = { workspace = true }
-wasmtime = { version = "=41.0.1", features = ["component-model", "cache"] }
-wasmtime-wasi = "=41.0.1"
+wasmtime = { version = "=41.0.2", features = ["component-model", "cache"] }
+wasmtime-wasi = "=41.0.2"
 
 [dev-dependencies]
 serde = { workspace = true }

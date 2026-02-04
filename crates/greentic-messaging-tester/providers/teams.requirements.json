@@ -12,12 +12,6 @@
       { "key": "MS_GRAPH_REFRESH_TOKEN", "example": "dummy-refresh" }
     ]
   },
-  "to": {
-    "shape": {
-      "team_id": "team-sync",
-      "channel_id": "general"
-    }
-  },
   "values": {
     "config": {
       "tenant_id": "example-tenant",
@@ -26,10 +20,6 @@
     "secrets": {
       "MS_GRAPH_CLIENT_SECRET": "dummy-secret",
       "MS_GRAPH_REFRESH_TOKEN": "dummy-refresh"
-    },
-    "to": {
-      "team_id": "team-sync",
-      "channel_id": "general"
     },
     "http": "mock",
     "state": {}

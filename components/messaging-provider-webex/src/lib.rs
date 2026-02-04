@@ -1,5 +1,7 @@
-use base64::{Engine as _, engine::general_purpose};
-use greentic_types::{ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use base64::{Engine, engine::general_purpose::STANDARD};
+use greentic_types::{
+    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
+};
 use messaging_universal_dto::{
     EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
     SendPayloadInV1, SendPayloadResultV1,
@@ -32,6 +34,8 @@ struct ProviderConfig {
     #[serde(default)]
     default_room_id: Option<String>,
     #[serde(default)]
+    default_to_person_email: Option<String>,
+    #[serde(default)]
     api_base_url: Option<String>,
 }
 
@@ -62,6 +66,7 @@ impl Guest for Component {
                 "ok": true,
                 "config": {
                     "default_room_id": cfg.default_room_id,
+                    "default_to_person_email": cfg.default_to_person_email,
                     "api_base_url": cfg.api_base_url.unwrap_or_else(|| DEFAULT_API_BASE.to_string()),
                 }
             })),
@@ -98,50 +103,83 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         }
     };
 
-    if parsed.get("attachments").is_some() {
-        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
-    }
-
-    let cfg = match load_config(&parsed) {
+    let mut cfg = match load_config(&parsed) {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let destination = parsed.get("to").and_then(|v| v.as_object());
-    let (room_id, person_id) =
-        match destination.and_then(|o| o.get("kind").and_then(|k| k.as_str())) {
-            Some("room") => {
-                let id = destination
-                    .and_then(|o| o.get("id"))
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-                    .or(cfg.default_room_id.clone());
-                (id, None)
-            }
-            Some("user") => {
-                let id = destination
-                    .and_then(|o| o.get("id"))
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-                (None, id)
-            }
-            _ => (cfg.default_room_id.clone(), None),
-        };
-
-    let (room_id, person_id) = match (room_id, person_id) {
-        (Some(r), p) if !r.is_empty() => (Some(r), p),
-        (None, Some(p)) if !p.is_empty() => (None, Some(p)),
-        _ => return json_bytes(&json!({"ok": false, "error": "destination required"})),
+    let envelope: ChannelMessageEnvelope = match serde_json::from_slice(input_json) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}")}));
+        }
     };
 
-    let text = parsed
-        .get("text")
-        .or_else(|| parsed.get("markdown"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    if text.is_empty() {
-        return json_bytes(&json!({"ok": false, "error": "text or markdown required"}));
+    override_config_from_metadata(&mut cfg, &envelope.metadata);
+
+    println!(
+        "webex encoded envelope {}",
+        serde_json::to_string(&envelope).unwrap_or_default()
+    );
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
+    }
+
+    let text = envelope
+        .text
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let text = match text {
+        Some(value) => value,
+        None => return json_bytes(&json!({"ok": false, "error": "text required"})),
+    };
+
+    let destination = envelope.to.first().cloned().or_else(|| {
+        cfg.default_to_person_email
+            .clone()
+            .map(|email| Destination {
+                id: email,
+                kind: Some("email".into()),
+            })
+    });
+    println!("webex envelope to={:?}", envelope.to);
+    let destination = match destination {
+        Some(dest) => dest,
+        None => return json_bytes(&json!({"ok": false, "error": "destination required"})),
+    };
+
+    let dest_id = destination.id.trim();
+    if dest_id.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "destination id required"}));
+    }
+    let dest_id = dest_id.to_string();
+    let kind = destination.kind.as_deref().unwrap_or("email");
+
+    let api_base = cfg
+        .api_base_url
+        .clone()
+        .unwrap_or_else(|| DEFAULT_API_BASE.to_string());
+    let url = format!("{}/messages", api_base);
+    let mut body = json!({ "text": text });
+    let body_obj = body.as_object_mut().expect("body object");
+    match kind {
+        "room" => {
+            body_obj.insert("roomId".into(), Value::String(dest_id));
+        }
+        "person" | "user" => {
+            body_obj.insert("toPersonId".into(), Value::String(dest_id));
+        }
+        "email" | "" => {
+            body_obj.insert("toPersonEmail".into(), Value::String(dest_id));
+        }
+        other => {
+            return json_bytes(&json!({
+                "ok": false,
+                "error": format!("unsupported destination kind: {other}")
+            }));
+        }
     }
 
     let token = match secrets_store::get(DEFAULT_TOKEN_KEY) {
@@ -161,22 +199,11 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         }
     };
 
-    let api_base = cfg
-        .api_base_url
-        .unwrap_or_else(|| DEFAULT_API_BASE.to_string());
-    let url = format!("{}/messages", api_base);
-    let mut body = json!({ "text": text });
-    if let Some(room) = room_id {
-        body.as_object_mut()
-            .expect("body object")
-            .insert("roomId".into(), Value::String(room));
-    }
-    if let Some(person) = person_id {
-        body.as_object_mut()
-            .expect("body object")
-            .insert("personId".into(), Value::String(person));
-    }
-
+    println!(
+        "webex send url={} body={}",
+        url,
+        serde_json::to_string(&body).unwrap_or_default()
+    );
     let request = client::Request {
         method: "POST".into(),
         url,
@@ -324,7 +351,7 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         return parse_config_value(cfg);
     }
     let mut partial = serde_json::Map::new();
-    for key in ["default_room_id", "api_base_url"] {
+    for key in ["default_room_id", "default_to_person_email", "api_base_url"] {
         if let Some(v) = input.get(key) {
             partial.insert(key.to_string(), v.clone());
         }
@@ -335,8 +362,18 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
 
     Ok(ProviderConfig {
         default_room_id: None,
+        default_to_person_email: None,
         api_base_url: None,
     })
+}
+
+fn override_config_from_metadata(cfg: &mut ProviderConfig, metadata: &MessageMetadata) {
+    if let Some(api) = metadata.get("config.api_base_url") {
+        cfg.api_base_url = Some(api.clone());
+    }
+    if let Some(email) = metadata.get("config.default_to_person_email") {
+        cfg.default_to_person_email = Some(email.clone());
+    }
 }
 
 fn json_bytes<T: serde::Serialize>(value: &T) -> Vec<u8> {
@@ -348,7 +385,7 @@ fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         Ok(req) => req,
         Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
     };
-    let body_bytes = match general_purpose::STANDARD.decode(&request.body_b64) {
+    let body_bytes = match STANDARD.decode(&request.body_b64) {
         Ok(bytes) => bytes,
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
@@ -369,7 +406,7 @@ fn ingest_http(input_json: &[u8]) -> Vec<u8> {
     let out = HttpOutV1 {
         status: 200,
         headers: Vec::new(),
-        body_b64: general_purpose::STANDARD.encode(&normalized_bytes),
+        body_b64: STANDARD.encode(&normalized_bytes),
         events: vec![envelope],
     };
     json_bytes(&out)
@@ -405,52 +442,12 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
-    let text = encode_in
-        .message
-        .text
-        .clone()
-        .filter(|t| !t.trim().is_empty())
-        .unwrap_or_else(|| "webex universal payload".to_string());
-    let room_id = encode_in
-        .message
-        .metadata
-        .get("room_id")
-        .map(|s| s.clone())
-        .or_else(|| Some(encode_in.message.channel.clone()))
-        .filter(|s| !s.trim().is_empty());
-    let person_id = encode_in
-        .message
-        .metadata
-        .get("person_id")
-        .map(|s| s.clone());
-    let mut metadata = HashMap::new();
-    metadata.insert(
-        "url".to_string(),
-        Value::String(format!("{}/messages", DEFAULT_API_BASE)),
-    );
-    metadata.insert("method".to_string(), Value::String("POST".to_string()));
-    if let Some(room) = &room_id {
-        metadata.insert("room_id".to_string(), Value::String(room.clone()));
-    }
-    if let Some(person) = &person_id {
-        metadata.insert("person_id".to_string(), Value::String(person.clone()));
-    }
-    let mut body = json!({ "text": text });
-    if let Some(room) = room_id {
-        body.as_object_mut()
-            .expect("body object")
-            .insert("roomId".into(), Value::String(room));
-    }
-    if let Some(person) = person_id {
-        body.as_object_mut()
-            .expect("body object")
-            .insert("personId".into(), Value::String(person));
-    }
-    let body_bytes = serde_json::to_vec(&body).unwrap_or_else(|_| b"{}".to_vec());
+    let envelope = encode_in.message;
+    let body_bytes = serde_json::to_vec(&envelope).unwrap_or_else(|_| b"{}".to_vec());
     let payload = ProviderPayloadV1 {
         content_type: "application/json".to_string(),
-        body_b64: general_purpose::STANDARD.encode(&body_bytes),
-        metadata,
+        body_b64: STANDARD.encode(&body_bytes),
+        metadata: HashMap::new(),
     };
     json_bytes(&json!({"ok": true, "payload": payload}))
 }
@@ -470,46 +467,103 @@ fn send_payload(input_json: &[u8]) -> Vec<u8> {
         body_b64,
         metadata,
     } = send_in.payload;
-    let url = metadata
-        .get("url")
+    let api_base = metadata
+        .get("api_base_url")
         .and_then(|value| value.as_str())
         .map(|s| s.to_string())
-        .unwrap_or_else(|| format!("{}/messages", DEFAULT_API_BASE));
+        .unwrap_or_else(|| DEFAULT_API_BASE.to_string());
+    let url = format!("{}/messages", api_base);
     let method = metadata
         .get("method")
         .and_then(|value| value.as_str())
         .map(|s| s.to_string())
         .unwrap_or_else(|| "POST".to_string());
-    let body_bytes = match general_purpose::STANDARD.decode(&body_b64) {
+    let body_bytes = match STANDARD.decode(&body_b64) {
         Ok(bytes) => bytes,
         Err(err) => return send_payload_error(&format!("payload decode failed: {err}"), false),
     };
-    let payload: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
-    let text = payload
-        .get("text")
-        .or_else(|| payload.get("markdown"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("webex message")
-        .to_string();
-    let (room_id, person_id) = extract_destination(&payload);
-    let (room_id, person_id) = match (room_id, person_id) {
-        (Some(room), _) if !room.trim().is_empty() => (Some(room), None),
-        (None, Some(person)) if !person.trim().is_empty() => (None, Some(person)),
-        _ => return send_payload_error("destination required", false),
+    let envelope = match serde_json::from_slice::<ChannelMessageEnvelope>(&body_bytes) {
+        Ok(env) => env,
+        Err(err) => {
+            eprintln!("webex send_payload invalid envelope: {err}");
+            return send_payload_error(&format!("invalid envelope: {err}"), false);
+        }
     };
+    if !envelope.attachments.is_empty() {
+        eprintln!(
+            "webex send_payload rejected attachments {:?}",
+            envelope.attachments
+        );
+        return send_payload_error("attachments not supported", false);
+    }
+    let text = envelope
+        .text
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let text = match text {
+        Some(value) => value,
+        None => {
+            eprintln!(
+                "webex send_payload missing text envelope metadata={:?}",
+                envelope.metadata
+            );
+            return send_payload_error("text required", false);
+        }
+    };
+    let destination = envelope.to.first().cloned().or_else(|| {
+        metadata
+            .get("default_to_person_email")
+            .and_then(|value| value.as_str())
+            .map(|s| Destination {
+                id: s.to_string(),
+                kind: Some("email".into()),
+            })
+    });
+    let destination = match destination {
+        Some(dest) => dest,
+        None => {
+            return send_payload_error(
+                &format!("destination required (envelope to={:?})", envelope.to),
+                false,
+            );
+        }
+    };
+    let dest_id = destination.id.trim();
+    if dest_id.is_empty() {
+        return send_payload_error("destination id required", false);
+    }
     let mut body_req = json!({ "text": text });
-    if let Some(room) = room_id.clone() {
-        body_req
-            .as_object_mut()
-            .expect("body object")
-            .insert("roomId".into(), Value::String(room));
+    let kind = destination.kind.as_deref().unwrap_or("email");
+    match kind {
+        "room" => {
+            body_req
+                .as_object_mut()
+                .expect("body object")
+                .insert("roomId".into(), Value::String(dest_id.to_string()));
+        }
+        "person" | "user" => {
+            body_req
+                .as_object_mut()
+                .expect("body object")
+                .insert("toPersonId".into(), Value::String(dest_id.to_string()));
+        }
+        "email" | "" => {
+            body_req
+                .as_object_mut()
+                .expect("body object")
+                .insert("toPersonEmail".into(), Value::String(dest_id.to_string()));
+        }
+        other => {
+            return send_payload_error(&format!("unsupported destination kind: {other}"), false);
+        }
     }
-    if let Some(person) = person_id.clone() {
-        body_req
-            .as_object_mut()
-            .expect("body object")
-            .insert("personId".into(), Value::String(person));
-    }
+    println!(
+        "webex send url={}/messages body={}",
+        api_base,
+        serde_json::to_string(&body_req).unwrap_or_default()
+    );
     let token = match get_secret_string(DEFAULT_TOKEN_KEY) {
         Ok(value) => value,
         Err(err) => return send_payload_error(&err, false),
@@ -597,13 +651,18 @@ fn build_envelope(
         .clone()
         .or(person_id.clone())
         .unwrap_or_else(|| channel_prefix.to_string());
+    let sender = person_id.map(|id| Actor {
+        id,
+        kind: Some("user".into()),
+    });
     ChannelMessageEnvelope {
         id: format!("{channel_prefix}-{channel}"),
         tenant: TenantCtx::new(env.clone(), tenant.clone()),
         channel: channel.clone(),
         session_id: channel,
         reply_scope: None,
-        user_id: person_id,
+        from: sender,
+        to: Vec::new(),
         correlation_id: None,
         text: Some(text),
         attachments: Vec::new(),
@@ -615,7 +674,7 @@ fn http_out_error(status: u16, message: &str) -> Vec<u8> {
     let out = HttpOutV1 {
         status,
         headers: Vec::new(),
-        body_b64: general_purpose::STANDARD.encode(message.as_bytes()),
+        body_b64: STANDARD.encode(message.as_bytes()),
         events: Vec::new(),
     };
     json_bytes(&out)

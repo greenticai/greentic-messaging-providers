@@ -1,5 +1,7 @@
-use base64::{Engine as _, engine::general_purpose};
-use greentic_types::{ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use base64::{Engine, engine::general_purpose::STANDARD};
+use greentic_types::{
+    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
+};
 use messaging_universal_dto::{
     EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
     SendPayloadInV1, SendPayloadResultV1,
@@ -109,24 +111,51 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let text = match parsed
-        .get("text")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-    {
-        Some(t) if !t.is_empty() => t,
-        _ => return json_bytes(&json!({"ok": false, "error": "text required"})),
+    let envelope: ChannelMessageEnvelope = match serde_json::from_slice(input_json) {
+        Ok(env) => env,
+        Err(err) => {
+            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}")}));
+        }
     };
 
-    let chat_id = match parsed
-        .get("chat_id")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| cfg.default_chat_id.clone())
-    {
-        Some(chat) if !chat.is_empty() => chat,
-        _ => return json_bytes(&json!({"ok": false, "error": "chat_id required"})),
+    if !envelope.attachments.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
+    }
+
+    let text = envelope
+        .text
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let text = match text {
+        Some(value) => value,
+        None => return json_bytes(&json!({"ok": false, "error": "text required"})),
     };
+
+    let destination = envelope.to.first().cloned().or_else(|| {
+        cfg.default_chat_id.clone().map(|chat| Destination {
+            id: chat,
+            kind: Some("chat".into()),
+        })
+    });
+    let destination = match destination {
+        Some(dest) => dest,
+        None => return json_bytes(&json!({"ok": false, "error": "destination required"})),
+    };
+
+    let dest_id = destination.id.trim();
+    if dest_id.is_empty() {
+        return json_bytes(&json!({"ok": false, "error": "destination id required"}));
+    }
+    let dest_id = dest_id.to_string();
+    let kind = destination.kind.as_deref().unwrap_or("chat");
+    if kind != "chat" && !kind.is_empty() {
+        return json_bytes(&json!({
+            "ok": false,
+            "error": format!("unsupported destination kind: {kind}")
+        }));
+    }
 
     let token = match secrets_store::get(TOKEN_SECRET) {
         Ok(Some(bytes)) => match String::from_utf8(bytes) {
@@ -149,9 +178,10 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
 
     let api_base = cfg
         .api_base_url
+        .clone()
         .unwrap_or_else(|| DEFAULT_API_BASE.to_string());
     let url = format!("{api_base}/bot{token}/sendMessage");
-    let payload = json!({ "chat_id": chat_id, "text": text });
+    let payload = json!({ "chat_id": dest_id.clone(), "text": text });
     let request = client::Request {
         method: "POST".to_string(),
         url,
@@ -302,7 +332,7 @@ fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         Ok(req) => req,
         Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
     };
-    let body_bytes = match general_purpose::STANDARD.decode(&request.body_b64) {
+    let body_bytes = match STANDARD.decode(&request.body_b64) {
         Ok(bytes) => bytes,
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
@@ -323,7 +353,7 @@ fn ingest_http(input_json: &[u8]) -> Vec<u8> {
     let out = HttpOutV1 {
         status: 200,
         headers: Vec::new(),
-        body_b64: general_purpose::STANDARD.encode(&normalized_bytes),
+        body_b64: STANDARD.encode(&normalized_bytes),
         events: vec![envelope],
     };
     json_bytes(&out)
@@ -369,30 +399,21 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
-    let text = encode_in
-        .message
+    let mut envelope = encode_in.message;
+    let has_text = envelope
         .text
-        .clone()
-        .filter(|t| !t.trim().is_empty())
-        .unwrap_or_else(|| "universal telegram payload".to_string());
-    let chat_id = encode_in
-        .message
-        .metadata
-        .get("chat_id")
-        .cloned()
-        .unwrap_or_else(|| "chat-universal".to_string());
-    let payload_body = json!({
-        "chat_id": chat_id.clone(),
-        "text": text,
-    });
-    let body_bytes = serde_json::to_vec(&payload_body).unwrap_or_else(|_| b"{}".to_vec());
-    let mut metadata = HashMap::new();
-    metadata.insert("chat_id".to_string(), Value::String(chat_id));
-    metadata.insert("method".to_string(), Value::String("POST".to_string()));
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .is_some();
+    if !has_text {
+        envelope.text = Some("universal telegram payload".to_string());
+    }
+    let body_bytes = serde_json::to_vec(&envelope).unwrap_or_else(|_| b"{}".to_vec());
     let payload = ProviderPayloadV1 {
         content_type: "application/json".to_string(),
-        body_b64: general_purpose::STANDARD.encode(&body_bytes),
-        metadata,
+        body_b64: STANDARD.encode(&body_bytes),
+        metadata: HashMap::new(),
     };
     json_bytes(&json!({"ok": true, "payload": payload}))
 }
@@ -407,7 +428,7 @@ fn send_payload(input_json: &[u8]) -> Vec<u8> {
     if send_in.provider_type != PROVIDER_TYPE {
         return send_payload_error("provider type mismatch", false);
     }
-    let payload_bytes = match general_purpose::STANDARD.decode(&send_in.payload.body_b64) {
+    let payload_bytes = match STANDARD.decode(&send_in.payload.body_b64) {
         Ok(bytes) => bytes,
         Err(err) => {
             return send_payload_error(&format!("payload decode failed: {err}"), false);
@@ -458,13 +479,18 @@ fn build_telegram_envelope(
         metadata.insert("from".to_string(), sender.clone());
     }
     let channel = chat_id.clone().unwrap_or_else(|| "telegram".to_string());
+    let sender = from.map(|id| Actor {
+        id,
+        kind: Some("user".into()),
+    });
     ChannelMessageEnvelope {
         id: format!("telegram-{channel}"),
         tenant: TenantCtx::new(env.clone(), tenant.clone()),
         channel: channel.clone(),
         session_id: channel,
         reply_scope: None,
-        user_id: from,
+        from: sender,
+        to: Vec::new(),
         correlation_id: None,
         text: Some(text),
         attachments: Vec::new(),
@@ -500,7 +526,7 @@ fn http_out_error(status: u16, message: &str) -> Vec<u8> {
     let out = HttpOutV1 {
         status,
         headers: Vec::new(),
-        body_b64: general_purpose::STANDARD.encode(message.as_bytes()),
+        body_b64: STANDARD.encode(message.as_bytes()),
         events: Vec::new(),
     };
     json_bytes(&out)

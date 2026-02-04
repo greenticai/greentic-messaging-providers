@@ -10,12 +10,6 @@
       { "key": "jwt_signing_key", "example": "jwt-secret" }
     ]
   },
-  "to": {
-    "shape": {
-      "route": "webchat-route",
-      "tenant_channel_id": "tenant-channel"
-    }
-  },
   "values": {
     "config": {
       "route": "webchat-route",
@@ -24,10 +18,6 @@
     },
     "secrets": {
       "jwt_signing_key": "dummy-jwt-secret"
-    },
-    "to": {
-      "route": "webchat-route",
-      "tenant_channel_id": "tenant-channel"
     },
     "http": "mock",
     "state": {}
