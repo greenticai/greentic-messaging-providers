@@ -46,6 +46,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 axum = "0.8"
 clap = "4"
 base64 = "0.22"
+once_cell = "1"
 messaging-universal-dto = { path = "crates/messaging-universal-dto" }
 greentic-messaging-planned = { path = "crates/greentic-messaging-planned" }
 provider-common = { path = "crates/provider-common" }
@@ -55,4 +56,3 @@ assert_cmd = "2"
 predicates = "3"
 wasmtime = { version = "41", features = ["component-model", "cache"] }
 wasmtime-wasi = "41"
-

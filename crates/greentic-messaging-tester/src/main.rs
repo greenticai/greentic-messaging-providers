@@ -303,6 +303,7 @@ fn handle_send(
         &secrets,
         http_mode,
         history.clone(),
+        None,
     ) {
         Ok(bytes) => bytes,
         Err(err) => {
@@ -349,6 +350,7 @@ fn handle_send(
         &secrets,
         http_mode,
         history.clone(),
+        None,
     ) {
         Ok(bytes) => bytes,
         Err(err) => {
@@ -408,7 +410,14 @@ fn handle_ingress(
     let http_bytes =
         serde_json::to_vec(&http_in).map_err(|err| CliError::ProviderOp(err.into()))?;
     let out_bytes = harness
-        .invoke("ingest_http", http_bytes, &secrets, http_mode, history)
+        .invoke(
+            "ingest_http",
+            http_bytes,
+            &secrets,
+            http_mode,
+            history,
+            None,
+        )
         .map_err(map_invoke_error)?;
     let http_out: HttpOutV1 =
         serde_json::from_slice(&out_bytes).map_err(|err| CliError::ProviderOp(err.into()))?;
@@ -611,14 +620,13 @@ async fn handle_listener_request(
     std::io::stdout().flush().ok();
     let headers_map: HashMap<String, String> = headers.iter().cloned().collect();
 
-    if state.0.provider == "webex" {
-        if let Some(secret) = state.0.signature_secret.as_ref() {
-            if !verify_webex_signature(secret, &headers, &body_text) {
-                let err_msg = "invalid webex webhook signature";
-                eprintln!("{err_msg}");
-                return (StatusCode::UNAUTHORIZED, err_msg.to_string());
-            }
-        }
+    if state.0.provider == "webex"
+        && let Some(secret) = state.0.signature_secret.as_ref()
+        && !verify_webex_signature(secret, &headers, &body_text)
+    {
+        let err_msg = "invalid webex webhook signature";
+        eprintln!("{err_msg}");
+        return (StatusCode::UNAUTHORIZED, err_msg.to_string());
     }
     let http_in = HttpInFile {
         method: method.to_ascii_uppercase(),
@@ -807,7 +815,7 @@ fn extract_card_text(card: &Value) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::http_mock::{self, HttpMode, new_history};
+    use crate::http_mock::{self, HttpMode, HttpResponseQueue, new_history, new_response_queue};
     use crate::wasm_harness::WasmHarness;
     use base64::{Engine, engine::general_purpose::STANDARD};
     use messaging_universal_dto::{HttpInV1, HttpOutV1};
@@ -850,9 +858,10 @@ mod tests {
         assert_eq!(stored.kind, dest.kind);
     }
 
-    fn queue_webex_response(status: u16, body: Value) {
-        http_mock::clear_mock_responses();
+    fn queue_webex_response(queue: &HttpResponseQueue, status: u16, body: Value) {
+        http_mock::clear_mock_responses(queue);
         http_mock::queue_mock_response(
+            queue,
             status,
             serde_json::to_vec(&body).expect("serialize response"),
         );
@@ -870,7 +879,11 @@ mod tests {
         })
     }
 
-    fn call_ingest(payload: &Value, secrets: &HashMap<String, Vec<u8>>) -> HttpOutV1 {
+    fn call_ingest(
+        payload: &Value,
+        secrets: &HashMap<String, Vec<u8>>,
+        mock_responses: HttpResponseQueue,
+    ) -> HttpOutV1 {
         let harness = WasmHarness::new("webex").expect("load harness");
         let history = new_history();
         let http_in = HttpInV1 {
@@ -891,6 +904,7 @@ mod tests {
                 secrets,
                 HttpMode::Mock,
                 history,
+                Some(mock_responses.clone()),
             )
             .expect("invoke ingest");
         serde_json::from_slice(&out_bytes).expect("parse http out")
@@ -904,9 +918,10 @@ mod tests {
             "roomId": "ROOM1",
             "personEmail": "sender@example.com"
         });
-        queue_webex_response(200, message_body);
+        let mock_responses = new_response_queue();
+        queue_webex_response(&mock_responses, 200, message_body);
         let secrets = HashMap::from([("WEBEX_BOT_TOKEN".to_string(), b"token".to_vec())]);
-        let http_out = call_ingest(&build_webhook_payload(), &secrets);
+        let http_out = call_ingest(&build_webhook_payload(), &secrets, mock_responses.clone());
         assert_eq!(http_out.status, 200);
         let envelope = http_out.events.first().expect("event missing");
         assert_eq!(envelope.text.as_deref(), Some("Hello world"));
@@ -919,9 +934,10 @@ mod tests {
 
     #[test]
     fn webhook_webex_ingest_failure_includes_metadata() {
-        queue_webex_response(404, json!({"message": "not found"}));
+        let mock_responses = new_response_queue();
+        queue_webex_response(&mock_responses, 404, json!({"message": "not found"}));
         let secrets = HashMap::from([("WEBEX_BOT_TOKEN".to_string(), b"token".to_vec())]);
-        let http_out = call_ingest(&build_webhook_payload(), &secrets);
+        let http_out = call_ingest(&build_webhook_payload(), &secrets, mock_responses.clone());
         assert_eq!(http_out.status, 502);
         let envelope = http_out.events.first().expect("missing envelope");
         assert_eq!(envelope.text.as_deref(), Some(""));
@@ -1006,6 +1022,7 @@ fn ingest_http_request(
             state.secrets.as_ref(),
             state.http_mode,
             history,
+            None,
         )
         .map_err(|err| map_invoke_error(err).to_string())?;
     let http_out: HttpOutV1 = serde_json::from_slice(&out_bytes).map_err(|err| err.to_string())?;
@@ -1060,7 +1077,7 @@ fn find_header_value(headers: &[(String, String)], key: &str) -> Option<String> 
 }
 
 fn decode_hex(input: &str) -> Option<Vec<u8>> {
-    if input.len() % 2 != 0 {
+    if !input.len().is_multiple_of(2) {
         return None;
     }
     let mut bytes = Vec::with_capacity(input.len() / 2);

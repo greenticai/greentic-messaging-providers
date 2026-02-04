@@ -132,17 +132,17 @@ fn extract_plan_body(plan: &RenderPlan) -> Option<(Vec<u8>, Map<String, Value>)>
     let fields = debug.as_object()?;
     let metadata = fields.clone();
 
-    if let Some(Value::String(encoded)) = fields.get("body_b64") {
-        if let Ok(bytes) = STANDARD.decode(encoded) {
-            return Some((bytes, metadata));
-        }
+    if let Some(Value::String(encoded)) = fields.get("body_b64")
+        && let Ok(bytes) = STANDARD.decode(encoded)
+    {
+        return Some((bytes, metadata));
     }
 
     for key in ["payload", "body", "envelope"] {
-        if let Some(value) = fields.get(key) {
-            if let Ok(bytes) = serde_json::to_vec(&json!({ key: value })) {
-                return Some((bytes, metadata));
-            }
+        if let Some(value) = fields.get(key)
+            && let Ok(bytes) = serde_json::to_vec(&json!({ key: value }))
+        {
+            return Some((bytes, metadata));
         }
     }
 

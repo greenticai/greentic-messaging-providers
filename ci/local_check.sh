@@ -25,6 +25,9 @@ if ! cargo fmt --check; then
   fi
 fi
 
+echo "==> cargo clippy --workspace --all-targets"
+cargo clippy --workspace --all-targets
+
 echo "==> tools/build_components.sh"
 ./tools/build_components.sh
 

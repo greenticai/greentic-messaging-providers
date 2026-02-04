@@ -1860,6 +1860,7 @@ dependencies = [
  "hmac",
  "http",
  "messaging-universal-dto",
+ "once_cell",
  "predicates",
  "serde",
  "serde_json",

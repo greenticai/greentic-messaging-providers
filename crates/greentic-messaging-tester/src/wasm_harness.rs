@@ -25,7 +25,9 @@ mod component_node_bindings {
     });
 }
 
-use crate::http_mock::{self, HttpCall, HttpHistory, HttpMode, HttpRequest, HttpResponseRecord};
+use crate::http_mock::{
+    self, HttpCall, HttpHistory, HttpMode, HttpRequest, HttpResponseQueue, HttpResponseRecord,
+};
 
 const NODE_WORLD: &str = "greentic:component/node@0.5.0";
 const SCHEMA_CORE_WORLD: &str = "greentic:provider-schema-core/schema-core-api@1.0.0";
@@ -83,11 +85,19 @@ impl WasmHarness {
         secrets: &HashMap<String, Vec<u8>>,
         http_mode: HttpMode,
         history: HttpHistory,
+        mock_responses: Option<HttpResponseQueue>,
     ) -> Result<Vec<u8>> {
         match self.invoke_strategy {
-            InvokeStrategy::Node => self.invoke_node_world(op, input, secrets, http_mode, history),
+            InvokeStrategy::Node => self.invoke_node_world(
+                op,
+                input,
+                secrets,
+                http_mode,
+                history,
+                mock_responses.clone(),
+            ),
             InvokeStrategy::SchemaCore => {
-                self.invoke_schema_core(op, input, secrets, http_mode, history)
+                self.invoke_schema_core(op, input, secrets, http_mode, history, mock_responses)
             }
         }
     }
@@ -104,9 +114,10 @@ impl WasmHarness {
         secrets: &HashMap<String, Vec<u8>>,
         http_mode: HttpMode,
         history: HttpHistory,
+        mock_responses: Option<HttpResponseQueue>,
     ) -> Result<Vec<u8>> {
         let input_str = String::from_utf8(input).map_err(|err| anyhow!(err))?;
-        let state = TesterHostState::new(secrets.clone(), http_mode, history);
+        let state = TesterHostState::new(secrets.clone(), http_mode, history, mock_responses);
         execute_with_state(&self.engine, &self.component, state, |store, instance| {
             let invoke_index = node_function_index(&mut *store, instance, "invoke")?;
             let invoke = instance.get_typed_func::<
@@ -129,8 +140,9 @@ impl WasmHarness {
         secrets: &HashMap<String, Vec<u8>>,
         http_mode: HttpMode,
         history: HttpHistory,
+        mock_responses: Option<HttpResponseQueue>,
     ) -> Result<Vec<u8>> {
-        let state = TesterHostState::new(secrets.clone(), http_mode, history);
+        let state = TesterHostState::new(secrets.clone(), http_mode, history, mock_responses);
         execute_with_state(&self.engine, &self.component, state, |store, instance| {
             let api_index = instance
                 .get_export_index(&mut *store, None, SCHEMA_CORE_WORLD)
@@ -178,7 +190,7 @@ impl ComponentHarness {
             op
         );
         let input_json = String::from_utf8(input).map_err(|err| anyhow!(err))?;
-        let state = TesterHostState::new(secrets.clone(), http_mode, history);
+        let state = TesterHostState::new(secrets.clone(), http_mode, history, None);
         execute_with_state(&self.engine, &self.component, state, |store, instance| {
             let invoke_index = node_function_index(&mut *store, instance, "invoke")?;
             let invoke = instance.get_typed_func::<
@@ -268,7 +280,7 @@ fn describe_manifest_from_node(
     component_path: &Path,
 ) -> Result<ProviderManifest> {
     let history = http_mock::new_history();
-    let state = TesterHostState::new(HashMap::new(), HttpMode::Mock, history);
+    let state = TesterHostState::new(HashMap::new(), HttpMode::Mock, history, None);
     eprintln!(
         "node world describe: wasm={} op=get-manifest",
         component_path.display()
@@ -336,7 +348,7 @@ fn describe_manifest_from_schema(
     component: &Component,
 ) -> Result<ProviderManifest> {
     let history = http_mock::new_history();
-    let state = TesterHostState::new(HashMap::new(), HttpMode::Mock, history);
+    let state = TesterHostState::new(HashMap::new(), HttpMode::Mock, history, None);
     execute_with_state(engine, component, state, |store, instance| {
         let api_index = instance
             .get_export_index(&mut *store, None, SCHEMA_CORE_WORLD)
@@ -522,6 +534,7 @@ mod tests {
                 &secrets,
                 HttpMode::Mock,
                 history,
+                None,
             )
             .expect("invoke");
         let value: Value = serde_json::from_slice(&output).expect("parse json");
@@ -556,6 +569,7 @@ mod tests {
                 &secrets,
                 HttpMode::Mock,
                 history,
+                None,
             )
             .expect("render_plan invoke");
         let value: Value = serde_json::from_slice(&output).expect("parse render_plan output");
@@ -639,11 +653,17 @@ pub struct TesterHostState {
     state_store: HashMap<String, Vec<u8>>,
     http_mode: HttpMode,
     http_history: HttpHistory,
+    mock_responses: Option<HttpResponseQueue>,
 }
 
 impl Default for TesterHostState {
     fn default() -> Self {
-        Self::new(HashMap::new(), HttpMode::Mock, http_mock::new_history())
+        Self::new(
+            HashMap::new(),
+            HttpMode::Mock,
+            http_mock::new_history(),
+            None,
+        )
     }
 }
 
@@ -652,6 +672,7 @@ impl TesterHostState {
         secrets: HashMap<String, Vec<u8>>,
         http_mode: HttpMode,
         http_history: HttpHistory,
+        mock_responses: Option<HttpResponseQueue>,
     ) -> Self {
         Self {
             table: ResourceTable::new(),
@@ -660,6 +681,7 @@ impl TesterHostState {
             state_store: HashMap::new(),
             http_mode,
             http_history,
+            mock_responses,
         }
     }
 }
@@ -681,7 +703,7 @@ impl http_client::HttpClientHostV1_1 for TesterHostState {
         _ctx: Option<http_client::TenantCtxV1_1>,
     ) -> Result<http_client::ResponseV1_1, http_client::HttpClientErrorV1_1> {
         let response = match self.http_mode {
-            HttpMode::Mock => http_mock::mock_response(),
+            HttpMode::Mock => http_mock::mock_response(self.mock_responses.as_ref()),
             HttpMode::Real => http_mock::send_real_request(&req)?,
         };
         let call = HttpCall {
@@ -948,7 +970,7 @@ fn manifest_from_component_path(component_path: &Path) -> Option<PathBuf> {
 
 fn detect_available_worlds(engine: &Engine, component: &Component) -> Result<Vec<&'static str>> {
     let history = http_mock::new_history();
-    let state = TesterHostState::new(HashMap::new(), HttpMode::Mock, history);
+    let state = TesterHostState::new(HashMap::new(), HttpMode::Mock, history, None);
     execute_with_state(engine, component, state, |store, instance| {
         let mut worlds = Vec::new();
         if node_world_export(store, instance).is_some() {

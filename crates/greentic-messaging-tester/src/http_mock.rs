@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::io::Read;
 use std::sync::{Arc, Mutex};
@@ -10,6 +9,7 @@ use serde::Serialize;
 use ureq::{Body, agent};
 
 pub type HttpHistory = Arc<Mutex<Vec<HttpCall>>>;
+pub type HttpResponseQueue = Arc<Mutex<VecDeque<(u16, Vec<u8>)>>>;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum HttpMode {
@@ -88,32 +88,40 @@ pub fn new_history() -> HttpHistory {
     Arc::new(Mutex::new(Vec::new()))
 }
 
+#[cfg(test)]
+pub fn new_response_queue() -> HttpResponseQueue {
+    Arc::new(Mutex::new(VecDeque::new()))
+}
+
 const MOCK_RESPONSE_BODY: &[u8] =
     br#"{"ok":true,"result":{"url":"https://example.invalid/mock-webhook"},"description":"mock response"}"#;
 
-type MockQueue = VecDeque<(u16, Vec<u8>)>;
-
-thread_local! {
-    static MOCK_RESPONSE_QUEUE: RefCell<MockQueue> = RefCell::new(VecDeque::new());
+#[cfg(test)]
+pub fn queue_mock_response(queue: &HttpResponseQueue, status: u16, body: Vec<u8>) {
+    if let Ok(mut guard) = queue.lock() {
+        guard.push_back((status, body));
+    }
 }
 
 #[cfg(test)]
-pub fn queue_mock_response(status: u16, body: Vec<u8>) {
-    MOCK_RESPONSE_QUEUE.with(|queue| queue.borrow_mut().push_back((status, body)));
+pub fn clear_mock_responses(queue: &HttpResponseQueue) {
+    if let Ok(mut guard) = queue.lock() {
+        guard.clear();
+    }
 }
 
-#[cfg(test)]
-pub fn clear_mock_responses() {
-    MOCK_RESPONSE_QUEUE.with(|queue| queue.borrow_mut().clear());
-}
-
-pub fn mock_response() -> http_client::ResponseV1_1 {
-    let (status, body) = MOCK_RESPONSE_QUEUE.with(|queue| {
-        queue
-            .borrow_mut()
-            .pop_front()
-            .unwrap_or((200, MOCK_RESPONSE_BODY.to_vec()))
-    });
+pub fn mock_response(queue: Option<&HttpResponseQueue>) -> http_client::ResponseV1_1 {
+    let (status, body) = if let Some(queue) = queue {
+        if let Ok(mut guard) = queue.lock() {
+            guard
+                .pop_front()
+                .unwrap_or((200, MOCK_RESPONSE_BODY.to_vec()))
+        } else {
+            (200, MOCK_RESPONSE_BODY.to_vec())
+        }
+    } else {
+        (200, MOCK_RESPONSE_BODY.to_vec())
+    };
     http_client::ResponseV1_1 {
         status,
         headers: Vec::new(),
