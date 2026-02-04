@@ -8,7 +8,7 @@
         "kind": "local",
         "path": "../components/provision/provision.wasm"
       },
-      "digest": "sha256:7690303c9e00148d9b62f0b54016fcc3eba7c17e84b4caf4d59227591a626b36",
+      "digest": "sha256:d281edce379062f8bee3e6b7856180386354b25cb3fd7d6d43da20d2e316a6a4",
       "manifest": {
         "world": "greentic:component/component@0.5.0",
         "version": "0.1.0"
@@ -32,7 +32,7 @@
         "kind": "local",
         "path": "../components/questions/questions.wasm"
       },
-      "digest": "sha256:873e4d12edf1a862442993fb76d7041f8bcffe2c1d83e9ddf3979b55d2ceee4e",
+      "digest": "sha256:e00125f7226fa193d025b6fd1db8c6610c382e98fffe0e8c835caa194e07bfd0",
       "manifest": {
         "world": "greentic:component/component@0.5.0",
         "version": "0.1.0"
@@ -56,7 +56,7 @@
         "kind": "local",
         "path": "../components/questions/questions.wasm"
       },
-      "digest": "sha256:873e4d12edf1a862442993fb76d7041f8bcffe2c1d83e9ddf3979b55d2ceee4e",
+      "digest": "sha256:e00125f7226fa193d025b6fd1db8c6610c382e98fffe0e8c835caa194e07bfd0",
       "manifest": {
         "world": "greentic:component/component@0.5.0",
         "version": "0.1.0"

@@ -1759,9 +1759,9 @@ dependencies = [
 
 [[package]]
 name = "greentic-interfaces-guest"
-version = "0.4.87"
+version = "0.4.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c99a9141d844da83e97cdcec41ba11e6526cc9ba5fb30940a8e0632f5e3832b"
+checksum = "34124ea2510045013edcd8182d569c892c478100cb398090a5ce7c3c09a26cd6"
 dependencies = [
  "greentic-interfaces",
  "greentic-types",
@@ -1772,9 +1772,9 @@ dependencies = [
 
 [[package]]
 name = "greentic-interfaces-host"
-version = "0.4.87"
+version = "0.4.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6bbe3eefa404e10e2539cdf5eabc2cedd80f07788a4ed4e2004c87213a128774"
+checksum = "ee78cf8444efc48bf8c784ff72aa88f8f3dfb2c0f29ba8ebec60a49643a86969"
 dependencies = [
  "greentic-interfaces",
  "greentic-types",
@@ -1784,9 +1784,9 @@ dependencies = [
 
 [[package]]
 name = "greentic-interfaces-wasmtime"
-version = "0.4.87"
+version = "0.4.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b161f5b1514fc175801a2df567e122fae96b7a5cc58fe11ddb6d9f26fe95ad5"
+checksum = "e5ab23b78f824ccfc615c62fbaf3ac67ed2cee85774805005cade5182787c7ef"
 dependencies = [
  "anyhow",
  "camino",
@@ -1800,7 +1800,7 @@ dependencies = [
 
 [[package]]
 name = "greentic-messaging-cardkit"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "anyhow",
  "clap",
@@ -1810,7 +1810,7 @@ dependencies = [
 
 [[package]]
 name = "greentic-messaging-packgen"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "anyhow",
  "clap",
@@ -1837,7 +1837,7 @@ dependencies = [
 
 [[package]]
 name = "greentic-messaging-renderer"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "greentic-types",
  "serde",
@@ -1847,7 +1847,7 @@ dependencies = [
 
 [[package]]
 name = "greentic-messaging-tester"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -1857,11 +1857,13 @@ dependencies = [
  "greentic-interfaces-wasmtime",
  "greentic-messaging-planned",
  "greentic-types",
+ "hmac",
  "http",
  "messaging-universal-dto",
  "predicates",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
@@ -2945,7 +2947,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-cardkit-bin"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "anyhow",
  "axum",
@@ -2958,14 +2960,14 @@ dependencies = [
 
 [[package]]
 name = "messaging-core"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "messaging-ingress-slack"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "hmac",
  "serde",
@@ -2976,7 +2978,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-teams"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "serde",
  "serde_json",
@@ -2986,7 +2988,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-telegram"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "serde",
  "serde_json",
@@ -2995,7 +2997,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-whatsapp"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "serde",
  "serde_json",
@@ -3004,7 +3006,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-dummy"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "base64 0.22.1",
  "greentic-types",
@@ -3017,7 +3019,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-email"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3032,7 +3034,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-slack"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "base64 0.22.1",
  "greentic-types",
@@ -3044,7 +3046,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-teams"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3058,7 +3060,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-telegram"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "base64 0.22.1",
  "greentic-types",
@@ -3070,7 +3072,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webchat"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3087,7 +3089,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webex"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "base64 0.22.1",
  "greentic-types",
@@ -3099,7 +3101,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-whatsapp"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "base64 0.22.1",
  "greentic-types",
@@ -3111,7 +3113,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-universal-dto"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "greentic-types",
  "serde",
@@ -3217,9 +3219,9 @@ dependencies = [
 
 [[package]]
 name = "num-conv"
-version = "0.2.0"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf97ec579c3c42f953ef76dbf8d55ac91fb219dde70e49aa4a6b7d74e9919050"
+checksum = "51d515d32fb182ee37cda2ccdcb92950d6a3c2893aa280e540671c2cd0f3b1d9"
 
 [[package]]
 name = "num-integer"
@@ -3720,7 +3722,7 @@ dependencies = [
 
 [[package]]
 name = "provider-common"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "anyhow",
  "glob",
@@ -3738,7 +3740,7 @@ dependencies = [
 
 [[package]]
 name = "provider-runtime-config"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "serde",
  "serde_json",
@@ -3746,7 +3748,7 @@ dependencies = [
 
 [[package]]
 name = "provider-tests"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -3765,7 +3767,7 @@ dependencies = [
 
 [[package]]
 name = "provision"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "greentic-interfaces-guest",
  "serde",
@@ -3797,7 +3799,7 @@ dependencies = [
 
 [[package]]
 name = "questions"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "anyhow",
  "greentic-interfaces-guest",
@@ -3811,7 +3813,7 @@ dependencies = [
 
 [[package]]
 name = "questions-cli"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "anyhow",
  "rpassword",
@@ -4493,7 +4495,7 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "secrets-probe"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "wit-bindgen 0.52.0",
 ]
@@ -4790,7 +4792,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slack"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "hmac",
  "provider-common",
@@ -4903,7 +4905,7 @@ checksum = "b1dd07eb858a2067e2f3c7155d54e929265c264e6f37efe3ee7a8d1b5a1dd0ba"
 
 [[package]]
 name = "teams"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -4915,7 +4917,7 @@ dependencies = [
 
 [[package]]
 name = "telegram"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "htmlescape",
  "provider-common",
@@ -4927,7 +4929,7 @@ dependencies = [
 
 [[package]]
 name = "telegram-webhook"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "greentic-interfaces-guest",
  "serde",
@@ -5014,9 +5016,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.46"
+version = "0.3.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9da98b7d9b7dad93488a84b8248efc35352b0b2657397d4167e7ad67e5d535e5"
+checksum = "f9e442fc33d7fdb45aa9bfeb312c095964abdf596f7567261062b2a7107aaabd"
 dependencies = [
  "deranged",
  "itoa",
@@ -5030,15 +5032,15 @@ dependencies = [
 
 [[package]]
 name = "time-core"
-version = "0.1.8"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7694e1cfe791f8d31026952abf09c69ca6f6fa4e1a1229e18988f06a04a12dca"
+checksum = "8b36ee98fd31ec7426d599183e8fe26932a8dc1fb76ddb6214d05493377d34ca"
 
 [[package]]
 name = "time-macros"
-version = "0.2.26"
+version = "0.2.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78cc610bac2dcee56805c99642447d4c5dbde4d01f752ffea0199aee1f601dc4"
+checksum = "71e552d1249bf61ac2a52db88179fd0673def1e1ad8243a00d9ec9ed71fee3dd"
 dependencies = [
  "num-conv",
  "time-core",
@@ -6136,7 +6138,7 @@ dependencies = [
 
 [[package]]
 name = "webchat"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -6147,7 +6149,7 @@ dependencies = [
 
 [[package]]
 name = "webex"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -6158,7 +6160,7 @@ dependencies = [
 
 [[package]]
 name = "webex-webhook"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "greentic-interfaces-guest",
  "serde",
@@ -6186,7 +6188,7 @@ dependencies = [
 
 [[package]]
 name = "whatsapp"
-version = "0.4.29"
+version = "0.4.30"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -6885,9 +6887,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "7.2.0"
+version = "7.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c42e33efc22a0650c311c2ef19115ce232583abbe80850bc8b66509ebef02de0"
+checksum = "268bf6f9ceb991e07155234071501490bb41fd1e39c6a588106dad10ae2a5804"
 dependencies = [
  "aes",
  "bzip2",
@@ -6895,7 +6897,6 @@ dependencies = [
  "crc32fast",
  "deflate64",
  "flate2",
- "generic-array",
  "getrandom 0.3.4",
  "hmac",
  "indexmap 2.12.1",

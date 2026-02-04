@@ -133,9 +133,14 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
 
     let envelope: ChannelMessageEnvelope = match serde_json::from_slice(input_json) {
         Ok(env) => env,
-        Err(err) => {
-            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}") }));
-        }
+        Err(err) => match build_team_envelope_from_input(&parsed, &cfg) {
+            Ok(env) => env,
+            Err(message) => {
+                return json_bytes(
+                    &json!({"ok": false, "error": format!("invalid envelope: {message}: {err}") }),
+                );
+            }
+        },
     };
 
     if !envelope.attachments.is_empty() {
@@ -551,6 +556,87 @@ fn build_team_envelope(
         text: Some(text),
         attachments: Vec::new(),
         metadata,
+    }
+}
+
+fn build_team_envelope_from_input(
+    parsed: &Value,
+    cfg: &ProviderConfig,
+) -> Result<ChannelMessageEnvelope, String> {
+    let text = parsed
+        .get("text")
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .ok_or_else(|| "text required".to_string())?;
+
+    let destination = channel_destination(parsed, cfg)?;
+    let team_id = parsed
+        .get("team_id")
+        .and_then(Value::as_str)
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| cfg.team_id.clone());
+    let channel_id = parsed
+        .get("channel_id")
+        .and_then(Value::as_str)
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| cfg.channel_id.clone());
+    let mut envelope = build_team_envelope(text, None, team_id.clone(), channel_id.clone());
+    envelope.to = vec![destination];
+    Ok(envelope)
+}
+
+fn channel_destination(parsed: &Value, cfg: &ProviderConfig) -> Result<Destination, String> {
+    let kind = parsed
+        .get("kind")
+        .and_then(Value::as_str)
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("channel");
+    match kind {
+        "channel" => {
+            let team = parsed
+                .get("team_id")
+                .and_then(Value::as_str)
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .or_else(|| cfg.team_id.clone())
+                .ok_or_else(|| "team_id required for channel destination".to_string())?;
+            let channel = parsed
+                .get("channel_id")
+                .and_then(Value::as_str)
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .or_else(|| cfg.channel_id.clone())
+                .ok_or_else(|| "channel_id required for channel destination".to_string())?;
+            Ok(Destination {
+                id: format!("{team}:{channel}"),
+                kind: Some("channel".into()),
+            })
+        }
+        "chat" => {
+            let chat_id = parsed
+                .get("chat_id")
+                .and_then(Value::as_str)
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .ok_or_else(|| "chat_id required for chat destination".to_string())?;
+            Ok(Destination {
+                id: chat_id,
+                kind: Some("chat".into()),
+            })
+        }
+        other => Err(format!(
+            "unsupported destination kind for envelope fallback: {other}"
+        )),
     }
 }
 

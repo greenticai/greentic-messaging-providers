@@ -113,9 +113,10 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
 
     let envelope: ChannelMessageEnvelope = match serde_json::from_slice(input_json) {
         Ok(env) => env,
-        Err(err) => {
-            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}")}));
-        }
+        Err(_) => match build_synthetic_envelope(&parsed, &cfg) {
+            Ok(env) => env,
+            Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
+        },
     };
 
     if !envelope.attachments.is_empty() {
@@ -478,7 +479,7 @@ fn build_telegram_envelope(
     if let Some(sender) = &from {
         metadata.insert("from".to_string(), sender.clone());
     }
-    let channel = chat_id.clone().unwrap_or_else(|| "telegram".to_string());
+    let channel = "telegram".to_string();
     let sender = from.map(|id| Actor {
         id,
         kind: Some("user".into()),
@@ -487,7 +488,7 @@ fn build_telegram_envelope(
         id: format!("telegram-{channel}"),
         tenant: TenantCtx::new(env.clone(), tenant.clone()),
         channel: channel.clone(),
-        session_id: channel,
+        session_id: chat_id.clone().unwrap_or_else(|| "telegram".to_string()),
         reply_scope: None,
         from: sender,
         to: Vec::new(),
@@ -496,6 +497,53 @@ fn build_telegram_envelope(
         attachments: Vec::new(),
         metadata,
     }
+}
+
+fn build_synthetic_envelope(
+    parsed: &Value,
+    cfg: &ProviderConfig,
+) -> Result<ChannelMessageEnvelope, String> {
+    let text = parsed
+        .get("text")
+        .and_then(|value| value.as_str())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .ok_or_else(|| "text required".to_string())?;
+
+    let chat_id = parsed
+        .get("chat_id")
+        .and_then(|value| value.as_str())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| cfg.default_chat_id.clone())
+        .ok_or_else(|| "chat_id required".to_string())?;
+
+    let env = EnvId::try_from("synthetic").expect("manual env id");
+    let tenant = TenantId::try_from("synthetic").expect("manual tenant id");
+    let mut metadata = MessageMetadata::new();
+    metadata.insert("chat_id".to_string(), chat_id.clone());
+    metadata.insert("synthetic".to_string(), "true".to_string());
+
+    let destination = Destination {
+        id: chat_id.clone(),
+        kind: Some("chat".to_string()),
+    };
+
+    Ok(ChannelMessageEnvelope {
+        id: format!("synthetic-telegram-{chat_id}"),
+        tenant: TenantCtx::new(env, tenant),
+        channel: chat_id.clone(),
+        session_id: chat_id.clone(),
+        reply_scope: None,
+        from: None,
+        to: vec![destination],
+        correlation_id: None,
+        text: Some(text),
+        attachments: Vec::new(),
+        metadata,
+    })
 }
 
 fn extract_message_text(value: &Value) -> String {

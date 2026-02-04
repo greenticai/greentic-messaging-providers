@@ -1,5 +1,5 @@
-use anyhow::Result;
 use super::types::{MessageCard, RenderOutput, RenderSnapshot, RenderSpec, Tier};
+use anyhow::Result;
 
 #[derive(Clone, Debug, Default)]
 pub struct MessageCardEngine;
@@ -13,7 +13,11 @@ impl MessageCardEngine {
         Ok(RenderSpec::card(card.clone()))
     }
 
-    pub fn render_snapshot(&self, _provider_type: &str, spec: &RenderSpec) -> Result<RenderSnapshot> {
+    pub fn render_snapshot(
+        &self,
+        _provider_type: &str,
+        spec: &RenderSpec,
+    ) -> Result<RenderSnapshot> {
         let output = RenderOutput {
             payload: spec.card.as_value().clone(),
             warnings: Vec::new(),

@@ -9,6 +9,7 @@ pub struct TenantCtx {
     pub team: Option<_rt::String>,
     pub user: Option<_rt::String>,
     pub trace_id: Option<_rt::String>,
+    pub i18n_id: Option<_rt::String>,
     pub correlation_id: Option<_rt::String>,
     pub deadline_unix_ms: Option<u64>,
     pub attempt: u32,
@@ -21,6 +22,7 @@ impl ::core::fmt::Debug for TenantCtx {
             .field("team", &self.team)
             .field("user", &self.user)
             .field("trace-id", &self.trace_id)
+            .field("i18n-id", &self.i18n_id)
             .field("correlation-id", &self.correlation_id)
             .field("deadline-unix-ms", &self.deadline_unix_ms)
             .field("attempt", &self.attempt)
@@ -32,6 +34,7 @@ impl ::core::fmt::Debug for TenantCtx {
 #[derive(Clone)]
 pub struct ExecCtx {
     pub tenant: TenantCtx,
+    pub i18n_id: Option<_rt::String>,
     pub flow_id: _rt::String,
     pub node_id: Option<_rt::String>,
 }
@@ -39,6 +42,7 @@ impl ::core::fmt::Debug for ExecCtx {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         f.debug_struct("ExecCtx")
             .field("tenant", &self.tenant)
+            .field("i18n-id", &self.i18n_id)
             .field("flow-id", &self.flow_id)
             .field("node-id", &self.node_id)
             .finish()
@@ -191,18 +195,24 @@ pub unsafe fn _export_on_start_cabi<T: Guest>(arg0: *mut u8) -> *mut u8 {
     let l19 = i32::from(
         *arg0.add(14 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
     );
-    let l21 = *arg0.add(16 + 14 * ::core::mem::size_of::<*const u8>()).cast::<i32>();
-    let l22 = i32::from(
-        *arg0.add(16 + 15 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    let l23 = i32::from(
+        *arg0.add(8 + 16 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
     );
-    let l26 = *arg0.add(16 + 18 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
-    let l27 = *arg0.add(16 + 19 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
-    let len28 = l27;
-    let bytes28 = _rt::Vec::from_raw_parts(l26.cast(), len28, len28);
-    let l29 = i32::from(
-        *arg0.add(16 + 20 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    let l25 = *arg0.add(24 + 16 * ::core::mem::size_of::<*const u8>()).cast::<i32>();
+    let l26 = i32::from(
+        *arg0.add(24 + 17 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
     );
-    let result33 = T::on_start(ExecCtx {
+    let l30 = i32::from(
+        *arg0.add(24 + 20 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    );
+    let l34 = *arg0.add(24 + 23 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
+    let l35 = *arg0.add(24 + 24 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
+    let len36 = l35;
+    let bytes36 = _rt::Vec::from_raw_parts(l34.cast(), len36, len36);
+    let l37 = i32::from(
+        *arg0.add(24 + 25 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    );
+    let result41 = T::on_start(ExecCtx {
         tenant: TenantCtx {
             tenant: _rt::string_lift(bytes2),
             team: match l3 {
@@ -259,7 +269,7 @@ pub unsafe fn _export_on_start_cabi<T: Guest>(arg0: *mut u8) -> *mut u8 {
                 }
                 _ => _rt::invalid_enum_discriminant(),
             },
-            correlation_id: match l15 {
+            i18n_id: match l15 {
                 0 => None,
                 1 => {
                     let e = {
@@ -277,79 +287,115 @@ pub unsafe fn _export_on_start_cabi<T: Guest>(arg0: *mut u8) -> *mut u8 {
                 }
                 _ => _rt::invalid_enum_discriminant(),
             },
-            deadline_unix_ms: match l19 {
+            correlation_id: match l19 {
                 0 => None,
                 1 => {
                     let e = {
                         let l20 = *arg0
-                            .add(8 + 14 * ::core::mem::size_of::<*const u8>())
-                            .cast::<i64>();
-                        l20 as u64
+                            .add(15 * ::core::mem::size_of::<*const u8>())
+                            .cast::<*mut u8>();
+                        let l21 = *arg0
+                            .add(16 * ::core::mem::size_of::<*const u8>())
+                            .cast::<usize>();
+                        let len22 = l21;
+                        let bytes22 = _rt::Vec::from_raw_parts(l20.cast(), len22, len22);
+                        _rt::string_lift(bytes22)
                     };
                     Some(e)
                 }
                 _ => _rt::invalid_enum_discriminant(),
             },
-            attempt: l21 as u32,
-            idempotency_key: match l22 {
+            deadline_unix_ms: match l23 {
                 0 => None,
                 1 => {
                     let e = {
-                        let l23 = *arg0
-                            .add(16 + 16 * ::core::mem::size_of::<*const u8>())
-                            .cast::<*mut u8>();
                         let l24 = *arg0
-                            .add(16 + 17 * ::core::mem::size_of::<*const u8>())
+                            .add(16 + 16 * ::core::mem::size_of::<*const u8>())
+                            .cast::<i64>();
+                        l24 as u64
+                    };
+                    Some(e)
+                }
+                _ => _rt::invalid_enum_discriminant(),
+            },
+            attempt: l25 as u32,
+            idempotency_key: match l26 {
+                0 => None,
+                1 => {
+                    let e = {
+                        let l27 = *arg0
+                            .add(24 + 18 * ::core::mem::size_of::<*const u8>())
+                            .cast::<*mut u8>();
+                        let l28 = *arg0
+                            .add(24 + 19 * ::core::mem::size_of::<*const u8>())
                             .cast::<usize>();
-                        let len25 = l24;
-                        let bytes25 = _rt::Vec::from_raw_parts(l23.cast(), len25, len25);
-                        _rt::string_lift(bytes25)
+                        let len29 = l28;
+                        let bytes29 = _rt::Vec::from_raw_parts(l27.cast(), len29, len29);
+                        _rt::string_lift(bytes29)
                     };
                     Some(e)
                 }
                 _ => _rt::invalid_enum_discriminant(),
             },
         },
-        flow_id: _rt::string_lift(bytes28),
-        node_id: match l29 {
+        i18n_id: match l30 {
             0 => None,
             1 => {
                 let e = {
-                    let l30 = *arg0
-                        .add(16 + 21 * ::core::mem::size_of::<*const u8>())
-                        .cast::<*mut u8>();
                     let l31 = *arg0
-                        .add(16 + 22 * ::core::mem::size_of::<*const u8>())
+                        .add(24 + 21 * ::core::mem::size_of::<*const u8>())
+                        .cast::<*mut u8>();
+                    let l32 = *arg0
+                        .add(24 + 22 * ::core::mem::size_of::<*const u8>())
                         .cast::<usize>();
-                    let len32 = l31;
-                    let bytes32 = _rt::Vec::from_raw_parts(l30.cast(), len32, len32);
-                    _rt::string_lift(bytes32)
+                    let len33 = l32;
+                    let bytes33 = _rt::Vec::from_raw_parts(l31.cast(), len33, len33);
+                    _rt::string_lift(bytes33)
+                };
+                Some(e)
+            }
+            _ => _rt::invalid_enum_discriminant(),
+        },
+        flow_id: _rt::string_lift(bytes36),
+        node_id: match l37 {
+            0 => None,
+            1 => {
+                let e = {
+                    let l38 = *arg0
+                        .add(24 + 26 * ::core::mem::size_of::<*const u8>())
+                        .cast::<*mut u8>();
+                    let l39 = *arg0
+                        .add(24 + 27 * ::core::mem::size_of::<*const u8>())
+                        .cast::<usize>();
+                    let len40 = l39;
+                    let bytes40 = _rt::Vec::from_raw_parts(l38.cast(), len40, len40);
+                    _rt::string_lift(bytes40)
                 };
                 Some(e)
             }
             _ => _rt::invalid_enum_discriminant(),
         },
     });
-    _rt::cabi_dealloc(arg0, 24 + 22 * ::core::mem::size_of::<*const u8>(), 8);
-    let ptr34 = (&raw mut _RET_AREA.0).cast::<u8>();
-    match result33 {
+    _rt::cabi_dealloc(arg0, 24 + 28 * ::core::mem::size_of::<*const u8>(), 8);
+    let ptr42 = (&raw mut _RET_AREA.0).cast::<u8>();
+    match result41 {
         Ok(e) => {
-            *ptr34.add(0).cast::<u8>() = (0i32) as u8;
-            *ptr34.add(::core::mem::size_of::<*const u8>()).cast::<u8>() = (e.clone()
+            *ptr42.add(0).cast::<u8>() = (0i32) as u8;
+            *ptr42.add(::core::mem::size_of::<*const u8>()).cast::<u8>() = (e.clone()
                 as i32) as u8;
         }
         Err(e) => {
-            *ptr34.add(0).cast::<u8>() = (1i32) as u8;
-            let vec35 = (e.into_bytes()).into_boxed_slice();
-            let ptr35 = vec35.as_ptr().cast::<u8>();
-            let len35 = vec35.len();
-            ::core::mem::forget(vec35);
-            *ptr34.add(2 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len35;
-            *ptr34.add(::core::mem::size_of::<*const u8>()).cast::<*mut u8>() = ptr35
+            *ptr42.add(0).cast::<u8>() = (1i32) as u8;
+            let vec43 = (e.into_bytes()).into_boxed_slice();
+            let ptr43 = vec43.as_ptr().cast::<u8>();
+            let len43 = vec43.len();
+            ::core::mem::forget(vec43);
+            *ptr42.add(2 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len43;
+            *ptr42.add(::core::mem::size_of::<*const u8>()).cast::<*mut u8>() = ptr43
                 .cast_mut();
         }
     };
-    ptr34
+    ptr42
 }
 #[doc(hidden)]
 #[allow(non_snake_case)]
@@ -381,22 +427,28 @@ pub unsafe fn _export_on_stop_cabi<T: Guest>(arg0: *mut u8) -> *mut u8 {
     let l19 = i32::from(
         *arg0.add(14 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
     );
-    let l21 = *arg0.add(16 + 14 * ::core::mem::size_of::<*const u8>()).cast::<i32>();
-    let l22 = i32::from(
-        *arg0.add(16 + 15 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    let l23 = i32::from(
+        *arg0.add(8 + 16 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
     );
-    let l26 = *arg0.add(16 + 18 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
-    let l27 = *arg0.add(16 + 19 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
-    let len28 = l27;
-    let bytes28 = _rt::Vec::from_raw_parts(l26.cast(), len28, len28);
-    let l29 = i32::from(
-        *arg0.add(16 + 20 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    let l25 = *arg0.add(24 + 16 * ::core::mem::size_of::<*const u8>()).cast::<i32>();
+    let l26 = i32::from(
+        *arg0.add(24 + 17 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
     );
-    let l33 = *arg0.add(24 + 22 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
-    let l34 = *arg0.add(24 + 23 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
-    let len35 = l34;
-    let bytes35 = _rt::Vec::from_raw_parts(l33.cast(), len35, len35);
-    let result36 = T::on_stop(
+    let l30 = i32::from(
+        *arg0.add(24 + 20 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    );
+    let l34 = *arg0.add(24 + 23 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
+    let l35 = *arg0.add(24 + 24 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
+    let len36 = l35;
+    let bytes36 = _rt::Vec::from_raw_parts(l34.cast(), len36, len36);
+    let l37 = i32::from(
+        *arg0.add(24 + 25 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    );
+    let l41 = *arg0.add(24 + 28 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
+    let l42 = *arg0.add(24 + 29 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
+    let len43 = l42;
+    let bytes43 = _rt::Vec::from_raw_parts(l41.cast(), len43, len43);
+    let result44 = T::on_stop(
         ExecCtx {
             tenant: TenantCtx {
                 tenant: _rt::string_lift(bytes2),
@@ -462,7 +514,7 @@ pub unsafe fn _export_on_stop_cabi<T: Guest>(arg0: *mut u8) -> *mut u8 {
                     }
                     _ => _rt::invalid_enum_discriminant(),
                 },
-                correlation_id: match l15 {
+                i18n_id: match l15 {
                     0 => None,
                     1 => {
                         let e = {
@@ -484,85 +536,125 @@ pub unsafe fn _export_on_stop_cabi<T: Guest>(arg0: *mut u8) -> *mut u8 {
                     }
                     _ => _rt::invalid_enum_discriminant(),
                 },
-                deadline_unix_ms: match l19 {
+                correlation_id: match l19 {
                     0 => None,
                     1 => {
                         let e = {
                             let l20 = *arg0
-                                .add(8 + 14 * ::core::mem::size_of::<*const u8>())
-                                .cast::<i64>();
-                            l20 as u64
+                                .add(15 * ::core::mem::size_of::<*const u8>())
+                                .cast::<*mut u8>();
+                            let l21 = *arg0
+                                .add(16 * ::core::mem::size_of::<*const u8>())
+                                .cast::<usize>();
+                            let len22 = l21;
+                            let bytes22 = _rt::Vec::from_raw_parts(
+                                l20.cast(),
+                                len22,
+                                len22,
+                            );
+                            _rt::string_lift(bytes22)
                         };
                         Some(e)
                     }
                     _ => _rt::invalid_enum_discriminant(),
                 },
-                attempt: l21 as u32,
-                idempotency_key: match l22 {
+                deadline_unix_ms: match l23 {
                     0 => None,
                     1 => {
                         let e = {
-                            let l23 = *arg0
-                                .add(16 + 16 * ::core::mem::size_of::<*const u8>())
-                                .cast::<*mut u8>();
                             let l24 = *arg0
-                                .add(16 + 17 * ::core::mem::size_of::<*const u8>())
+                                .add(16 + 16 * ::core::mem::size_of::<*const u8>())
+                                .cast::<i64>();
+                            l24 as u64
+                        };
+                        Some(e)
+                    }
+                    _ => _rt::invalid_enum_discriminant(),
+                },
+                attempt: l25 as u32,
+                idempotency_key: match l26 {
+                    0 => None,
+                    1 => {
+                        let e = {
+                            let l27 = *arg0
+                                .add(24 + 18 * ::core::mem::size_of::<*const u8>())
+                                .cast::<*mut u8>();
+                            let l28 = *arg0
+                                .add(24 + 19 * ::core::mem::size_of::<*const u8>())
                                 .cast::<usize>();
-                            let len25 = l24;
-                            let bytes25 = _rt::Vec::from_raw_parts(
-                                l23.cast(),
-                                len25,
-                                len25,
+                            let len29 = l28;
+                            let bytes29 = _rt::Vec::from_raw_parts(
+                                l27.cast(),
+                                len29,
+                                len29,
                             );
-                            _rt::string_lift(bytes25)
+                            _rt::string_lift(bytes29)
                         };
                         Some(e)
                     }
                     _ => _rt::invalid_enum_discriminant(),
                 },
             },
-            flow_id: _rt::string_lift(bytes28),
-            node_id: match l29 {
+            i18n_id: match l30 {
                 0 => None,
                 1 => {
                     let e = {
-                        let l30 = *arg0
-                            .add(16 + 21 * ::core::mem::size_of::<*const u8>())
-                            .cast::<*mut u8>();
                         let l31 = *arg0
-                            .add(16 + 22 * ::core::mem::size_of::<*const u8>())
+                            .add(24 + 21 * ::core::mem::size_of::<*const u8>())
+                            .cast::<*mut u8>();
+                        let l32 = *arg0
+                            .add(24 + 22 * ::core::mem::size_of::<*const u8>())
                             .cast::<usize>();
-                        let len32 = l31;
-                        let bytes32 = _rt::Vec::from_raw_parts(l30.cast(), len32, len32);
-                        _rt::string_lift(bytes32)
+                        let len33 = l32;
+                        let bytes33 = _rt::Vec::from_raw_parts(l31.cast(), len33, len33);
+                        _rt::string_lift(bytes33)
+                    };
+                    Some(e)
+                }
+                _ => _rt::invalid_enum_discriminant(),
+            },
+            flow_id: _rt::string_lift(bytes36),
+            node_id: match l37 {
+                0 => None,
+                1 => {
+                    let e = {
+                        let l38 = *arg0
+                            .add(24 + 26 * ::core::mem::size_of::<*const u8>())
+                            .cast::<*mut u8>();
+                        let l39 = *arg0
+                            .add(24 + 27 * ::core::mem::size_of::<*const u8>())
+                            .cast::<usize>();
+                        let len40 = l39;
+                        let bytes40 = _rt::Vec::from_raw_parts(l38.cast(), len40, len40);
+                        _rt::string_lift(bytes40)
                     };
                     Some(e)
                 }
                 _ => _rt::invalid_enum_discriminant(),
             },
         },
-        _rt::string_lift(bytes35),
+        _rt::string_lift(bytes43),
     );
-    _rt::cabi_dealloc(arg0, 24 + 24 * ::core::mem::size_of::<*const u8>(), 8);
-    let ptr37 = (&raw mut _RET_AREA.0).cast::<u8>();
-    match result36 {
+    _rt::cabi_dealloc(arg0, 24 + 30 * ::core::mem::size_of::<*const u8>(), 8);
+    let ptr45 = (&raw mut _RET_AREA.0).cast::<u8>();
+    match result44 {
         Ok(e) => {
-            *ptr37.add(0).cast::<u8>() = (0i32) as u8;
-            *ptr37.add(::core::mem::size_of::<*const u8>()).cast::<u8>() = (e.clone()
+            *ptr45.add(0).cast::<u8>() = (0i32) as u8;
+            *ptr45.add(::core::mem::size_of::<*const u8>()).cast::<u8>() = (e.clone()
                 as i32) as u8;
         }
         Err(e) => {
-            *ptr37.add(0).cast::<u8>() = (1i32) as u8;
-            let vec38 = (e.into_bytes()).into_boxed_slice();
-            let ptr38 = vec38.as_ptr().cast::<u8>();
-            let len38 = vec38.len();
-            ::core::mem::forget(vec38);
-            *ptr37.add(2 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len38;
-            *ptr37.add(::core::mem::size_of::<*const u8>()).cast::<*mut u8>() = ptr38
+            *ptr45.add(0).cast::<u8>() = (1i32) as u8;
+            let vec46 = (e.into_bytes()).into_boxed_slice();
+            let ptr46 = vec46.as_ptr().cast::<u8>();
+            let len46 = vec46.len();
+            ::core::mem::forget(vec46);
+            *ptr45.add(2 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len46;
+            *ptr45.add(::core::mem::size_of::<*const u8>()).cast::<*mut u8>() = ptr46
                 .cast_mut();
         }
     };
-    ptr37
+    ptr45
 }
 #[doc(hidden)]
 #[allow(non_snake_case)]
@@ -594,26 +686,32 @@ pub unsafe fn _export_invoke_cabi<T: Guest>(arg0: *mut u8) -> *mut u8 {
     let l19 = i32::from(
         *arg0.add(14 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
     );
-    let l21 = *arg0.add(16 + 14 * ::core::mem::size_of::<*const u8>()).cast::<i32>();
-    let l22 = i32::from(
-        *arg0.add(16 + 15 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    let l23 = i32::from(
+        *arg0.add(8 + 16 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
     );
-    let l26 = *arg0.add(16 + 18 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
-    let l27 = *arg0.add(16 + 19 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
-    let len28 = l27;
-    let bytes28 = _rt::Vec::from_raw_parts(l26.cast(), len28, len28);
-    let l29 = i32::from(
-        *arg0.add(16 + 20 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    let l25 = *arg0.add(24 + 16 * ::core::mem::size_of::<*const u8>()).cast::<i32>();
+    let l26 = i32::from(
+        *arg0.add(24 + 17 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
     );
-    let l33 = *arg0.add(24 + 22 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
-    let l34 = *arg0.add(24 + 23 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
-    let len35 = l34;
-    let bytes35 = _rt::Vec::from_raw_parts(l33.cast(), len35, len35);
-    let l36 = *arg0.add(24 + 24 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
-    let l37 = *arg0.add(24 + 25 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
-    let len38 = l37;
-    let bytes38 = _rt::Vec::from_raw_parts(l36.cast(), len38, len38);
-    let result39 = T::invoke(
+    let l30 = i32::from(
+        *arg0.add(24 + 20 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    );
+    let l34 = *arg0.add(24 + 23 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
+    let l35 = *arg0.add(24 + 24 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
+    let len36 = l35;
+    let bytes36 = _rt::Vec::from_raw_parts(l34.cast(), len36, len36);
+    let l37 = i32::from(
+        *arg0.add(24 + 25 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    );
+    let l41 = *arg0.add(24 + 28 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
+    let l42 = *arg0.add(24 + 29 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
+    let len43 = l42;
+    let bytes43 = _rt::Vec::from_raw_parts(l41.cast(), len43, len43);
+    let l44 = *arg0.add(24 + 30 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
+    let l45 = *arg0.add(24 + 31 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
+    let len46 = l45;
+    let bytes46 = _rt::Vec::from_raw_parts(l44.cast(), len46, len46);
+    let result47 = T::invoke(
         ExecCtx {
             tenant: TenantCtx {
                 tenant: _rt::string_lift(bytes2),
@@ -679,7 +777,7 @@ pub unsafe fn _export_invoke_cabi<T: Guest>(arg0: *mut u8) -> *mut u8 {
                     }
                     _ => _rt::invalid_enum_discriminant(),
                 },
-                correlation_id: match l15 {
+                i18n_id: match l15 {
                     0 => None,
                     1 => {
                         let e = {
@@ -701,144 +799,184 @@ pub unsafe fn _export_invoke_cabi<T: Guest>(arg0: *mut u8) -> *mut u8 {
                     }
                     _ => _rt::invalid_enum_discriminant(),
                 },
-                deadline_unix_ms: match l19 {
+                correlation_id: match l19 {
                     0 => None,
                     1 => {
                         let e = {
                             let l20 = *arg0
-                                .add(8 + 14 * ::core::mem::size_of::<*const u8>())
-                                .cast::<i64>();
-                            l20 as u64
+                                .add(15 * ::core::mem::size_of::<*const u8>())
+                                .cast::<*mut u8>();
+                            let l21 = *arg0
+                                .add(16 * ::core::mem::size_of::<*const u8>())
+                                .cast::<usize>();
+                            let len22 = l21;
+                            let bytes22 = _rt::Vec::from_raw_parts(
+                                l20.cast(),
+                                len22,
+                                len22,
+                            );
+                            _rt::string_lift(bytes22)
                         };
                         Some(e)
                     }
                     _ => _rt::invalid_enum_discriminant(),
                 },
-                attempt: l21 as u32,
-                idempotency_key: match l22 {
+                deadline_unix_ms: match l23 {
                     0 => None,
                     1 => {
                         let e = {
-                            let l23 = *arg0
-                                .add(16 + 16 * ::core::mem::size_of::<*const u8>())
-                                .cast::<*mut u8>();
                             let l24 = *arg0
-                                .add(16 + 17 * ::core::mem::size_of::<*const u8>())
+                                .add(16 + 16 * ::core::mem::size_of::<*const u8>())
+                                .cast::<i64>();
+                            l24 as u64
+                        };
+                        Some(e)
+                    }
+                    _ => _rt::invalid_enum_discriminant(),
+                },
+                attempt: l25 as u32,
+                idempotency_key: match l26 {
+                    0 => None,
+                    1 => {
+                        let e = {
+                            let l27 = *arg0
+                                .add(24 + 18 * ::core::mem::size_of::<*const u8>())
+                                .cast::<*mut u8>();
+                            let l28 = *arg0
+                                .add(24 + 19 * ::core::mem::size_of::<*const u8>())
                                 .cast::<usize>();
-                            let len25 = l24;
-                            let bytes25 = _rt::Vec::from_raw_parts(
-                                l23.cast(),
-                                len25,
-                                len25,
+                            let len29 = l28;
+                            let bytes29 = _rt::Vec::from_raw_parts(
+                                l27.cast(),
+                                len29,
+                                len29,
                             );
-                            _rt::string_lift(bytes25)
+                            _rt::string_lift(bytes29)
                         };
                         Some(e)
                     }
                     _ => _rt::invalid_enum_discriminant(),
                 },
             },
-            flow_id: _rt::string_lift(bytes28),
-            node_id: match l29 {
+            i18n_id: match l30 {
                 0 => None,
                 1 => {
                     let e = {
-                        let l30 = *arg0
-                            .add(16 + 21 * ::core::mem::size_of::<*const u8>())
-                            .cast::<*mut u8>();
                         let l31 = *arg0
-                            .add(16 + 22 * ::core::mem::size_of::<*const u8>())
+                            .add(24 + 21 * ::core::mem::size_of::<*const u8>())
+                            .cast::<*mut u8>();
+                        let l32 = *arg0
+                            .add(24 + 22 * ::core::mem::size_of::<*const u8>())
                             .cast::<usize>();
-                        let len32 = l31;
-                        let bytes32 = _rt::Vec::from_raw_parts(l30.cast(), len32, len32);
-                        _rt::string_lift(bytes32)
+                        let len33 = l32;
+                        let bytes33 = _rt::Vec::from_raw_parts(l31.cast(), len33, len33);
+                        _rt::string_lift(bytes33)
+                    };
+                    Some(e)
+                }
+                _ => _rt::invalid_enum_discriminant(),
+            },
+            flow_id: _rt::string_lift(bytes36),
+            node_id: match l37 {
+                0 => None,
+                1 => {
+                    let e = {
+                        let l38 = *arg0
+                            .add(24 + 26 * ::core::mem::size_of::<*const u8>())
+                            .cast::<*mut u8>();
+                        let l39 = *arg0
+                            .add(24 + 27 * ::core::mem::size_of::<*const u8>())
+                            .cast::<usize>();
+                        let len40 = l39;
+                        let bytes40 = _rt::Vec::from_raw_parts(l38.cast(), len40, len40);
+                        _rt::string_lift(bytes40)
                     };
                     Some(e)
                 }
                 _ => _rt::invalid_enum_discriminant(),
             },
         },
-        _rt::string_lift(bytes35),
-        _rt::string_lift(bytes38),
+        _rt::string_lift(bytes43),
+        _rt::string_lift(bytes46),
     );
-    _rt::cabi_dealloc(arg0, 24 + 26 * ::core::mem::size_of::<*const u8>(), 8);
-    let ptr40 = (&raw mut _RET_AREA.0).cast::<u8>();
-    match result39 {
+    _rt::cabi_dealloc(arg0, 24 + 32 * ::core::mem::size_of::<*const u8>(), 8);
+    let ptr48 = (&raw mut _RET_AREA.0).cast::<u8>();
+    match result47 {
         InvokeResult::Ok(e) => {
-            *ptr40.add(0).cast::<u8>() = (0i32) as u8;
-            let vec41 = (e.into_bytes()).into_boxed_slice();
-            let ptr41 = vec41.as_ptr().cast::<u8>();
-            let len41 = vec41.len();
-            ::core::mem::forget(vec41);
-            *ptr40.add(8 + 1 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len41;
-            *ptr40.add(8).cast::<*mut u8>() = ptr41.cast_mut();
+            *ptr48.add(0).cast::<u8>() = (0i32) as u8;
+            let vec49 = (e.into_bytes()).into_boxed_slice();
+            let ptr49 = vec49.as_ptr().cast::<u8>();
+            let len49 = vec49.len();
+            ::core::mem::forget(vec49);
+            *ptr48.add(8 + 1 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len49;
+            *ptr48.add(8).cast::<*mut u8>() = ptr49.cast_mut();
         }
         InvokeResult::Err(e) => {
-            *ptr40.add(0).cast::<u8>() = (1i32) as u8;
+            *ptr48.add(0).cast::<u8>() = (1i32) as u8;
             let NodeError {
-                code: code42,
-                message: message42,
-                retryable: retryable42,
-                backoff_ms: backoff_ms42,
-                details: details42,
+                code: code50,
+                message: message50,
+                retryable: retryable50,
+                backoff_ms: backoff_ms50,
+                details: details50,
             } = e;
-            let vec43 = (code42.into_bytes()).into_boxed_slice();
-            let ptr43 = vec43.as_ptr().cast::<u8>();
-            let len43 = vec43.len();
-            ::core::mem::forget(vec43);
-            *ptr40.add(8 + 1 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len43;
-            *ptr40.add(8).cast::<*mut u8>() = ptr43.cast_mut();
-            let vec44 = (message42.into_bytes()).into_boxed_slice();
-            let ptr44 = vec44.as_ptr().cast::<u8>();
-            let len44 = vec44.len();
-            ::core::mem::forget(vec44);
-            *ptr40.add(8 + 3 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len44;
-            *ptr40.add(8 + 2 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>() = ptr44
+            let vec51 = (code50.into_bytes()).into_boxed_slice();
+            let ptr51 = vec51.as_ptr().cast::<u8>();
+            let len51 = vec51.len();
+            ::core::mem::forget(vec51);
+            *ptr48.add(8 + 1 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len51;
+            *ptr48.add(8).cast::<*mut u8>() = ptr51.cast_mut();
+            let vec52 = (message50.into_bytes()).into_boxed_slice();
+            let ptr52 = vec52.as_ptr().cast::<u8>();
+            let len52 = vec52.len();
+            ::core::mem::forget(vec52);
+            *ptr48.add(8 + 3 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len52;
+            *ptr48.add(8 + 2 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>() = ptr52
                 .cast_mut();
-            *ptr40.add(8 + 4 * ::core::mem::size_of::<*const u8>()).cast::<u8>() = (match retryable42 {
+            *ptr48.add(8 + 4 * ::core::mem::size_of::<*const u8>()).cast::<u8>() = (match retryable50 {
                 true => 1,
                 false => 0,
             }) as u8;
-            match backoff_ms42 {
+            match backoff_ms50 {
                 Some(e) => {
-                    *ptr40
+                    *ptr48
                         .add(16 + 4 * ::core::mem::size_of::<*const u8>())
                         .cast::<u8>() = (1i32) as u8;
-                    *ptr40
+                    *ptr48
                         .add(24 + 4 * ::core::mem::size_of::<*const u8>())
                         .cast::<i64>() = _rt::as_i64(e);
                 }
                 None => {
-                    *ptr40
+                    *ptr48
                         .add(16 + 4 * ::core::mem::size_of::<*const u8>())
                         .cast::<u8>() = (0i32) as u8;
                 }
             };
-            match details42 {
+            match details50 {
                 Some(e) => {
-                    *ptr40
+                    *ptr48
                         .add(32 + 4 * ::core::mem::size_of::<*const u8>())
                         .cast::<u8>() = (1i32) as u8;
-                    let vec45 = (e.into_bytes()).into_boxed_slice();
-                    let ptr45 = vec45.as_ptr().cast::<u8>();
-                    let len45 = vec45.len();
-                    ::core::mem::forget(vec45);
-                    *ptr40
+                    let vec53 = (e.into_bytes()).into_boxed_slice();
+                    let ptr53 = vec53.as_ptr().cast::<u8>();
+                    let len53 = vec53.len();
+                    ::core::mem::forget(vec53);
+                    *ptr48
                         .add(32 + 6 * ::core::mem::size_of::<*const u8>())
-                        .cast::<usize>() = len45;
-                    *ptr40
+                        .cast::<usize>() = len53;
+                    *ptr48
                         .add(32 + 5 * ::core::mem::size_of::<*const u8>())
-                        .cast::<*mut u8>() = ptr45.cast_mut();
+                        .cast::<*mut u8>() = ptr53.cast_mut();
                 }
                 None => {
-                    *ptr40
+                    *ptr48
                         .add(32 + 4 * ::core::mem::size_of::<*const u8>())
                         .cast::<u8>() = (0i32) as u8;
                 }
             };
         }
     }
-    ptr40
+    ptr48
 }
 #[doc(hidden)]
 #[allow(non_snake_case)]
@@ -900,26 +1038,32 @@ pub unsafe fn _export_invoke_stream_cabi<T: Guest>(arg0: *mut u8) -> *mut u8 {
     let l19 = i32::from(
         *arg0.add(14 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
     );
-    let l21 = *arg0.add(16 + 14 * ::core::mem::size_of::<*const u8>()).cast::<i32>();
-    let l22 = i32::from(
-        *arg0.add(16 + 15 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    let l23 = i32::from(
+        *arg0.add(8 + 16 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
     );
-    let l26 = *arg0.add(16 + 18 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
-    let l27 = *arg0.add(16 + 19 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
-    let len28 = l27;
-    let bytes28 = _rt::Vec::from_raw_parts(l26.cast(), len28, len28);
-    let l29 = i32::from(
-        *arg0.add(16 + 20 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    let l25 = *arg0.add(24 + 16 * ::core::mem::size_of::<*const u8>()).cast::<i32>();
+    let l26 = i32::from(
+        *arg0.add(24 + 17 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
     );
-    let l33 = *arg0.add(24 + 22 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
-    let l34 = *arg0.add(24 + 23 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
-    let len35 = l34;
-    let bytes35 = _rt::Vec::from_raw_parts(l33.cast(), len35, len35);
-    let l36 = *arg0.add(24 + 24 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
-    let l37 = *arg0.add(24 + 25 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
-    let len38 = l37;
-    let bytes38 = _rt::Vec::from_raw_parts(l36.cast(), len38, len38);
-    let result39 = T::invoke_stream(
+    let l30 = i32::from(
+        *arg0.add(24 + 20 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    );
+    let l34 = *arg0.add(24 + 23 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
+    let l35 = *arg0.add(24 + 24 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
+    let len36 = l35;
+    let bytes36 = _rt::Vec::from_raw_parts(l34.cast(), len36, len36);
+    let l37 = i32::from(
+        *arg0.add(24 + 25 * ::core::mem::size_of::<*const u8>()).cast::<u8>(),
+    );
+    let l41 = *arg0.add(24 + 28 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
+    let l42 = *arg0.add(24 + 29 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
+    let len43 = l42;
+    let bytes43 = _rt::Vec::from_raw_parts(l41.cast(), len43, len43);
+    let l44 = *arg0.add(24 + 30 * ::core::mem::size_of::<*const u8>()).cast::<*mut u8>();
+    let l45 = *arg0.add(24 + 31 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
+    let len46 = l45;
+    let bytes46 = _rt::Vec::from_raw_parts(l44.cast(), len46, len46);
+    let result47 = T::invoke_stream(
         ExecCtx {
             tenant: TenantCtx {
                 tenant: _rt::string_lift(bytes2),
@@ -985,7 +1129,7 @@ pub unsafe fn _export_invoke_stream_cabi<T: Guest>(arg0: *mut u8) -> *mut u8 {
                     }
                     _ => _rt::invalid_enum_discriminant(),
                 },
-                correlation_id: match l15 {
+                i18n_id: match l15 {
                     0 => None,
                     1 => {
                         let e = {
@@ -1007,95 +1151,135 @@ pub unsafe fn _export_invoke_stream_cabi<T: Guest>(arg0: *mut u8) -> *mut u8 {
                     }
                     _ => _rt::invalid_enum_discriminant(),
                 },
-                deadline_unix_ms: match l19 {
+                correlation_id: match l19 {
                     0 => None,
                     1 => {
                         let e = {
                             let l20 = *arg0
-                                .add(8 + 14 * ::core::mem::size_of::<*const u8>())
-                                .cast::<i64>();
-                            l20 as u64
+                                .add(15 * ::core::mem::size_of::<*const u8>())
+                                .cast::<*mut u8>();
+                            let l21 = *arg0
+                                .add(16 * ::core::mem::size_of::<*const u8>())
+                                .cast::<usize>();
+                            let len22 = l21;
+                            let bytes22 = _rt::Vec::from_raw_parts(
+                                l20.cast(),
+                                len22,
+                                len22,
+                            );
+                            _rt::string_lift(bytes22)
                         };
                         Some(e)
                     }
                     _ => _rt::invalid_enum_discriminant(),
                 },
-                attempt: l21 as u32,
-                idempotency_key: match l22 {
+                deadline_unix_ms: match l23 {
                     0 => None,
                     1 => {
                         let e = {
-                            let l23 = *arg0
-                                .add(16 + 16 * ::core::mem::size_of::<*const u8>())
-                                .cast::<*mut u8>();
                             let l24 = *arg0
-                                .add(16 + 17 * ::core::mem::size_of::<*const u8>())
+                                .add(16 + 16 * ::core::mem::size_of::<*const u8>())
+                                .cast::<i64>();
+                            l24 as u64
+                        };
+                        Some(e)
+                    }
+                    _ => _rt::invalid_enum_discriminant(),
+                },
+                attempt: l25 as u32,
+                idempotency_key: match l26 {
+                    0 => None,
+                    1 => {
+                        let e = {
+                            let l27 = *arg0
+                                .add(24 + 18 * ::core::mem::size_of::<*const u8>())
+                                .cast::<*mut u8>();
+                            let l28 = *arg0
+                                .add(24 + 19 * ::core::mem::size_of::<*const u8>())
                                 .cast::<usize>();
-                            let len25 = l24;
-                            let bytes25 = _rt::Vec::from_raw_parts(
-                                l23.cast(),
-                                len25,
-                                len25,
+                            let len29 = l28;
+                            let bytes29 = _rt::Vec::from_raw_parts(
+                                l27.cast(),
+                                len29,
+                                len29,
                             );
-                            _rt::string_lift(bytes25)
+                            _rt::string_lift(bytes29)
                         };
                         Some(e)
                     }
                     _ => _rt::invalid_enum_discriminant(),
                 },
             },
-            flow_id: _rt::string_lift(bytes28),
-            node_id: match l29 {
+            i18n_id: match l30 {
                 0 => None,
                 1 => {
                     let e = {
-                        let l30 = *arg0
-                            .add(16 + 21 * ::core::mem::size_of::<*const u8>())
-                            .cast::<*mut u8>();
                         let l31 = *arg0
-                            .add(16 + 22 * ::core::mem::size_of::<*const u8>())
+                            .add(24 + 21 * ::core::mem::size_of::<*const u8>())
+                            .cast::<*mut u8>();
+                        let l32 = *arg0
+                            .add(24 + 22 * ::core::mem::size_of::<*const u8>())
                             .cast::<usize>();
-                        let len32 = l31;
-                        let bytes32 = _rt::Vec::from_raw_parts(l30.cast(), len32, len32);
-                        _rt::string_lift(bytes32)
+                        let len33 = l32;
+                        let bytes33 = _rt::Vec::from_raw_parts(l31.cast(), len33, len33);
+                        _rt::string_lift(bytes33)
+                    };
+                    Some(e)
+                }
+                _ => _rt::invalid_enum_discriminant(),
+            },
+            flow_id: _rt::string_lift(bytes36),
+            node_id: match l37 {
+                0 => None,
+                1 => {
+                    let e = {
+                        let l38 = *arg0
+                            .add(24 + 26 * ::core::mem::size_of::<*const u8>())
+                            .cast::<*mut u8>();
+                        let l39 = *arg0
+                            .add(24 + 27 * ::core::mem::size_of::<*const u8>())
+                            .cast::<usize>();
+                        let len40 = l39;
+                        let bytes40 = _rt::Vec::from_raw_parts(l38.cast(), len40, len40);
+                        _rt::string_lift(bytes40)
                     };
                     Some(e)
                 }
                 _ => _rt::invalid_enum_discriminant(),
             },
         },
-        _rt::string_lift(bytes35),
-        _rt::string_lift(bytes38),
+        _rt::string_lift(bytes43),
+        _rt::string_lift(bytes46),
     );
-    _rt::cabi_dealloc(arg0, 24 + 26 * ::core::mem::size_of::<*const u8>(), 8);
-    let ptr40 = (&raw mut _RET_AREA.0).cast::<u8>();
-    let vec43 = result39;
-    let len43 = vec43.len();
-    let layout43 = _rt::alloc::Layout::from_size_align_unchecked(
-        vec43.len() * (3 * ::core::mem::size_of::<*const u8>()),
+    _rt::cabi_dealloc(arg0, 24 + 32 * ::core::mem::size_of::<*const u8>(), 8);
+    let ptr48 = (&raw mut _RET_AREA.0).cast::<u8>();
+    let vec51 = result47;
+    let len51 = vec51.len();
+    let layout51 = _rt::alloc::Layout::from_size_align_unchecked(
+        vec51.len() * (3 * ::core::mem::size_of::<*const u8>()),
         ::core::mem::size_of::<*const u8>(),
     );
-    let result43 = if layout43.size() != 0 {
-        let ptr = _rt::alloc::alloc(layout43).cast::<u8>();
+    let result51 = if layout51.size() != 0 {
+        let ptr = _rt::alloc::alloc(layout51).cast::<u8>();
         if ptr.is_null() {
-            _rt::alloc::handle_alloc_error(layout43);
+            _rt::alloc::handle_alloc_error(layout51);
         }
         ptr
     } else {
         ::core::ptr::null_mut()
     };
-    for (i, e) in vec43.into_iter().enumerate() {
-        let base = result43.add(i * (3 * ::core::mem::size_of::<*const u8>()));
+    for (i, e) in vec51.into_iter().enumerate() {
+        let base = result51.add(i * (3 * ::core::mem::size_of::<*const u8>()));
         {
             match e {
                 StreamEvent::Data(e) => {
                     *base.add(0).cast::<u8>() = (0i32) as u8;
-                    let vec41 = (e.into_bytes()).into_boxed_slice();
-                    let ptr41 = vec41.as_ptr().cast::<u8>();
-                    let len41 = vec41.len();
-                    ::core::mem::forget(vec41);
-                    *base.add(2 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len41;
-                    *base.add(::core::mem::size_of::<*const u8>()).cast::<*mut u8>() = ptr41
+                    let vec49 = (e.into_bytes()).into_boxed_slice();
+                    let ptr49 = vec49.as_ptr().cast::<u8>();
+                    let len49 = vec49.len();
+                    ::core::mem::forget(vec49);
+                    *base.add(2 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len49;
+                    *base.add(::core::mem::size_of::<*const u8>()).cast::<*mut u8>() = ptr49
                         .cast_mut();
                 }
                 StreamEvent::Progress(e) => {
@@ -1109,20 +1293,20 @@ pub unsafe fn _export_invoke_stream_cabi<T: Guest>(arg0: *mut u8) -> *mut u8 {
                 }
                 StreamEvent::Error(e) => {
                     *base.add(0).cast::<u8>() = (3i32) as u8;
-                    let vec42 = (e.into_bytes()).into_boxed_slice();
-                    let ptr42 = vec42.as_ptr().cast::<u8>();
-                    let len42 = vec42.len();
-                    ::core::mem::forget(vec42);
-                    *base.add(2 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len42;
-                    *base.add(::core::mem::size_of::<*const u8>()).cast::<*mut u8>() = ptr42
+                    let vec50 = (e.into_bytes()).into_boxed_slice();
+                    let ptr50 = vec50.as_ptr().cast::<u8>();
+                    let len50 = vec50.len();
+                    ::core::mem::forget(vec50);
+                    *base.add(2 * ::core::mem::size_of::<*const u8>()).cast::<usize>() = len50;
+                    *base.add(::core::mem::size_of::<*const u8>()).cast::<*mut u8>() = ptr50
                         .cast_mut();
                 }
             }
         }
     }
-    *ptr40.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len43;
-    *ptr40.add(0).cast::<*mut u8>() = result43;
-    ptr40
+    *ptr48.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len51;
+    *ptr48.add(0).cast::<*mut u8>() = result51;
+    ptr48
 }
 #[doc(hidden)]
 #[allow(non_snake_case)]
@@ -1433,27 +1617,27 @@ pub(crate) use __export_node_impl as export;
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 874] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xef\x05\x01A\x02\x01\
-A%\x01s\x03\0\x04json\x03\0\0\x01ks\x01kw\x01r\x08\x06tenants\x04team\x02\x04use\
-r\x02\x08trace-id\x02\x0ecorrelation-id\x02\x10deadline-unix-ms\x03\x07attempty\x0f\
-idempotency-key\x02\x03\0\x0atenant-ctx\x03\0\x04\x01r\x03\x06tenant\x05\x07flow\
--ids\x07node-id\x02\x03\0\x08exec-ctx\x03\0\x06\x01k\x01\x01r\x05\x04codes\x07me\
-ssages\x09retryable\x7f\x0abackoff-ms\x03\x07details\x08\x03\0\x0anode-error\x03\
-\0\x09\x01q\x02\x02ok\x01\x01\0\x03err\x01\x0a\0\x03\0\x0dinvoke-result\x03\0\x0b\
-\x01q\x04\x04data\x01\x01\0\x08progress\x01}\0\x04done\0\0\x05error\x01s\0\x03\0\
-\x0cstream-event\x03\0\x0d\x01m\x01\x02ok\x03\0\x10lifecycle-status\x03\0\x0f\x01\
-m\x02\x07stacked\x04grid\x03\0\x0cdisplay-mode\x03\0\x11\x01ps\x01k\x13\x01r\x06\
-\x05titles\x0bdescription\x02\x06layout\x12\x09max-itemsy\x04tags\x14\x0dconnect\
-ion-id\x02\x03\0\x06config\x03\0\x15\x01B\x04\x01@\0\0\x7f\x04\0\x0dshould-cance\
-l\x01\0\x01@\0\x01\0\x04\0\x09yield-now\x01\x01\x03\0\x20greentic:component/cont\
-rol@0.5.0\x05\x17\x01@\0\0\x01\x04\0\x0cget-manifest\x01\x18\x01j\x01\x10\x01s\x01\
-@\x01\x03ctx\x07\0\x19\x04\0\x08on-start\x01\x1a\x01@\x02\x03ctx\x07\x06reasons\0\
-\x19\x04\0\x07on-stop\x01\x1b\x01@\x03\x03ctx\x07\x02ops\x05input\x01\0\x0c\x04\0\
-\x06invoke\x01\x1c\x01p\x0e\x01@\x03\x03ctx\x07\x02ops\x05input\x01\0\x1d\x04\0\x0d\
-invoke-stream\x01\x1e\x04\0\x1dgreentic:component/node@0.5.0\x04\0\x0b\x0a\x01\0\
-\x04node\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.2\
-27.1\x10wit-bindgen-rust\x060.41.0";
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 892] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\x81\x06\x01A\x02\x01\
+A%\x01s\x03\0\x04json\x03\0\0\x01ks\x01kw\x01r\x09\x06tenants\x04team\x02\x04use\
+r\x02\x08trace-id\x02\x07i18n-id\x02\x0ecorrelation-id\x02\x10deadline-unix-ms\x03\
+\x07attempty\x0fidempotency-key\x02\x03\0\x0atenant-ctx\x03\0\x04\x01r\x04\x06te\
+nant\x05\x07i18n-id\x02\x07flow-ids\x07node-id\x02\x03\0\x08exec-ctx\x03\0\x06\x01\
+k\x01\x01r\x05\x04codes\x07messages\x09retryable\x7f\x0abackoff-ms\x03\x07detail\
+s\x08\x03\0\x0anode-error\x03\0\x09\x01q\x02\x02ok\x01\x01\0\x03err\x01\x0a\0\x03\
+\0\x0dinvoke-result\x03\0\x0b\x01q\x04\x04data\x01\x01\0\x08progress\x01}\0\x04d\
+one\0\0\x05error\x01s\0\x03\0\x0cstream-event\x03\0\x0d\x01m\x01\x02ok\x03\0\x10\
+lifecycle-status\x03\0\x0f\x01m\x02\x07stacked\x04grid\x03\0\x0cdisplay-mode\x03\
+\0\x11\x01ps\x01k\x13\x01r\x06\x05titles\x0bdescription\x02\x06layout\x12\x09max\
+-itemsy\x04tags\x14\x0dconnection-id\x02\x03\0\x06config\x03\0\x15\x01B\x04\x01@\
+\0\0\x7f\x04\0\x0dshould-cancel\x01\0\x01@\0\x01\0\x04\0\x09yield-now\x01\x01\x03\
+\0\x20greentic:component/control@0.5.0\x05\x17\x01@\0\0\x01\x04\0\x0cget-manifes\
+t\x01\x18\x01j\x01\x10\x01s\x01@\x01\x03ctx\x07\0\x19\x04\0\x08on-start\x01\x1a\x01\
+@\x02\x03ctx\x07\x06reasons\0\x19\x04\0\x07on-stop\x01\x1b\x01@\x03\x03ctx\x07\x02\
+ops\x05input\x01\0\x0c\x04\0\x06invoke\x01\x1c\x01p\x0e\x01@\x03\x03ctx\x07\x02o\
+ps\x05input\x01\0\x1d\x04\0\x0dinvoke-stream\x01\x1e\x04\0\x1dgreentic:component\
+/node@0.5.0\x04\0\x0b\x0a\x01\0\x04node\x03\0\0\0G\x09producers\x01\x0cprocessed\
+-by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rust\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

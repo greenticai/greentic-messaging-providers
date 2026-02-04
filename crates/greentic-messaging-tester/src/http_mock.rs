@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::io::Read;
 use std::sync::{Arc, Mutex};
 
@@ -89,11 +91,33 @@ pub fn new_history() -> HttpHistory {
 const MOCK_RESPONSE_BODY: &[u8] =
     br#"{"ok":true,"result":{"url":"https://example.invalid/mock-webhook"},"description":"mock response"}"#;
 
+type MockQueue = VecDeque<(u16, Vec<u8>)>;
+
+thread_local! {
+    static MOCK_RESPONSE_QUEUE: RefCell<MockQueue> = RefCell::new(VecDeque::new());
+}
+
+#[cfg(test)]
+pub fn queue_mock_response(status: u16, body: Vec<u8>) {
+    MOCK_RESPONSE_QUEUE.with(|queue| queue.borrow_mut().push_back((status, body)));
+}
+
+#[cfg(test)]
+pub fn clear_mock_responses() {
+    MOCK_RESPONSE_QUEUE.with(|queue| queue.borrow_mut().clear());
+}
+
 pub fn mock_response() -> http_client::ResponseV1_1 {
+    let (status, body) = MOCK_RESPONSE_QUEUE.with(|queue| {
+        queue
+            .borrow_mut()
+            .pop_front()
+            .unwrap_or((200, MOCK_RESPONSE_BODY.to_vec()))
+    });
     http_client::ResponseV1_1 {
-        status: 200,
+        status,
         headers: Vec::new(),
-        body: Some(MOCK_RESPONSE_BODY.to_vec()),
+        body: Some(body),
     }
 }
 
@@ -106,11 +130,10 @@ pub fn send_real_request(
         builder = builder.header(name.as_str(), value.as_str());
     }
     let body_bytes = req.body.clone().unwrap_or_default();
+    let body_text = String::from_utf8_lossy(&body_bytes);
     println!(
-        "real http request {} {} body_b64={}",
-        req.method,
-        req.url,
-        STANDARD.encode(&body_bytes)
+        "real http request {} {} body={}",
+        req.method, req.url, body_text
     );
     let request =
         builder

@@ -100,9 +100,10 @@ fn handle_send(input_json: &[u8], is_reply: bool) -> Vec<u8> {
 
     let envelope: ChannelMessageEnvelope = match serde_json::from_slice(input_json) {
         Ok(env) => env,
-        Err(err) => {
-            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}")}));
-        }
+        Err(_) => match build_synthetic_envelope(&parsed, &cfg) {
+            Ok(env) => env,
+            Err(message) => return json_bytes(&json!({"ok": false, "error": message})),
+        },
     };
 
     if !envelope.attachments.is_empty() {
@@ -220,14 +221,15 @@ fn handle_send(input_json: &[u8], is_reply: bool) -> Vec<u8> {
         .to_string();
     let provider_message_id = format!("slack:{ts}");
 
-    json_bytes(&json!({
+    let result = json!({
         "ok": true,
         "status": if is_reply {"replied"} else {"sent"},
         "provider_type": PROVIDER_TYPE,
         "message_id": ts,
         "provider_message_id": provider_message_id,
         "response": body_json
-    }))
+    });
+    json_bytes(&result)
 }
 
 fn parse_blocks(parsed: &Value) -> (Option<String>, Option<Value>) {
@@ -266,6 +268,78 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
     Ok(ProviderConfig {
         default_channel: None,
         api_base_url: None,
+    })
+}
+
+fn build_synthetic_envelope(
+    parsed: &Value,
+    cfg: &ProviderConfig,
+) -> Result<ChannelMessageEnvelope, String> {
+    let destination = parse_destination(parsed).or_else(|| {
+        cfg.default_channel.clone().map(|channel| Destination {
+            id: channel,
+            kind: Some("channel".to_string()),
+        })
+    });
+    let destination = destination.ok_or_else(|| "channel required".to_string())?;
+
+    let env = EnvId::try_from("manual").expect("manual env id");
+    let tenant = TenantId::try_from("manual").expect("manual tenant id");
+    let mut metadata = MessageMetadata::new();
+    metadata.insert("channel".to_string(), destination.id.clone());
+    if let Some(kind) = &destination.kind {
+        metadata.insert("destination_kind".to_string(), kind.clone());
+    }
+
+    let text = parsed
+        .get("text")
+        .and_then(|value| value.as_str())
+        .map(|s| s.to_string());
+
+    Ok(ChannelMessageEnvelope {
+        id: "synthetic-slack-envelope".to_string(),
+        tenant: TenantCtx::new(env, tenant),
+        channel: destination.id.clone(),
+        session_id: destination.id.clone(),
+        reply_scope: None,
+        from: None,
+        to: vec![destination],
+        correlation_id: None,
+        text,
+        attachments: Vec::new(),
+        metadata,
+    })
+}
+
+fn parse_destination(parsed: &Value) -> Option<Destination> {
+    let to_value = parsed.get("to")?;
+    if let Some(id) = to_value.as_str() {
+        let trimmed = id.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        return Some(Destination {
+            id: trimmed.to_string(),
+            kind: Some("channel".to_string()),
+        });
+    }
+
+    let obj = to_value.as_object()?;
+    let id = obj
+        .get("id")
+        .and_then(|value| value.as_str())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+    let kind = obj
+        .get("kind")
+        .and_then(|value| value.as_str())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+    id.map(|id| Destination {
+        id,
+        kind: kind.or_else(|| Some("channel".to_string())),
     })
 }
 

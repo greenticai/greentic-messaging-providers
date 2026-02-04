@@ -1016,7 +1016,11 @@ fn build_channel_envelope(parsed: &Value, cfg: &ProviderConfig) -> ChannelMessag
         .get("to")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
-        .unwrap_or_else(|| cfg.default_to_address.clone().unwrap_or_else(|| "recipient@example.com".to_string()));
+        .unwrap_or_else(|| {
+            cfg.default_to_address
+                .clone()
+                .unwrap_or_else(|| "recipient@example.com".to_string())
+        });
     let subject = parsed
         .get("subject")
         .and_then(|v| v.as_str())

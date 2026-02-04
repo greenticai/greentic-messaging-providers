@@ -35,7 +35,7 @@ Writes:
 - Secrets: TELEGRAM_BOT_TOKEN
 
 Webhooks:
-- public_base_url + /webhooks/telegram
+- Provide `public_base_url` as the complete callback URL (the Telegram webhook component no longer appends `/webhooks/telegram`).
 
 Subscriptions:
 - none

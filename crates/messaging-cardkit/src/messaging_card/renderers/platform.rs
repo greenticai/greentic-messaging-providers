@@ -3,7 +3,10 @@ use crate::messaging_card::types::{PlatformPreview, RenderSnapshot, Tier};
 pub struct PlatformRenderer;
 
 impl PlatformRenderer {
-    pub fn from_snapshot(snapshot: &RenderSnapshot, tier_override: Option<Tier>) -> PlatformPreview {
+    pub fn from_snapshot(
+        snapshot: &RenderSnapshot,
+        tier_override: Option<Tier>,
+    ) -> PlatformPreview {
         PlatformPreview {
             payload: snapshot.output.payload.clone(),
             tier: tier_override.unwrap_or(snapshot.tier),

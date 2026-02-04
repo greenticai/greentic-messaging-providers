@@ -1,5 +1,7 @@
 use base64::{Engine as _, engine::general_purpose};
-use greentic_types::{Actor, ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_types::{
+    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
+};
 use messaging_universal_dto::{
     EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
     SendPayloadInV1, SendPayloadResultV1,
@@ -117,9 +119,14 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
 
     let envelope: ChannelMessageEnvelope = match serde_json::from_slice(input_json) {
         Ok(env) => env,
-        Err(err) => {
-            return json_bytes(&json!({"ok": false, "error": format!("invalid envelope: {err}") }));
-        }
+        Err(err) => match build_send_envelope_from_input(&parsed) {
+            Ok(env) => env,
+            Err(message) => {
+                return json_bytes(
+                    &json!({"ok": false, "error": format!("invalid envelope: {message}: {err}")}),
+                );
+            }
+        },
     };
 
     if !envelope.attachments.is_empty() {
@@ -235,6 +242,70 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         "provider_message_id": provider_message_id,
         "response": body_json
     }))
+}
+
+fn build_send_envelope_from_input(parsed: &Value) -> Result<ChannelMessageEnvelope, String> {
+    let text = parsed
+        .get("text")
+        .and_then(Value::as_str)
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .ok_or_else(|| "text required".to_string())?;
+    let destination =
+        parse_send_destination(parsed).ok_or_else(|| "destination required".to_string())?;
+    let env = EnvId::try_from("manual").expect("manual env id");
+    let tenant = TenantId::try_from("manual").expect("manual tenant id");
+    let mut metadata = MessageMetadata::new();
+    metadata.insert("synthetic".to_string(), "true".to_string());
+    if let Some(kind) = destination.kind.as_ref() {
+        metadata.insert("destination_kind".to_string(), kind.clone());
+    }
+    let channel = destination.id.clone();
+    Ok(ChannelMessageEnvelope {
+        id: format!("whatsapp-manual-{channel}"),
+        tenant: TenantCtx::new(env, tenant),
+        channel: channel.clone(),
+        session_id: channel,
+        reply_scope: None,
+        from: None,
+        to: vec![destination],
+        correlation_id: None,
+        text: Some(text),
+        attachments: Vec::new(),
+        metadata,
+    })
+}
+
+fn parse_send_destination(parsed: &Value) -> Option<Destination> {
+    let to_value = parsed.get("to")?;
+    if let Some(id) = to_value.as_str() {
+        let trimmed = id.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        return Some(Destination {
+            id: trimmed.to_string(),
+            kind: Some("phone".to_string()),
+        });
+    }
+    let obj = to_value.as_object()?;
+    let id = obj
+        .get("id")
+        .and_then(|value| value.as_str())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+    let kind = obj
+        .get("kind")
+        .and_then(|value| value.as_str())
+        .map(|s| s.trim().to_string());
+    let kind = match kind.as_deref() {
+        Some("user") => Some("phone".to_string()),
+        Some(kind_str) if !kind_str.is_empty() => Some(kind_str.to_string()),
+        _ => Some("phone".to_string()),
+    };
+    id.map(|id| Destination { id, kind })
 }
 
 fn handle_reply(_input_json: &[u8]) -> Vec<u8> {

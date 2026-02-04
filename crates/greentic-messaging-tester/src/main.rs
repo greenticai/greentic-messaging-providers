@@ -9,6 +9,7 @@ use std::{
     io::{self, Write},
     path::{Path, PathBuf},
     process,
+    sync::Arc,
 };
 
 use anyhow::anyhow;
@@ -37,10 +38,12 @@ use tokio::net::TcpListener;
 use tokio::runtime::Builder;
 use tokio::signal;
 
-use crate::http_mock::{HttpHistory, new_history};
+use crate::http_mock::{HttpHistory, HttpMode, new_history};
 use crate::requirements::ValidationReport;
 use crate::values::Values;
 use crate::wasm_harness::{ComponentHarness, WasmHarness, find_component_wasm_path};
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
 
 #[derive(Parser)]
 #[command(name = "greentic-messaging-tester")]
@@ -259,6 +262,17 @@ fn handle_send(
         None
     };
 
+    let explicit_text = text.and_then(|t| {
+        let trimmed = t.trim();
+        if trimmed.is_empty() { None } else { Some(t) }
+    });
+    let card_text = card_value
+        .as_ref()
+        .and_then(|card_val: &Value| extract_card_text(card_val));
+    let final_text = explicit_text
+        .or(card_text)
+        .or_else(|| card_value.as_ref().map(|_| "adaptive card".to_string()));
+
     let metadata = values.to_metadata();
     let mut destinations = Vec::new();
     if let Some(destination) = to {
@@ -271,7 +285,7 @@ fn handle_send(
             kind: to_kind,
         });
     }
-    let message = build_message_envelope(&provider, text, card_value, metadata, destinations);
+    let message = build_message_envelope(&provider, final_text, card_value, metadata, destinations);
     let plan_in = RenderPlanInV1 {
         message: message.clone(),
         metadata: HashMap::new(),
@@ -431,6 +445,10 @@ fn handle_listen(params: ListenParams) -> Result<(), CliError> {
         return Err(CliError::Validation { report });
     }
 
+    let secrets = Arc::new(values.secret_bytes());
+    let http_mode = values.http_mode();
+    let signature_secret = load_webhook_signature_secret(&values, &provider);
+
     if let Some(http_in_path) = http_in {
         let payload = build_http_in_payload(
             http_method,
@@ -449,7 +467,15 @@ fn handle_listen(params: ListenParams) -> Result<(), CliError> {
         return Ok(());
     }
 
-    run_listener(host, port, path)
+    run_listener(
+        host,
+        port,
+        path,
+        provider,
+        secrets,
+        http_mode,
+        signature_secret,
+    )
 }
 
 fn handle_webhook(
@@ -504,12 +530,28 @@ fn webhook_component_for(provider: &str) -> Option<&'static str> {
 #[derive(Clone)]
 struct ListenerState {
     expected_path: String,
+    provider: String,
+    secrets: Arc<HashMap<String, Vec<u8>>>,
+    http_mode: HttpMode,
+    signature_secret: Option<Vec<u8>>,
 }
 
-fn run_listener(host: String, port: u16, path: String) -> Result<(), CliError> {
+fn run_listener(
+    host: String,
+    port: u16,
+    path: String,
+    provider: String,
+    secrets: Arc<HashMap<String, Vec<u8>>>,
+    http_mode: HttpMode,
+    signature_secret: Option<Vec<u8>>,
+) -> Result<(), CliError> {
     let bind_addr = format!("{host}:{port}");
     let listener_state = ListenerState {
         expected_path: path.clone(),
+        provider,
+        secrets,
+        http_mode,
+        signature_secret,
     };
     println!("listening on http://{bind_addr} (logging requests for {path})");
 
@@ -567,7 +609,42 @@ async fn handle_listener_request(
     });
     println!("{}", serde_json::to_string_pretty(&detail).unwrap());
     std::io::stdout().flush().ok();
-    (StatusCode::OK, "ok")
+    let headers_map: HashMap<String, String> = headers.iter().cloned().collect();
+
+    if state.0.provider == "webex" {
+        if let Some(secret) = state.0.signature_secret.as_ref() {
+            if !verify_webex_signature(secret, &headers, &body_text) {
+                let err_msg = "invalid webex webhook signature";
+                eprintln!("{err_msg}");
+                return (StatusCode::UNAUTHORIZED, err_msg.to_string());
+            }
+        }
+    }
+    let http_in = HttpInFile {
+        method: method.to_ascii_uppercase(),
+        path: path.clone(),
+        query,
+        headers: headers_map,
+        body: Some(body_text.clone()),
+    };
+    let state_clone = state.0.clone();
+    match tokio::task::spawn_blocking(move || ingest_http_request(&state_clone, http_in)).await {
+        Ok(Ok(envelopes)) => {
+            let output = json!({ "ingress_envelopes": envelopes });
+            println!("{}", serde_json::to_string_pretty(&output).unwrap());
+            std::io::stdout().flush().ok();
+            (StatusCode::OK, "ok".to_string())
+        }
+        Ok(Err(err)) => {
+            eprintln!("ingress failed: {}", err);
+            (StatusCode::INTERNAL_SERVER_ERROR, err)
+        }
+        Err(join_err) => {
+            let err_msg = format!("ingest runtime panic: {join_err}");
+            eprintln!("{err_msg}");
+            (StatusCode::INTERNAL_SERVER_ERROR, err_msg)
+        }
+    }
 }
 
 async fn wait_for_shutdown() {
@@ -699,9 +776,43 @@ fn build_message_envelope(
     }
 }
 
+fn extract_card_text(card: &Value) -> Option<String> {
+    if let Some(text) = card
+        .get("text")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+    {
+        return Some(text.to_string());
+    }
+
+    if let Some(body_array) = card.get("body").and_then(Value::as_array) {
+        let mut segments = Vec::new();
+        for block in body_array {
+            if let Some(text) = block.get("text").and_then(Value::as_str) {
+                let trimmed = text.trim();
+                if !trimmed.is_empty() {
+                    segments.push(trimmed.to_string());
+                }
+            }
+        }
+        if !segments.is_empty() {
+            return Some(segments.join(" "));
+        }
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::http_mock::{self, HttpMode, new_history};
+    use crate::wasm_harness::WasmHarness;
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    use messaging_universal_dto::{HttpInV1, HttpOutV1};
+    use serde_json::json;
+    use std::collections::HashMap;
 
     #[test]
     fn build_message_envelope_stores_destination() {
@@ -738,6 +849,100 @@ mod tests {
         let stored = &envelope.to[0];
         assert_eq!(stored.kind, dest.kind);
     }
+
+    fn queue_webex_response(status: u16, body: Value) {
+        http_mock::clear_mock_responses();
+        http_mock::queue_mock_response(
+            status,
+            serde_json::to_vec(&body).expect("serialize response"),
+        );
+    }
+
+    fn build_webhook_payload() -> Value {
+        json!({
+            "resource": "messages",
+            "event": "created",
+            "data": {
+                "id": "MSG123",
+                "roomId": "ROOM1",
+                "personEmail": "sender@example.com"
+            }
+        })
+    }
+
+    fn call_ingest(payload: &Value, secrets: &HashMap<String, Vec<u8>>) -> HttpOutV1 {
+        let harness = WasmHarness::new("webex").expect("load harness");
+        let history = new_history();
+        let http_in = HttpInV1 {
+            method: "POST".to_string(),
+            path: "/webhook/webex".to_string(),
+            query: None,
+            headers: Vec::new(),
+            body_b64: STANDARD
+                .encode(serde_json::to_vec(payload).expect("serialize webhook payload")),
+            route_hint: None,
+            binding_id: None,
+            config: None,
+        };
+        let out_bytes = harness
+            .invoke(
+                "ingest_http",
+                serde_json::to_vec(&http_in).expect("serialize http in"),
+                secrets,
+                HttpMode::Mock,
+                history,
+            )
+            .expect("invoke ingest");
+        serde_json::from_slice(&out_bytes).expect("parse http out")
+    }
+
+    #[test]
+    fn webhook_webex_ingest_fetches_message_body() {
+        let message_body = json!({
+            "id": "MSG123",
+            "markdown": "Hello world",
+            "roomId": "ROOM1",
+            "personEmail": "sender@example.com"
+        });
+        queue_webex_response(200, message_body);
+        let secrets = HashMap::from([("WEBEX_BOT_TOKEN".to_string(), b"token".to_vec())]);
+        let http_out = call_ingest(&build_webhook_payload(), &secrets);
+        assert_eq!(http_out.status, 200);
+        let envelope = http_out.events.first().expect("event missing");
+        assert_eq!(envelope.text.as_deref(), Some("Hello world"));
+        assert_eq!(envelope.session_id, "ROOM1");
+        assert_eq!(
+            envelope.metadata.get("webex.messageId"),
+            Some(&"MSG123".to_string())
+        );
+    }
+
+    #[test]
+    fn webhook_webex_ingest_failure_includes_metadata() {
+        queue_webex_response(404, json!({"message": "not found"}));
+        let secrets = HashMap::from([("WEBEX_BOT_TOKEN".to_string(), b"token".to_vec())]);
+        let http_out = call_ingest(&build_webhook_payload(), &secrets);
+        assert_eq!(http_out.status, 502);
+        let envelope = http_out.events.first().expect("missing envelope");
+        assert_eq!(envelope.text.as_deref(), Some(""));
+        let normalized: Value =
+            serde_json::from_slice(&STANDARD.decode(&http_out.body_b64).expect("decode body"))
+                .expect("parse normalized");
+        assert_eq!(normalized["ok"], Value::Bool(false));
+        assert!(
+            normalized["error"]
+                .as_str()
+                .unwrap_or("")
+                .contains("webex returned status 404")
+        );
+        assert!(
+            envelope
+                .metadata
+                .get("webex.ingestError")
+                .map(|value| value.contains("404"))
+                .unwrap_or(false)
+        );
+    }
 }
 
 fn ensure_ok(value: &Value, op: &str) -> Result<(), CliError> {
@@ -763,6 +968,10 @@ fn parse_http_in(path: &Path) -> Result<HttpInV1, CliError> {
         .map_err(|err| CliError::HttpInput(path.to_path_buf(), err.into()))?;
     let spec: HttpInFile = serde_json::from_str(&contents)
         .map_err(|err| CliError::HttpInput(path.to_path_buf(), err.into()))?;
+    Ok(http_in_file_to_v1(spec))
+}
+
+fn http_in_file_to_v1(spec: HttpInFile) -> HttpInV1 {
     let body_bytes = spec.body.map(|body| body.into_bytes()).unwrap_or_default();
     let body_b64 = STANDARD.encode(body_bytes);
     let headers = spec
@@ -770,7 +979,7 @@ fn parse_http_in(path: &Path) -> Result<HttpInV1, CliError> {
         .into_iter()
         .map(|(name, value)| Header { name, value })
         .collect();
-    Ok(HttpInV1 {
+    HttpInV1 {
         method: spec.method,
         path: spec.path,
         query: spec.query,
@@ -779,7 +988,88 @@ fn parse_http_in(path: &Path) -> Result<HttpInV1, CliError> {
         route_hint: None,
         binding_id: None,
         config: None,
-    })
+    }
+}
+
+fn ingest_http_request(
+    state: &ListenerState,
+    http_in: HttpInFile,
+) -> Result<Vec<ChannelMessageEnvelope>, String> {
+    let harness = WasmHarness::new(&state.provider).map_err(|err| err.to_string())?;
+    let http_in_v1 = http_in_file_to_v1(http_in);
+    let history = new_history();
+    let http_bytes = serde_json::to_vec(&http_in_v1).map_err(|err| err.to_string())?;
+    let out_bytes = harness
+        .invoke(
+            "ingest_http",
+            http_bytes,
+            state.secrets.as_ref(),
+            state.http_mode,
+            history,
+        )
+        .map_err(|err| map_invoke_error(err).to_string())?;
+    let http_out: HttpOutV1 = serde_json::from_slice(&out_bytes).map_err(|err| err.to_string())?;
+    Ok(http_out.events)
+}
+
+fn load_webhook_signature_secret(values: &Values, provider: &str) -> Option<Vec<u8>> {
+    let candidates = [
+        format!("{provider}_signature_secret"),
+        format!("{provider}_webhook_signature_secret"),
+    ];
+    for key in candidates {
+        if let Some(Value::String(secret)) = values.config.get(&key) {
+            return Some(secret.as_bytes().to_vec());
+        }
+    }
+    None
+}
+
+fn verify_webex_signature(secret: &[u8], headers: &[(String, String)], body: &str) -> bool {
+    let header_value = find_header_value(headers, "x-webex-signature")
+        .or_else(|| find_header_value(headers, "x-spark-signature"));
+    let header_value = match header_value {
+        Some(value) => value,
+        None => return false,
+    };
+    let sha256_part = header_value
+        .split(',')
+        .find_map(|segment| segment.trim().strip_prefix("SHA-256=").map(|v| v.trim()));
+    let hex = match sha256_part {
+        Some(value) => value.trim_matches('"'),
+        None => return false,
+    };
+    let sig_bytes = match decode_hex(hex) {
+        Some(bytes) => bytes,
+        None => return false,
+    };
+    type HmacSha256 = Hmac<Sha256>;
+    let mut mac = match HmacSha256::new_from_slice(secret) {
+        Ok(mac) => mac,
+        Err(_) => return false,
+    };
+    mac.update(body.as_bytes());
+    mac.verify_slice(&sig_bytes).is_ok()
+}
+
+fn find_header_value(headers: &[(String, String)], key: &str) -> Option<String> {
+    headers
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case(key))
+        .map(|(_, value)| value.clone())
+}
+
+fn decode_hex(input: &str) -> Option<Vec<u8>> {
+    if input.len() % 2 != 0 {
+        return None;
+    }
+    let mut bytes = Vec::with_capacity(input.len() / 2);
+    let normalized = input.trim();
+    for chunk in normalized.as_bytes().chunks(2) {
+        let hex_str = std::str::from_utf8(chunk).ok()?;
+        bytes.push(u8::from_str_radix(hex_str, 16).ok()?);
+    }
+    Some(bytes)
 }
 
 #[derive(Serialize, Deserialize)]

@@ -19,7 +19,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2024"
-version = "0.4.29"
+version = "0.4.30"
 license = "MIT"
 
 
@@ -55,4 +55,4 @@ assert_cmd = "2"
 predicates = "3"
 wasmtime = { version = "41", features = ["component-model", "cache"] }
 wasmtime-wasi = "41"
-gsm-core = "0.4.45"
+

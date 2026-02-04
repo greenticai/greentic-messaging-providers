@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET_DIR="${ROOT_DIR}/target/components"
 BUILD_TARGET="wasm32-wasip2"
 TARGET_DIR_OVERRIDE="${ROOT_DIR}/target/${BUILD_TARGET}"
-PACKAGES=("provision" "questions" "secrets-probe" "slack" "teams" "telegram" "webchat" "webex" "whatsapp" "messaging-ingress-slack" "messaging-ingress-teams" "messaging-ingress-telegram" "messaging-ingress-whatsapp" "messaging-provider-dummy" "messaging-provider-telegram" "messaging-provider-teams" "messaging-provider-email" "messaging-provider-slack" "messaging-provider-webex" "messaging-provider-whatsapp" "messaging-provider-webchat")
+PACKAGES=("provision" "questions" "secrets-probe" "slack" "teams" "telegram" "webchat" "webex" "webex-webhook" "whatsapp" "messaging-ingress-slack" "messaging-ingress-teams" "messaging-ingress-telegram" "messaging-ingress-whatsapp" "messaging-provider-dummy" "messaging-provider-telegram" "messaging-provider-teams" "messaging-provider-email" "messaging-provider-slack" "messaging-provider-webex" "messaging-provider-whatsapp" "messaging-provider-webchat")
 WASM_TOOLS_BIN="${WASM_TOOLS_BIN:-wasm-tools}"
 # Skip WASI preview 2 validation checks when requested.
 SKIP_WASM_TOOLS_VALIDATION="${SKIP_WASM_TOOLS_VALIDATION:-0}"
@@ -46,6 +46,10 @@ fi
 
 mkdir -p "${TARGET_DIR}"
 mkdir -p "${TARGET_DIR_OVERRIDE}"
+mkdir -p "${TARGET_DIR_OVERRIDE}/wasm32-wasip1/release/deps"
+mkdir -p "${TARGET_DIR_OVERRIDE}/wasm32-wasip1/debug/deps"
+mkdir -p "${TARGET_DIR_OVERRIDE}/wasm32-wasip2/release/deps"
+mkdir -p "${TARGET_DIR_OVERRIDE}/wasm32-wasip2/debug/deps"
 
 for PACKAGE_NAME in "${PACKAGES[@]}"; do
   ARTIFACT_NAME="${PACKAGE_NAME//-/_}.wasm"

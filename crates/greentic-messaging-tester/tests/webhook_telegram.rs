@@ -17,10 +17,7 @@ fn webhook_telegram_dry_run() -> Result<(), Box<dyn std::error::Error>> {
         .arg("--dry-run");
     let output = cmd.assert().success().get_output().stdout.clone();
     let parsed: Value = serde_json::from_slice(&output)?;
-    assert_eq!(
-        parsed["expected_url"],
-        "https://example.test/webhooks/telegram"
-    );
+    assert_eq!(parsed["expected_url"], "https://example.test");
     assert!(parsed["set_skipped_dry_run"].as_bool().unwrap_or(false));
     Ok(())
 }

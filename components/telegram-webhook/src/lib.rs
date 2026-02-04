@@ -17,7 +17,7 @@ use bindings::greentic::http::client;
 use bindings::greentic::secrets_store::secrets_store;
 
 const DEFAULT_API_BASE: &str = "https://api.telegram.org";
-const DEFAULT_WEBHOOK_PATH: &str = "/webhooks/telegram";
+const DEFAULT_WEBHOOK_PATH: &str = "";
 const TOKEN_SECRET: &str = "TELEGRAM_BOT_TOKEN";
 
 #[derive(Deserialize)]

@@ -202,11 +202,13 @@ fn build_exec_ctx() -> component_node_bindings::ExecCtx {
             team: None,
             user: None,
             trace_id: None,
+            i18n_id: None,
             correlation_id: None,
             deadline_unix_ms: None,
             attempt: 0,
             idempotency_key: None,
         },
+        i18n_id: None,
         flow_id: "manual".into(),
         node_id: None,
     }
