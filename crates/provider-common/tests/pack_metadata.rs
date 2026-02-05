@@ -207,6 +207,7 @@ fn build_dummy_pack() -> Result<(tempfile::TempDir, PathBuf)> {
     let pack_src = root.join("packs").join("messaging-dummy");
     let pack_dir = temp.path().join("messaging-dummy");
     copy_dir(&pack_src, &pack_dir)?;
+    remove_flow_resolve_files(&pack_dir);
 
     if !use_online_pack_build() {
         let pack_yaml = pack_dir.join("pack.yaml");
@@ -255,6 +256,26 @@ fn build_dummy_pack() -> Result<(tempfile::TempDir, PathBuf)> {
     );
 
     Ok((temp, gtpack_path))
+}
+
+fn remove_flow_resolve_files(pack_dir: &Path) {
+    let flows_dir = pack_dir.join("flows");
+    let entries = match fs::read_dir(&flows_dir) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+            continue;
+        };
+        if name.ends_with(".resolve.json") || name.ends_with(".resolve.summary.json") {
+            let _ = fs::remove_file(path);
+        }
+    }
 }
 
 fn manifest_components(manifest_path: &Path) -> Result<Vec<String>> {
