@@ -207,6 +207,7 @@ fn build_dummy_pack() -> Result<(tempfile::TempDir, PathBuf)> {
     let pack_src = root.join("packs").join("messaging-dummy");
     let pack_dir = temp.path().join("messaging-dummy");
     copy_dir(&pack_src, &pack_dir)?;
+    stage_pack_components(temp.path(), &root)?;
     normalize_flow_resolve_paths(&pack_dir)?;
 
     if !use_online_pack_build() {
@@ -258,6 +259,18 @@ fn build_dummy_pack() -> Result<(tempfile::TempDir, PathBuf)> {
     Ok((temp, gtpack_path))
 }
 
+fn stage_pack_components(temp_root: &Path, workspace_root: &Path) -> Result<()> {
+    let components_dir = temp_root.join("components");
+    for name in ["templates", "questions", "provision"] {
+        let src = workspace_root.join("components").join(name);
+        if src.exists() {
+            let dest = components_dir.join(name);
+            copy_dir(&src, &dest)?;
+        }
+    }
+    Ok(())
+}
+
 fn normalize_flow_resolve_paths(pack_dir: &Path) -> Result<()> {
     let flows_dir = pack_dir.join("flows");
     let entries = match fs::read_dir(&flows_dir) {
@@ -274,7 +287,9 @@ fn normalize_flow_resolve_paths(pack_dir: &Path) -> Result<()> {
         };
         if name.ends_with(".resolve.json") || name.ends_with(".resolve.summary.json") {
             let contents = fs::read_to_string(&path)?;
-            let updated = contents.replace("file://../", "../");
+            let updated = contents
+                .replace("file://../components/", "components/")
+                .replace("../components/", "components/");
             if updated != contents {
                 fs::write(&path, updated)?;
             }
