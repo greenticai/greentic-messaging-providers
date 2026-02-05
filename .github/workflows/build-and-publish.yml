@@ -170,6 +170,28 @@ jobs:
         with:
           key: build-test-publish
 
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
+
+      - name: Install cargo-binstall
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
+
+      - name: Install cargo-component
+        run: |
+          if ! command -v cargo-component >/dev/null 2>&1; then
+            cargo binstall cargo-component --no-confirm --locked || cargo install cargo-component --locked
+          fi
+
+      - name: Install wasm32-wasip1 target
+        run: rustup target add wasm32-wasip1
+
       - name: Cargo test
         run: cargo test --workspace
 
