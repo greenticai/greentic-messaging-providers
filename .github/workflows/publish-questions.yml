@@ -32,9 +32,7 @@ jobs:
           if ! command -v cargo-binstall >/dev/null 2>&1; then
             cargo install cargo-binstall --locked
           fi
-          if ! command -v cargo-component >/dev/null 2>&1; then
-            cargo binstall cargo-component --no-confirm --locked || cargo install cargo-component --locked
-          fi
+          cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
 
       - name: Install oras
         uses: oras-project/setup-oras@v1

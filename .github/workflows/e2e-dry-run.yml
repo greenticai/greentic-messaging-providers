@@ -34,7 +34,7 @@ jobs:
         run: cargo install cargo-binstall --locked
 
       - name: Install cargo-component
-        run: cargo binstall cargo-component --no-confirm --locked
+        run: cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
 
       - name: Install packc (greentic-pack)
         env:
@@ -42,13 +42,13 @@ jobs:
         run: cargo binstall packc --version 0.4.31 --no-confirm --locked
 
       - name: Install greentic-flow
-        run: cargo binstall greentic-flow --no-confirm --locked
+        run: cargo binstall greentic-flow --force --no-confirm --locked || cargo install greentic-flow --force --locked
 
       - name: Install greentic-runner
-        run: cargo binstall greentic-runner --no-confirm --locked
+        run: cargo binstall greentic-runner --force --no-confirm --locked || cargo install greentic-runner --force --locked
 
       - name: Install greentic-component
-        run: cargo binstall greentic-component --no-confirm --locked
+        run: cargo binstall greentic-component --force --no-confirm --locked || cargo install greentic-component --force --locked
 
 
       - name: Build components

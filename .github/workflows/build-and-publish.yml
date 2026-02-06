@@ -51,37 +51,27 @@ jobs:
 
       - name: Install cargo-component
         run: |
-          if ! command -v cargo-component >/dev/null 2>&1; then
-            cargo binstall cargo-component --no-confirm --locked || cargo install cargo-component --locked
-          fi
+          cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
 
       - name: Install greentic-pack
         env:
           CARGO_NET_GIT_FETCH_WITH_CLI: "true"
         run: |
-          if ! command -v greentic-pack >/dev/null 2>&1; then
-            cargo binstall greentic-pack --no-confirm --locked || cargo install greentic-pack --locked
-          fi
+          cargo binstall greentic-pack --force --no-confirm --locked || cargo install greentic-pack --force --locked
           echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
           greentic-pack --version
 
       - name: Install greentic-flow
         run: |
-          if ! command -v greentic-flow >/dev/null 2>&1; then
-            cargo binstall greentic-flow --no-confirm --locked || cargo install greentic-flow --locked
-          fi
+          cargo binstall greentic-flow --force --no-confirm --locked || cargo install greentic-flow --force --locked
 
       - name: Install greentic-runner
         run: |
-          if ! command -v greentic-runner >/dev/null 2>&1; then
-            cargo binstall greentic-runner --no-confirm --locked || cargo install greentic-runner --locked
-          fi
+          cargo binstall greentic-runner --force --no-confirm --locked || cargo install greentic-runner --force --locked
 
       - name: Install greentic-component
         run: |
-          if ! command -v greentic-component >/dev/null 2>&1; then
-            cargo binstall greentic-component --no-confirm --locked || cargo install greentic-component --locked
-          fi
+          cargo binstall greentic-component --force --no-confirm --locked || cargo install greentic-component --force --locked
 
       - name: Install oras
         uses: oras-project/setup-oras@v1
@@ -185,9 +175,7 @@ jobs:
 
       - name: Install cargo-component
         run: |
-          if ! command -v cargo-component >/dev/null 2>&1; then
-            cargo binstall cargo-component --no-confirm --locked || cargo install cargo-component --locked
-          fi
+          cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
 
       - name: Install wasm32-wasip1 target
         run: rustup target add wasm32-wasip1
@@ -228,37 +216,27 @@ jobs:
 
       - name: Install cargo-component
         run: |
-          if ! command -v cargo-component >/dev/null 2>&1; then
-            cargo binstall cargo-component --no-confirm --locked || cargo install cargo-component --locked
-          fi
+          cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
 
       - name: Install greentic-pack
         env:
           CARGO_NET_GIT_FETCH_WITH_CLI: "true"
         run: |
-          if ! command -v greentic-pack >/dev/null 2>&1; then
-            cargo binstall greentic-pack --no-confirm --locked || cargo install greentic-pack --locked
-          fi
+          cargo binstall greentic-pack --force --no-confirm --locked || cargo install greentic-pack --force --locked
           echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
           greentic-pack --version
 
       - name: Install greentic-flow
         run: |
-          if ! command -v greentic-flow >/dev/null 2>&1; then
-            cargo binstall greentic-flow --no-confirm --locked || cargo install greentic-flow --locked
-          fi
+          cargo binstall greentic-flow --force --no-confirm --locked || cargo install greentic-flow --force --locked
 
       - name: Install greentic-runner
         run: |
-          if ! command -v greentic-runner >/dev/null 2>&1; then
-            cargo binstall greentic-runner --no-confirm --locked || cargo install greentic-runner --locked
-          fi
+          cargo binstall greentic-runner --force --no-confirm --locked || cargo install greentic-runner --force --locked
 
       - name: Install greentic-component
         run: |
-          if ! command -v greentic-component >/dev/null 2>&1; then
-            cargo binstall greentic-component --no-confirm --locked || cargo install greentic-component --locked
-          fi
+          cargo binstall greentic-component --force --no-confirm --locked || cargo install greentic-component --force --locked
 
       - name: Install oras
         uses: oras-project/setup-oras@v1
@@ -411,9 +389,7 @@ jobs:
         env:
           CARGO_NET_GIT_FETCH_WITH_CLI: "true"
         run: |
-          if ! command -v greentic-pack >/dev/null 2>&1; then
-            cargo binstall greentic-pack --no-confirm --locked || cargo install greentic-pack --locked
-          fi
+          cargo binstall greentic-pack --force --no-confirm --locked || cargo install greentic-pack --force --locked
           echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
           greentic-pack --version
 
