@@ -290,8 +290,35 @@ fn normalize_flow_resolve_paths(pack_dir: &Path) -> Result<()> {
             let updated = contents
                 .replace("file://../components/", "components/")
                 .replace("../components/", "components/");
-            if updated != contents {
-                fs::write(&path, updated)?;
+            let mut value: serde_json::Value =
+                serde_json::from_str(&updated).unwrap_or(serde_json::Value::Null);
+            if let Some(nodes) = value.get_mut("nodes").and_then(|v| v.as_object_mut()) {
+                for node in nodes.values_mut() {
+                    if let Some(obj) = node.as_object_mut() {
+                        let needs_component = obj
+                            .get("component")
+                            .and_then(|v| v.as_str())
+                            .is_none();
+                        if needs_component {
+                            if let Some(component_id) =
+                                obj.get("component_id").and_then(|v| v.as_str())
+                            {
+                                obj.insert(
+                                    "component".to_string(),
+                                    serde_json::Value::String(component_id.to_string()),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            let serialized = if value.is_null() {
+                updated
+            } else {
+                serde_json::to_string_pretty(&value)?
+            };
+            if serialized != contents {
+                fs::write(&path, serialized)?;
             }
         }
     }
