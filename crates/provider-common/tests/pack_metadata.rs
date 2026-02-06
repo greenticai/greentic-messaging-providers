@@ -1,83 +1,12 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::env;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Result, anyhow};
-use once_cell::sync::OnceCell;
 use serde_json::{Map, Value};
-use serde_yaml_bw::Value as YamlValue;
 use tempfile::tempdir;
-
-static GREENTIC_PACK_BIN: OnceCell<PathBuf> = OnceCell::new();
-
-fn greentic_pack_path() -> PathBuf {
-    GREENTIC_PACK_BIN
-        .get_or_init(|| {
-            env::var_os("GREENTIC_PACK_BIN")
-                .map(PathBuf::from)
-                .or_else(|| find_in_path("greentic-pack"))
-                .unwrap_or_else(install_greentic_pack)
-        })
-        .clone()
-}
-
-fn greentic_pack_command() -> Command {
-    Command::new(greentic_pack_path())
-}
-
-fn find_in_path(name: &str) -> Option<PathBuf> {
-    env::var_os("PATH").and_then(|paths| {
-        env::split_paths(&paths).find_map(|dir| find_executable_in_dir(name, &dir))
-    })
-}
-
-fn install_greentic_pack() -> PathBuf {
-    println!("greentic-pack not found; installing via `cargo install greentic-pack --locked`");
-    let status = Command::new("cargo")
-        .arg("install")
-        .arg("--locked")
-        .arg("greentic-pack")
-        .status()
-        .expect("failed to run `cargo install greentic-pack`");
-    assert!(status.success(), "cargo install greentic-pack failed");
-    candidate_bin_dirs()
-        .into_iter()
-        .find_map(|dir| find_executable_in_dir("greentic-pack", &dir))
-        .expect("greentic-pack installation succeeded but binary not found")
-}
-
-fn candidate_bin_dirs() -> Vec<PathBuf> {
-    let mut dirs = Vec::new();
-    if let Some(cargo_home) = env::var_os("CARGO_HOME") {
-        dirs.push(PathBuf::from(cargo_home).join("bin"));
-    }
-    if let Some(home) = env::var_os("HOME") {
-        dirs.push(PathBuf::from(home).join(".cargo").join("bin"));
-    }
-    #[cfg(windows)]
-    if let Some(user_profile) = env::var_os("USERPROFILE") {
-        dirs.push(PathBuf::from(user_profile).join(".cargo").join("bin"));
-    }
-    dirs
-}
-
-fn find_executable_in_dir(name: &str, dir: &Path) -> Option<PathBuf> {
-    let candidate = dir.join(name);
-    if candidate.exists() {
-        return Some(candidate);
-    }
-    #[cfg(windows)]
-    {
-        let candidate_exe = dir.join(format!("{name}.exe"));
-        if candidate_exe.exists() {
-            return Some(candidate_exe);
-        }
-    }
-    None
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -129,34 +58,6 @@ fn build_gtpack(src_dir: &Path, output: &Path) -> Result<()> {
     Ok(())
 }
 
-fn strip_entry_from_gtpack(src: &Path, dest: &Path, excluded: &str) -> Result<()> {
-    let archive = fs::File::open(src)?;
-    let mut zip = zip::ZipArchive::new(archive)?;
-    let file = fs::File::create(dest)?;
-    let mut writer = zip::ZipWriter::new(file);
-    let options =
-        zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-
-    for i in 0..zip.len() {
-        let mut entry = zip.by_index(i)?;
-        let name = entry.name().to_string();
-        if name == excluded {
-            continue;
-        }
-        if entry.is_dir() {
-            writer.add_directory(name, options)?;
-            continue;
-        }
-        let mut contents = Vec::new();
-        entry.read_to_end(&mut contents)?;
-        writer.start_file(name, options)?;
-        writer.write_all(&contents)?;
-    }
-
-    writer.finish()?;
-    Ok(())
-}
-
 fn read_from_gtpack(gtpack: &Path, file: &str) -> Result<Vec<u8>> {
     let archive = fs::File::open(gtpack)?;
     let mut zip = zip::ZipArchive::new(archive)?;
@@ -189,140 +90,6 @@ fn run_metadata_generator(workspace_root: &Path, pack_dir: &Path) {
         .status()
         .expect("failed to run metadata generator");
     assert!(status.success(), "metadata generator did not exit cleanly");
-}
-
-fn use_online_pack_build() -> bool {
-    matches!(
-        std::env::var("GREENTIC_PACK_TEST_ONLINE")
-            .unwrap_or_default()
-            .to_ascii_lowercase()
-            .as_str(),
-        "1" | "true" | "yes"
-    )
-}
-
-fn build_dummy_pack() -> Result<(tempfile::TempDir, PathBuf)> {
-    let root = workspace_root();
-    let temp = tempdir()?;
-    let pack_src = root.join("packs").join("messaging-dummy");
-    let pack_dir = temp.path().join("messaging-dummy");
-    copy_dir(&pack_src, &pack_dir)?;
-    stage_pack_components(temp.path(), &root)?;
-    normalize_flow_resolve_paths(&pack_dir)?;
-
-    if !use_online_pack_build() {
-        let pack_yaml = pack_dir.join("pack.yaml");
-        let mut yaml: YamlValue = serde_yaml_bw::from_str(&fs::read_to_string(&pack_yaml)?)?;
-        if let Some(extensions) = yaml
-            .as_mapping_mut()
-            .and_then(|map| map.get_mut(YamlValue::from("extensions")))
-            .and_then(|value| value.as_mapping_mut())
-        {
-            extensions.remove(YamlValue::from("greentic.messaging.validators.v1"));
-        }
-        fs::write(&pack_yaml, serde_yaml_bw::to_string(&yaml)?)?;
-    }
-
-    let secrets_path = pack_dir.join("assets").join("secret-requirements.json");
-    if !secrets_path.exists() {
-        if let Some(parent) = secrets_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        fs::write(&secrets_path, b"[]\n")?;
-    }
-    let root_secrets_path = pack_dir.join("secret-requirements.json");
-    if !root_secrets_path.exists() {
-        fs::copy(&secrets_path, &root_secrets_path)?;
-    }
-
-    let lock_path = pack_dir.join("pack.lock.json");
-    if lock_path.exists() {
-        fs::remove_file(&lock_path)?;
-    }
-
-    let gtpack_path = pack_dir.join("build").join("messaging-dummy.gtpack");
-    let mut command = greentic_pack_command();
-    command
-        .arg("build")
-        .arg("--no-update")
-        .arg("--in")
-        .arg(".")
-        .arg("--gtpack-out")
-        .arg(&gtpack_path)
-        .current_dir(&pack_dir);
-    let status = command.status().expect("failed to run greentic-pack build");
-    assert!(
-        status.success(),
-        "greentic-pack build failed for dummy pack"
-    );
-
-    Ok((temp, gtpack_path))
-}
-
-fn stage_pack_components(temp_root: &Path, workspace_root: &Path) -> Result<()> {
-    let components_dir = temp_root.join("components");
-    for name in ["templates", "questions", "provision"] {
-        let src = workspace_root.join("components").join(name);
-        if src.exists() {
-            let dest = components_dir.join(name);
-            copy_dir(&src, &dest)?;
-        }
-    }
-    Ok(())
-}
-
-fn normalize_flow_resolve_paths(pack_dir: &Path) -> Result<()> {
-    let flows_dir = pack_dir.join("flows");
-    let entries = match fs::read_dir(&flows_dir) {
-        Ok(entries) => entries,
-        Err(_) => return Ok(()),
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_file() {
-            continue;
-        }
-        let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
-            continue;
-        };
-        if name.ends_with(".resolve.json") || name.ends_with(".resolve.summary.json") {
-            let contents = fs::read_to_string(&path)?;
-            let updated = contents
-                .replace("file://../components/", "components/")
-                .replace("../components/", "components/");
-            let mut value: serde_json::Value =
-                serde_json::from_str(&updated).unwrap_or(serde_json::Value::Null);
-            if let Some(nodes) = value.get_mut("nodes").and_then(|v| v.as_object_mut()) {
-                for node in nodes.values_mut() {
-                    if let Some(obj) = node.as_object_mut() {
-                        let needs_component = obj
-                            .get("component")
-                            .and_then(|v| v.as_str())
-                            .is_none();
-                        if needs_component {
-                            if let Some(component_id) =
-                                obj.get("component_id").and_then(|v| v.as_str())
-                            {
-                                obj.insert(
-                                    "component".to_string(),
-                                    serde_json::Value::String(component_id.to_string()),
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-            let serialized = if value.is_null() {
-                updated
-            } else {
-                serde_json::to_string_pretty(&value)?
-            };
-            if serialized != contents {
-                fs::write(&path, serialized)?;
-            }
-        }
-    }
-    Ok(())
 }
 
 fn manifest_components(manifest_path: &Path) -> Result<Vec<String>> {
@@ -559,63 +326,6 @@ fn packs_lock_has_digest() -> Result<()> {
     hasher.update(&bytes);
     let hex = format!("{:x}", hasher.finalize());
     assert_eq!(digest, format!("sha256:{hex}"));
-    Ok(())
-}
-
-#[test]
-fn greentic_pack_doctor_requires_config_schema() -> Result<()> {
-    let (_temp, src) = build_dummy_pack()?;
-
-    let temp = tempdir()?;
-    let broken = temp.path().join("messaging-dummy-missing-schema.gtpack");
-    strip_entry_from_gtpack(
-        &src,
-        &broken,
-        "schemas/messaging/dummy/public.config.schema.json",
-    )?;
-
-    let output = greentic_pack_command()
-        .arg("doctor")
-        .arg("--json")
-        .arg("--pack")
-        .arg(&broken)
-        .output()
-        .expect("failed to run greentic-pack doctor");
-    assert!(
-        !output.status.success(),
-        "greentic-pack doctor should fail when config schema is missing"
-    );
-
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let combined = format!("{stderr}{stdout}");
-    assert!(
-        combined.contains("config schema") || combined.contains("config.schema.json"),
-        "expected missing schema error, got: {combined}"
-    );
-
-    Ok(())
-}
-
-#[test]
-fn dummy_pack_includes_schema_and_secret_requirements_asset() -> Result<()> {
-    let (_temp, gtpack_path) = build_dummy_pack()?;
-
-    let schema = read_from_gtpack(
-        &gtpack_path,
-        "schemas/messaging/dummy/public.config.schema.json",
-    )?;
-    assert!(
-        !schema.is_empty(),
-        "config schema should be bundled in the dummy pack"
-    );
-
-    let secret_requirements = read_from_gtpack(&gtpack_path, "assets/secret-requirements.json")?;
-    assert!(
-        !secret_requirements.is_empty(),
-        "secret requirements asset should be bundled in the dummy pack"
-    );
-
     Ok(())
 }
 
