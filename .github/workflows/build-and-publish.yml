@@ -115,7 +115,7 @@ jobs:
           cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
 
       - name: Step 03 - Build components
-        run: ./ci/steps/03_build_components.sh
+        run: BUILD_COMPONENTS_JOBS="$(nproc)" ./ci/steps/03_build_components.sh
 
       - name: Upload component artifacts
         uses: actions/upload-artifact@v4
