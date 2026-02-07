@@ -32,6 +32,13 @@ jobs:
         with:
           key: build-test-publish
 
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
+
       - name: Step 01 - Cargo fmt
         run: ./ci/steps/01_fmt.sh
 
@@ -51,6 +58,13 @@ jobs:
         with:
           key: build-test-publish
 
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
+
       - name: Step 02 - Cargo clippy
         run: ./ci/steps/02_clippy.sh
 
@@ -69,6 +83,13 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: build-test-publish
+
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
 
       - name: Step 05 - Check component operation schemas
         run: ./ci/steps/05_check_op_schemas.sh
@@ -141,7 +162,26 @@ jobs:
         run: |
           cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
 
+      - name: Cache component wasm
+        id: cache-component
+        uses: actions/cache@v4
+        with:
+          path: target/components/${{ matrix.component }}.wasm
+          key: component-wasm-${{ matrix.component }}-${{ runner.os }}-${{ hashFiles(
+            format('components/{0}/**', matrix.component),
+            'crates/**',
+            'components/**',
+            'wit/**',
+            'Cargo.toml',
+            'Cargo.lock',
+            'rust-toolchain.toml',
+            'tools/build_component_env.sh',
+            'tools/build_component_one.sh',
+            'tools/build_components/**'
+          ) }}
+
       - name: Step 03 - Build components
+        if: steps.cache-component.outputs.cache-hit != 'true'
         run: bash "./tools/build_components/${{ matrix.component }}.sh"
 
       - name: Upload component artifacts
@@ -184,6 +224,13 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: build-test-publish
+
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
 
       - name: Step 06 - Generate flows
         run: ./ci/steps/06_gen_flows.sh
