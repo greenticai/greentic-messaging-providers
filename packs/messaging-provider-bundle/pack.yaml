@@ -1,0 +1,53 @@
+pack_id: messaging-provider-bundle
+version: 0.4.33
+kind: application
+publisher: Greentic
+components:
+- id: templates
+  version: 0.4.33
+  world: greentic:component/component@0.5.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/templates.wasm
+- id: messaging-provider-dummy
+  version: 0.4.33
+  world: greentic:provider/schema-core@1.0.0
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/messaging-provider-dummy.wasm
+extensions:
+  greentic.provider-extension.v1:
+    kind: greentic.provider-extension.v1
+    version: 0.4.33
+    inline:
+      providers:
+      - provider_type: messaging.provider.bundle
+        capabilities:
+        - messaging
+        ops:
+        - noop
+        config_schema_ref: schemas/messaging/bundle/public.config.schema.json
+        state_schema_ref: ""
+        runtime:
+          component_ref: messaging-provider-dummy
+          export: schema-core-api
+          world: greentic:provider/schema-core@1.0.0
+        docs_ref: ""

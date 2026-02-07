@@ -4,6 +4,7 @@ For THIS REPOSITORY, you must ALWAYS:
 
 1. Maintain `.codex/repo_overview.md` using the “Repo Overview Maintenance” routine BEFORE starting any new PR and AFTER finishing it.
 2. Run `ci/local_check.sh` at the end of your work and ensure it passes, or explain precisely why it cannot be made to pass as part of this PR.
+   - If a single step fails, re-run only the corresponding step script under `ci/steps/` to iterate quickly, then run the full `ci/local_check.sh` once all step failures are fixed.
 3. Prefer using existing Greentic repos/crates (interfaces, types, secrets, oauth, messaging, events, etc.) instead of reinventing types, interfaces, or behaviour locally.
 
 Treat these as built-in prerequisites and finalisation steps for ALL work in this repo.
@@ -63,6 +64,7 @@ Whenever I ask you to implement a change, feature, refactor, or bugfix (i.e. PR-
   - Run the Repo Overview Maintenance routine,
   - Run `ci/local_check.sh`,
   - Or reuse existing Greentic crates. These are always required unless I explicitly say otherwise for a specific task.
+- When `ci/local_check.sh` fails partway through, report the failing step and re-run only that step script under `ci/steps/` (for example `./ci/steps/06_gen_flows.sh`) until it passes; then re-run `ci/local_check.sh` at the end.
 - Never leave `.codex/repo_overview.md` in a partially updated or obviously inconsistent state.
 - Never introduce new core types or interfaces that duplicate what exists in shared Greentic crates without a strong, documented justification.
 - If the build/test/CI commands are unclear and you cannot infer them from the repo (README, CI config, `ci/` scripts, etc.), ask a concise question; otherwise, proceed autonomously.

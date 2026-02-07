@@ -31,10 +31,10 @@ serde_json = "1"
 hmac = "0.12"
 sha2 = "0.10"
 urlencoding = "2"
-greentic-interfaces-wasmtime = "0.4"
-greentic-types = "0.4"
-greentic-interfaces = "0.4"
-greentic-interfaces-guest = { version = "0.4", default-features = false }
+greentic-interfaces-wasmtime = "0.4.89"
+greentic-types = "0.4.48"
+greentic-interfaces = "0.4.89"
+greentic-interfaces-guest = { version = "0.4.89", default-features = false }
 anyhow = "1"
 uuid = { version = "1", features = ["v4"] }
 tempfile = "3"

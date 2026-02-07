@@ -84,5 +84,6 @@ for PACKAGE_NAME in "${PACKAGES[@]}"; do
   echo "Built ${TARGET_DIR}/${PACKAGE_NAME}.wasm"
 done
 
-# Clean nested target triples produced by cargo-component to keep output tidy.
-rm -rf "${TARGET_DIR_OVERRIDE}/wasm32-wasip2" || true
+# Note: do not delete nested target triples here. This script is invoked from
+# multiple test binaries in parallel, and deleting shared target directories can
+# race with active builds (leading to missing .fingerprint files).

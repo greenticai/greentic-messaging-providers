@@ -256,6 +256,10 @@ read_components() {
 for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   [ -d "${dir}" ] || continue
   pack_name="$(basename "${dir}")"
+  if [ "${pack_name}" = "messaging-provider-bundle" ]; then
+    echo "Skipping deprecated pack ${pack_name}"
+    continue
+  fi
   pack_out_rel="${OUT_DIR}/${pack_name}.gtpack"
   pack_out="${ROOT_DIR}/${pack_out_rel}"
   secrets_out="${dir}/.secret_requirements.json"
@@ -442,8 +446,8 @@ done
 
 bundle_pack="${ROOT_DIR}/${OUT_DIR}/messaging-provider-bundle.gtpack"
 if [ -f "${bundle_pack}" ]; then
-  echo "messaging-provider-bundle pack is no longer supported; remove ${bundle_pack}" >&2
-  exit 1
+  echo "Removing deprecated pack artifact ${bundle_pack}"
+  rm -f "${bundle_pack}"
 fi
 
 if compgen -G "${ROOT_DIR}/${OUT_DIR}/messaging-*.gtpack" >/dev/null; then
