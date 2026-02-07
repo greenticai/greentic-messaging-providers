@@ -684,18 +684,19 @@ fn find_wasm_path(provider: &str) -> Result<PathBuf> {
     }
     let root = workspace_root();
     let provider_dir = root.join(format!("components/messaging-provider-{provider}"));
-    let mut candidates = Vec::new();
+    let mut component_candidates = Vec::new();
+    let mut dist_candidates = Vec::new();
     let dist_wasm = root
         .join("dist/wasms")
         .join(format!("messaging-provider-{provider}.wasm"));
     if dist_wasm.exists() {
-        candidates.push(dist_wasm);
+        dist_candidates.push(dist_wasm);
     }
     if let Ok(dist_entries) = fs::read_dir(provider_dir.join("dist")) {
         for entry in dist_entries.flatten() {
             let path = entry.path();
             if path.extension().and_then(|e| e.to_str()) == Some("wasm") {
-                candidates.push(path);
+                dist_candidates.push(path);
             }
         }
     }
@@ -703,30 +704,23 @@ fn find_wasm_path(provider: &str) -> Result<PathBuf> {
         "target/components/messaging-provider-{provider}.wasm"
     ));
     if builtin.exists() {
-        candidates.push(builtin);
+        component_candidates.push(builtin);
     }
     for suffix in ["release", "debug"] {
         let path = provider_dir.join(format!(
             "target/wasm32-wasip2/{suffix}/messaging-provider-{provider}.wasm"
         ));
         if path.exists() {
-            candidates.push(path);
+            component_candidates.push(path);
         }
     }
-    let mut best: Option<(PathBuf, SystemTime)> = None;
-    for candidate in candidates {
-        if let Ok(metadata) = fs::metadata(&candidate) {
-            let mtime = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
-            if best
-                .as_ref()
-                .is_none_or(|(_, best_time)| mtime > *best_time)
-            {
-                best = Some((candidate, mtime));
-            }
-        }
+    if let Some(path) = latest_candidate(&component_candidates) {
+        return Ok(path);
     }
-    best.map(|(path, _)| path)
-        .ok_or_else(|| anyhow!("no wasm component found for {}", provider))
+    if let Some(path) = latest_candidate(&dist_candidates) {
+        return Ok(path);
+    }
+    Err(anyhow!("no wasm component found for {}", provider))
 }
 
 pub fn find_component_wasm_path(component: &str) -> Result<PathBuf> {
@@ -740,15 +734,16 @@ pub fn find_component_wasm_path(component: &str) -> Result<PathBuf> {
         }
     }
 
-    let mut fallback_candidates = Vec::new();
+    let mut component_candidates = Vec::new();
+    let mut dist_candidates = Vec::new();
     for name in wasm_name_variants(component) {
         add_candidate_if_exists(
-            &mut fallback_candidates,
-            root.join("dist/wasms").join(format!("{name}.wasm")),
+            &mut component_candidates,
+            root.join("target/components").join(format!("{name}.wasm")),
         );
         add_candidate_if_exists(
-            &mut fallback_candidates,
-            root.join("target/components").join(format!("{name}.wasm")),
+            &mut dist_candidates,
+            root.join("dist/wasms").join(format!("{name}.wasm")),
         );
     }
 
@@ -756,12 +751,15 @@ pub fn find_component_wasm_path(component: &str) -> Result<PathBuf> {
         for entry in dist_entries.flatten() {
             let path = entry.path();
             if path.extension().and_then(|e| e.to_str()) == Some("wasm") {
-                add_candidate_if_exists(&mut fallback_candidates, path);
+                add_candidate_if_exists(&mut dist_candidates, path);
             }
         }
     }
 
-    if let Some(path) = latest_candidate(&fallback_candidates) {
+    if let Some(path) = latest_candidate(&component_candidates) {
+        return Ok(path);
+    }
+    if let Some(path) = latest_candidate(&dist_candidates) {
         return Ok(path);
     }
 
