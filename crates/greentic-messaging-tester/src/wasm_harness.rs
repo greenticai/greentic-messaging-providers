@@ -210,15 +210,25 @@ impl ComponentHarness {
 fn build_exec_ctx() -> component_node_bindings::ExecCtx {
     component_node_bindings::ExecCtx {
         tenant: component_node_bindings::TenantCtx {
+            env: "manual".into(),
             tenant: "manual".into(),
+            tenant_id: "manual".into(),
             team: None,
+            team_id: None,
             user: None,
+            user_id: None,
             trace_id: None,
             i18n_id: None,
             correlation_id: None,
-            deadline_unix_ms: None,
+            attributes: Vec::new(),
+            session_id: None,
+            flow_id: None,
+            node_id: None,
+            provider_id: None,
+            deadline_ms: None,
             attempt: 0,
             idempotency_key: None,
+            impersonation: None,
         },
         i18n_id: None,
         flow_id: "manual".into(),
@@ -722,7 +732,7 @@ fn find_wasm_path(provider: &str) -> Result<PathBuf> {
 pub fn find_component_wasm_path(component: &str) -> Result<PathBuf> {
     let root = workspace_root();
     let component_dir = root.join("components").join(component);
-    let target_priority = ["wasm32-wasip2"];
+    let target_priority = ["wasm32-wasip2", "wasm32-wasip1"];
 
     for target in target_priority {
         if let Some(path) = best_target_candidate(&root, &component_dir, component, target) {
@@ -955,6 +965,7 @@ mod tests {
             .join("target/components")
             .join(format!("{package}.wasm"));
         if !wasm_path.exists() {
+            remove_stale_component_artifacts(&root, package);
             eprintln!(
                 "component build missing: package={} wasm_path={}",
                 package,
@@ -999,6 +1010,48 @@ mod tests {
             }
         }
         find_component_wasm_path(package).expect("wasm component should exist after build")
+    }
+
+    fn remove_stale_component_artifacts(root: &Path, package: &str) {
+        let component_dir = root.join("components").join(package);
+        let targets = ["wasm32-wasip1", "wasm32-wasip2"];
+        let suffixes = ["debug", "release"];
+        let mut paths = Vec::new();
+        for target in targets {
+            for suffix in suffixes {
+                for name in wasm_name_variants(package) {
+                    paths.push(
+                        root.join("target")
+                            .join(target)
+                            .join(suffix)
+                            .join(format!("{name}.wasm")),
+                    );
+                    paths.push(
+                        root.join("target")
+                            .join("components")
+                            .join(target)
+                            .join(suffix)
+                            .join(format!("{name}.wasm")),
+                    );
+                    paths.push(
+                        component_dir
+                            .join("target")
+                            .join(target)
+                            .join(suffix)
+                            .join(format!("{name}.wasm")),
+                    );
+                }
+            }
+        }
+        paths.push(
+            root.join("target/components")
+                .join(format!("{package}.wasm")),
+        );
+        for path in paths {
+            if path.exists() {
+                let _ = std::fs::remove_file(&path);
+            }
+        }
     }
 
     fn build_test_envelope(channel: &str) -> ChannelMessageEnvelope {
