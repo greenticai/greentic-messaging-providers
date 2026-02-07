@@ -83,6 +83,29 @@ fn stage_templates_component(workspace_root: &Path, pack_dir: &Path) -> Result<(
         }
     }
 
+    let flows_dir = pack_dir.join("flows");
+    if let Ok(entries) = fs::read_dir(&flows_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+                continue;
+            };
+            if !name.ends_with(".resolve.json") && !name.ends_with(".resolve.summary.json") {
+                continue;
+            }
+            let contents = fs::read_to_string(&path)?;
+            let updated = contents
+                .replace("file://../components/templates/", "components/templates/")
+                .replace("../components/templates/", "components/templates/");
+            if updated != contents {
+                fs::write(&path, updated)?;
+            }
+        }
+    }
+
     Ok(())
 }
 
