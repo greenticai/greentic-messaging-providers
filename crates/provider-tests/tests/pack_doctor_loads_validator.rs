@@ -61,23 +61,30 @@ fn run_metadata_generator(workspace_root: &Path, pack_dir: &Path) -> Result<()> 
     Ok(())
 }
 
-fn stage_templates_component(workspace_root: &Path, pack_dir: &Path) -> Result<()> {
-    let src = workspace_root.join("components").join("templates");
-    if !src.exists() {
-        return Ok(());
+fn stage_pack_components(workspace_root: &Path, pack_dir: &Path) -> Result<()> {
+    let components_root = workspace_root.join("components");
+    let component_names = ["templates", "provision", "questions"];
+    for name in component_names {
+        let src = components_root.join(name);
+        if !src.exists() {
+            continue;
+        }
+        let dest = pack_dir.join("components").join(name);
+        copy_dir(&src, &dest)?;
     }
-    let dest = pack_dir.join("components").join("templates");
-    copy_dir(&src, &dest)?;
 
     let pack_yaml = pack_dir.join("pack.yaml");
     if pack_yaml.exists() {
         let contents = fs::read_to_string(&pack_yaml)?;
-        let updated = contents
-            .replace(
-                "file://../components/templates/",
-                "file://components/templates/",
-            )
-            .replace("../components/templates/", "components/templates/");
+        let mut updated = contents.clone();
+        for name in component_names {
+            let from_file = format!("file://../components/{name}/");
+            let to_file = format!("file://components/{name}/");
+            updated = updated.replace(&from_file, &to_file);
+            let from_rel = format!("../components/{name}/");
+            let to_rel = format!("components/{name}/");
+            updated = updated.replace(&from_rel, &to_rel);
+        }
         if updated != contents {
             fs::write(&pack_yaml, updated)?;
         }
@@ -97,9 +104,15 @@ fn stage_templates_component(workspace_root: &Path, pack_dir: &Path) -> Result<(
                 continue;
             }
             let contents = fs::read_to_string(&path)?;
-            let updated = contents
-                .replace("file://../components/templates/", "components/templates/")
-                .replace("../components/templates/", "components/templates/");
+            let mut updated = contents.clone();
+            for component in component_names {
+                let from_file = format!("file://../components/{component}/");
+                let to_file = format!("components/{component}/");
+                updated = updated.replace(&from_file, &to_file);
+                let from_rel = format!("../components/{component}/");
+                let to_rel = format!("components/{component}/");
+                updated = updated.replace(&from_rel, &to_rel);
+            }
             if updated != contents {
                 fs::write(&path, updated)?;
             }
@@ -183,7 +196,7 @@ fn pack_doctor_loads_validator() -> Result<()> {
             .as_nanos()
     ));
     copy_dir(&pack_src, &temp_dir)?;
-    stage_templates_component(&root, &temp_dir)?;
+    stage_pack_components(&root, &temp_dir)?;
 
     let lock_path = temp_dir.join("pack.lock.json");
     if lock_path.exists() {
@@ -252,7 +265,7 @@ fn pack_doctor_skips_validator_without_extension() -> Result<()> {
             .as_nanos()
     ));
     copy_dir(&pack_src, &temp_dir)?;
-    stage_templates_component(&root, &temp_dir)?;
+    stage_pack_components(&root, &temp_dir)?;
 
     let lock_path = temp_dir.join("pack.lock.json");
     if lock_path.exists() {
