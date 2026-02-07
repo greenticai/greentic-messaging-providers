@@ -61,6 +61,18 @@ fn run_metadata_generator(workspace_root: &Path, pack_dir: &Path) -> Result<()> 
     Ok(())
 }
 
+fn stage_templates_component(workspace_root: &Path, pack_dir: &Path) -> Result<()> {
+    let src = workspace_root
+        .join("components")
+        .join("templates");
+    if !src.exists() {
+        return Ok(());
+    }
+    let dest = pack_dir.join("components").join("templates");
+    copy_dir(&src, &dest)?;
+    Ok(())
+}
+
 fn remove_validator_extension(path: &Path) -> Result<()> {
     let contents = fs::read_to_string(path)?;
     let mut out = Vec::new();
@@ -135,6 +147,7 @@ fn pack_doctor_loads_validator() -> Result<()> {
             .as_nanos()
     ));
     copy_dir(&pack_src, &temp_dir)?;
+    stage_templates_component(&root, &temp_dir)?;
 
     let lock_path = temp_dir.join("pack.lock.json");
     if lock_path.exists() {
@@ -203,6 +216,7 @@ fn pack_doctor_skips_validator_without_extension() -> Result<()> {
             .as_nanos()
     ));
     copy_dir(&pack_src, &temp_dir)?;
+    stage_templates_component(&root, &temp_dir)?;
 
     let lock_path = temp_dir.join("pack.lock.json");
     if lock_path.exists() {
