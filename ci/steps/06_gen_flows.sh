@@ -12,4 +12,12 @@ if ! command -v greentic-pack >/dev/null 2>&1; then
   echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH:-/dev/null}" || true
 fi
 
+if ! command -v greentic-flow >/dev/null 2>&1; then
+  if ! command -v cargo-binstall >/dev/null 2>&1; then
+    cargo install cargo-binstall --locked
+  fi
+  cargo binstall greentic-flow --force --no-confirm --locked || cargo install greentic-flow --force --locked
+  echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH:-/dev/null}" || true
+fi
+
 ./ci/gen_flows.sh
