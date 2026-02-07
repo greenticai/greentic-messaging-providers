@@ -62,9 +62,7 @@ fn run_metadata_generator(workspace_root: &Path, pack_dir: &Path) -> Result<()> 
 }
 
 fn stage_templates_component(workspace_root: &Path, pack_dir: &Path) -> Result<()> {
-    let src = workspace_root
-        .join("components")
-        .join("templates");
+    let src = workspace_root.join("components").join("templates");
     if !src.exists() {
         return Ok(());
     }
