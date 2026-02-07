@@ -15,8 +15,15 @@ if [ ! -f "${questions_wasm}" ]; then
   if [ -f "${ROOT_DIR}/target/components/questions.wasm" ]; then
     questions_wasm="${ROOT_DIR}/target/components/questions.wasm"
   else
-    echo "Questions component wasm missing; build it with tools/build_components/questions.sh" >&2
-    exit 1
+    if [ -x "${ROOT_DIR}/tools/build_components/questions.sh" ]; then
+      bash "${ROOT_DIR}/tools/build_components/questions.sh"
+    fi
+    if [ -f "${ROOT_DIR}/target/components/questions.wasm" ]; then
+      questions_wasm="${ROOT_DIR}/target/components/questions.wasm"
+    else
+      echo "Questions component wasm missing; build it with tools/build_components/questions.sh" >&2
+      exit 1
+    fi
   fi
 fi
 cp "${questions_wasm}" "${tmpdir}/questions.wasm"
