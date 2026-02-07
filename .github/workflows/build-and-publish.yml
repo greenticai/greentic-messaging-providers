@@ -75,11 +75,38 @@ jobs:
 
   build-components:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        component:
+          - provision
+          - questions
+          - secrets-probe
+          - slack
+          - teams
+          - telegram
+          - webchat
+          - webex
+          - webex-webhook
+          - whatsapp
+          - messaging-ingress-slack
+          - messaging-ingress-teams
+          - messaging-ingress-telegram
+          - messaging-ingress-whatsapp
+          - messaging-provider-dummy
+          - messaging-provider-telegram
+          - messaging-provider-teams
+          - messaging-provider-email
+          - messaging-provider-slack
+          - messaging-provider-webex
+          - messaging-provider-whatsapp
+          - messaging-provider-webchat
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Lint for legacy HTTP imports
+        if: matrix.component == 'provision'
         run: |
           if rg -n 'greentic:http/http-client@' components/ -S; then
             echo "legacy greentic:http/http-client@ import still present in components/"
@@ -115,13 +142,13 @@ jobs:
           cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
 
       - name: Step 03 - Build components
-        run: BUILD_COMPONENTS_JOBS="$(nproc)" ./ci/steps/03_build_components.sh
+        run: bash "./tools/build_components/${{ matrix.component }}.sh"
 
       - name: Upload component artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: components-wasm
-          path: target/components/*.wasm
+          name: components-wasm-${{ matrix.component }}
+          path: target/components/${{ matrix.component }}.wasm
           if-no-files-found: error
 
   ensure-templates:
@@ -134,8 +161,9 @@ jobs:
       - name: Download component artifacts
         uses: actions/download-artifact@v4
         with:
-          name: components-wasm
+          pattern: components-wasm-*
           path: target/components
+          merge-multiple: true
 
       - name: Step 04 - Ensure templates are staged in packs
         run: ./ci/steps/04_ensure_templates.sh
@@ -193,8 +221,9 @@ jobs:
       - name: Download component artifacts
         uses: actions/download-artifact@v4
         with:
-          name: components-wasm
+          pattern: components-wasm-*
           path: target/components
+          merge-multiple: true
 
       - name: Step 07 - Sync packs
         run: ./ci/steps/07_sync_packs.sh
@@ -328,8 +357,9 @@ jobs:
       - name: Download component artifacts
         uses: actions/download-artifact@v4
         with:
-          name: components-wasm
+          pattern: components-wasm-*
           path: target/components
+          merge-multiple: true
 
       - name: Step 11 - Build packs
         run: ./ci/steps/11_build_packs.sh
@@ -361,6 +391,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
+          targets: wasm32-wasip2
           components: rustfmt, clippy
 
       - name: Cache Rust
@@ -385,14 +416,12 @@ jobs:
         run: |
           cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
 
-      - name: Install wasm32-wasip1 target
-        run: rustup target add wasm32-wasip1
-
       - name: Download component artifacts
         uses: actions/download-artifact@v4
         with:
-          name: components-wasm
+          pattern: components-wasm-*
           path: target/components
+          merge-multiple: true
 
       - name: Step 12 - Cargo tests
         env:
@@ -449,8 +478,9 @@ jobs:
       - name: Download component artifacts
         uses: actions/download-artifact@v4
         with:
-          name: components-wasm
+          pattern: components-wasm-*
           path: target/components
+          merge-multiple: true
 
       - name: Set publish version
         run: |

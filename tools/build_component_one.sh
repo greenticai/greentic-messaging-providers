@@ -12,11 +12,17 @@ source "$(dirname "${BASH_SOURCE[0]}")/build_component_env.sh"
 ARTIFACT_NAME="${PACKAGE_NAME//-/_}.wasm"
 ARTIFACT_PATH="${TARGET_DIR_OVERRIDE}/release/${ARTIFACT_NAME}"
 NESTED_ARTIFACT_PATH="${TARGET_DIR_OVERRIDE}/${BUILD_TARGET}/release/${ARTIFACT_NAME}"
+NESTED_WASIP1_PATH="${TARGET_DIR_OVERRIDE}/wasm32-wasip1/release/${ARTIFACT_NAME}"
 
 cargo component build --release --package "${PACKAGE_NAME}" --target "${BUILD_TARGET}" --target-dir "${TARGET_DIR_OVERRIDE}"
 
 if [ ! -f "${ARTIFACT_PATH}" ] && [ -f "${NESTED_ARTIFACT_PATH}" ]; then
   ARTIFACT_PATH="${NESTED_ARTIFACT_PATH}"
+fi
+
+if [ ! -f "${ARTIFACT_PATH}" ] && [ -f "${NESTED_WASIP1_PATH}" ]; then
+  echo "Found wasm32-wasip1 artifact for ${PACKAGE_NAME} (${NESTED_WASIP1_PATH}). Expected wasm32-wasip2 output." >&2
+  exit 1
 fi
 
 if [ ! -f "${ARTIFACT_PATH}" ]; then
