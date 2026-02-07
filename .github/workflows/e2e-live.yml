@@ -75,7 +75,7 @@ jobs:
           cargo binstall greentic-flow --force --no-confirm --locked || cargo install greentic-flow --force --locked
           cargo binstall greentic-runner --force --no-confirm --locked || cargo install greentic-runner --force --locked
           cargo binstall greentic-component --force --no-confirm --locked || cargo install greentic-component --force --locked
-          cargo binstall greentic-secrets --no-confirm --locked
+          cargo binstall greentic-secrets --force --no-confirm --locked || cargo install greentic-secrets --force --locked
 
       - name: Set secrets cache dir
         run: |

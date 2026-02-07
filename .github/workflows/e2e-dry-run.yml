@@ -43,10 +43,10 @@ jobs:
       - name: Install cargo-component
         run: cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
 
-      - name: Install packc (greentic-pack)
+      - name: Install greentic-pack
         env:
           CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-        run: cargo binstall packc --version 0.4.31 --no-confirm --locked
+        run: cargo binstall greentic-pack --force --no-confirm --locked || cargo install greentic-pack --force --locked
 
       - name: Install greentic-flow
         run: cargo binstall greentic-flow --force --no-confirm --locked || cargo install greentic-flow --force --locked

@@ -106,6 +106,7 @@ jobs:
           - slack
           - teams
           - telegram
+          - telegram-webhook
           - webchat
           - webex
           - webex-webhook
