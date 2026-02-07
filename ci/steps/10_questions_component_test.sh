@@ -10,7 +10,16 @@ if ! command -v greentic-component >/dev/null 2>&1; then
 fi
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
-cp components/questions/questions.wasm "${tmpdir}/questions.wasm"
+questions_wasm="${ROOT_DIR}/components/questions/questions.wasm"
+if [ ! -f "${questions_wasm}" ]; then
+  if [ -f "${ROOT_DIR}/target/components/questions.wasm" ]; then
+    questions_wasm="${ROOT_DIR}/target/components/questions.wasm"
+  else
+    echo "Questions component wasm missing; build it with tools/build_components/questions.sh" >&2
+    exit 1
+  fi
+fi
+cp "${questions_wasm}" "${tmpdir}/questions.wasm"
 cp components/questions/component.manifest.json "${tmpdir}/component.manifest.json"
 cp packs/messaging-dummy/assets/setup.yaml "${tmpdir}/setup.yaml"
 (
