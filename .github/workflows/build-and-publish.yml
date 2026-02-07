@@ -167,18 +167,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: target/components/${{ matrix.component }}.wasm
-          key: component-wasm-${{ matrix.component }}-${{ runner.os }}-${{ hashFiles(
-            format('components/{0}/**', matrix.component),
-            'crates/**',
-            'components/**',
-            'wit/**',
-            'Cargo.toml',
-            'Cargo.lock',
-            'rust-toolchain.toml',
-            'tools/build_component_env.sh',
-            'tools/build_component_one.sh',
-            'tools/build_components/**'
-          ) }}
+          key: component-wasm-${{ matrix.component }}-${{ runner.os }}-${{ hashFiles('components/**', 'crates/**', 'wit/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'tools/build_component_env.sh', 'tools/build_component_one.sh', 'tools/build_components/**') }}
 
       - name: Step 03 - Build components
         if: steps.cache-component.outputs.cache-hit != 'true'
