@@ -73,7 +73,10 @@ fn stage_templates_component(workspace_root: &Path, pack_dir: &Path) -> Result<(
     if pack_yaml.exists() {
         let contents = fs::read_to_string(&pack_yaml)?;
         let updated = contents
-            .replace("file://../components/templates/", "file://components/templates/")
+            .replace(
+                "file://../components/templates/",
+                "file://components/templates/",
+            )
             .replace("../components/templates/", "components/templates/");
         if updated != contents {
             fs::write(&pack_yaml, updated)?;
