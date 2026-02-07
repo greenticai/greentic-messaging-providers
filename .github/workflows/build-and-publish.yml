@@ -474,6 +474,14 @@ jobs:
         run: |
           cargo binstall greentic-flow --force --no-confirm --locked || cargo install greentic-flow --force --locked
 
+      - name: Install greentic-pack
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+        run: |
+          cargo binstall greentic-pack --force --no-confirm --locked || cargo install greentic-pack --force --locked
+          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+          greentic-pack --version
+
       - name: Download component artifacts
         uses: actions/download-artifact@v4
         with:
