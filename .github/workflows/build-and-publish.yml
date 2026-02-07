@@ -16,7 +16,7 @@ env:
   OCI_NAMESPACE: ${{ github.repository_owner }}/greentic-messaging-providers
 
 jobs:
-  install-tools:
+  fmt:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,7 +25,6 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-wasip2
           components: rustfmt, clippy
 
       - name: Cache Rust
@@ -33,54 +32,49 @@ jobs:
         with:
           key: build-test-publish
 
-      - name: Check component operation schemas
-        run: python3 tools/check_op_schemas.py
+      - name: Step 01 - Cargo fmt
+        run: ./ci/steps/01_fmt.sh
 
-      - name: Cache cargo bin tools
-        uses: actions/cache@v4
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          path: |
-            ~/.cargo/bin
-          key: cargo-bin-tools-${{ runner.os }}-v1
+          components: rustfmt, clippy
 
-      - name: Install cargo-binstall
-        run: |
-          if ! command -v cargo-binstall >/dev/null 2>&1; then
-            cargo install cargo-binstall --locked
-          fi
-
-      - name: Install cargo-component
-        run: |
-          cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
-
-      - name: Install greentic-pack
-        env:
-          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-        run: |
-          cargo binstall greentic-pack --force --no-confirm --locked || cargo install greentic-pack --force --locked
-          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
-          greentic-pack --version
-
-      - name: Install greentic-flow
-        run: |
-          cargo binstall greentic-flow --force --no-confirm --locked || cargo install greentic-flow --force --locked
-
-      - name: Install greentic-runner
-        run: |
-          cargo binstall greentic-runner --force --no-confirm --locked || cargo install greentic-runner --force --locked
-
-      - name: Install greentic-component
-        run: |
-          cargo binstall greentic-component --force --no-confirm --locked || cargo install greentic-component --force --locked
-
-      - name: Install oras
-        uses: oras-project/setup-oras@v1
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
         with:
-          version: 1.2.0
+          key: build-test-publish
+
+      - name: Step 02 - Cargo clippy
+        run: ./ci/steps/02_clippy.sh
+
+  check-op-schemas:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: build-test-publish
+
+      - name: Step 05 - Check component operation schemas
+        run: ./ci/steps/05_check_op_schemas.sh
 
   build-components:
     runs-on: ubuntu-latest
-    needs: install-tools
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -110,8 +104,18 @@ jobs:
             ~/.cargo/bin
           key: cargo-bin-tools-${{ runner.os }}-v1
 
-      - name: Build components
-        run: ./tools/build_components.sh
+      - name: Install cargo-binstall
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
+
+      - name: Install cargo-component
+        run: |
+          cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
+
+      - name: Step 03 - Build components
+        run: ./ci/steps/03_build_components.sh
 
       - name: Upload component artifacts
         uses: actions/upload-artifact@v4
@@ -120,9 +124,25 @@ jobs:
           path: target/components/*.wasm
           if-no-files-found: error
 
-  cargo-fmt:
+  ensure-templates:
     runs-on: ubuntu-latest
-    needs: install-tools
+    needs: build-components
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download component artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: components-wasm
+          path: target/components
+
+      - name: Step 04 - Ensure templates are staged in packs
+        run: ./ci/steps/04_ensure_templates.sh
+
+  gen-flows:
+    runs-on: ubuntu-latest
+    needs: ensure-templates
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -137,15 +157,203 @@ jobs:
         with:
           key: build-test-publish
 
-      - name: Ensure rustfmt is installed
-        run: rustup component add rustfmt
+      - name: Step 06 - Generate flows
+        run: ./ci/steps/06_gen_flows.sh
 
-      - name: Cargo fmt
-        run: cargo +stable fmt --check
+  sync-packs:
+    runs-on: ubuntu-latest
+    needs: [build-components, ensure-templates, gen-flows]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: build-test-publish
+
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
+
+      - name: Install cargo-binstall
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
+
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+
+      - name: Download component artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: components-wasm
+          path: target/components
+
+      - name: Step 07 - Sync packs
+        run: ./ci/steps/07_sync_packs.sh
+
+  flow-doctor:
+    runs-on: ubuntu-latest
+    needs: sync-packs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
+
+      - name: Install cargo-binstall
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
+
+      - name: Install greentic-flow
+        run: |
+          cargo binstall greentic-flow --force --no-confirm --locked || cargo install greentic-flow --force --locked
+
+      - name: Step 08 - Flow doctor
+        run: ./ci/steps/08_flow_doctor.sh
+
+  component-doctor:
+    runs-on: ubuntu-latest
+    needs: sync-packs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
+
+      - name: Install cargo-binstall
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
+
+      - name: Install greentic-component
+        run: |
+          cargo binstall greentic-component --force --no-confirm --locked || cargo install greentic-component --force --locked
+
+      - name: Step 09 - Component doctor
+        run: ./ci/steps/09_component_doctor.sh
+
+  questions-component-test:
+    runs-on: ubuntu-latest
+    needs: sync-packs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
+
+      - name: Install cargo-binstall
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
+
+      - name: Install greentic-component
+        run: |
+          cargo binstall greentic-component --force --no-confirm --locked || cargo install greentic-component --force --locked
+
+      - name: Step 10 - Questions component tests
+        run: ./ci/steps/10_questions_component_test.sh
+
+  build-packs:
+    runs-on: ubuntu-latest
+    needs: [sync-packs, flow-doctor, component-doctor, questions-component-test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
+
+      - name: Install cargo-binstall
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
+
+      - name: Install greentic-pack
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+        run: |
+          cargo binstall greentic-pack --force --no-confirm --locked || cargo install greentic-pack --force --locked
+          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+          greentic-pack --version
+
+      - name: Install greentic-flow
+        run: |
+          cargo binstall greentic-flow --force --no-confirm --locked || cargo install greentic-flow --force --locked
+
+      - name: Install greentic-runner
+        run: |
+          cargo binstall greentic-runner --force --no-confirm --locked || cargo install greentic-runner --force --locked
+
+      - name: Install greentic-component
+        run: |
+          cargo binstall greentic-component --force --no-confirm --locked || cargo install greentic-component --force --locked
+
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+
+      - name: Download component artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: components-wasm
+          path: target/components
+
+      - name: Step 11 - Build packs
+        run: ./ci/steps/11_build_packs.sh
+
+      - name: Upload packs + fixtures report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packs-and-fixtures
+          path: |
+            dist/packs/*.gtpack
+            dist/fixtures_report.json
+          if-no-files-found: error
+
+      - name: Upload packs lockfile (dry-run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: packs-lockfile-dryrun
+          path: packs.lock.json
+          if-no-files-found: error
 
   cargo-test:
     runs-on: ubuntu-latest
-    needs: install-tools
+    needs: build-components
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -180,188 +388,22 @@ jobs:
       - name: Install wasm32-wasip1 target
         run: rustup target add wasm32-wasip1
 
-      - name: Cargo test
-        env:
-          CARGO_BUILD_JOBS: "1"
-          RUSTFLAGS: "-C debuginfo=0"
-          RUST_BACKTRACE: "1"
-        run: |
-          cargo test -p greentic-messaging-tester --bin greentic-messaging-tester -- --nocapture
-          cargo test --workspace
-
-  pack-and-validate:
-    runs-on: ubuntu-latest
-    needs: [build-components, cargo-fmt, cargo-test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-wasip2
-          components: rustfmt, clippy
-
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: build-test-publish
-
-      - name: Cache cargo bin tools
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin
-          key: cargo-bin-tools-${{ runner.os }}-v1
-
-      - name: Install cargo-binstall
-        run: |
-          if ! command -v cargo-binstall >/dev/null 2>&1; then
-            cargo install cargo-binstall --locked
-          fi
-
-      - name: Install cargo-component
-        run: |
-          cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
-
-      - name: Install greentic-pack
-        env:
-          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-        run: |
-          cargo binstall greentic-pack --force --no-confirm --locked || cargo install greentic-pack --force --locked
-          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
-          greentic-pack --version
-
-      - name: Install greentic-flow
-        run: |
-          cargo binstall greentic-flow --force --no-confirm --locked || cargo install greentic-flow --force --locked
-
-      - name: Install greentic-runner
-        run: |
-          cargo binstall greentic-runner --force --no-confirm --locked || cargo install greentic-runner --force --locked
-
-      - name: Install greentic-component
-        run: |
-          cargo binstall greentic-component --force --no-confirm --locked || cargo install greentic-component --force --locked
-
-      - name: Install oras
-        uses: oras-project/setup-oras@v1
-        with:
-          version: 1.2.0
-
-      - name: Packgen gtests
-        env:
-          RUN_PACKGEN_TESTS: "1"
-        run: cargo test -p greentic-messaging-packgen --tests
-
       - name: Download component artifacts
         uses: actions/download-artifact@v4
         with:
           name: components-wasm
           path: target/components
 
-      - name: Generate flows (packgen)
-        run: ./ci/gen_flows.sh
-
-      - name: Check generated flows
-        run: ./ci/check_generated.sh
-
-      - name: Sync packs
-        run: ./tools/sync_packs.sh
-
-      - name: Validate flows
-        run: |
-          for f in packs/*/flows/*.ygtc; do
-            greentic-flow doctor "$f"
-          done
-
-      - name: Validate components
-        run: |
-          for c in packs/*/components/*.manifest.json; do
-            greentic-component doctor "$c"
-          done
-
-      - name: Test component-questions
-        run: |
-          set -euo pipefail
-          tmpdir="$(mktemp -d)"
-          trap 'rm -rf "${tmpdir}"' EXIT
-          cp components/questions/questions.wasm "${tmpdir}/questions.wasm"
-          cp components/questions/component.manifest.json "${tmpdir}/component.manifest.json"
-          cp packs/messaging-dummy/setup.yaml "${tmpdir}/setup.yaml"
-          (
-            cd "${tmpdir}"
-            greentic-component test \
-              --wasm questions.wasm \
-              --manifest component.manifest.json \
-              --op emit \
-              --input-json '{"id":"dummy-setup","spec_ref":"assets/setup.yaml","context":{"tenant_id":"t1","env":"dev"}}'
-          )
-          python3 - <<'PY' "${tmpdir}"
-          import json
-          import sys
-          from pathlib import Path
-
-          tmpdir = Path(sys.argv[1])
-          spec = {
-              "provider_id": "dummy",
-              "version": 1,
-              "title": "Dummy provider setup",
-              "questions": [],
-              "id": "dummy-setup",
-          }
-          payload = {
-              "id": "dummy-setup",
-              "spec_json": json.dumps(spec),
-              "answers_json": json.dumps({}),
-          }
-          (tmpdir / "validate_input.json").write_text(json.dumps(payload))
-          PY
-          (
-            cd "${tmpdir}"
-            greentic-component test \
-              --wasm questions.wasm \
-              --manifest component.manifest.json \
-              --op validate \
-              --input validate_input.json
-          )
-
-      - name: Pack dry-run (no push)
+      - name: Step 12 - Cargo tests
         env:
-          DRY_RUN: "1"
-          PACK_VERSION: "0.0.0-dev"
-        run: ./tools/publish_packs_oci.sh
-
-      - name: Runner-desktop setup smoke
-        run: cargo test -p provider-common runner_desktop_setup_default_smoke
-
-      - name: Validate pack archives
-        run: |
-          echo "provider pack must pass greentic-pack doctor (messaging validator)"
-          for p in dist/packs/messaging-*.gtpack; do
-            greentic-pack doctor --validate --validator-pack "oci://ghcr.io/greentic-ai/validators/messaging:latest" --pack "$p"
-          done
-
-      - name: Upload packs + fixtures report on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: packs-and-fixtures
-          path: |
-            dist/packs/*.gtpack
-            dist/fixtures_report.json
-          if-no-files-found: error
-
-      - name: Upload packs lockfile (dry-run)
-        uses: actions/upload-artifact@v4
-        with:
-          name: packs-lockfile-dryrun
-          path: packs.lock.json
-          if-no-files-found: error
+          CARGO_BUILD_JOBS: "1"
+          RUSTFLAGS: "-C debuginfo=0"
+          RUST_BACKTRACE: "1"
+        run: ./ci/steps/12_cargo_test.sh
 
   publish:
     runs-on: ubuntu-latest
-    needs: pack-and-validate
+    needs: [fmt, clippy, check-op-schemas, build-packs, cargo-test]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
     steps:
       - name: Checkout
