@@ -6,6 +6,7 @@ set -euo pipefail
 #   OCI_REGISTRY   - e.g. ghcr.io
 #   OCI_NAMESPACE  - e.g. my-org/greentic-messaging-providers
 #   VERSION        - tag used for the artifact (e.g. v0.1.0)
+#   PUBLISH_LATEST - when set to 1/true, also push the :latest tag
 #
 # Expects artifacts at target/components/<name>.wasm (built beforehand).
 
@@ -13,6 +14,7 @@ if [[ -z "${OCI_REGISTRY:-}" || -z "${OCI_NAMESPACE:-}" || -z "${VERSION:-}" ]];
   echo "OCI_REGISTRY, OCI_NAMESPACE, and VERSION must be set in the environment." >&2
   exit 1
 fi
+PUBLISH_LATEST="${PUBLISH_LATEST:-0}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ARTIFACT_DIR="${ROOT_DIR}/target/components"
@@ -31,6 +33,7 @@ for wasm in "${ARTIFACT_DIR}"/*.wasm; do
   [ -e "$wasm" ] || { echo "No wasm artifacts found in ${ARTIFACT_DIR}"; exit 1; }
   name="$(basename "${wasm}" .wasm)"
   ref="${OCI_REGISTRY}/${OCI_NAMESPACE}/${name}:${VERSION}"
+  latest_ref="${OCI_REGISTRY}/${OCI_NAMESPACE}/${name}:latest"
   manifest_path="${ROOT_DIR}/components/${name}/component.manifest.json"
   readme_src="${ROOT_DIR}/components/${name}/README.md"
   readme_name="README.md"
@@ -66,6 +69,20 @@ for wasm in "${ARTIFACT_DIR}"/*.wasm; do
         "${oras_files[@]}"
     ) | awk '/Digest:/{print $2}' | tail -n1
   )"
+  if [[ "${PUBLISH_LATEST}" =~ ^(1|true|TRUE|yes|YES)$ ]]; then
+    echo "Tagging ${wasm} as ${latest_ref}"
+    (
+      cd "${ARTIFACT_DIR}"
+      oras push --artifact-type application/wasm-component \
+        --annotation "org.opencontainers.image.source=${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-unknown}" \
+        --annotation "org.opencontainers.image.revision=${git_sha}" \
+        --annotation "org.opencontainers.image.version=${VERSION}" \
+        --annotation "org.opencontainers.image.title=${title}" \
+        --annotation "org.opencontainers.image.description=${description}" \
+        "${latest_ref}" \
+        "${oras_files[@]}"
+    ) >/dev/null
+  fi
   rm -f "${readme_path}"
 
   if [[ -z "${digest}" ]]; then
