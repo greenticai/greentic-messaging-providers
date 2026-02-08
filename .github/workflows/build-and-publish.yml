@@ -568,6 +568,7 @@ jobs:
       - name: Publish components
         env:
           VERSION: ${{ env.PUBLISH_VERSION }}
+          PUBLISH_LATEST: "1"
         run: bash ./tools/publish_oci.sh
 
       - name: Upload components lockfile
@@ -580,6 +581,7 @@ jobs:
       - name: Publish packs
         env:
           PACK_VERSION: ${{ env.PUBLISH_VERSION }}
+          PUBLISH_LATEST: "1"
         run: ./tools/publish_packs_oci.sh
 
       - name: Upload built packs

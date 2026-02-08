@@ -23,6 +23,7 @@ PACK_VERSION="${PACK_VERSION#v}"
 PACKS_DIR="${PACKS_DIR:-packs}"
 OUT_DIR="${OUT_DIR:-dist/packs}"
 DRY_RUN="${DRY_RUN:-0}"
+PUBLISH_LATEST="${PUBLISH_LATEST:-0}"
 PACKC_BIN="${PACKC_BIN:-greentic-pack}"
 PACKC_BUILD_FLAGS="${PACKC_BUILD_FLAGS:-}"
 MEDIA_TYPE="${MEDIA_TYPE:-application/vnd.greentic.gtpack.v1+zip}"
@@ -390,6 +391,7 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   python3 "${ROOT_DIR}/tools/validate_pack_fixtures.py"
 
   oci_ref="${OCI_REGISTRY}/${OCI_ORG}/${OCI_REPO}/${pack_name}:${PACK_VERSION}"
+  latest_ref="${OCI_REGISTRY}/${OCI_ORG}/${OCI_REPO}/${pack_name}:latest"
   # Compute local content digest (used for dry-run and lockfile regardless of push).
   digest="$(python3 - <<'PY' "${pack_out}"
 import hashlib, sys
@@ -423,6 +425,19 @@ PY
         "${oras_files[@]}" \
         | awk '/Digest:/{print $2}' | tail -n1
     )"
+    if [[ "${PUBLISH_LATEST}" =~ ^(1|true|TRUE|yes|YES)$ ]]; then
+      oras push \
+        --artifact-type "${MEDIA_TYPE}" \
+        --disable-path-validation \
+        --annotation "org.opencontainers.image.source=${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-unknown}" \
+        --annotation "org.opencontainers.image.revision=${git_sha}" \
+        --annotation "org.opencontainers.image.version=${PACK_VERSION}" \
+        --annotation "org.opencontainers.image.title=${pack_title}" \
+        --annotation "org.opencontainers.image.description=${pack_desc}" \
+        "${latest_ref}" \
+        "${oras_files[@]}" \
+        >/dev/null
+    fi
   else
     echo "[DRY RUN] Would push ${pack_out} to ${oci_ref}"
   fi
