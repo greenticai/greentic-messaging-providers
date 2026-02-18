@@ -1,18 +1,23 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 878
 expression: value
 ---
 {
   "event": {
-    "channel": "whatsapp-channel",
+    "channel": "whatsapp",
     "id": "<FIXED>",
-    "provider": "whatsapp",
-    "reply_to": "whatsapp-msg-1",
-    "text": "reply thread message from whatsapp",
-    "thread_id": "whatsapp-thread-1",
-    "timestamp": "<FIXED>",
-    "type": "message"
+    "metadata": {
+      "channel_id": "whatsapp",
+      "universal": "true"
+    },
+    "session_id": "whatsapp",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": ""
   },
   "ok": true
 }

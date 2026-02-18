@@ -22,7 +22,7 @@ fn providers_use_http_client_world() {
             } else if let Some(ext) = path.extension()
                 && ext == "wit"
                 && let Ok(text) = fs::read_to_string(&path)
-                && text.contains("greentic:http/http-client@")
+                && text.contains("greentic:http/client@")
             {
                 offenders.push(path);
             }
@@ -32,7 +32,7 @@ fn providers_use_http_client_world() {
     visit(&root, &mut offenders);
     if !offenders.is_empty() {
         panic!(
-            "Found provider WIT files still importing greentic:http/http-client@: {:?}",
+            "Found provider WIT files still importing deprecated greentic:http/client@: {:?}",
             offenders
         );
     }

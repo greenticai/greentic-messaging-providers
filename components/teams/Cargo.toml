@@ -11,6 +11,7 @@ crate-type = ["cdylib"]
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 provider-common = { path = "../../crates/provider-common" }
 provider-runtime-config = { path = "../../crates/provider-runtime-config" }
 wit-bindgen.workspace = true
@@ -21,12 +22,10 @@ package = "provider:teams"
 
 [package.metadata.component.target]
 path = "wit/teams"
-world = "teams"
+world = "component-v0-v6-v0"
 
 [package.metadata.component.target.dependencies]
+"greentic:interfaces-types" = { path = "wit/teams/deps/interfaces-types" }
 "greentic:secrets-store" = { path = "wit/teams/deps/secrets-store" }
 "greentic:http" = { path = "wit/teams/deps/http" }
-"greentic:state" = { path = "wit/teams/deps/state" }
 "greentic:telemetry" = { path = "wit/teams/deps/telemetry" }
-"greentic:interfaces-types" = { path = "wit/teams/deps/interfaces-types" }
-"provider:common" = { path = "wit/teams/deps/provider-common" }

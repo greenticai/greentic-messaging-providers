@@ -19,26 +19,30 @@ resolver = "2"
 
 [workspace.package]
 edition = "2024"
-version = "0.4.33"
+version = "0.4.34"
 license = "MIT"
 
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
-wit-bindgen = "0.52"
+wit-bindgen = "0.53"
 serde_json = "1"
+serde_yaml = {package="serde_yaml_gtc", version="2.5.2"}
+serde_yaml_bw = {package="serde_yaml_gtc", version="2.5.2"}
+regex = "1"
 hmac = "0.12"
 sha2 = "0.10"
 urlencoding = "2"
-greentic-interfaces-wasmtime = "0.4.89"
-greentic-types = "0.4.48"
-greentic-interfaces = "0.4.89"
-greentic-interfaces-guest = { version = "0.4.89", default-features = false }
+greentic-interfaces-wasmtime = "0.4"
+greentic-types = "0.4"
+greentic-interfaces = "0.4"
+greentic-interfaces-guest = { version = "0.4", default-features = false }
+greentic-runner-desktop = "0.4"
 anyhow = "1"
 uuid = { version = "1", features = ["v4"] }
 tempfile = "3"
-zip = "7"
+zip = "8"
 chrono = "0.4"
 schemars = "1"
 insta = { version = "1", features = ["json"] }
@@ -47,6 +51,10 @@ axum = "0.8"
 clap = "4"
 base64 = "0.22"
 once_cell = "1"
+ciborium = "0.2"
+glob = "0.3"
+rpassword = "7"
+htmlescape = "0.3"
 greentic-messaging-planned = { path = "crates/greentic-messaging-planned" }
 provider-common = { path = "crates/provider-common" }
 ureq = "3"

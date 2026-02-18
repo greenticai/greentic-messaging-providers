@@ -13,7 +13,7 @@ mod bindings {
     });
 }
 
-use bindings::greentic::http::client;
+use bindings::greentic::http::http_client as client;
 use bindings::greentic::secrets_store::secrets_store;
 
 const DEFAULT_API_BASE: &str = "https://api.telegram.org";

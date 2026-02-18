@@ -20,12 +20,10 @@ package = "provider:webchat"
 
 [package.metadata.component.target]
 path = "wit/webchat"
-world = "webchat"
+world = "component-v0-v6-v0"
 
 [package.metadata.component.target.dependencies]
+"greentic:interfaces-types" = { path = "wit/webchat/deps/interfaces-types" }
 "greentic:secrets-store" = { path = "wit/webchat/deps/secrets-store" }
 "greentic:http" = { path = "wit/webchat/deps/http" }
-"greentic:state" = { path = "wit/webchat/deps/state" }
 "greentic:telemetry" = { path = "wit/webchat/deps/telemetry" }
-"greentic:interfaces-types" = { path = "wit/webchat/deps/interfaces-types" }
-"provider:common" = { path = "wit/webchat/deps/provider-common" }

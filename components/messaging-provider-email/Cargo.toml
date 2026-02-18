@@ -17,16 +17,16 @@ wit-bindgen.workspace = true
 base64.workspace = true
 chrono.workspace = true
 urlencoding.workspace = true
+provider-common.workspace = true
 
 [package.metadata.component]
 package = "greentic:messaging-provider-email-core"
 
 [package.metadata.component.target]
 path = "wit/messaging-provider-email"
-world = "messaging-provider-email"
+world = "component-v0-v6-v0"
 
 [package.metadata.component.target.dependencies]
 "greentic:http" = { path = "wit/messaging-provider-email/deps/http" }
 "greentic:secrets-store" = { path = "wit/messaging-provider-email/deps/secrets-store" }
 "greentic:interfaces-types" = { path = "wit/messaging-provider-email/deps/interfaces-types" }
-"greentic:provider-schema-core" = { path = "wit/messaging-provider-email/deps/provider-schema-core.wit" }

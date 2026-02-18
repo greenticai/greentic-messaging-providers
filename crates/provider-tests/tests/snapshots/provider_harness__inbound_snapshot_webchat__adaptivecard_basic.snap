@@ -1,17 +1,22 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 878
 expression: value
 ---
 {
   "event": {
+    "channel": "webchat",
     "id": "<FIXED>",
-    "provider": "webchat",
-    "summary": "card with title/body",
-    "text": "adaptivecard basic message from webchat",
-    "timestamp": "<FIXED>",
-    "type": "adaptivecard",
-    "variant": "basic"
+    "metadata": {
+      "universal": "true"
+    },
+    "session_id": "webchat",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": "adaptivecard basic message from webchat"
   },
   "ok": true
 }

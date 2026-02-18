@@ -5,7 +5,8 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Context, Result};
-use greentic_types::{ProviderManifest, provider::PROVIDER_EXTENSION_ID};
+use greentic_types::provider::PROVIDER_EXTENSION_ID;
+use provider_common::component_v0_6::{DescribePayload, canonical_cbor_bytes, decode_cbor};
 use serde_json::{Value, json};
 use wasmtime::component::{
     Component, ComponentExportIndex, HasSelf, Linker, ResourceTable, TypedFunc,
@@ -16,7 +17,7 @@ use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 mod bindings {
     wasmtime::component::bindgen!({
         path: "../../components/messaging-provider-teams/wit/messaging-provider-teams",
-        world: "messaging-provider-teams",
+        world: "component-v0-v6-v0",
     });
 }
 
@@ -98,8 +99,8 @@ struct HostState {
     table: ResourceTable,
     wasi_ctx: WasiCtx,
     secrets: HashMap<String, String>,
-    responses: RefCell<Vec<bindings::greentic::http::client::Response>>, // queued responses
-    sent_requests: RefCell<Vec<bindings::greentic::http::client::Request>>,
+    responses: RefCell<Vec<bindings::greentic::http::http_client::Response>>, // queued responses
+    sent_requests: RefCell<Vec<bindings::greentic::http::http_client::Request>>,
 }
 
 impl HostState {
@@ -125,21 +126,21 @@ impl WasiView for HostState {
     }
 }
 
-impl bindings::greentic::http::client::Host for HostState {
+impl bindings::greentic::http::http_client::Host for HostState {
     fn send(
         &mut self,
-        req: bindings::greentic::http::client::Request,
-        _options: Option<bindings::greentic::http::client::RequestOptions>,
+        req: bindings::greentic::http::http_client::Request,
+        _options: Option<bindings::greentic::http::http_client::RequestOptions>,
         _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
     ) -> Result<
-        bindings::greentic::http::client::Response,
-        bindings::greentic::http::client::HostError,
+        bindings::greentic::http::http_client::Response,
+        bindings::greentic::http::http_client::HostError,
     > {
         self.sent_requests.borrow_mut().push(req);
         if let Some(resp) = self.responses.borrow_mut().pop() {
             Ok(resp)
         } else {
-            Ok(bindings::greentic::http::client::Response {
+            Ok(bindings::greentic::http::http_client::Response {
                 status: 200,
                 headers: vec![],
                 body: None,
@@ -279,7 +280,7 @@ fn invoke_send_smoke_test() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
-    bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
+    bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
         &mut linker,
         |state: &mut HostState| state,
     )
@@ -304,9 +305,9 @@ fn invoke_send_smoke_test() -> Result<()> {
         .get_export_index(
             &mut describe_store,
             None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
+            "greentic:component/descriptor@0.6.0",
         )
-        .context("get schema-core-api export index")?;
+        .context("get descriptor export index")?;
 
     let describe_index = instance
         .get_export_index(&mut describe_store, Some(&api_index), "describe")
@@ -317,10 +318,10 @@ fn invoke_send_smoke_test() -> Result<()> {
     let (described,) = describe
         .call(&mut describe_store, ())
         .context("call describe")?;
-    let manifest: ProviderManifest =
-        serde_json::from_slice(&described).context("decode describe output")?;
-    assert_eq!(manifest.provider_type, "messaging.teams.graph");
-    assert!(manifest.ops.contains(&"send".to_string()));
+    let described: DescribePayload = decode_cbor(&described).map_err(anyhow::Error::msg)?;
+    assert_eq!(described.provider, "messaging-provider-teams");
+    assert!(described.operations.iter().any(|op| op.name == "run"));
+    assert!(described.operations.iter().any(|op| op.name == "send"));
 
     let mut state = HostState::with_secret(CLIENT_SECRET_KEY, "super-secret");
     state
@@ -329,7 +330,7 @@ fn invoke_send_smoke_test() -> Result<()> {
     state
         .responses
         .borrow_mut()
-        .push(bindings::greentic::http::client::Response {
+        .push(bindings::greentic::http::http_client::Response {
             status: 201,
             headers: vec![],
             body: Some(serde_json::to_vec(&json!({"id":"msg-1"}))?),
@@ -337,7 +338,7 @@ fn invoke_send_smoke_test() -> Result<()> {
     state
         .responses
         .borrow_mut()
-        .push(bindings::greentic::http::client::Response {
+        .push(bindings::greentic::http::http_client::Response {
             status: 200,
             headers: vec![],
             body: Some(serde_json::to_vec(&json!({"access_token":"tok-123"}))?),
@@ -349,12 +350,8 @@ fn invoke_send_smoke_test() -> Result<()> {
         .context("instantiate for invoke")?;
 
     let api_index: ComponentExportIndex = instance
-        .get_export_index(
-            &mut store,
-            None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
-        )
-        .context("get schema-core-api export index for invoke")?;
+        .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
+        .context("get runtime export index for invoke")?;
     let invoke_index = instance
         .get_export_index(&mut store, Some(&api_index), "invoke")
         .context("get invoke export index")?;
@@ -368,14 +365,15 @@ fn invoke_send_smoke_test() -> Result<()> {
         "channel_id": "channel-1",
         "config": {
             "tenant_id": "tenant-123",
-            "client_id": "client-123"
+            "client_id": "client-123",
+            "public_base_url": "https://example.com"
         }
     });
-    let input_bytes = serde_json::to_vec(&input)?;
+    let input_bytes = canonical_cbor_bytes(&input);
     let (first,) = invoke
         .call(&mut store, ("send".to_string(), input_bytes))
         .context("call invoke send")?;
-    let first_json: Value = serde_json::from_slice(&first).context("parse invoke output")?;
+    let first_json: Value = decode_cbor(&first).map_err(anyhow::Error::msg)?;
 
     assert_eq!(
         first_json.get("status"),
@@ -437,7 +435,7 @@ fn invoke_reply_smoke_test() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
-    bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
+    bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
         &mut linker,
         |state: &mut HostState| state,
     )
@@ -460,7 +458,7 @@ fn invoke_reply_smoke_test() -> Result<()> {
     state
         .responses
         .borrow_mut()
-        .push(bindings::greentic::http::client::Response {
+        .push(bindings::greentic::http::http_client::Response {
             status: 201,
             headers: vec![],
             body: Some(serde_json::to_vec(&json!({"id":"reply-1"}))?),
@@ -468,7 +466,7 @@ fn invoke_reply_smoke_test() -> Result<()> {
     state
         .responses
         .borrow_mut()
-        .push(bindings::greentic::http::client::Response {
+        .push(bindings::greentic::http::http_client::Response {
             status: 200,
             headers: vec![],
             body: Some(serde_json::to_vec(&json!({"access_token":"tok-123"}))?),
@@ -480,12 +478,8 @@ fn invoke_reply_smoke_test() -> Result<()> {
         .context("instantiate for invoke reply")?;
 
     let api_index: ComponentExportIndex = instance
-        .get_export_index(
-            &mut store,
-            None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
-        )
-        .context("get schema-core-api export index for invoke")?;
+        .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
+        .context("get runtime export index for invoke")?;
     let invoke_index = instance
         .get_export_index(&mut store, Some(&api_index), "invoke")
         .context("get invoke export index")?;
@@ -500,16 +494,17 @@ fn invoke_reply_smoke_test() -> Result<()> {
         "reply_to_id": "thread-42",
         "config": {
             "tenant_id": "tenant-123",
-            "client_id": "client-123"
+            "client_id": "client-123",
+            "public_base_url": "https://example.com"
         }
     });
     let (resp,) = invoke
         .call(
             &mut store,
-            ("reply".to_string(), serde_json::to_vec(&input)?),
+            ("reply".to_string(), canonical_cbor_bytes(&input)),
         )
         .context("call invoke reply")?;
-    let resp_json: Value = serde_json::from_slice(&resp).context("parse invoke output")?;
+    let resp_json: Value = decode_cbor(&resp).map_err(anyhow::Error::msg)?;
     assert_eq!(
         resp_json.get("status"),
         Some(&Value::String("replied".into()))
@@ -537,7 +532,7 @@ fn reply_requires_thread_id() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
-    bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
+    bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
         &mut linker,
         |state: &mut HostState| state,
     )
@@ -561,12 +556,8 @@ fn reply_requires_thread_id() -> Result<()> {
         .instantiate(&mut store, &component)
         .context("instantiate for reply missing thread")?;
     let api_index: ComponentExportIndex = instance
-        .get_export_index(
-            &mut store,
-            None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
-        )
-        .context("get schema-core-api export index for invoke")?;
+        .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
+        .context("get runtime export index for invoke")?;
     let invoke_index = instance
         .get_export_index(&mut store, Some(&api_index), "invoke")
         .context("get invoke export index")?;
@@ -580,16 +571,17 @@ fn reply_requires_thread_id() -> Result<()> {
         "channel_id": "channel-1",
         "config": {
             "tenant_id": "tenant-123",
-            "client_id": "client-123"
+            "client_id": "client-123",
+            "public_base_url": "https://example.com"
         }
     });
     let (resp,) = invoke
         .call(
             &mut store,
-            ("reply".to_string(), serde_json::to_vec(&input)?),
+            ("reply".to_string(), canonical_cbor_bytes(&input)),
         )
         .context("call invoke reply missing thread")?;
-    let resp_json: Value = serde_json::from_slice(&resp).context("parse invoke output")?;
+    let resp_json: Value = decode_cbor(&resp).map_err(anyhow::Error::msg)?;
     assert_eq!(resp_json.get("ok"), Some(&Value::Bool(false)));
 
     Ok(())

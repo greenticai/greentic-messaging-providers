@@ -1,20 +1,23 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 878
 expression: value
 ---
 {
   "event": {
+    "channel": "whatsapp",
     "id": "<FIXED>",
-    "notes": [
-      "unicode-safe",
-      "no emoji"
-    ],
-    "provider": "whatsapp",
-    "text": "Long text with markdown **bold** and newlines\nsecond line",
-    "timestamp": "<FIXED>",
-    "type": "adaptivecard",
-    "variant": "edge"
+    "metadata": {
+      "channel_id": "whatsapp",
+      "universal": "true"
+    },
+    "session_id": "whatsapp",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": ""
   },
   "ok": true
 }

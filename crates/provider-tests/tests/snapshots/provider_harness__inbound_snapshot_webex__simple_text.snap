@@ -1,16 +1,25 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 878
 expression: value
 ---
 {
   "event": {
-    "channel": "webex-channel",
+    "channel": "webex",
     "id": "<FIXED>",
-    "provider": "webex",
-    "text": "simple text message from webex",
-    "timestamp": "<FIXED>",
-    "type": "message"
+    "metadata": {
+      "webex.event": "",
+      "webex.fetchStatus": "200",
+      "webex.hasAttachments": "false",
+      "webex.resource": ""
+    },
+    "session_id": "webex",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": "simple text message from webex"
   },
   "ok": true
 }

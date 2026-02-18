@@ -22,12 +22,10 @@ package = "provider:slack"
 
 [package.metadata.component.target]
 path = "wit/slack"
-world = "slack"
+world = "component-v0-v6-v0"
 
 [package.metadata.component.target.dependencies]
+"greentic:interfaces-types" = { path = "wit/slack/deps/interfaces-types" }
 "greentic:secrets-store" = { path = "wit/slack/deps/secrets-store" }
 "greentic:http" = { path = "wit/slack/deps/http" }
-"greentic:state" = { path = "wit/slack/deps/state" }
 "greentic:telemetry" = { path = "wit/slack/deps/telemetry" }
-"greentic:interfaces-types" = { path = "wit/slack/deps/interfaces-types" }
-"provider:common" = { path = "wit/slack/deps/provider-common" }

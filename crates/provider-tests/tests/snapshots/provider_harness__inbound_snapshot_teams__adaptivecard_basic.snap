@@ -1,17 +1,22 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 878
 expression: value
 ---
 {
   "event": {
+    "channel": "teams",
     "id": "<FIXED>",
-    "provider": "teams",
-    "summary": "card with title/body",
-    "text": "adaptivecard basic message from teams",
-    "timestamp": "<FIXED>",
-    "type": "adaptivecard",
-    "variant": "basic"
+    "metadata": {
+      "universal": "true"
+    },
+    "session_id": "teams",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": ""
   },
   "ok": true
 }

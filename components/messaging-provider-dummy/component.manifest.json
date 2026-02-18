@@ -7,5 +7,11 @@
       "path": "schemas/messaging/dummy/public.config.schema.json"
     }
   },
-  "secret_requirements": []
+  "secret_requirements": [
+    {
+      "name": "DUMMY_API_TOKEN",
+      "scope": "tenant",
+      "description": "Dummy provider token (redacted in describe/config metadata)."
+    }
+  ]
 }

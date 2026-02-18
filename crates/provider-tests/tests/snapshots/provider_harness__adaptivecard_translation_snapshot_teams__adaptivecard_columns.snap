@@ -1,17 +1,10 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 862
 expression: value
 ---
 {
-  "body": "Adaptive card with columns",
-  "content_type": "text/plain; charset=utf-8",
+  "body": null,
+  "content_type": "application/json",
   "metadata": null,
-  "warnings": [
-    {
-      "code": "encoder_forced_downgrade",
-      "message": "downgraded to tier_d text payload",
-      "path": null
-    }
-  ]
+  "warnings": []
 }

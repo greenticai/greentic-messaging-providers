@@ -7,7 +7,9 @@ cd "${ROOT_DIR}"
 if ! command -v cargo-binstall >/dev/null 2>&1; then
   cargo install cargo-binstall --locked
 fi
-cargo binstall greentic-pack --force --no-confirm --locked || cargo install greentic-pack --force --locked
+GREENTIC_PACK_VERSION="${GREENTIC_PACK_VERSION:-0.4}"
+cargo binstall greentic-pack --version "${GREENTIC_PACK_VERSION}" --force --no-confirm --locked || \
+  cargo install greentic-pack --version "${GREENTIC_PACK_VERSION}" --force --locked
 echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH:-/dev/null}" || true
 greentic-pack --version
 

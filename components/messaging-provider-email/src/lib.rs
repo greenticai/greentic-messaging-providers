@@ -6,7 +6,12 @@ use greentic_types::messaging::universal_dto::{
     SubscriptionDeleteOutV1, SubscriptionEnsureInV1, SubscriptionEnsureOutV1,
     SubscriptionRenewInV1, SubscriptionRenewOutV1,
 };
-use serde::Deserialize;
+use provider_common::component_v0_6::{
+    DescribePayload, I18nText, OperationDescriptor, QaQuestionSpec, QaSpec, RedactionRule,
+    SchemaField, SchemaIr, canonical_cbor_bytes, decode_cbor, default_en_i18n_messages,
+    schema_hash,
+};
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -15,28 +20,95 @@ use urlencoding::decode as url_decode;
 mod bindings {
     wit_bindgen::generate!({
         path: "wit/messaging-provider-email",
-        world: "messaging-provider-email",
+        world: "component-v0-v6-v0",
         generate_all
     });
 }
 
 mod auth;
 
-use bindings::exports::greentic::provider_schema_core::schema_core_api::Guest;
-use bindings::greentic::http::client;
+use bindings::greentic::http::http_client as client;
 use greentic_types::{
-    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, ProviderManifest,
-    TenantCtx, TenantId,
+    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
 };
 
+const PROVIDER_ID: &str = "messaging-provider-email";
 const PROVIDER_TYPE: &str = "messaging.email.smtp";
-const CONFIG_SCHEMA_REF: &str = "schemas/messaging/email/public.config.schema.json";
+const WORLD_ID: &str = "component-v0-v6-v0";
 const DEFAULT_GRAPH_BASE: &str = "https://graph.microsoft.com/v1.0";
 const GRAPH_MAX_EXPIRATION_MINUTES: u32 = 4230;
+const I18N_KEYS: &[&str] = &[
+    "email.op.run.title",
+    "email.op.run.description",
+    "email.op.send.title",
+    "email.op.send.description",
+    "email.op.reply.title",
+    "email.op.reply.description",
+    "email.op.ingest_http.title",
+    "email.op.ingest_http.description",
+    "email.op.render_plan.title",
+    "email.op.render_plan.description",
+    "email.op.encode.title",
+    "email.op.encode.description",
+    "email.op.send_payload.title",
+    "email.op.send_payload.description",
+    "email.op.subscription_ensure.title",
+    "email.op.subscription_ensure.description",
+    "email.op.subscription_renew.title",
+    "email.op.subscription_renew.description",
+    "email.op.subscription_delete.title",
+    "email.op.subscription_delete.description",
+    "email.schema.input.title",
+    "email.schema.input.description",
+    "email.schema.input.message.title",
+    "email.schema.input.message.description",
+    "email.schema.output.title",
+    "email.schema.output.description",
+    "email.schema.output.ok.title",
+    "email.schema.output.ok.description",
+    "email.schema.output.message_id.title",
+    "email.schema.output.message_id.description",
+    "email.schema.config.title",
+    "email.schema.config.description",
+    "email.schema.config.enabled.title",
+    "email.schema.config.enabled.description",
+    "email.schema.config.public_base_url.title",
+    "email.schema.config.public_base_url.description",
+    "email.schema.config.host.title",
+    "email.schema.config.host.description",
+    "email.schema.config.port.title",
+    "email.schema.config.port.description",
+    "email.schema.config.username.title",
+    "email.schema.config.username.description",
+    "email.schema.config.from_address.title",
+    "email.schema.config.from_address.description",
+    "email.schema.config.tls_mode.title",
+    "email.schema.config.tls_mode.description",
+    "email.schema.config.default_to_address.title",
+    "email.schema.config.default_to_address.description",
+    "email.schema.config.password.title",
+    "email.schema.config.password.description",
+    "email.qa.default.title",
+    "email.qa.setup.title",
+    "email.qa.upgrade.title",
+    "email.qa.remove.title",
+    "email.qa.setup.enabled",
+    "email.qa.setup.public_base_url",
+    "email.qa.setup.host",
+    "email.qa.setup.port",
+    "email.qa.setup.username",
+    "email.qa.setup.from_address",
+    "email.qa.setup.tls_mode",
+    "email.qa.setup.default_to_address",
+    "email.qa.setup.password",
+];
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ProviderConfig {
+    #[serde(default = "default_enabled")]
+    enabled: bool,
+    public_base_url: String,
     host: String,
     #[serde(default = "default_port")]
     port: u16,
@@ -56,6 +128,36 @@ struct ProviderConfig {
     graph_token_endpoint: Option<String>,
     #[serde(default)]
     graph_scope: Option<String>,
+    #[serde(default)]
+    password: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ApplyAnswersResult {
+    ok: bool,
+    config: Option<ProviderConfigOut>,
+    remove: Option<RemovePlan>,
+    diagnostics: Vec<String>,
+    error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ProviderConfigOut {
+    enabled: bool,
+    public_base_url: String,
+    host: String,
+    port: u16,
+    username: String,
+    from_address: String,
+    tls_mode: String,
+    default_to_address: Option<String>,
+    password: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RemovePlan {
+    remove_all: bool,
+    cleanup: Vec<String>,
 }
 
 fn default_port() -> u16 {
@@ -65,76 +167,492 @@ fn default_port() -> u16 {
 fn default_tls() -> String {
     "starttls".to_string()
 }
+fn default_enabled() -> bool {
+    true
+}
 
 struct Component;
 
-impl Guest for Component {
+impl bindings::exports::greentic::component::descriptor::Guest for Component {
     fn describe() -> Vec<u8> {
-        let manifest = ProviderManifest {
-            provider_type: PROVIDER_TYPE.to_string(),
-            capabilities: vec![],
-            ops: vec![
-                "send".to_string(),
-                "reply".to_string(),
-                "ingest_http".to_string(),
-                "render_plan".to_string(),
-                "encode".to_string(),
-                "send_payload".to_string(),
-                "subscription_ensure".to_string(),
-                "subscription_renew".to_string(),
-                "subscription_delete".to_string(),
-            ],
-            config_schema_ref: Some(CONFIG_SCHEMA_REF.to_string()),
-            state_schema_ref: None,
-        };
-        json_bytes(&manifest)
-    }
-
-    fn validate_config(config_json: Vec<u8>) -> Vec<u8> {
-        match parse_config_bytes(&config_json) {
-            Ok(cfg) => json_bytes(&json!({
-                "ok": true,
-                "config": {
-                    "host": cfg.host,
-                    "port": cfg.port,
-                    "username": cfg.username,
-                    "from_address": cfg.from_address,
-                    "default_to_address": cfg.default_to_address,
-                    "tls_mode": cfg.tls_mode,
-                    "graph_tenant_id": cfg.graph_tenant_id,
-                    "graph_authority": cfg.graph_authority,
-                    "graph_base_url": cfg.graph_base_url,
-                    "graph_token_endpoint": cfg.graph_token_endpoint,
-                    "graph_scope": cfg.graph_scope,
-                }
-            })),
-            Err(err) => json_bytes(&json!({"ok": false, "error": err})),
-        }
-    }
-
-    fn healthcheck() -> Vec<u8> {
-        json_bytes(&json!({"status": "ok"}))
-    }
-
-    fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
-        match op.as_str() {
-            "send" => handle_send(&input_json),
-            "reply" => handle_reply(&input_json),
-            "ingest_http" => ingest_http(&input_json),
-            "render_plan" => render_plan(&input_json),
-            "encode" => encode_op(&input_json),
-            "send_payload" => send_payload(&input_json),
-            "subscription_ensure" => subscription_ensure(&input_json),
-            "subscription_renew" => subscription_renew(&input_json),
-            "subscription_delete" => subscription_delete(&input_json),
-            other => json_bytes(&json!({"ok": false, "error": format!("unsupported op: {other}")})),
-        }
+        canonical_cbor_bytes(&build_describe_payload())
     }
 }
 
-bindings::exports::greentic::provider_schema_core::schema_core_api::__export_greentic_provider_schema_core_schema_core_api_1_0_0_cabi!(
-    Component with_types_in bindings::exports::greentic::provider_schema_core::schema_core_api
-);
+impl bindings::exports::greentic::component::runtime::Guest for Component {
+    fn invoke(op: String, input_cbor: Vec<u8>) -> Vec<u8> {
+        let input_value: Value = match decode_cbor(&input_cbor) {
+            Ok(value) => value,
+            Err(err) => {
+                return canonical_cbor_bytes(
+                    &json!({"ok": false, "error": format!("invalid input cbor: {err}")}),
+                );
+            }
+        };
+        let input_json = serde_json::to_vec(&input_value).unwrap_or_default();
+        let op = if op == "run" { "send".to_string() } else { op };
+        let output_json = dispatch_json_invoke(&op, &input_json);
+        let output_value: Value = serde_json::from_slice(&output_json)
+            .unwrap_or_else(|_| json!({"ok": false, "error": "provider produced invalid json"}));
+        canonical_cbor_bytes(&output_value)
+    }
+}
+
+impl bindings::exports::greentic::component::qa::Guest for Component {
+    fn qa_spec(mode: bindings::exports::greentic::component::qa::Mode) -> Vec<u8> {
+        canonical_cbor_bytes(&build_qa_spec(mode))
+    }
+
+    fn apply_answers(
+        mode: bindings::exports::greentic::component::qa::Mode,
+        answers_cbor: Vec<u8>,
+    ) -> Vec<u8> {
+        let answers: Value = match decode_cbor(&answers_cbor) {
+            Ok(value) => value,
+            Err(err) => {
+                return canonical_cbor_bytes(&ApplyAnswersResult {
+                    ok: false,
+                    config: None,
+                    remove: None,
+                    diagnostics: Vec::new(),
+                    error: Some(format!("invalid answers cbor: {err}")),
+                });
+            }
+        };
+        if mode == bindings::exports::greentic::component::qa::Mode::Remove {
+            return canonical_cbor_bytes(&ApplyAnswersResult {
+                ok: true,
+                config: None,
+                remove: Some(RemovePlan {
+                    remove_all: true,
+                    cleanup: vec![
+                        "delete_config_key".to_string(),
+                        "delete_provenance_key".to_string(),
+                        "delete_provider_state_namespace".to_string(),
+                        "best_effort_revoke_tokens".to_string(),
+                        "best_effort_delete_provider_owned_secrets".to_string(),
+                    ],
+                }),
+                diagnostics: Vec::new(),
+                error: None,
+            });
+        }
+
+        let mut merged = existing_config_from_answers(&answers).unwrap_or_else(default_config_out);
+        let answer_obj = answers.as_object();
+        let has = |key: &str| answer_obj.is_some_and(|obj| obj.contains_key(key));
+
+        if mode == bindings::exports::greentic::component::qa::Mode::Setup
+            || mode == bindings::exports::greentic::component::qa::Mode::Default
+        {
+            merged.enabled = answers
+                .get("enabled")
+                .and_then(Value::as_bool)
+                .unwrap_or(merged.enabled);
+            merged.public_base_url =
+                string_or_default(&answers, "public_base_url", &merged.public_base_url);
+            merged.host = string_or_default(&answers, "host", &merged.host);
+            merged.port = answers
+                .get("port")
+                .and_then(Value::as_u64)
+                .and_then(|value| u16::try_from(value).ok())
+                .unwrap_or(merged.port);
+            merged.username = string_or_default(&answers, "username", &merged.username);
+            merged.from_address = string_or_default(&answers, "from_address", &merged.from_address);
+            merged.tls_mode = string_or_default(&answers, "tls_mode", &merged.tls_mode);
+            merged.default_to_address = optional_string_from(&answers, "default_to_address")
+                .or(merged.default_to_address.clone());
+            merged.password =
+                optional_string_from(&answers, "password").or(merged.password.clone());
+        }
+
+        if mode == bindings::exports::greentic::component::qa::Mode::Upgrade {
+            if has("enabled") {
+                merged.enabled = answers
+                    .get("enabled")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(merged.enabled);
+            }
+            if has("public_base_url") {
+                merged.public_base_url =
+                    string_or_default(&answers, "public_base_url", &merged.public_base_url);
+            }
+            if has("host") {
+                merged.host = string_or_default(&answers, "host", &merged.host);
+            }
+            if has("port") {
+                merged.port = answers
+                    .get("port")
+                    .and_then(Value::as_u64)
+                    .and_then(|value| u16::try_from(value).ok())
+                    .unwrap_or(merged.port);
+            }
+            if has("username") {
+                merged.username = string_or_default(&answers, "username", &merged.username);
+            }
+            if has("from_address") {
+                merged.from_address =
+                    string_or_default(&answers, "from_address", &merged.from_address);
+            }
+            if has("tls_mode") {
+                merged.tls_mode = string_or_default(&answers, "tls_mode", &merged.tls_mode);
+            }
+            if has("default_to_address") {
+                merged.default_to_address = optional_string_from(&answers, "default_to_address");
+            }
+            if has("password") {
+                merged.password = optional_string_from(&answers, "password");
+            }
+        }
+
+        if let Err(error) = validate_config_out(&merged) {
+            return canonical_cbor_bytes(&ApplyAnswersResult {
+                ok: false,
+                config: None,
+                remove: None,
+                diagnostics: Vec::new(),
+                error: Some(error),
+            });
+        }
+
+        canonical_cbor_bytes(&ApplyAnswersResult {
+            ok: true,
+            config: Some(merged),
+            remove: None,
+            diagnostics: Vec::new(),
+            error: None,
+        })
+    }
+}
+
+impl bindings::exports::greentic::component::component_i18n::Guest for Component {
+    fn i18n_keys() -> Vec<String> {
+        I18N_KEYS.iter().map(|k| (*k).to_string()).collect()
+    }
+
+    fn i18n_bundle(locale: String) -> Vec<u8> {
+        let locale = if locale.trim().is_empty() {
+            "en".to_string()
+        } else {
+            locale
+        };
+        let messages = default_en_i18n_messages(I18N_KEYS);
+        canonical_cbor_bytes(&json!({"locale": locale, "messages": Value::Object(messages)}))
+    }
+}
+
+bindings::export!(Component with_types_in bindings);
+
+fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
+    match op {
+        "send" => handle_send(input_json),
+        "reply" => handle_reply(input_json),
+        "ingest_http" => ingest_http(input_json),
+        "render_plan" => render_plan(input_json),
+        "encode" => encode_op(input_json),
+        "send_payload" => send_payload(input_json),
+        "subscription_ensure" => subscription_ensure(input_json),
+        "subscription_renew" => subscription_renew(input_json),
+        "subscription_delete" => subscription_delete(input_json),
+        other => json_bytes(&json!({"ok": false, "error": format!("unsupported op: {other}")})),
+    }
+}
+
+fn build_describe_payload() -> DescribePayload {
+    let input_schema = input_schema();
+    let output_schema = output_schema();
+    let config_schema = config_schema();
+    DescribePayload {
+        provider: PROVIDER_ID.to_string(),
+        world: WORLD_ID.to_string(),
+        operations: vec![
+            op("run", "email.op.run.title", "email.op.run.description"),
+            op("send", "email.op.send.title", "email.op.send.description"),
+            op(
+                "reply",
+                "email.op.reply.title",
+                "email.op.reply.description",
+            ),
+            op(
+                "ingest_http",
+                "email.op.ingest_http.title",
+                "email.op.ingest_http.description",
+            ),
+            op(
+                "render_plan",
+                "email.op.render_plan.title",
+                "email.op.render_plan.description",
+            ),
+            op(
+                "encode",
+                "email.op.encode.title",
+                "email.op.encode.description",
+            ),
+            op(
+                "send_payload",
+                "email.op.send_payload.title",
+                "email.op.send_payload.description",
+            ),
+            op(
+                "subscription_ensure",
+                "email.op.subscription_ensure.title",
+                "email.op.subscription_ensure.description",
+            ),
+            op(
+                "subscription_renew",
+                "email.op.subscription_renew.title",
+                "email.op.subscription_renew.description",
+            ),
+            op(
+                "subscription_delete",
+                "email.op.subscription_delete.title",
+                "email.op.subscription_delete.description",
+            ),
+        ],
+        input_schema: input_schema.clone(),
+        output_schema: output_schema.clone(),
+        config_schema: config_schema.clone(),
+        redactions: vec![RedactionRule {
+            path: "$.password".to_string(),
+            strategy: "replace".to_string(),
+        }],
+        schema_hash: schema_hash(&input_schema, &output_schema, &config_schema),
+    }
+}
+
+fn build_qa_spec(mode: bindings::exports::greentic::component::qa::Mode) -> QaSpec {
+    use bindings::exports::greentic::component::qa::Mode;
+    match mode {
+        Mode::Default => QaSpec {
+            mode: "default".to_string(),
+            title: i18n("email.qa.default.title"),
+            questions: vec![
+                qa_q("public_base_url", "email.qa.setup.public_base_url", true),
+                qa_q("host", "email.qa.setup.host", true),
+                qa_q("username", "email.qa.setup.username", true),
+                qa_q("from_address", "email.qa.setup.from_address", true),
+            ],
+        },
+        Mode::Setup => QaSpec {
+            mode: "setup".to_string(),
+            title: i18n("email.qa.setup.title"),
+            questions: vec![
+                qa_q("enabled", "email.qa.setup.enabled", true),
+                qa_q("public_base_url", "email.qa.setup.public_base_url", true),
+                qa_q("host", "email.qa.setup.host", true),
+                qa_q("port", "email.qa.setup.port", true),
+                qa_q("username", "email.qa.setup.username", true),
+                qa_q("from_address", "email.qa.setup.from_address", true),
+                qa_q("tls_mode", "email.qa.setup.tls_mode", true),
+                qa_q(
+                    "default_to_address",
+                    "email.qa.setup.default_to_address",
+                    false,
+                ),
+                qa_q("password", "email.qa.setup.password", false),
+            ],
+        },
+        Mode::Upgrade => QaSpec {
+            mode: "upgrade".to_string(),
+            title: i18n("email.qa.upgrade.title"),
+            questions: vec![
+                qa_q("enabled", "email.qa.setup.enabled", false),
+                qa_q("public_base_url", "email.qa.setup.public_base_url", false),
+                qa_q("host", "email.qa.setup.host", false),
+                qa_q("port", "email.qa.setup.port", false),
+                qa_q("username", "email.qa.setup.username", false),
+                qa_q("from_address", "email.qa.setup.from_address", false),
+                qa_q("tls_mode", "email.qa.setup.tls_mode", false),
+                qa_q(
+                    "default_to_address",
+                    "email.qa.setup.default_to_address",
+                    false,
+                ),
+                qa_q("password", "email.qa.setup.password", false),
+            ],
+        },
+        Mode::Remove => QaSpec {
+            mode: "remove".to_string(),
+            title: i18n("email.qa.remove.title"),
+            questions: Vec::new(),
+        },
+    }
+}
+
+fn input_schema() -> SchemaIr {
+    let mut fields = BTreeMap::new();
+    fields.insert(
+        "message".to_string(),
+        SchemaField {
+            required: true,
+            schema: SchemaIr::String {
+                title: i18n("email.schema.input.message.title"),
+                description: i18n("email.schema.input.message.description"),
+                format: None,
+                secret: false,
+            },
+        },
+    );
+    SchemaIr::Object {
+        title: i18n("email.schema.input.title"),
+        description: i18n("email.schema.input.description"),
+        fields,
+        additional_properties: true,
+    }
+}
+
+fn output_schema() -> SchemaIr {
+    let mut fields = BTreeMap::new();
+    fields.insert(
+        "ok".to_string(),
+        SchemaField {
+            required: true,
+            schema: SchemaIr::Bool {
+                title: i18n("email.schema.output.ok.title"),
+                description: i18n("email.schema.output.ok.description"),
+            },
+        },
+    );
+    fields.insert(
+        "message_id".to_string(),
+        SchemaField {
+            required: false,
+            schema: SchemaIr::String {
+                title: i18n("email.schema.output.message_id.title"),
+                description: i18n("email.schema.output.message_id.description"),
+                format: None,
+                secret: false,
+            },
+        },
+    );
+    SchemaIr::Object {
+        title: i18n("email.schema.output.title"),
+        description: i18n("email.schema.output.description"),
+        fields,
+        additional_properties: true,
+    }
+}
+
+fn config_schema() -> SchemaIr {
+    let mut fields = BTreeMap::new();
+    let mut insert = |k: &str, required: bool, schema: SchemaIr| {
+        fields.insert(k.to_string(), SchemaField { required, schema });
+    };
+    insert(
+        "enabled",
+        true,
+        SchemaIr::Bool {
+            title: i18n("email.schema.config.enabled.title"),
+            description: i18n("email.schema.config.enabled.description"),
+        },
+    );
+    insert(
+        "public_base_url",
+        true,
+        SchemaIr::String {
+            title: i18n("email.schema.config.public_base_url.title"),
+            description: i18n("email.schema.config.public_base_url.description"),
+            format: Some("uri".to_string()),
+            secret: false,
+        },
+    );
+    insert(
+        "host",
+        true,
+        SchemaIr::String {
+            title: i18n("email.schema.config.host.title"),
+            description: i18n("email.schema.config.host.description"),
+            format: None,
+            secret: false,
+        },
+    );
+    insert(
+        "port",
+        true,
+        SchemaIr::String {
+            title: i18n("email.schema.config.port.title"),
+            description: i18n("email.schema.config.port.description"),
+            format: None,
+            secret: false,
+        },
+    );
+    insert(
+        "username",
+        true,
+        SchemaIr::String {
+            title: i18n("email.schema.config.username.title"),
+            description: i18n("email.schema.config.username.description"),
+            format: None,
+            secret: false,
+        },
+    );
+    insert(
+        "from_address",
+        true,
+        SchemaIr::String {
+            title: i18n("email.schema.config.from_address.title"),
+            description: i18n("email.schema.config.from_address.description"),
+            format: None,
+            secret: false,
+        },
+    );
+    insert(
+        "tls_mode",
+        true,
+        SchemaIr::String {
+            title: i18n("email.schema.config.tls_mode.title"),
+            description: i18n("email.schema.config.tls_mode.description"),
+            format: None,
+            secret: false,
+        },
+    );
+    insert(
+        "default_to_address",
+        false,
+        SchemaIr::String {
+            title: i18n("email.schema.config.default_to_address.title"),
+            description: i18n("email.schema.config.default_to_address.description"),
+            format: None,
+            secret: false,
+        },
+    );
+    insert(
+        "password",
+        false,
+        SchemaIr::String {
+            title: i18n("email.schema.config.password.title"),
+            description: i18n("email.schema.config.password.description"),
+            format: None,
+            secret: true,
+        },
+    );
+    SchemaIr::Object {
+        title: i18n("email.schema.config.title"),
+        description: i18n("email.schema.config.description"),
+        fields,
+        additional_properties: false,
+    }
+}
+
+fn op(name: &str, title: &str, description: &str) -> OperationDescriptor {
+    OperationDescriptor {
+        name: name.to_string(),
+        title: i18n(title),
+        description: i18n(description),
+    }
+}
+fn qa_q(key: &str, text: &str, required: bool) -> QaQuestionSpec {
+    QaQuestionSpec {
+        key: key.to_string(),
+        text: i18n(text),
+        required,
+    }
+}
+fn i18n(key: &str) -> I18nText {
+    I18nText {
+        key: key.to_string(),
+    }
+}
 
 fn handle_send(input_json: &[u8]) -> Vec<u8> {
     let parsed: Value = match serde_json::from_slice(input_json) {
@@ -148,6 +666,9 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
+    if !cfg.enabled {
+        return json_bytes(&json!({"ok": false, "error": "provider disabled by config"}));
+    }
 
     let envelope = match serde_json::from_slice::<ChannelMessageEnvelope>(input_json) {
         Ok(env) => {
@@ -222,6 +743,7 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         "ok": true,
         "status": "sent",
         "provider_type": PROVIDER_TYPE,
+        "public_base_url": cfg.public_base_url,
         "message_id": message_id,
         "provider_message_id": provider_message_id,
         "payload": payload
@@ -240,6 +762,9 @@ fn handle_reply(_input_json: &[u8]) -> Vec<u8> {
         Ok(cfg) => cfg,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
+    if !cfg.enabled {
+        return json_bytes(&json!({"ok": false, "error": "provider disabled by config"}));
+    }
 
     let to = match parsed.get("to").and_then(|v| v.as_str()) {
         Some(addr) if !addr.is_empty() => addr.to_string(),
@@ -281,6 +806,7 @@ fn handle_reply(_input_json: &[u8]) -> Vec<u8> {
         "ok": true,
         "status": "replied",
         "provider_type": PROVIDER_TYPE,
+        "public_base_url": cfg.public_base_url,
         "message_id": message_id,
         "provider_message_id": provider_message_id,
         "payload": payload
@@ -411,11 +937,14 @@ fn send_payload(input_json: &[u8]) -> Vec<u8> {
     };
     let mut config_value = serde_json::Map::new();
     for key in [
+        "enabled",
+        "public_base_url",
         "host",
         "port",
         "username",
         "from_address",
         "tls_mode",
+        "password",
         "graph_tenant_id",
         "graph_authority",
         "graph_base_url",
@@ -977,13 +1506,17 @@ fn default_tenant() -> TenantId {
     TenantId::try_from("default").expect("default tenant id present")
 }
 
+#[cfg(test)]
 fn parse_config_bytes(bytes: &[u8]) -> Result<ProviderConfig, String> {
-    serde_json::from_slice::<ProviderConfig>(bytes).map_err(|e| format!("invalid config: {e}"))
+    let cfg = serde_json::from_slice::<ProviderConfig>(bytes)
+        .map_err(|e| format!("invalid config: {e}"))?;
+    validate_provider_config(cfg)
 }
 
 fn parse_config_value(val: &Value) -> Result<ProviderConfig, String> {
-    serde_json::from_value::<ProviderConfig>(val.clone())
-        .map_err(|e| format!("invalid config: {e}"))
+    let cfg = serde_json::from_value::<ProviderConfig>(val.clone())
+        .map_err(|e| format!("invalid config: {e}"))?;
+    validate_provider_config(cfg)
 }
 
 fn load_config(input: &Value) -> Result<ProviderConfig, String> {
@@ -992,12 +1525,20 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
     }
     let mut partial = serde_json::Map::new();
     for key in [
+        "enabled",
+        "public_base_url",
         "host",
         "port",
         "username",
         "from_address",
         "default_to_address",
         "tls_mode",
+        "password",
+        "graph_tenant_id",
+        "graph_authority",
+        "graph_base_url",
+        "graph_token_endpoint",
+        "graph_scope",
     ] {
         if let Some(v) = input.get(key) {
             partial.insert(key.to_string(), v.clone());
@@ -1007,6 +1548,99 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         return parse_config_value(&Value::Object(partial));
     }
     Err("config required".into())
+}
+
+fn existing_config_from_answers(answers: &Value) -> Option<ProviderConfigOut> {
+    answers
+        .get("existing_config")
+        .cloned()
+        .or_else(|| answers.get("config").cloned())
+        .and_then(|value| serde_json::from_value::<ProviderConfigOut>(value).ok())
+}
+
+fn optional_string_from(answers: &Value, key: &str) -> Option<String> {
+    let value = answers.get(key)?;
+    match value {
+        Value::String(text) => {
+            let trimmed = text.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        }
+        Value::Null => None,
+        _ => None,
+    }
+}
+
+fn string_or_default(answers: &Value, key: &str, default: &str) -> String {
+    answers
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| default.to_string())
+}
+
+fn default_config_out() -> ProviderConfigOut {
+    ProviderConfigOut {
+        enabled: true,
+        public_base_url: String::new(),
+        host: String::new(),
+        port: default_port(),
+        username: String::new(),
+        from_address: String::new(),
+        tls_mode: default_tls(),
+        default_to_address: None,
+        password: None,
+    }
+}
+
+fn validate_config_out(config: &ProviderConfigOut) -> Result<(), String> {
+    if config.public_base_url.trim().is_empty() {
+        return Err("config validation failed: public_base_url is required".to_string());
+    }
+    if config.host.trim().is_empty() {
+        return Err("config validation failed: host is required".to_string());
+    }
+    if config.username.trim().is_empty() {
+        return Err("config validation failed: username is required".to_string());
+    }
+    if config.from_address.trim().is_empty() {
+        return Err("config validation failed: from_address is required".to_string());
+    }
+    if config.port == 0 {
+        return Err("config validation failed: port must be greater than zero".to_string());
+    }
+    if !(config.public_base_url.starts_with("http://")
+        || config.public_base_url.starts_with("https://"))
+    {
+        return Err(
+            "config validation failed: public_base_url must be an absolute URL".to_string(),
+        );
+    }
+    Ok(())
+}
+
+fn validate_provider_config(cfg: ProviderConfig) -> Result<ProviderConfig, String> {
+    if cfg.public_base_url.trim().is_empty() {
+        return Err("invalid config: public_base_url cannot be empty".to_string());
+    }
+    if cfg.host.trim().is_empty() {
+        return Err("invalid config: host cannot be empty".to_string());
+    }
+    if cfg.username.trim().is_empty() {
+        return Err("invalid config: username cannot be empty".to_string());
+    }
+    if cfg.from_address.trim().is_empty() {
+        return Err("invalid config: from_address cannot be empty".to_string());
+    }
+    if let Some(password) = cfg.password.as_deref() {
+        let _ = password.trim();
+    }
+    Ok(cfg)
 }
 
 fn build_channel_envelope(parsed: &Value, cfg: &ProviderConfig) -> ChannelMessageEnvelope {
@@ -1082,19 +1716,18 @@ fn json_bytes<T: serde::Serialize>(value: &T) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeSet;
 
     #[test]
-    fn validate_accepts_defaults() {
-        let cfg =
-            br#"{"host":"smtp.example.com","username":"u","from_address":"from@example.com"}"#;
-        let resp = Component::validate_config(cfg.to_vec());
-        let json: Value = serde_json::from_slice(&resp).unwrap();
-        assert_eq!(json.get("ok"), Some(&Value::Bool(true)));
+    fn parse_config_requires_new_fields() {
+        let cfg = br#"{"enabled":true,"public_base_url":"https://example.com","host":"smtp.example.com","port":587,"username":"u","from_address":"from@example.com","tls_mode":"starttls"}"#;
+        let parsed = parse_config_bytes(cfg).expect("valid config");
+        assert!(parsed.enabled);
     }
 
     #[test]
     fn parse_config_rejects_unknown() {
-        let cfg = br#"{"host":"smtp","username":"u","from_address":"f","unknown":true}"#;
+        let cfg = br#"{"enabled":true,"public_base_url":"https://example.com","host":"smtp","port":587,"username":"u","from_address":"f","tls_mode":"starttls","unknown":true}"#;
         let err = parse_config_bytes(cfg).unwrap_err();
         assert!(err.contains("unknown field"));
     }
@@ -1102,11 +1735,146 @@ mod tests {
     #[test]
     fn load_config_prefers_nested() {
         let input = json!({
-            "config": {"host":"a","port":25,"username":"u","from_address":"f"},
+            "config": {
+                "enabled": true,
+                "public_base_url": "https://example.com",
+                "host":"a",
+                "port":25,
+                "username":"u",
+                "from_address":"f",
+                "tls_mode":"starttls"
+            },
             "host": "b"
         });
         let cfg = load_config(&input).unwrap();
         assert_eq!(cfg.host, "a");
         assert_eq!(cfg.port, 25);
+    }
+
+    #[test]
+    fn schema_hash_is_stable() {
+        let describe = build_describe_payload();
+        assert_eq!(
+            describe.schema_hash,
+            "a022076adb33dab084ad655fb83b4857a9d4aa7fd81b1d4d694a509789a63890"
+        );
+    }
+
+    #[test]
+    fn describe_passes_strict_rules() {
+        let describe = build_describe_payload();
+        assert!(!describe.operations.is_empty());
+        assert_eq!(
+            describe.schema_hash,
+            schema_hash(
+                &describe.input_schema,
+                &describe.output_schema,
+                &describe.config_schema
+            )
+        );
+    }
+
+    #[test]
+    fn i18n_keys_cover_qa_specs() {
+        use bindings::exports::greentic::component::qa::Mode;
+
+        let keyset = I18N_KEYS
+            .iter()
+            .map(|value| (*value).to_string())
+            .collect::<BTreeSet<_>>();
+
+        for mode in [Mode::Default, Mode::Setup, Mode::Upgrade, Mode::Remove] {
+            let spec = build_qa_spec(mode);
+            assert!(keyset.contains(&spec.title.key));
+            for question in spec.questions {
+                assert!(keyset.contains(&question.text.key));
+            }
+        }
+    }
+
+    #[test]
+    fn qa_default_asks_required_minimum() {
+        use bindings::exports::greentic::component::qa::Mode;
+        let spec = build_qa_spec(Mode::Default);
+        let keys = spec
+            .questions
+            .into_iter()
+            .map(|question| question.key)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            keys,
+            vec!["public_base_url", "host", "username", "from_address"]
+        );
+    }
+
+    #[test]
+    fn apply_answers_upgrade_preserves_unspecified_fields() {
+        use bindings::exports::greentic::component::qa::Guest as QaGuest;
+        use bindings::exports::greentic::component::qa::Mode;
+        let answers = json!({
+            "existing_config": {
+                "enabled": true,
+                "public_base_url": "https://example.com",
+                "host": "smtp.example.com",
+                "port": 587,
+                "username": "user-a",
+                "from_address": "from@example.com",
+                "tls_mode": "starttls",
+                "default_to_address": "old@example.com",
+                "password": "secret-a"
+            },
+            "default_to_address": "new@example.com"
+        });
+        let out =
+            <Component as QaGuest>::apply_answers(Mode::Upgrade, canonical_cbor_bytes(&answers));
+        let out_json: Value = decode_cbor(&out).expect("decode apply output");
+        assert_eq!(out_json.get("ok"), Some(&Value::Bool(true)));
+        let config = out_json.get("config").expect("config object");
+        assert_eq!(
+            config.get("host"),
+            Some(&Value::String("smtp.example.com".to_string()))
+        );
+        assert_eq!(
+            config.get("default_to_address"),
+            Some(&Value::String("new@example.com".to_string()))
+        );
+    }
+
+    #[test]
+    fn apply_answers_remove_returns_cleanup_plan() {
+        use bindings::exports::greentic::component::qa::Guest as QaGuest;
+        use bindings::exports::greentic::component::qa::Mode;
+        let out =
+            <Component as QaGuest>::apply_answers(Mode::Remove, canonical_cbor_bytes(&json!({})));
+        let out_json: Value = decode_cbor(&out).expect("decode apply output");
+        assert_eq!(out_json.get("ok"), Some(&Value::Bool(true)));
+        assert_eq!(out_json.get("config"), Some(&Value::Null));
+        let cleanup = out_json
+            .get("remove")
+            .and_then(|value| value.get("cleanup"))
+            .and_then(Value::as_array)
+            .expect("cleanup steps");
+        assert!(!cleanup.is_empty());
+    }
+
+    #[test]
+    fn apply_answers_validates_public_base_url() {
+        use bindings::exports::greentic::component::qa::Guest as QaGuest;
+        use bindings::exports::greentic::component::qa::Mode;
+        let answers = json!({
+            "public_base_url": "not-a-url",
+            "host": "smtp.example.com",
+            "username": "user-a",
+            "from_address": "from@example.com"
+        });
+        let out =
+            <Component as QaGuest>::apply_answers(Mode::Default, canonical_cbor_bytes(&answers));
+        let out_json: Value = decode_cbor(&out).expect("decode apply output");
+        assert_eq!(out_json.get("ok"), Some(&Value::Bool(false)));
+        let error = out_json
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        assert!(error.contains("public_base_url"));
     }
 }

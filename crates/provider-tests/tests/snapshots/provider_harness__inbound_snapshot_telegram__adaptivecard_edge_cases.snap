@@ -1,25 +1,22 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 878
 expression: value
 ---
 {
-  "normalized_event": {
-    "event": {
-      "id": "<FIXED>",
-      "notes": [
-        "unicode-safe",
-        "no emoji"
-      ],
-      "provider": "telegram",
-      "text": "Long text with markdown **bold** and newlines\nsecond line",
-      "timestamp": "<FIXED>",
-      "type": "adaptivecard",
-      "variant": "edge"
+  "event": {
+    "channel": "telegram",
+    "id": "<FIXED>",
+    "metadata": {
+      "universal": "true"
     },
-    "ok": true
+    "session_id": "telegram",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": ""
   },
-  "suggested_http_status": null,
-  "validation": "ok",
-  "warnings": []
+  "ok": true
 }

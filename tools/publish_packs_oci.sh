@@ -31,6 +31,13 @@ MEDIA_TYPE="${MEDIA_TYPE:-application/vnd.greentic.gtpack.v1+zip}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mkdir -p "${ROOT_DIR}/${OUT_DIR}"
 
+if [ -f "${ROOT_DIR}/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "${ROOT_DIR}/.env"
+  set +a
+fi
+
 if [ -x "${ROOT_DIR}/tools/prepare_pack_assets.sh" ]; then
   "${ROOT_DIR}/tools/prepare_pack_assets.sh"
 fi
@@ -39,10 +46,13 @@ timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 git_sha="$(cd "${ROOT_DIR}" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 
 # Default OCI location for the shared templates component used by many packs.
-DEFAULT_TEMPLATES_IMAGE="ghcr.io/greentic-ai/components/templates"
-DEFAULT_TEMPLATES_DIGEST="sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+TEMPLATES_REGISTRY="${TEMPLATES_REGISTRY:-${OCI_REGISTRY:-ghcr.io}}"
+TEMPLATES_NAMESPACE="${TEMPLATES_NAMESPACE:-${GHCR_NAMESPACE:-${OCI_ORG:-${GHCR_USERNAME:-greentic-ai}}}}"
+DEFAULT_TEMPLATES_IMAGE="${TEMPLATES_IMAGE:-${TEMPLATES_REGISTRY}/${TEMPLATES_NAMESPACE}/components/templates:latest}"
+DEFAULT_TEMPLATES_DIGEST=""
 DEFAULT_TEMPLATES_ARTIFACT="component_templates.wasm"
 DEFAULT_TEMPLATES_MANIFEST="component.publish.manifest.json"
+echo "Using templates image: ${DEFAULT_TEMPLATES_IMAGE}"
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required"; exit 1; }
 command -v zip >/dev/null 2>&1 || { echo "zip is required"; exit 1; }
@@ -94,16 +104,29 @@ generate_pack_manifest() {
 ensure_secret_requirements_asset() {
   local pack_dir="$1"
   local secrets_out="$2"
-  local dest_assets="${pack_dir}/assets/secret-requirements.json"
   local dest_root="${pack_dir}/secret-requirements.json"
-  mkdir -p "$(dirname "${dest_assets}")"
+  rm -f "${pack_dir}/assets/secret-requirements.json"
   if [ -f "${secrets_out}" ]; then
-    cp "${secrets_out}" "${dest_assets}"
     cp "${secrets_out}" "${dest_root}"
   else
-    printf '%s\n' "[]" > "${dest_assets}"
     printf '%s\n' "[]" > "${dest_root}"
   fi
+}
+
+strip_secret_requirements_asset_entry() {
+  local pack_dir="$1"
+  local yaml_path="${pack_dir}/pack.yaml"
+  [ -f "${yaml_path}" ] || return 0
+  python3 - "${yaml_path}" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+lines = path.read_text().splitlines()
+filtered = [line for line in lines if line.strip() != "- path: secret-requirements.json"]
+if filtered != lines:
+    path.write_text("\n".join(filtered) + "\n")
+PY
 }
 
 ensure_pack_readme() {
@@ -269,6 +292,7 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   ensure_secret_requirements_asset "${dir}" "${secrets_out}"
   ensure_pack_readme "${dir}"
   update_pack_yaml_version "${dir}"
+  strip_secret_requirements_asset_entry "${dir}"
   (cd "${dir}" && "${PACKC_BIN}" config)
   (cd "${dir}" && "${PACKC_BIN}" resolve)
 
@@ -282,11 +306,15 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   for comp_json in "${components[@]}"; do
     oci_image="$(jq -r '.oci.image // empty' <<<"${comp_json}")"
     comp_id="$(jq -r '.id' <<<"${comp_json}")"
-    if [ -z "${oci_image}" ] && { [ "${comp_id}" = "templates" ] || [ "${comp_id}" = "ai.greentic.component-templates" ]; }; then
-      oci_image="${DEFAULT_TEMPLATES_IMAGE}"
-    fi
     wasm_path="$(jq -r '.wasm' <<<"${comp_json}")"
     fname="$(basename "${wasm_path}")"
+    is_templates_component=0
+    if [ "${comp_id}" = "templates" ] || [ "${comp_id}" = "ai.greentic.component-templates" ] || [ "${fname}" = "templates.wasm" ]; then
+      is_templates_component=1
+    fi
+    if [ -z "${oci_image}" ] && [ "${is_templates_component}" -eq 1 ]; then
+      oci_image="${DEFAULT_TEMPLATES_IMAGE}"
+    fi
     if [ -z "${oci_image}" ] && [ ! -f "${ROOT_DIR}/target/components/${fname}" ]; then
       missing_local=1
       break
@@ -307,11 +335,21 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     oci_artifact="$(jq -r '.oci.artifact // empty' <<<"${comp_json}")"
     manifest_rel="$(jq -r '.manifest // empty' <<<"${comp_json}")"
     oci_manifest="$(jq -r '.oci.manifest // empty' <<<"${comp_json}")"
+    is_templates_component=0
+    if [ "${comp_id}" = "templates" ] || [ "${comp_id}" = "ai.greentic.component-templates" ] || [ "${fname}" = "templates.wasm" ]; then
+      is_templates_component=1
+    fi
 
-    if [ -z "${oci_image}" ] && { [ "${comp_id}" = "templates" ] || [ "${comp_id}" = "ai.greentic.component-templates" ]; }; then
+    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_image}" ]; then
       oci_image="${DEFAULT_TEMPLATES_IMAGE}"
+    fi
+    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_digest}" ]; then
       oci_digest="${DEFAULT_TEMPLATES_DIGEST}"
+    fi
+    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_artifact}" ]; then
       oci_artifact="${DEFAULT_TEMPLATES_ARTIFACT}"
+    fi
+    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_manifest}" ]; then
       oci_manifest="${DEFAULT_TEMPLATES_MANIFEST}"
     fi
 
@@ -467,8 +505,35 @@ fi
 
 if compgen -G "${ROOT_DIR}/${OUT_DIR}/messaging-*.gtpack" >/dev/null; then
   validator_pack_ref="${VALIDATOR_PACK_REF:-oci://ghcr.io/greentic-ai/validators/messaging:latest}"
+  if "${PACKC_BIN}" doctor --help 2>&1 | rg -q -- '--validate'; then
+    doctor_supports_validate=1
+  else
+    doctor_supports_validate=0
+  fi
+  if "${PACKC_BIN}" doctor --help 2>&1 | rg -q -- '--validator-pack'; then
+    doctor_supports_validator_pack=1
+  else
+    doctor_supports_validator_pack=0
+  fi
+  validator_pack_warning_printed=0
   for pack in "${ROOT_DIR}/${OUT_DIR}"/messaging-*.gtpack; do
-    "${PACKC_BIN}" doctor --validate --validator-pack "${validator_pack_ref}" --pack "${pack}"
+    if [ "${doctor_supports_validator_pack}" -eq 1 ]; then
+      if [ "${doctor_supports_validate}" -eq 1 ]; then
+        "${PACKC_BIN}" doctor --validate --validator-pack "${validator_pack_ref}" --pack "${pack}"
+      else
+        "${PACKC_BIN}" doctor --validator-pack "${validator_pack_ref}" --pack "${pack}"
+      fi
+    else
+      if [ "${validator_pack_warning_printed}" -eq 0 ]; then
+        echo "warning: ${PACKC_BIN} doctor lacks --validator-pack; running basic doctor only" >&2
+        validator_pack_warning_printed=1
+      fi
+      if [ "${doctor_supports_validate}" -eq 1 ]; then
+        "${PACKC_BIN}" doctor --validate --pack "${pack}"
+      else
+        "${PACKC_BIN}" doctor --pack "${pack}"
+      fi
+    fi
   done
 fi
 

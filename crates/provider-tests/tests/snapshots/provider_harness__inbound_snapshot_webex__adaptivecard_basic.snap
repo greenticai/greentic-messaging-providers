@@ -1,17 +1,25 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 878
 expression: value
 ---
 {
   "event": {
+    "channel": "webex",
     "id": "<FIXED>",
-    "provider": "webex",
-    "summary": "card with title/body",
-    "text": "adaptivecard basic message from webex",
-    "timestamp": "<FIXED>",
-    "type": "adaptivecard",
-    "variant": "basic"
+    "metadata": {
+      "webex.event": "",
+      "webex.fetchStatus": "200",
+      "webex.hasAttachments": "false",
+      "webex.resource": ""
+    },
+    "session_id": "webex",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": "adaptivecard basic message from webex"
   },
   "ok": true
 }

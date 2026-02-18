@@ -5,7 +5,8 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Context, Result};
-use greentic_types::{ProviderManifest, provider::PROVIDER_EXTENSION_ID};
+use greentic_types::provider::PROVIDER_EXTENSION_ID;
+use provider_common::component_v0_6::{DescribePayload, canonical_cbor_bytes, decode_cbor};
 use serde_json::{Value, json};
 use wasmtime::component::{
     Component, ComponentExportIndex, HasSelf, Linker, ResourceTable, TypedFunc,
@@ -16,7 +17,7 @@ use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 mod bindings {
     wasmtime::component::bindgen!({
         path: "../../components/messaging-provider-webchat/wit/messaging-provider-webchat",
-        world: "messaging-provider-webchat",
+        world: "component-v0-v6-v0",
     });
 }
 
@@ -273,9 +274,9 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
         .get_export_index(
             &mut describe_store,
             None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
+            "greentic:component/descriptor@0.6.0",
         )
-        .context("get schema-core-api export index")?;
+        .context("get descriptor export index")?;
 
     let describe_index = instance
         .get_export_index(&mut describe_store, Some(&api_index), "describe")
@@ -286,10 +287,10 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
     let (described,) = describe
         .call(&mut describe_store, ())
         .context("call describe")?;
-    let manifest: ProviderManifest =
-        serde_json::from_slice(&described).context("decode describe output")?;
-    assert_eq!(manifest.provider_type, "messaging.webchat");
-    assert!(manifest.ops.contains(&"send".to_string()));
+    let described: DescribePayload = decode_cbor(&described).map_err(anyhow::Error::msg)?;
+    assert_eq!(described.provider, "messaging-provider-webchat");
+    assert!(described.operations.iter().any(|op| op.name == "run"));
+    assert!(described.operations.iter().any(|op| op.name == "send"));
 
     drop(describe_store);
     let mut store = Store::new(&engine, HostState::new());
@@ -298,12 +299,8 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
         .context("instantiate for invoke")?;
 
     let api_index: ComponentExportIndex = instance
-        .get_export_index(
-            &mut store,
-            None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
-        )
-        .context("get schema-core-api export index for invoke")?;
+        .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
+        .context("get runtime export index for invoke")?;
     let invoke_index = instance
         .get_export_index(&mut store, Some(&api_index), "invoke")
         .context("get invoke export index")?;
@@ -320,11 +317,11 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
             "public_base_url": "https://example.invalid"
         }
     });
-    let input_bytes = serde_json::to_vec(&input)?;
+    let input_bytes = canonical_cbor_bytes(&input);
     let (resp,) = invoke
         .call(&mut store, ("send".to_string(), input_bytes))
         .context("call invoke send")?;
-    let resp_json: Value = serde_json::from_slice(&resp).context("parse invoke output")?;
+    let resp_json: Value = decode_cbor(&resp).map_err(anyhow::Error::msg)?;
     assert_eq!(resp_json.get("status"), Some(&Value::String("sent".into())));
     assert_eq!(
         resp_json.get("provider_type"),
@@ -345,12 +342,8 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
         .instantiate(&mut store, &component)
         .context("instantiate for ingest")?;
     let api_index: ComponentExportIndex = instance
-        .get_export_index(
-            &mut store,
-            None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
-        )
-        .context("get schema-core-api export index for ingest")?;
+        .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
+        .context("get runtime export index for ingest")?;
     let invoke_index = instance
         .get_export_index(&mut store, Some(&api_index), "invoke")
         .context("get invoke export index for ingest")?;
@@ -362,10 +355,10 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
     let (ingest_resp,) = invoke
         .call(
             &mut store,
-            ("ingest".to_string(), serde_json::to_vec(&ingest_input)?),
+            ("ingest".to_string(), canonical_cbor_bytes(&ingest_input)),
         )
         .context("call invoke ingest")?;
-    let ingest_json: Value = serde_json::from_slice(&ingest_resp).context("parse ingest output")?;
+    let ingest_json: Value = decode_cbor(&ingest_resp).map_err(anyhow::Error::msg)?;
     assert_eq!(ingest_json.get("ok"), Some(&Value::Bool(true)));
 
     Ok(())
