@@ -37,7 +37,7 @@ urlencoding = "2"
 greentic-interfaces-wasmtime = "0.4"
 greentic-types = "0.4"
 greentic-interfaces = "0.4"
-greentic-interfaces-guest = { version = "0.4", default-features = false, features = ["component-v1"] }
+greentic-interfaces-guest = { version = "0.4", default-features = false }
 greentic-runner-desktop = "0.4"
 anyhow = "1"
 uuid = { version = "1", features = ["v4"] }
