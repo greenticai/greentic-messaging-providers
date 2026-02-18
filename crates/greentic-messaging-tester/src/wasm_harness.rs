@@ -11,6 +11,7 @@ use greentic_interfaces_wasmtime::host_helpers::v1::{
 };
 use greentic_interfaces_wasmtime::http_client_client_v1_1::greentic::http::http_client as http_client_client_alias;
 use greentic_types::ProviderManifest;
+use provider_common::component_v0_6::{DescribePayload, canonical_cbor_bytes, decode_cbor};
 use serde::Deserialize;
 use wasmtime::{
     Config, Engine, Store,
@@ -21,7 +22,7 @@ use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 mod component_node_bindings {
     wasmtime::component::bindgen!({
         path: "../../wit/component-node",
-        world: "greentic:component/node@0.5.0",
+        world: "greentic:component/node@0.6.0",
     });
 }
 
@@ -29,8 +30,10 @@ use crate::http_mock::{
     self, HttpCall, HttpHistory, HttpMode, HttpRequest, HttpResponseQueue, HttpResponseRecord,
 };
 
-const NODE_WORLD: &str = "greentic:component/node@0.5.0";
-const SCHEMA_CORE_WORLD: &str = "greentic:provider-schema-core/schema-core-api@1.0.0";
+const NODE_WORLD: &str = "greentic:component/node@0.6.0";
+const NODE_WORLD_LEGACY: &str = "greentic:component/node@0.5.0";
+const COMPONENT_DESCRIPTOR_WORLD: &str = "greentic:component/descriptor@0.6.0";
+const COMPONENT_RUNTIME_WORLD: &str = "greentic:component/runtime@0.6.0";
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum InvokeStrategy {
@@ -144,16 +147,24 @@ impl WasmHarness {
     ) -> Result<Vec<u8>> {
         let state = TesterHostState::new(secrets.clone(), http_mode, history, mock_responses);
         execute_with_state(&self.engine, &self.component, state, |store, instance| {
+            let input_cbor = match serde_json::from_slice::<serde_json::Value>(&input) {
+                Ok(value) => canonical_cbor_bytes(&value),
+                Err(_) => input.clone(),
+            };
             let api_index = instance
-                .get_export_index(&mut *store, None, SCHEMA_CORE_WORLD)
+                .get_export_index(&mut *store, None, COMPONENT_RUNTIME_WORLD)
                 .context("missing schema-core export for invoke")?;
             let invoke_index = instance
                 .get_export_index(&mut *store, Some(&api_index), "invoke")
                 .context("missing schema-core invoke export")?;
             let invoke = instance
                 .get_typed_func::<(String, Vec<u8>), (Vec<u8>,)>(&mut *store, invoke_index)?;
-            let (result,) = invoke.call(&mut *store, (op.to_string(), input))?;
-            Ok(result)
+            let (result_cbor,) = invoke.call(&mut *store, (op.to_string(), input_cbor))?;
+            let result_json: serde_json::Value = decode_cbor(&result_cbor)
+                .map_err(|err| anyhow!("failed to decode runtime output cbor: {err}"))?;
+            let result_bytes =
+                serde_json::to_vec(&result_json).context("failed to serialize runtime output")?;
+            Ok(result_bytes)
         })
     }
 }
@@ -361,20 +372,41 @@ fn describe_manifest_from_schema(
     let state = TesterHostState::new(HashMap::new(), HttpMode::Mock, history, None);
     execute_with_state(engine, component, state, |store, instance| {
         let api_index = instance
-            .get_export_index(&mut *store, None, SCHEMA_CORE_WORLD)
+            .get_export_index(&mut *store, None, COMPONENT_DESCRIPTOR_WORLD)
             .context("missing schema-core export")?;
         let describe_index = instance
             .get_export_index(&mut *store, Some(&api_index), "describe")
             .context("missing describe export")?;
         let _ = instance
-            .get_export_index(&mut *store, Some(&api_index), "invoke")
+            .get_export_index(&mut *store, None, COMPONENT_RUNTIME_WORLD)
             .context("missing schema-core invoke export")?;
         let describe = instance.get_typed_func::<(), (Vec<u8>,)>(&mut *store, describe_index)?;
         let (bytes,) = describe.call(&mut *store, ())?;
-        let manifest: ProviderManifest =
-            serde_json::from_slice(&bytes).context("failed to parse provider manifest")?;
+        let described: DescribePayload = decode_cbor(&bytes)
+            .map_err(|err| anyhow!("failed to parse component descriptor payload: {err}"))?;
+        let manifest = ProviderManifest {
+            provider_type: provider_type_from_descriptor(&described.provider),
+            capabilities: Vec::new(),
+            ops: described.operations.into_iter().map(|op| op.name).collect(),
+            config_schema_ref: None,
+            state_schema_ref: None,
+        };
         Ok(manifest)
     })
+}
+
+fn provider_type_from_descriptor(provider: &str) -> String {
+    match provider {
+        "messaging-provider-slack" | "slack" => "messaging.slack.api".to_string(),
+        "messaging-provider-teams" | "teams" => "messaging.teams.graph".to_string(),
+        "messaging-provider-telegram" | "telegram" => "messaging.telegram.bot".to_string(),
+        "messaging-provider-webchat" | "webchat" => "messaging.webchat".to_string(),
+        "messaging-provider-webex" | "webex" => "messaging.webex.bot".to_string(),
+        "messaging-provider-whatsapp" | "whatsapp" => "messaging.whatsapp.cloud".to_string(),
+        "messaging-provider-email" | "email" => "messaging.email.smtp".to_string(),
+        "messaging-provider-dummy" | "dummy" => "messaging.dummy".to_string(),
+        other => other.to_string(),
+    }
 }
 
 fn execute_with_state<R>(
@@ -520,7 +552,10 @@ fn node_world_export(
     store: &mut Store<TesterHostState>,
     instance: &Instance,
 ) -> Option<ComponentExportIndex> {
-    instance.get_export_index(store, None, NODE_WORLD)
+    if let Some(index) = instance.get_export_index(&mut *store, None, NODE_WORLD) {
+        return Some(index);
+    }
+    instance.get_export_index(&mut *store, None, NODE_WORLD_LEGACY)
 }
 
 fn node_function_index(
@@ -529,9 +564,22 @@ fn node_function_index(
     name: &str,
 ) -> Result<ComponentExportIndex> {
     let parent = node_world_export(store, instance);
-    instance
-        .get_export_index(store, parent.as_ref(), name)
-        .with_context(|| format!("missing node {name} export"))
+    if let Some(index) = instance.get_export_index(&mut *store, parent.as_ref(), name) {
+        return Ok(index);
+    }
+    // Some node components export root funcs directly instead of under a
+    // namespaced world instance, and may use fully-qualified export names.
+    let candidates = [
+        name.to_string(),
+        format!("greentic:component/node@0.6.0#{name}"),
+        format!("greentic:component/node@0.5.0#{name}"),
+    ];
+    for candidate in candidates {
+        if let Some(index) = instance.get_export_index(&mut *store, None, &candidate) {
+            return Ok(index);
+        }
+    }
+    Err(anyhow!("missing node {name} export"))
 }
 
 pub struct TesterHostState {
@@ -700,18 +748,67 @@ fn find_wasm_path(provider: &str) -> Result<PathBuf> {
             }
         }
     }
-    let builtin = root.join(format!(
-        "target/components/messaging-provider-{provider}.wasm"
-    ));
-    if builtin.exists() {
-        component_candidates.push(builtin);
+    let targets = ["wasm32-wasip2", "wasm32-wasip1"];
+    for wasm_name in [
+        format!("messaging-provider-{provider}"),
+        format!("messaging_provider_{provider}"),
+    ] {
+        let builtin = root
+            .join("target/components")
+            .join(format!("{wasm_name}.wasm"));
+        if builtin.exists() {
+            component_candidates.push(builtin);
+        }
+        for target in targets {
+            for suffix in ["release", "debug"] {
+                let root_target = root
+                    .join("target")
+                    .join(target)
+                    .join(suffix)
+                    .join(format!("{wasm_name}.wasm"));
+                if root_target.exists() {
+                    component_candidates.push(root_target);
+                }
+                let path = provider_dir.join(format!("target/{target}/{suffix}/{wasm_name}.wasm"));
+                if path.exists() {
+                    component_candidates.push(path);
+                }
+            }
+        }
     }
-    for suffix in ["release", "debug"] {
-        let path = provider_dir.join(format!(
-            "target/wasm32-wasip2/{suffix}/messaging-provider-{provider}.wasm"
-        ));
-        if path.exists() {
-            component_candidates.push(path);
+    if component_candidates.is_empty() {
+        let package = format!("messaging-provider-{provider}");
+        let _ = std::process::Command::new("cargo")
+            .current_dir(&root)
+            .args(["component", "build", "-p", &package])
+            .status();
+        for wasm_name in [
+            format!("messaging-provider-{provider}"),
+            format!("messaging_provider_{provider}"),
+        ] {
+            let builtin = root
+                .join("target/components")
+                .join(format!("{wasm_name}.wasm"));
+            if builtin.exists() {
+                component_candidates.push(builtin);
+            }
+            for target in targets {
+                for suffix in ["release", "debug"] {
+                    let root_target = root
+                        .join("target")
+                        .join(target)
+                        .join(suffix)
+                        .join(format!("{wasm_name}.wasm"));
+                    if root_target.exists() {
+                        component_candidates.push(root_target);
+                    }
+                    let path =
+                        provider_dir.join(format!("target/{target}/{suffix}/{wasm_name}.wasm"));
+                    if path.exists() {
+                        component_candidates.push(path);
+                    }
+                }
+            }
         }
     }
     if let Some(path) = latest_candidate(&component_candidates) {
@@ -863,7 +960,7 @@ fn detect_available_worlds(engine: &Engine, component: &Component) -> Result<Vec
             worlds.push("node");
         }
         if instance
-            .get_export_index(store, None, SCHEMA_CORE_WORLD)
+            .get_export_index(store, None, COMPONENT_RUNTIME_WORLD)
             .is_some()
         {
             worlds.push("schema-core");

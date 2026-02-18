@@ -1,16 +1,22 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 878
 expression: value
 ---
 {
   "event": {
-    "channel": "webchat-channel",
+    "channel": "webchat",
     "id": "<FIXED>",
-    "provider": "webchat",
-    "text": "simple text message from webchat",
-    "timestamp": "<FIXED>",
-    "type": "message"
+    "metadata": {
+      "universal": "true"
+    },
+    "session_id": "webchat",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": "simple text message from webchat"
   },
   "ok": true
 }

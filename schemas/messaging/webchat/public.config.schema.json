@@ -2,7 +2,28 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "WebChat Provider-Core Config",
   "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enabled",
+    "public_base_url",
+    "mode"
+  ],
   "properties": {
+    "enabled": {
+      "type": "boolean",
+      "description": "Enable the webchat provider."
+    },
+    "public_base_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Public base URL for inbound webhook callbacks."
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["local_queue", "websocket", "pubsub"],
+      "default": "local_queue",
+      "description": "Delivery mode used by the runner."
+    },
     "route": {
       "type": "string",
       "description": "Routing key or channel route used for outbound messages."
@@ -11,22 +32,10 @@
       "type": "string",
       "description": "Tenant-scoped channel identifier used for webchat routing."
     },
-    "mode": {
-      "type": "string",
-      "enum": ["local_queue", "websocket", "pubsub"],
-      "default": "local_queue",
-      "description": "Delivery mode used by the runner."
-    },
-    "public_base_url": {
-      "type": "string",
-      "format": "uri",
-      "description": "Public base URL for inbound webhook callbacks."
-    },
     "base_url": {
       "type": "string",
+      "format": "uri",
       "description": "Optional host base URL for push/websocket endpoints."
     }
-  },
-  "required": ["mode", "public_base_url"],
-  "additionalProperties": false
+  }
 }

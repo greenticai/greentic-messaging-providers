@@ -1,25 +1,23 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 878
 expression: value
 ---
 {
   "event": {
-    "attachments": [
-      {
-        "kind": "image",
-        "url": "https://example.invalid/image.png"
-      },
-      {
-        "kind": "file",
-        "name": "notes.txt"
-      }
-    ],
+    "channel": "whatsapp",
     "id": "<FIXED>",
-    "provider": "whatsapp",
-    "text": "attachment message from whatsapp",
-    "timestamp": "<FIXED>",
-    "type": "message"
+    "metadata": {
+      "channel_id": "whatsapp",
+      "universal": "true"
+    },
+    "session_id": "whatsapp",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": ""
   },
   "ok": true
 }

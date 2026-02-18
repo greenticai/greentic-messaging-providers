@@ -20,12 +20,10 @@ package = "provider:webex"
 
 [package.metadata.component.target]
 path = "wit/webex"
-world = "webex"
+world = "component-v0-v6-v0"
 
 [package.metadata.component.target.dependencies]
+"greentic:interfaces-types" = { path = "wit/webex/deps/interfaces-types" }
 "greentic:secrets-store" = { path = "wit/webex/deps/secrets-store" }
 "greentic:http" = { path = "wit/webex/deps/http" }
-"greentic:state" = { path = "wit/webex/deps/state" }
 "greentic:telemetry" = { path = "wit/webex/deps/telemetry" }
-"greentic:interfaces-types" = { path = "wit/webex/deps/interfaces-types" }
-"provider:common" = { path = "wit/webex/deps/provider-common" }

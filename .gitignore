@@ -4,3 +4,4 @@
 seeds.yaml
 components/provision/provision.wasm
 components/questions/questions.wasm
+.env

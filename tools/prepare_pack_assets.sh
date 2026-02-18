@@ -12,14 +12,27 @@ for dir in "${PACKS_DIR}"/messaging-*; do
     --components-dir "${ROOT_DIR}/components" \
     --secrets-out "${secrets_out}" >/dev/null
 
-  dest_assets="${dir}/assets/secret-requirements.json"
   dest_root="${dir}/secret-requirements.json"
-  mkdir -p "$(dirname "${dest_assets}")"
+  rm -f "${dir}/assets/secret-requirements.json"
   if [ -f "${secrets_out}" ]; then
-    cp "${secrets_out}" "${dest_assets}"
     cp "${secrets_out}" "${dest_root}"
   else
-    printf '%s\n' "[]" > "${dest_assets}"
     printf '%s\n' "[]" > "${dest_root}"
+  fi
+
+  # Avoid duplicate zip entries in greentic-pack builds where this root
+  # file is also materialized under assets/ by the pack tool.
+  pack_yaml="${dir}/pack.yaml"
+  if [ -f "${pack_yaml}" ]; then
+    python3 - "${pack_yaml}" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+lines = path.read_text().splitlines()
+filtered = [line for line in lines if line.strip() != "- path: secret-requirements.json"]
+if filtered != lines:
+    path.write_text("\n".join(filtered) + "\n")
+PY
   fi
 done

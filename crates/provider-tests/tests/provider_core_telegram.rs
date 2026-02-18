@@ -4,7 +4,8 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Context, Result};
-use greentic_types::{ProviderManifest, provider::PROVIDER_EXTENSION_ID};
+use greentic_types::provider::PROVIDER_EXTENSION_ID;
+use provider_common::component_v0_6::{DescribePayload, canonical_cbor_bytes, decode_cbor};
 use serde_json::{Value, json};
 use wasmtime::component::{
     Component, ComponentExportIndex, HasSelf, Linker, ResourceTable, TypedFunc,
@@ -15,7 +16,7 @@ use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 mod bindings {
     wasmtime::component::bindgen!({
         path: "../../components/messaging-provider-telegram/wit/messaging-provider-telegram",
-        world: "messaging-provider-telegram",
+        world: "component-v0-v6-v0",
     });
 }
 
@@ -96,7 +97,7 @@ fn new_engine() -> Engine {
 struct HostState {
     table: ResourceTable,
     wasi_ctx: WasiCtx,
-    last_request: RefCell<Option<bindings::greentic::http::client::Request>>,
+    last_request: RefCell<Option<bindings::greentic::http::http_client::Request>>,
     secret_value: String,
 }
 
@@ -120,18 +121,18 @@ impl WasiView for HostState {
     }
 }
 
-impl bindings::greentic::http::client::Host for HostState {
+impl bindings::greentic::http::http_client::Host for HostState {
     fn send(
         &mut self,
-        req: bindings::greentic::http::client::Request,
-        _options: Option<bindings::greentic::http::client::RequestOptions>,
+        req: bindings::greentic::http::http_client::Request,
+        _options: Option<bindings::greentic::http::http_client::RequestOptions>,
         _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
     ) -> Result<
-        bindings::greentic::http::client::Response,
-        bindings::greentic::http::client::HostError,
+        bindings::greentic::http::http_client::Response,
+        bindings::greentic::http::http_client::HostError,
     > {
         self.last_request.replace(Some(req));
-        Ok(bindings::greentic::http::client::Response {
+        Ok(bindings::greentic::http::http_client::Response {
             status: 200,
             headers: vec![],
             body: Some(
@@ -173,12 +174,8 @@ fn invoke_send(
         .instantiate(&mut store, component)
         .context("instantiate for invoke")?;
     let api_index: ComponentExportIndex = instance
-        .get_export_index(
-            &mut store,
-            None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
-        )
-        .context("get schema-core-api export index for invoke")?;
+        .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
+        .context("get runtime export index for invoke")?;
     let invoke_index = instance
         .get_export_index(&mut store, Some(&api_index), "invoke")
         .context("get invoke export index")?;
@@ -188,7 +185,7 @@ fn invoke_send(
     let (bytes,) = invoke
         .call(&mut store, ("send".to_string(), input_bytes))
         .context("call invoke send")?;
-    let json: Value = serde_json::from_slice(&bytes).context("parse invoke output")?;
+    let json: Value = decode_cbor(&bytes).map_err(anyhow::Error::msg)?;
     Ok(json)
 }
 
@@ -283,7 +280,7 @@ fn invoke_send_smoke_test() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
-    bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
+    bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
         &mut linker,
         |state: &mut HostState| state,
     )
@@ -305,12 +302,8 @@ fn invoke_send_smoke_test() -> Result<()> {
         .context("instantiate for describe")?;
 
     let api_index: ComponentExportIndex = instance
-        .get_export_index(
-            &mut store,
-            None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
-        )
-        .context("get schema-core-api export index")?;
+        .get_export_index(&mut store, None, "greentic:component/descriptor@0.6.0")
+        .context("get descriptor export index")?;
 
     let describe_index = instance
         .get_export_index(&mut store, Some(&api_index), "describe")
@@ -319,11 +312,11 @@ fn invoke_send_smoke_test() -> Result<()> {
         .get_typed_func(&mut store, describe_index)
         .context("get describe func")?;
     let (described,) = describe.call(&mut store, ()).context("call describe")?;
-    let manifest: ProviderManifest =
-        serde_json::from_slice(&described).context("decode describe output")?;
-    assert_eq!(manifest.provider_type, "messaging.telegram.bot");
-    assert!(manifest.ops.contains(&"send".to_string()));
-    assert!(manifest.ops.contains(&"reply".to_string()));
+    let described: DescribePayload = decode_cbor(&described).map_err(anyhow::Error::msg)?;
+    assert_eq!(described.provider, "messaging-provider-telegram");
+    assert!(described.operations.iter().any(|op| op.name == "run"));
+    assert!(described.operations.iter().any(|op| op.name == "send"));
+    assert!(described.operations.iter().any(|op| op.name == "reply"));
 
     drop(store);
     let mut store = Store::new(&engine, HostState::new("telegram-secret-token"));
@@ -332,12 +325,8 @@ fn invoke_send_smoke_test() -> Result<()> {
         .context("instantiate for invoke")?;
 
     let api_index: ComponentExportIndex = instance
-        .get_export_index(
-            &mut store,
-            None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
-        )
-        .context("get schema-core-api export index for invoke")?;
+        .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
+        .context("get runtime export index for invoke")?;
     let invoke_index = instance
         .get_export_index(&mut store, Some(&api_index), "invoke")
         .context("get invoke export index")?;
@@ -349,14 +338,15 @@ fn invoke_send_smoke_test() -> Result<()> {
         "chat_id": "123",
         "text": "hello telegram",
         "config": {
-            "api_base_url": "https://api.telegram.org"
+            "api_base_url": "https://api.telegram.org",
+            "public_base_url": "https://example.com"
         }
     });
-    let input_bytes = serde_json::to_vec(&input)?;
+    let input_bytes = canonical_cbor_bytes(&input);
     let (first,) = invoke
         .call(&mut store, ("send".to_string(), input_bytes.clone()))
         .context("call invoke send")?;
-    let first_json: Value = serde_json::from_slice(&first).context("parse invoke output")?;
+    let first_json: Value = decode_cbor(&first).map_err(anyhow::Error::msg)?;
     assert_eq!(
         first_json.get("status"),
         Some(&Value::String("sent".into()))
@@ -414,7 +404,7 @@ fn invoke_reply_smoke_test() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
-    bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
+    bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
         &mut linker,
         |state: &mut HostState| state,
     )
@@ -435,12 +425,8 @@ fn invoke_reply_smoke_test() -> Result<()> {
         .instantiate(&mut store, &component)
         .context("instantiate for invoke reply")?;
     let api_index: ComponentExportIndex = instance
-        .get_export_index(
-            &mut store,
-            None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
-        )
-        .context("get schema-core-api export index for invoke")?;
+        .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
+        .context("get runtime export index for invoke")?;
     let invoke_index = instance
         .get_export_index(&mut store, Some(&api_index), "invoke")
         .context("get invoke export index")?;
@@ -454,14 +440,15 @@ fn invoke_reply_smoke_test() -> Result<()> {
         "reply_to_id": "42",
         "config": {
             "default_chat_id": "123",
-            "api_base_url": "https://api.telegram.org"
+            "api_base_url": "https://api.telegram.org",
+            "public_base_url": "https://example.com"
         }
     });
-    let input_bytes = serde_json::to_vec(&input)?;
+    let input_bytes = canonical_cbor_bytes(&input);
     let (resp,) = invoke
         .call(&mut store, ("reply".to_string(), input_bytes))
         .context("call invoke reply")?;
-    let resp_json: Value = serde_json::from_slice(&resp).context("parse invoke output")?;
+    let resp_json: Value = decode_cbor(&resp).map_err(anyhow::Error::msg)?;
     assert_eq!(
         resp_json.get("status"),
         Some(&Value::String("replied".into()))
@@ -490,7 +477,7 @@ fn reply_requires_reply_to_id() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
-    bindings::greentic::http::client::add_to_linker::<HostState, HasSelf<HostState>>(
+    bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
         &mut linker,
         |state: &mut HostState| state,
     )
@@ -511,12 +498,8 @@ fn reply_requires_reply_to_id() -> Result<()> {
         .instantiate(&mut store, &component)
         .context("instantiate for invoke reply failure")?;
     let api_index: ComponentExportIndex = instance
-        .get_export_index(
-            &mut store,
-            None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
-        )
-        .context("get schema-core-api export index for invoke")?;
+        .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
+        .context("get runtime export index for invoke")?;
     let invoke_index = instance
         .get_export_index(&mut store, Some(&api_index), "invoke")
         .context("get invoke export index")?;
@@ -528,16 +511,17 @@ fn reply_requires_reply_to_id() -> Result<()> {
         "chat_id": "123",
         "text": "reply text",
         "config": {
-            "default_chat_id": "123"
+            "default_chat_id": "123",
+            "public_base_url": "https://example.com"
         }
     });
     let (resp,) = invoke
         .call(
             &mut store,
-            ("reply".to_string(), serde_json::to_vec(&input)?),
+            ("reply".to_string(), canonical_cbor_bytes(&input)),
         )
         .context("call invoke reply failure")?;
-    let resp_json: Value = serde_json::from_slice(&resp).context("parse invoke output")?;
+    let resp_json: Value = decode_cbor(&resp).map_err(anyhow::Error::msg)?;
     assert_eq!(resp_json.get("ok"), Some(&Value::Bool(false)));
 
     Ok(())

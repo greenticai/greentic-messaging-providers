@@ -2427,7 +2427,7 @@ pub mod greentic {
             pub fn should_cancel() -> bool {
                 unsafe {
                     #[cfg(target_arch = "wasm32")]
-                    #[link(wasm_import_module = "greentic:component/control@0.5.0")]
+                    #[link(wasm_import_module = "greentic:component/control@0.6.0")]
                     unsafe extern "C" {
                         #[link_name = "should-cancel"]
                         fn wit_import0() -> i32;
@@ -2445,7 +2445,7 @@ pub mod greentic {
             pub fn yield_now() -> () {
                 unsafe {
                     #[cfg(target_arch = "wasm32")]
-                    #[link(wasm_import_module = "greentic:component/control@0.5.0")]
+                    #[link(wasm_import_module = "greentic:component/control@0.6.0")]
                     unsafe extern "C" {
                         #[link_name = "yield-now"]
                         fn wit_import0();
@@ -2617,7 +2617,7 @@ macro_rules! __export_node_impl {
 pub(crate) use __export_node_impl as export;
 #[cfg(target_arch = "wasm32")]
 #[unsafe(
-    link_section = "component-type:wit-bindgen:0.41.0:greentic:component@0.5.0:node:encoded world"
+    link_section = "component-type:wit-bindgen:0.41.0:greentic:component@0.6.0:node:encoded world"
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
@@ -2640,12 +2640,12 @@ s\0\x03\0\x0cstream-event\x03\0\x20\x01m\x01\x02ok\x03\0\x10lifecycle-status\x03
 \0\"\x01m\x02\x07stacked\x04grid\x03\0\x0cdisplay-mode\x03\0$\x01ps\x01k&\x01r\x06\
 \x05titles\x0bdescription\x0a\x06layout%\x09max-itemsy\x04tags'\x0dconnection-id\
 \x0a\x03\0\x06config\x03\0(\x01B\x04\x01@\0\0\x7f\x04\0\x0dshould-cancel\x01\0\x01\
-@\0\x01\0\x04\0\x09yield-now\x01\x01\x03\0\x20greentic:component/control@0.5.0\x05\
+@\0\x01\0\x04\0\x09yield-now\x01\x01\x03\0\x20greentic:component/control@0.6.0\x05\
 *\x01@\0\0\x0e\x04\0\x0cget-manifest\x01+\x01j\x01#\x01s\x01@\x01\x03ctx\x19\0,\x04\
 \0\x08on-start\x01-\x01@\x02\x03ctx\x19\x06reasons\0,\x04\0\x07on-stop\x01.\x01@\
 \x03\x03ctx\x19\x02ops\x05input\x0e\0\x1f\x04\0\x06invoke\x01/\x01p!\x01@\x03\x03\
 ctx\x19\x02ops\x05input\x0e\00\x04\0\x0dinvoke-stream\x011\x04\0\x1dgreentic:com\
-ponent/node@0.5.0\x04\0\x0b\x0a\x01\0\x04node\x03\0\0\0G\x09producers\x01\x0cpro\
+ponent/node@0.6.0\x04\0\x0b\x0a\x01\0\x04node\x03\0\0\0G\x09producers\x01\x0cpro\
 cessed-by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rust\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]

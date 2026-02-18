@@ -2,6 +2,29 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Dummy Messaging Provider Config",
   "type": "object",
-  "description": "Accepts any JSON object; used for deterministic CI-only provider.",
-  "additionalProperties": true
+  "description": "Deterministic config for the dummy messaging provider.",
+  "additionalProperties": false,
+  "required": [
+    "enabled",
+    "api_token",
+    "endpoint_url"
+  ],
+  "properties": {
+    "enabled": {
+      "type": "boolean",
+      "description": "Enable the provider."
+    },
+    "api_token": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Tenant-scoped token used by the dummy provider.",
+      "x-redact": true
+    },
+    "endpoint_url": {
+      "type": "string",
+      "format": "uri",
+      "minLength": 1,
+      "description": "Target endpoint URL for deterministic no-network flows."
+    }
+  }
 }

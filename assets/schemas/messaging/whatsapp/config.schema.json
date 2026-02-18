@@ -2,22 +2,37 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "WhatsApp Provider-Core Config",
   "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enabled",
+    "phone_number_id",
+    "public_base_url",
+    "api_base_url",
+    "api_version"
+  ],
   "properties": {
+    "enabled": {
+      "type": "boolean",
+      "description": "Enable the WhatsApp provider."
+    },
     "phone_number_id": {
       "type": "string",
+      "minLength": 1,
       "description": "WhatsApp phone number ID used for sending messages."
+    },
+    "public_base_url": {
+      "type": "string",
+      "format": "uri",
+      "minLength": 1,
+      "description": "Public base URL for inbound webhook callbacks."
     },
     "business_account_id": {
       "type": "string",
       "description": "Optional business account ID."
     },
-    "public_base_url": {
-      "type": "string",
-      "format": "uri",
-      "description": "Public base URL for inbound webhook callbacks."
-    },
     "api_base_url": {
       "type": "string",
+      "format": "uri",
       "description": "Graph API base URL.",
       "default": "https://graph.facebook.com"
     },
@@ -25,8 +40,11 @@
       "type": "string",
       "description": "Graph API version.",
       "default": "v19.0"
+    },
+    "token": {
+      "type": "string",
+      "description": "Optional WhatsApp access token. Falls back to secret store if omitted.",
+      "x-redact": true
     }
-  },
-  "required": ["phone_number_id", "public_base_url"],
-  "additionalProperties": false
+  }
 }

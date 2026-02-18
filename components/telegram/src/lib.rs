@@ -1,324 +1,772 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 
+use bindings::greentic::http::http_client as client;
+use bindings::greentic::secrets_store::secrets_store;
+#[cfg(not(test))]
+use bindings::greentic::telemetry::logger_api;
+use provider_common::ProviderError;
+use provider_common::component_v0_6::{
+    DescribePayload, I18nText, OperationDescriptor, QaQuestionSpec, QaSpec, RedactionRule,
+    SchemaField, SchemaIr, canonical_cbor_bytes, decode_cbor, schema_hash,
+};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+use std::collections::BTreeMap;
+
 #[allow(clippy::too_many_arguments)]
 mod bindings {
-    wit_bindgen::generate!({ path: "wit/telegram", world: "telegram", generate_all });
+    wit_bindgen::generate!({ path: "wit/telegram", world: "component-v0-v6-v0", generate_all });
 }
 
-use bindings::Guest;
-use bindings::greentic::http::client;
-use bindings::greentic::secrets_store::secrets_store;
-use bindings::greentic::telemetry::logger_api;
-use bindings::provider::common::capabilities::{
-    CapabilitiesResponse as BindingsCapabilitiesResponse,
-    ProviderCapabilities as BindingsProviderCapabilities, ProviderLimits as BindingsProviderLimits,
-    ProviderMetadata as BindingsProviderMetadata,
-};
-use bindings::provider::common::render::{
-    EncodeResult as BindingsEncodeResult, ProviderPayload as BindingsProviderPayload,
-    RenderPlan as BindingsRenderPlan, RenderTier as BindingsRenderTier,
-    RenderWarning as BindingsRenderWarning,
-};
-use bindings::provider::telegram::types::{
-    Button, Messagerender as MessageRender, Sendmessagerequest as SendMessageRequest,
-    ValidationOutcome, Webhookresult as WebhookResult,
-};
-use provider_common::ProviderError;
-use provider_common::{
-    CapabilitiesResponseV1, ProviderCapabilitiesV1, ProviderLimitsV1, ProviderMetadataV1,
-};
-use provider_runtime_config::ProviderRuntimeConfig;
-use std::sync::OnceLock;
+const PROVIDER_ID: &str = "telegram";
+const WORLD_ID: &str = "component-v0-v6-v0";
+const DEFAULT_API_BASE: &str = "https://api.telegram.org";
+const DEFAULT_PARSE_MODE: &str = "HTML";
+const DEFAULT_BOT_TOKEN_SECRET: &str = "TELEGRAM_BOT_TOKEN";
+const MAX_TEXT_LEN: usize = 4000;
+const CALLBACK_DATA_MAX_BYTES: usize = 64;
+const MAX_BUTTONS_PER_ROW: usize = 5;
+const MAX_BUTTON_ROWS: usize = 8;
 
-const TELEGRAM_API: &str = "https://api.telegram.org";
-const TELEGRAM_BOT_TOKEN: &str = "TELEGRAM_BOT_TOKEN";
-const MAX_TEXT_LEN: u32 = 4000;
-const CALLBACK_DATA_MAX_BYTES: u32 = 64;
-const MAX_BUTTONS_PER_ROW: u32 = 5;
-const MAX_BUTTON_ROWS: u32 = 8;
+const I18N_KEYS: &[&str] = &[
+    "telegram.op.run.title",
+    "telegram.op.run.description",
+    "telegram.op.send.title",
+    "telegram.op.send.description",
+    "telegram.op.ingest_http.title",
+    "telegram.op.ingest_http.description",
+    "telegram.op.encode.title",
+    "telegram.op.encode.description",
+    "telegram.op.send_payload.title",
+    "telegram.op.send_payload.description",
+    "telegram.schema.input.title",
+    "telegram.schema.input.description",
+    "telegram.schema.input.message.title",
+    "telegram.schema.input.message.description",
+    "telegram.schema.output.title",
+    "telegram.schema.output.description",
+    "telegram.schema.output.ok.title",
+    "telegram.schema.output.ok.description",
+    "telegram.schema.output.message_id.title",
+    "telegram.schema.output.message_id.description",
+    "telegram.schema.config.title",
+    "telegram.schema.config.description",
+    "telegram.schema.config.enabled.title",
+    "telegram.schema.config.enabled.description",
+    "telegram.schema.config.public_base_url.title",
+    "telegram.schema.config.public_base_url.description",
+    "telegram.schema.config.api_base_url.title",
+    "telegram.schema.config.api_base_url.description",
+    "telegram.schema.config.default_chat_id.title",
+    "telegram.schema.config.default_chat_id.description",
+    "telegram.schema.config.bot_token.title",
+    "telegram.schema.config.bot_token.description",
+    "telegram.schema.config.parse_mode.title",
+    "telegram.schema.config.parse_mode.description",
+    "telegram.qa.default.title",
+    "telegram.qa.setup.title",
+    "telegram.qa.upgrade.title",
+    "telegram.qa.remove.title",
+    "telegram.qa.setup.enabled",
+    "telegram.qa.setup.public_base_url",
+    "telegram.qa.setup.api_base_url",
+    "telegram.qa.setup.default_chat_id",
+    "telegram.qa.setup.bot_token",
+    "telegram.qa.setup.parse_mode",
+];
 
-static RUNTIME_CONFIG: OnceLock<ProviderRuntimeConfig> = OnceLock::new();
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProviderConfig {
+    #[serde(default = "default_enabled")]
+    enabled: bool,
+    public_base_url: String,
+    #[serde(default = "default_api_base")]
+    api_base_url: String,
+    #[serde(default)]
+    default_chat_id: Option<String>,
+    #[serde(default)]
+    bot_token: Option<String>,
+    #[serde(default = "default_parse_mode")]
+    parse_mode: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ApplyAnswersResult {
+    ok: bool,
+    config: Option<ProviderConfig>,
+    error: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ButtonOpenUrl {
+    text: String,
+    url: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ButtonPostback {
+    text: String,
+    callback_data: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum ButtonIn {
+    OpenUrl(ButtonOpenUrl),
+    Postback(ButtonPostback),
+}
 
 struct Component;
 
-impl Guest for Component {
-    fn init_runtime_config(config_json: String) -> Result<(), String> {
-        let config = parse_runtime_config(&config_json)?;
-        set_runtime_config(config)
+impl bindings::exports::greentic::component::descriptor::Guest for Component {
+    fn describe() -> Vec<u8> {
+        canonical_cbor_bytes(&build_describe_payload())
     }
+}
 
-    fn capabilities() -> BindingsCapabilitiesResponse {
-        bindings_capabilities_response(capabilities_v1())
-    }
-
-    fn encode(plan: BindingsRenderPlan) -> BindingsEncodeResult {
-        encode_tier_d(plan)
-    }
-
-    fn send_message(req: SendMessageRequest) -> Result<MessageRender, String> {
-        let token = get_secret(TELEGRAM_BOT_TOKEN)?;
-        let url = format!("{}/bot{}/sendMessage", TELEGRAM_API, token);
-        let render = format_message_internal(&req);
-
-        let request = client::Request {
-            method: "POST".into(),
-            url,
-            headers: vec![("Content-Type".into(), "application/json".into())],
-            body: Some(render.payload_json.clone().into_bytes()),
+impl bindings::exports::greentic::component::runtime::Guest for Component {
+    fn invoke(op: String, input_cbor: Vec<u8>) -> Vec<u8> {
+        let input: Value = match decode_cbor(&input_cbor) {
+            Ok(value) => value,
+            Err(err) => {
+                return canonical_cbor_bytes(
+                    &json!({"ok": false, "error": format!("invalid input cbor: {err}")}),
+                );
+            }
         };
 
-        let resp = send_with_retries(&request)?;
+        let normalized_op = if op == "run" { "send" } else { op.as_str() };
+        let output = match normalized_op {
+            "send" => handle_send(&input),
+            "ingest_http" => handle_ingest_http(&input),
+            "encode" => handle_encode(&input),
+            "send_payload" => handle_send_payload(&input),
+            other => json!({"ok": false, "error": format!("unsupported op: {other}")}),
+        };
 
-        if (200..300).contains(&resp.status) {
-            log_if_enabled("send_message_success");
-            Ok(render)
-        } else {
-            Err(format!(
-                "transport error: telegram returned status {}",
-                resp.status
-            ))
-        }
+        canonical_cbor_bytes(&output)
+    }
+}
+
+impl bindings::exports::greentic::component::qa::Guest for Component {
+    fn qa_spec(mode: bindings::exports::greentic::component::qa::Mode) -> Vec<u8> {
+        canonical_cbor_bytes(&build_qa_spec(mode))
     }
 
-    fn handle_webhook(_headers_json: String, body_json: String) -> Result<WebhookResult, String> {
-        let parsed: serde_json::Value = serde_json::from_str(&body_json)
-            .map_err(|_| "validation error: invalid body".to_string())?;
-        let normalized = serde_json::json!({ "ok": true, "event": parsed });
-        let normalized_json = serde_json::to_string(&normalized)
-            .map_err(|_| "other error: serialization failed".to_string())?;
-        Ok(WebhookResult {
-            validation: ValidationOutcome::Ok,
-            normalized_event_json: Some(normalized_json),
-            warnings: vec![],
-            suggested_http_status: None,
+    fn apply_answers(
+        mode: bindings::exports::greentic::component::qa::Mode,
+        answers_cbor: Vec<u8>,
+    ) -> Vec<u8> {
+        let answers: Value = match decode_cbor(&answers_cbor) {
+            Ok(value) => value,
+            Err(err) => {
+                return canonical_cbor_bytes(&ApplyAnswersResult {
+                    ok: false,
+                    config: None,
+                    error: Some(format!("invalid answers cbor: {err}")),
+                });
+            }
+        };
+
+        if mode == bindings::exports::greentic::component::qa::Mode::Setup {
+            let cfg = ProviderConfig {
+                enabled: answers
+                    .get("enabled")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(true),
+                public_base_url: answers
+                    .get("public_base_url")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .trim()
+                    .to_string(),
+                api_base_url: answers
+                    .get("api_base_url")
+                    .and_then(Value::as_str)
+                    .unwrap_or(DEFAULT_API_BASE)
+                    .trim()
+                    .to_string(),
+                default_chat_id: answers
+                    .get("default_chat_id")
+                    .and_then(Value::as_str)
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty()),
+                bot_token: answers
+                    .get("bot_token")
+                    .and_then(Value::as_str)
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty()),
+                parse_mode: answers
+                    .get("parse_mode")
+                    .and_then(Value::as_str)
+                    .unwrap_or(DEFAULT_PARSE_MODE)
+                    .trim()
+                    .to_string(),
+            };
+
+            if let Err(err) = validate_provider_config(&cfg) {
+                return canonical_cbor_bytes(&ApplyAnswersResult {
+                    ok: false,
+                    config: None,
+                    error: Some(err),
+                });
+            }
+
+            return canonical_cbor_bytes(&ApplyAnswersResult {
+                ok: true,
+                config: Some(cfg),
+                error: None,
+            });
+        }
+
+        canonical_cbor_bytes(&ApplyAnswersResult {
+            ok: true,
+            config: None,
+            error: None,
         })
     }
-
-    fn refresh() -> Result<String, String> {
-        Ok(r#"{"ok":true,"refresh":"not-needed"}"#.to_string())
-    }
-
-    fn format_message(req: SendMessageRequest) -> MessageRender {
-        format_message_internal(&req)
-    }
 }
 
-fn capabilities_v1() -> CapabilitiesResponseV1 {
-    CapabilitiesResponseV1::new(
-        ProviderMetadataV1 {
-            provider_id: "telegram".into(),
-            display_name: "Telegram".into(),
-            version: env!("CARGO_PKG_VERSION").into(),
-            rate_limit_hint: None,
-        },
-        ProviderCapabilitiesV1 {
-            supports_threads: true,
-            supports_buttons: true,
-            supports_webhook_validation: true,
-            supports_formatting_options: true,
-        },
-        ProviderLimitsV1 {
-            max_text_len: MAX_TEXT_LEN,
-            callback_data_max_bytes: CALLBACK_DATA_MAX_BYTES,
-            max_buttons_per_row: MAX_BUTTONS_PER_ROW,
-            max_button_rows: MAX_BUTTON_ROWS,
-        },
-    )
-}
+impl bindings::exports::greentic::component::component_i18n::Guest for Component {
+    fn i18n_keys() -> Vec<String> {
+        I18N_KEYS.iter().map(|k| (*k).to_string()).collect()
+    }
 
-fn bindings_capabilities_response(resp: CapabilitiesResponseV1) -> BindingsCapabilitiesResponse {
-    BindingsCapabilitiesResponse {
-        metadata: BindingsProviderMetadata {
-            provider_id: resp.metadata.provider_id,
-            display_name: resp.metadata.display_name,
-            version: resp.metadata.version,
-            rate_limit_hint: resp.metadata.rate_limit_hint,
-        },
-        capabilities: BindingsProviderCapabilities {
-            supports_threads: resp.capabilities.supports_threads,
-            supports_buttons: resp.capabilities.supports_buttons,
-            supports_webhook_validation: resp.capabilities.supports_webhook_validation,
-            supports_formatting_options: resp.capabilities.supports_formatting_options,
-        },
-        limits: BindingsProviderLimits {
-            max_text_len: resp.limits.max_text_len,
-            callback_data_max_bytes: resp.limits.callback_data_max_bytes,
-            max_buttons_per_row: resp.limits.max_buttons_per_row,
-            max_button_rows: resp.limits.max_button_rows,
-        },
+    fn i18n_bundle(locale: String) -> Vec<u8> {
+        let locale = if locale.trim().is_empty() {
+            "en".to_string()
+        } else {
+            locale
+        };
+        let mut messages = serde_json::Map::new();
+        for key in I18N_KEYS {
+            messages.insert((*key).to_string(), Value::String((*key).to_string()));
+        }
+        canonical_cbor_bytes(&json!({"locale": locale, "messages": Value::Object(messages)}))
     }
 }
 
-fn encode_tier_d(plan: BindingsRenderPlan) -> BindingsEncodeResult {
-    let mut warnings = plan.warnings.clone();
-    if plan.tier != BindingsRenderTier::TierD {
-        warnings.push(BindingsRenderWarning {
-            code: "encoder_forced_downgrade".into(),
-            message: Some("downgraded to tier_d text payload".into()),
-            path: None,
+bindings::export!(Component with_types_in bindings);
+
+fn build_describe_payload() -> DescribePayload {
+    let input_schema = input_schema();
+    let output_schema = output_schema();
+    let config_schema = config_schema();
+
+    DescribePayload {
+        provider: PROVIDER_ID.to_string(),
+        world: WORLD_ID.to_string(),
+        operations: vec![
+            op(
+                "run",
+                "telegram.op.run.title",
+                "telegram.op.run.description",
+            ),
+            op(
+                "send",
+                "telegram.op.send.title",
+                "telegram.op.send.description",
+            ),
+            op(
+                "ingest_http",
+                "telegram.op.ingest_http.title",
+                "telegram.op.ingest_http.description",
+            ),
+            op(
+                "encode",
+                "telegram.op.encode.title",
+                "telegram.op.encode.description",
+            ),
+            op(
+                "send_payload",
+                "telegram.op.send_payload.title",
+                "telegram.op.send_payload.description",
+            ),
+        ],
+        input_schema: input_schema.clone(),
+        output_schema: output_schema.clone(),
+        config_schema: config_schema.clone(),
+        redactions: vec![RedactionRule {
+            path: "$.bot_token".to_string(),
+            strategy: "replace".to_string(),
+        }],
+        schema_hash: schema_hash(&input_schema, &output_schema, &config_schema),
+    }
+}
+
+fn build_qa_spec(mode: bindings::exports::greentic::component::qa::Mode) -> QaSpec {
+    use bindings::exports::greentic::component::qa::Mode;
+
+    match mode {
+        Mode::Default => QaSpec {
+            mode: "default".to_string(),
+            title: i18n("telegram.qa.default.title"),
+            questions: Vec::new(),
+        },
+        Mode::Setup => QaSpec {
+            mode: "setup".to_string(),
+            title: i18n("telegram.qa.setup.title"),
+            questions: vec![
+                qa_q("enabled", "telegram.qa.setup.enabled", true),
+                qa_q("public_base_url", "telegram.qa.setup.public_base_url", true),
+                qa_q("api_base_url", "telegram.qa.setup.api_base_url", true),
+                qa_q(
+                    "default_chat_id",
+                    "telegram.qa.setup.default_chat_id",
+                    false,
+                ),
+                qa_q("bot_token", "telegram.qa.setup.bot_token", false),
+                qa_q("parse_mode", "telegram.qa.setup.parse_mode", true),
+            ],
+        },
+        Mode::Upgrade => QaSpec {
+            mode: "upgrade".to_string(),
+            title: i18n("telegram.qa.upgrade.title"),
+            questions: Vec::new(),
+        },
+        Mode::Remove => QaSpec {
+            mode: "remove".to_string(),
+            title: i18n("telegram.qa.remove.title"),
+            questions: Vec::new(),
+        },
+    }
+}
+
+fn input_schema() -> SchemaIr {
+    let mut fields = BTreeMap::new();
+    fields.insert(
+        "message".to_string(),
+        SchemaField {
+            required: true,
+            schema: SchemaIr::String {
+                title: i18n("telegram.schema.input.message.title"),
+                description: i18n("telegram.schema.input.message.description"),
+                format: None,
+                secret: false,
+            },
+        },
+    );
+
+    SchemaIr::Object {
+        title: i18n("telegram.schema.input.title"),
+        description: i18n("telegram.schema.input.description"),
+        fields,
+        additional_properties: true,
+    }
+}
+
+fn output_schema() -> SchemaIr {
+    let mut fields = BTreeMap::new();
+    fields.insert(
+        "ok".to_string(),
+        SchemaField {
+            required: true,
+            schema: SchemaIr::Bool {
+                title: i18n("telegram.schema.output.ok.title"),
+                description: i18n("telegram.schema.output.ok.description"),
+            },
+        },
+    );
+    fields.insert(
+        "message_id".to_string(),
+        SchemaField {
+            required: false,
+            schema: SchemaIr::String {
+                title: i18n("telegram.schema.output.message_id.title"),
+                description: i18n("telegram.schema.output.message_id.description"),
+                format: None,
+                secret: false,
+            },
+        },
+    );
+
+    SchemaIr::Object {
+        title: i18n("telegram.schema.output.title"),
+        description: i18n("telegram.schema.output.description"),
+        fields,
+        additional_properties: true,
+    }
+}
+
+fn config_schema() -> SchemaIr {
+    let mut fields = BTreeMap::new();
+    fields.insert(
+        "enabled".to_string(),
+        SchemaField {
+            required: true,
+            schema: SchemaIr::Bool {
+                title: i18n("telegram.schema.config.enabled.title"),
+                description: i18n("telegram.schema.config.enabled.description"),
+            },
+        },
+    );
+    fields.insert(
+        "public_base_url".to_string(),
+        SchemaField {
+            required: true,
+            schema: SchemaIr::String {
+                title: i18n("telegram.schema.config.public_base_url.title"),
+                description: i18n("telegram.schema.config.public_base_url.description"),
+                format: Some("uri".to_string()),
+                secret: false,
+            },
+        },
+    );
+    fields.insert(
+        "api_base_url".to_string(),
+        SchemaField {
+            required: true,
+            schema: SchemaIr::String {
+                title: i18n("telegram.schema.config.api_base_url.title"),
+                description: i18n("telegram.schema.config.api_base_url.description"),
+                format: Some("uri".to_string()),
+                secret: false,
+            },
+        },
+    );
+    fields.insert(
+        "default_chat_id".to_string(),
+        SchemaField {
+            required: false,
+            schema: SchemaIr::String {
+                title: i18n("telegram.schema.config.default_chat_id.title"),
+                description: i18n("telegram.schema.config.default_chat_id.description"),
+                format: None,
+                secret: false,
+            },
+        },
+    );
+    fields.insert(
+        "bot_token".to_string(),
+        SchemaField {
+            required: false,
+            schema: SchemaIr::String {
+                title: i18n("telegram.schema.config.bot_token.title"),
+                description: i18n("telegram.schema.config.bot_token.description"),
+                format: None,
+                secret: true,
+            },
+        },
+    );
+    fields.insert(
+        "parse_mode".to_string(),
+        SchemaField {
+            required: true,
+            schema: SchemaIr::String {
+                title: i18n("telegram.schema.config.parse_mode.title"),
+                description: i18n("telegram.schema.config.parse_mode.description"),
+                format: None,
+                secret: false,
+            },
+        },
+    );
+
+    SchemaIr::Object {
+        title: i18n("telegram.schema.config.title"),
+        description: i18n("telegram.schema.config.description"),
+        fields,
+        additional_properties: false,
+    }
+}
+
+fn op(name: &str, title: &str, description: &str) -> OperationDescriptor {
+    OperationDescriptor {
+        name: name.to_string(),
+        title: i18n(title),
+        description: i18n(description),
+    }
+}
+
+fn qa_q(key: &str, text: &str, required: bool) -> QaQuestionSpec {
+    QaQuestionSpec {
+        key: key.to_string(),
+        text: i18n(text),
+        required,
+    }
+}
+
+fn i18n(key: &str) -> I18nText {
+    I18nText {
+        key: key.to_string(),
+    }
+}
+
+fn handle_send(input: &Value) -> Value {
+    let cfg = match load_config(input) {
+        Ok(cfg) => cfg,
+        Err(err) => return json!({"ok": false, "error": err}),
+    };
+    if !cfg.enabled {
+        return json!({"ok": false, "error": "provider disabled by config"});
+    }
+
+    let text = input
+        .get("message")
+        .and_then(Value::as_str)
+        .or_else(|| input.get("text").and_then(Value::as_str))
+        .map(str::trim)
+        .unwrap_or("");
+    if text.is_empty() {
+        return json!({"ok": false, "error": "missing message"});
+    }
+
+    let chat_id = input
+        .get("chat_id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| cfg.default_chat_id.clone())
+        .ok_or_else(|| "missing chat_id and no default_chat_id configured".to_string());
+
+    let chat_id = match chat_id {
+        Ok(v) => v,
+        Err(err) => return json!({"ok": false, "error": err}),
+    };
+
+    let token = match cfg.bot_token.clone() {
+        Some(token) if !token.trim().is_empty() => token,
+        _ => match get_secret_string(DEFAULT_BOT_TOKEN_SECRET) {
+            Ok(v) => v,
+            Err(err) => return json!({"ok": false, "error": err}),
+        },
+    };
+
+    let render = render_payload(input, &cfg, &chat_id, text);
+
+    if input
+        .get("dry_run")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        return json!({
+            "ok": true,
+            "message_id": message_id(&render.payload),
+            "dry_run": true,
+            "payload": render.payload,
+            "warnings": render.warnings,
         });
     }
-    let text = plan.summary_text.unwrap_or_default();
-    let payload = BindingsProviderPayload {
-        content_type: "text/plain; charset=utf-8".into(),
-        body: text.into_bytes(),
-        metadata_json: None,
-    };
-    BindingsEncodeResult { payload, warnings }
-}
 
-fn get_secret(key: &str) -> Result<String, String> {
-    match secrets_get(key) {
-        Ok(Some(bytes)) => String::from_utf8(bytes).map_err(|_| "secret not valid utf-8".into()),
-        Ok(None) => Err(missing_secret_error(key)),
-        Err(e) => secret_error(key, e),
+    let req = client::Request {
+        method: "POST".into(),
+        url: format!(
+            "{}/bot{}/sendMessage",
+            cfg.api_base_url.trim_end_matches('/'),
+            token
+        ),
+        headers: vec![("Content-Type".into(), "application/json".into())],
+        body: serde_json::to_vec(&render.payload).ok(),
+    };
+
+    let options = client::RequestOptions {
+        timeout_ms: None,
+        allow_insecure: Some(false),
+        follow_redirects: None,
+    };
+
+    match http_send(&req, &options) {
+        Ok(resp) if (200..300).contains(&resp.status) => {
+            log_if_enabled("send_message_success");
+            let mid = resp
+                .body
+                .and_then(|body| serde_json::from_slice::<Value>(&body).ok())
+                .and_then(|v| {
+                    v.get("result")
+                        .and_then(Value::as_object)
+                        .and_then(|obj| obj.get("message_id"))
+                        .and_then(Value::as_i64)
+                        .map(|v| v.to_string())
+                })
+                .unwrap_or_else(|| message_id(&render.payload));
+            json!({"ok": true, "message_id": mid, "warnings": render.warnings})
+        }
+        Ok(resp) => {
+            json!({"ok": false, "error": format!("transport error: telegram returned status {}", resp.status)})
+        }
+        Err(err) => {
+            json!({"ok": false, "error": format!("transport error: {} ({})", err.message, err.code)})
+        }
     }
 }
 
-fn secret_error(key: &str, error: secrets_store::SecretsError) -> Result<String, String> {
-    Err(match error {
-        secrets_store::SecretsError::NotFound => missing_secret_error(key),
-        secrets_store::SecretsError::Denied => "secret access denied".into(),
-        secrets_store::SecretsError::InvalidKey => "secret key invalid".into(),
-        secrets_store::SecretsError::Internal => "secret lookup failed".into(),
+fn handle_ingest_http(input: &Value) -> Value {
+    let body = input.get("body").cloned().unwrap_or_else(|| json!({}));
+    json!({"ok": true, "event": body})
+}
+
+fn handle_encode(input: &Value) -> Value {
+    let text = input
+        .get("summary_text")
+        .and_then(Value::as_str)
+        .or_else(|| input.get("message").and_then(Value::as_str))
+        .unwrap_or_default();
+    let chat_id = input
+        .get("chat_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let cfg = ProviderConfig {
+        enabled: true,
+        public_base_url: "https://example.invalid".to_string(),
+        api_base_url: default_api_base(),
+        default_chat_id: None,
+        bot_token: None,
+        parse_mode: default_parse_mode(),
+    };
+    let rendered = render_payload(input, &cfg, chat_id, text);
+
+    json!({
+        "ok": true,
+        "payload": {
+            "content_type": "application/json",
+            "body": rendered.payload,
+            "metadata_json": null
+        },
+        "warnings": rendered.warnings
     })
 }
 
-fn format_message_internal(req: &SendMessageRequest) -> MessageRender {
-    let mut warnings = Vec::new();
-    let text = sanitize_and_truncate(&req.text, &mut warnings);
-    let parse_mode = req
-        .format_options
-        .as_ref()
-        .and_then(|o| o.parse_mode.clone())
-        .unwrap_or_else(|| "HTML".to_string());
-
-    let keyboard = build_inline_keyboard(&req.buttons, &mut warnings);
-
-    let mut payload = serde_json::json!({
-        "chat_id": req.chat_id,
-        "text": text,
-        "parse_mode": parse_mode,
-    });
-
-    if let Some(thread_id) = req.message_thread_id {
-        payload["message_thread_id"] = serde_json::json!(thread_id);
-    }
-    if let Some(reply_id) = req.reply_to_message_id {
-        payload["reply_to_message_id"] = serde_json::json!(reply_id);
-    }
-    if let Some(kb) = keyboard {
-        payload["reply_markup"] = serde_json::json!({ "inline_keyboard": kb });
-    }
-
-    let payload_json = serde_json::to_string(&payload)
-        .unwrap_or_else(|_| "{\"chat_id\":\"\",\"text\":\"\"}".into());
-
-    MessageRender {
-        payload_json,
-        warnings,
-    }
+fn handle_send_payload(_input: &Value) -> Value {
+    json!({"ok": true, "retryable": false, "message": null})
 }
 
-fn sanitize_and_truncate(text: &str, warnings: &mut Vec<String>) -> String {
+struct RenderedPayload {
+    payload: Value,
+    warnings: Vec<String>,
+}
+
+fn render_payload(
+    input: &Value,
+    cfg: &ProviderConfig,
+    chat_id: &str,
+    text: &str,
+) -> RenderedPayload {
+    let mut warnings = Vec::new();
     let escaped = htmlescape::encode_minimal(text);
-    let mut bytes = escaped.into_bytes();
-    if bytes.len() as u32 > MAX_TEXT_LEN {
-        bytes.truncate(MAX_TEXT_LEN as usize);
+    let mut text_bytes = escaped.as_bytes().to_vec();
+    if text_bytes.len() > MAX_TEXT_LEN {
+        text_bytes.truncate(MAX_TEXT_LEN);
         warnings.push(format!(
             "text truncated to {} bytes to satisfy limit",
             MAX_TEXT_LEN
         ));
     }
-    String::from_utf8(bytes).unwrap_or_default()
+    let text = String::from_utf8(text_bytes).unwrap_or_default();
+
+    let mut payload = json!({
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": cfg.parse_mode,
+    });
+
+    if let Some(thread_id) = input.get("message_thread_id").and_then(Value::as_u64) {
+        payload["message_thread_id"] = json!(thread_id);
+    }
+    if let Some(reply_to) = input.get("reply_to_message_id").and_then(Value::as_u64) {
+        payload["reply_to_message_id"] = json!(reply_to);
+    }
+
+    let keyboard = build_inline_keyboard(input, &mut warnings);
+    if !keyboard.is_empty() {
+        payload["reply_markup"] = json!({"inline_keyboard": keyboard});
+    }
+
+    RenderedPayload { payload, warnings }
 }
 
-fn build_inline_keyboard(
-    buttons: &[Button],
-    warnings: &mut Vec<String>,
-) -> Option<Vec<Vec<serde_json::Value>>> {
-    if buttons.is_empty() {
-        return None;
-    }
-    let mut rows: Vec<Vec<serde_json::Value>> = Vec::new();
-    let mut current: Vec<serde_json::Value> = Vec::new();
+fn build_inline_keyboard(input: &Value, warnings: &mut Vec<String>) -> Vec<Vec<Value>> {
+    let Some(buttons_val) = input.get("buttons").and_then(Value::as_array) else {
+        return Vec::new();
+    };
 
-    for btn in buttons {
-        if rows.len() as u32 >= MAX_BUTTON_ROWS {
-            warnings.push("button rows exceeded max; dropping remaining buttons".into());
+    let mut rows: Vec<Vec<Value>> = Vec::new();
+    let mut current: Vec<Value> = Vec::new();
+
+    for raw in buttons_val {
+        if rows.len() >= MAX_BUTTON_ROWS {
+            warnings.push("button rows exceeded max; dropping remaining buttons".to_string());
             break;
         }
-        if current.len() as u32 >= MAX_BUTTONS_PER_ROW {
+
+        if current.len() >= MAX_BUTTONS_PER_ROW {
             rows.push(current);
             current = Vec::new();
         }
-        match btn {
-            Button::OpenUrl(v) => current.push(serde_json::json!({
-                "text": v.text,
-                "url": v.url,
-            })),
-            Button::Postback(v) => {
-                let data = v.callback_data.as_bytes();
-                if data.len() as u32 > CALLBACK_DATA_MAX_BYTES {
-                    warnings.push(format!(
-                        "callback_data too long ({} bytes), max {}: dropped button '{}'",
-                        data.len(),
-                        CALLBACK_DATA_MAX_BYTES,
-                        v.text
-                    ));
-                    continue;
-                }
-                current.push(serde_json::json!({
-                    "text": v.text,
-                    "callback_data": v.callback_data,
-                }));
+
+        match serde_json::from_value::<ButtonIn>(raw.clone()) {
+            Ok(ButtonIn::OpenUrl(v)) => {
+                current.push(json!({"text": v.text, "url": v.url}));
             }
+            Ok(ButtonIn::Postback(v)) => {
+                let mut data = v.callback_data.into_bytes();
+                if data.len() > CALLBACK_DATA_MAX_BYTES {
+                    data.truncate(CALLBACK_DATA_MAX_BYTES);
+                    warnings.push(format!(
+                        "callback_data truncated to {} bytes",
+                        CALLBACK_DATA_MAX_BYTES
+                    ));
+                }
+                let callback_data = String::from_utf8(data).unwrap_or_default();
+                current.push(json!({"text": v.text, "callback_data": callback_data}));
+            }
+            Err(_) => warnings.push("invalid button ignored".to_string()),
         }
     }
-    if !current.is_empty() && (rows.len() as u32) < MAX_BUTTON_ROWS {
+
+    if !current.is_empty() {
         rows.push(current);
     }
-    if rows.is_empty() { None } else { Some(rows) }
+    rows
 }
 
-fn parse_runtime_config(config_json: &str) -> Result<ProviderRuntimeConfig, String> {
-    if config_json.trim().is_empty() {
-        return Ok(ProviderRuntimeConfig::default());
-    }
-    let cfg: ProviderRuntimeConfig = serde_json::from_str(config_json)
-        .map_err(|e| format!("validation error: invalid provider runtime config: {e}"))?;
-    cfg.validate()
-        .map_err(|e| format!("validation error: invalid provider runtime config: {e}"))?;
+fn message_id(payload: &Value) -> String {
+    let bytes = serde_json::to_vec(payload).unwrap_or_default();
+    provider_common::component_v0_6::sha256_hex(&bytes)
+}
+
+fn default_enabled() -> bool {
+    true
+}
+
+fn default_api_base() -> String {
+    DEFAULT_API_BASE.to_string()
+}
+
+fn default_parse_mode() -> String {
+    DEFAULT_PARSE_MODE.to_string()
+}
+
+fn load_config(input: &Value) -> Result<ProviderConfig, String> {
+    let candidate = input
+        .get("config")
+        .cloned()
+        .unwrap_or_else(|| input.clone());
+    let cfg: ProviderConfig = serde_json::from_value(candidate)
+        .map_err(|err| format!("invalid provider config: {err}"))?;
+    validate_provider_config(&cfg)?;
     Ok(cfg)
 }
 
-fn set_runtime_config(cfg: ProviderRuntimeConfig) -> Result<(), String> {
-    if RUNTIME_CONFIG.set(cfg.clone()).is_ok() {
-        return Ok(());
+fn validate_provider_config(cfg: &ProviderConfig) -> Result<(), String> {
+    if cfg.public_base_url.trim().is_empty() {
+        return Err("public_base_url must be non-empty".to_string());
     }
-    let existing = RUNTIME_CONFIG.get().expect("set");
-    if existing == &cfg {
-        Ok(())
-    } else {
-        Err("validation error: provider runtime config already set".into())
+    if cfg.api_base_url.trim().is_empty() {
+        return Err("api_base_url must be non-empty".to_string());
     }
+    if cfg.parse_mode.trim().is_empty() {
+        return Err("parse_mode must be non-empty".to_string());
+    }
+    Ok(())
 }
 
-fn runtime_config() -> &'static ProviderRuntimeConfig {
-    RUNTIME_CONFIG.get_or_init(ProviderRuntimeConfig::default)
-}
-
-fn send_with_retries(req: &client::Request) -> Result<client::Response, String> {
-    let attempts = runtime_config().network.max_attempts.clamp(1, 10);
-    let options = request_options();
-    let mut last_err: Option<String> = None;
-    for _ in 0..attempts {
-        match http_send(req, &options) {
-            Ok(resp) => return Ok(resp),
-            Err(e) => last_err = Some(format!("transport error: {} ({})", e.message, e.code)),
-        }
+fn get_secret_string(key: &str) -> Result<String, String> {
+    match secrets_get(key) {
+        Ok(Some(bytes)) => String::from_utf8(bytes).map_err(|_| "secret not valid utf-8".into()),
+        Ok(None) => Err(missing_secret_error(key)),
+        Err(error) => Err(secret_error_message(key, error)),
     }
-    Err(last_err.unwrap_or_else(|| "transport error: request failed".into()))
 }
 
 fn missing_secret_error(name: &str) -> String {
@@ -326,38 +774,37 @@ fn missing_secret_error(name: &str) -> String {
         .unwrap_or_else(|_| format!("missing secret: {name}"))
 }
 
-fn request_options() -> client::RequestOptions {
-    let cfg = runtime_config();
-    client::RequestOptions {
-        timeout_ms: None,
-        allow_insecure: Some(matches!(
-            cfg.network.tls,
-            provider_runtime_config::TlsMode::Insecure
-        )),
-        follow_redirects: None,
+fn secret_error_message(key: &str, error: secrets_store::SecretsError) -> String {
+    match error {
+        secrets_store::SecretsError::NotFound => missing_secret_error(key),
+        secrets_store::SecretsError::Denied => "secret access denied".into(),
+        secrets_store::SecretsError::InvalidKey => "secret key invalid".into(),
+        secrets_store::SecretsError::Internal => "secret lookup failed".into(),
     }
 }
 
 fn log_if_enabled(event: &str) {
-    let cfg = runtime_config();
-    if !cfg.telemetry.emit_enabled {
-        return;
+    #[cfg(test)]
+    {
+        let _ = event;
     }
+
+    #[cfg(not(test))]
     let span = logger_api::SpanContext {
         tenant: "tenant".into(),
         session_id: None,
         flow_id: "provider-runtime".into(),
         node_id: None,
-        provider: cfg
-            .telemetry
-            .service_name
-            .clone()
-            .unwrap_or_else(|| "telegram".into()),
+        provider: "telegram".into(),
         start_ms: None,
         end_ms: None,
     };
-    let fields = [("event".to_string(), event.to_string())];
-    let _ = logger_api::log(&span, &fields, None);
+
+    #[cfg(not(test))]
+    {
+        let fields = [("event".to_string(), event.to_string())];
+        let _ = logger_api::log(&span, &fields, None);
+    }
 }
 
 fn secrets_get(key: &str) -> Result<Option<Vec<u8>>, secrets_store::SecretsError> {
@@ -456,347 +903,158 @@ fn http_send_test(
     })
 }
 
-bindings::__export_world_telegram_cabi!(Component with_types_in bindings);
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Value;
-    use std::cell::Cell;
-    use std::path::PathBuf;
-    use std::rc::Rc;
-
-    #[derive(Debug, serde::Deserialize)]
-    struct ExpectedPayload {
-        content_type: String,
-        body_text: Option<String>,
-        warnings: Vec<String>,
-    }
+    use std::collections::BTreeSet;
 
     #[test]
-    fn capabilities_version_and_shape() {
-        let caps = capabilities_v1();
-        assert_eq!(caps.version, provider_common::PROVIDER_CAPABILITIES_VERSION);
-        assert_eq!(caps.metadata.provider_id, "telegram");
-        assert!(caps.capabilities.supports_buttons);
-        assert_eq!(caps.limits.max_text_len, MAX_TEXT_LEN);
-    }
-
-    #[test]
-    fn publishes_capabilities() {
-        let caps = Component::capabilities();
-        assert_eq!(caps.metadata.provider_id, "telegram");
-        assert!(caps.capabilities.supports_buttons);
-        assert_eq!(caps.limits.max_text_len, MAX_TEXT_LEN);
-    }
-
-    #[test]
-    fn encode_tier_d_plain_text() {
-        let res = Component::encode(BindingsRenderPlan {
-            tier: BindingsRenderTier::TierD,
-            summary_text: Some("hi".into()),
-            actions: vec![],
-            attachments: vec![],
-            warnings: vec![],
-            debug_json: None,
+    fn parse_config_rejects_unknown() {
+        let value = json!({
+            "enabled": true,
+            "public_base_url": "https://example.com",
+            "api_base_url": "https://api.telegram.org",
+            "parse_mode": "HTML",
+            "unknown": true
         });
-        assert!(res.warnings.is_empty());
-        assert_eq!(res.payload.content_type, "text/plain; charset=utf-8");
-        assert_eq!(res.payload.body, b"hi");
+        let err = load_config(&value).unwrap_err();
+        assert!(err.contains("unknown field"));
     }
 
     #[test]
-    fn encode_downgrades_other_tiers() {
-        let res = Component::encode(BindingsRenderPlan {
-            tier: BindingsRenderTier::TierA,
-            summary_text: Some("hi".into()),
-            actions: vec![],
-            attachments: vec![],
-            warnings: vec![],
-            debug_json: None,
+    fn parse_config_requires_new_fields() {
+        let value = json!({"enabled": true});
+        let err = load_config(&value).unwrap_err();
+        assert!(err.contains("public_base_url"));
+    }
+
+    #[test]
+    fn invoke_run_requires_message() {
+        let input = json!({
+            "config": {
+                "enabled": true,
+                "public_base_url": "https://example.com",
+                "api_base_url": "https://api.telegram.org",
+                "parse_mode": "HTML",
+                "default_chat_id": "123",
+                "bot_token": "token"
+            }
         });
-        assert_eq!(res.payload.content_type, "text/plain; charset=utf-8");
-        assert!(!res.warnings.is_empty());
-        assert_eq!(res.warnings[0].code, "encoder_forced_downgrade");
+        let out = handle_send(&input);
+        assert_eq!(out["ok"], Value::Bool(false));
     }
 
     #[test]
-    fn golden_tier_a_card() {
-        let plan = load_plan("tier_a_card.json");
-        let expected = load_expected("telegram", "tier_a_card.json");
-        let res = Component::encode(plan);
-        assert_eq!(res.payload.content_type, expected.content_type);
-        assert_eq!(
-            res.warnings
-                .iter()
-                .map(|w| w.code.clone())
-                .collect::<Vec<_>>(),
-            expected.warnings
-        );
-        if let Some(text) = expected.body_text {
-            assert_eq!(String::from_utf8(res.payload.body).unwrap(), text);
-        }
-    }
+    fn send_uses_http_mock() {
+        let input = json!({
+            "message": "hello <world>",
+            "chat_id": "123",
+            "buttons": [
+                {"type": "postback", "text": "A", "callback_data": "data"}
+            ],
+            "config": {
+                "enabled": true,
+                "public_base_url": "https://example.com",
+                "api_base_url": "https://api.telegram.org",
+                "parse_mode": "HTML",
+                "bot_token": "token"
+            }
+        });
 
-    #[test]
-    fn golden_tier_d_text() {
-        let plan = load_plan("tier_d_text.json");
-        let expected = load_expected("telegram", "tier_d_text.json");
-        let res = Component::encode(plan);
-        assert_eq!(res.payload.content_type, expected.content_type);
-        assert_eq!(
-            res.warnings
-                .iter()
-                .map(|w| w.code.clone())
-                .collect::<Vec<_>>(),
-            expected.warnings
-        );
-        if let Some(text) = expected.body_text {
-            assert_eq!(String::from_utf8(res.payload.body).unwrap(), text);
-        }
-    }
-
-    fn load_plan(name: &str) -> BindingsRenderPlan {
-        let path = fixtures_root().join("render_plans").join(name);
-        let raw = std::fs::read_to_string(path).unwrap();
-        let plan: provider_common::RenderPlan = serde_json::from_str(&raw).unwrap();
-        to_bindings_plan(plan)
-    }
-
-    fn load_expected(provider: &str, name: &str) -> ExpectedPayload {
-        let path = fixtures_root()
-            .join("expected_payloads")
-            .join(provider)
-            .join(name);
-        let raw = std::fs::read_to_string(path).unwrap();
-        serde_json::from_str(&raw).unwrap()
-    }
-
-    fn fixtures_root() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .and_then(|p| p.parent())
-            .expect("workspace root")
-            .join("tests/fixtures")
-    }
-
-    fn to_bindings_plan(plan: provider_common::RenderPlan) -> BindingsRenderPlan {
-        BindingsRenderPlan {
-            tier: match plan.tier {
-                provider_common::RenderTier::TierA => BindingsRenderTier::TierA,
-                provider_common::RenderTier::TierB => BindingsRenderTier::TierB,
-                provider_common::RenderTier::TierC => BindingsRenderTier::TierC,
-                provider_common::RenderTier::TierD => BindingsRenderTier::TierD,
-            },
-            summary_text: plan.summary_text,
-            actions: plan.actions,
-            attachments: plan.attachments,
-            warnings: plan
-                .warnings
-                .into_iter()
-                .map(|w| BindingsRenderWarning {
-                    code: w.code,
-                    message: w.message,
-                    path: w.path,
+        with_http_send_mock(
+            |_, _| {
+                Ok(client::Response {
+                    status: 200,
+                    headers: vec![],
+                    body: Some(br#"{"ok":true,"result":{"message_id":42}}"#.to_vec()),
                 })
-                .collect(),
-            debug_json: plan.debug.map(|v| v.to_string()),
-        }
-    }
-
-    #[test]
-    fn formats_payload_with_threads_and_buttons() {
-        let req = SendMessageRequest {
-            chat_id: "123".into(),
-            text: "<b>hello</b>".into(),
-            message_thread_id: Some(42),
-            reply_to_message_id: Some(24),
-            buttons: vec![
-                Button::OpenUrl(bindings::provider::telegram::types::Buttonopenurl {
-                    text: "Docs".into(),
-                    url: "https://example.com".into(),
-                }),
-                Button::Postback(bindings::provider::telegram::types::Buttonpostback {
-                    text: "Ack".into(),
-                    callback_data: "ack".into(),
-                }),
-            ],
-            format_options: Some(bindings::provider::telegram::types::Formatoptions {
-                parse_mode: Some("HTML".into()),
-            }),
-        };
-
-        let render = format_message_internal(&req);
-        assert!(render.warnings.is_empty());
-        let v: Value = serde_json::from_str(&render.payload_json).unwrap();
-        assert_eq!(v["chat_id"], "123");
-        assert_eq!(v["text"], "&lt;b&gt;hello&lt;/b&gt;");
-        assert_eq!(v["parse_mode"], "HTML");
-        assert_eq!(v["message_thread_id"], 42);
-        assert_eq!(v["reply_to_message_id"], 24);
-        let buttons = v["reply_markup"]["inline_keyboard"].as_array().unwrap();
-        assert_eq!(buttons.len(), 1);
-        assert_eq!(buttons[0].as_array().unwrap().len(), 2);
-    }
-
-    #[test]
-    fn truncates_text_and_warns() {
-        let req = SendMessageRequest {
-            chat_id: "123".into(),
-            text: "a".repeat((MAX_TEXT_LEN + 10) as usize),
-            message_thread_id: None,
-            reply_to_message_id: None,
-            buttons: vec![],
-            format_options: None,
-        };
-        let render = format_message_internal(&req);
-        assert!(
-            render.warnings.iter().any(|w| w.contains("truncated")),
-            "expected truncation warning"
+            },
+            || {
+                let out = handle_send(&input);
+                assert_eq!(out["ok"], Value::Bool(true));
+                assert_eq!(out["message_id"], Value::String("42".to_string()));
+            },
         );
-        let v: Value = serde_json::from_str(&render.payload_json).unwrap();
-        assert!(v["text"].as_str().unwrap().len() as u32 <= MAX_TEXT_LEN);
     }
 
     #[test]
-    fn drops_oversize_callback_data_and_warns() {
-        let req = SendMessageRequest {
-            chat_id: "123".into(),
-            text: "hi".into(),
-            message_thread_id: None,
-            reply_to_message_id: None,
-            buttons: vec![
-                Button::Postback(bindings::provider::telegram::types::Buttonpostback {
-                    text: "TooBig".into(),
-                    callback_data: "x".repeat((CALLBACK_DATA_MAX_BYTES + 1) as usize),
-                }),
-                Button::Postback(bindings::provider::telegram::types::Buttonpostback {
-                    text: "Ok".into(),
-                    callback_data: "ok".into(),
-                }),
-            ],
-            format_options: None,
-        };
-        let render = format_message_internal(&req);
-        assert!(
-            render.warnings.iter().any(|w| w.contains("dropped button")),
-            "expected warning about dropped button"
-        );
-        let v: Value = serde_json::from_str(&render.payload_json).unwrap();
-        let buttons = v["reply_markup"]["inline_keyboard"]
-            .as_array()
-            .expect("inline keyboard");
-        assert_eq!(buttons[0].as_array().unwrap().len(), 1);
-        assert_eq!(buttons[0][0]["text"], "Ok");
-    }
+    fn secret_fallback_used_when_bot_token_missing() {
+        let input = json!({
+            "message": "hello",
+            "chat_id": "123",
+            "config": {
+                "enabled": true,
+                "public_base_url": "https://example.com",
+                "api_base_url": "https://api.telegram.org",
+                "parse_mode": "HTML"
+            }
+        });
 
-    #[test]
-    fn normalizes_webhook() {
-        let res = Component::handle_webhook("{}".into(), r#"{"update_id":1}"#.into()).unwrap();
-        assert!(matches!(res.validation, ValidationOutcome::Ok));
-        let normalized = res.normalized_event_json.unwrap();
-        let v: Value = serde_json::from_str(&normalized).unwrap();
-        assert_eq!(v["ok"], true);
-        assert_eq!(v["event"]["update_id"], 1);
-        assert!(res.warnings.is_empty());
-    }
-
-    #[test]
-    fn init_runtime_config_controls_http_retries() {
-        let _ = Component::init_runtime_config(
-            r#"{"schema_version":1,"network":{"max_attempts":2},"telemetry":{"emit_enabled":false}}"#.into(),
-        );
-
-        let req = client::Request {
-            method: "GET".into(),
-            url: "https://example.invalid".into(),
-            headers: vec![],
-            body: None,
-        };
-
-        let calls = Rc::new(Cell::new(0u32));
-        let calls_for_mock = Rc::clone(&calls);
-        super::with_http_send_mock(
-            move |_: &client::Request, _: &client::RequestOptions| {
-                let n = calls_for_mock.get() + 1;
-                calls_for_mock.set(n);
-                if n == 1 {
-                    Err(client::HostError {
-                        code: "timeout".into(),
-                        message: "first attempt fails".into(),
-                    })
+        with_secrets_get_mock(
+            |name| {
+                if name == DEFAULT_BOT_TOKEN_SECRET {
+                    Ok(Some(b"token-from-store".to_vec()))
                 } else {
-                    Ok(client::Response {
-                        status: 200,
-                        headers: vec![],
-                        body: None,
-                    })
+                    Ok(None)
                 }
             },
             || {
-                let resp = send_with_retries(&req).expect("should retry and succeed");
-                assert_eq!(resp.status, 200);
-            },
-        );
-    }
-
-    #[test]
-    fn missing_required_secret_is_structured_json() {
-        let err = super::with_secrets_get_mock(|_| Ok(None), || get_secret(TELEGRAM_BOT_TOKEN))
-            .unwrap_err();
-        let value: serde_json::Value = serde_json::from_str(&err).expect("json error");
-        assert!(
-            value.get("MissingSecret").is_some(),
-            "expected MissingSecret"
-        );
-        assert_eq!(value["MissingSecret"]["name"], TELEGRAM_BOT_TOKEN);
-        assert_eq!(value["MissingSecret"]["scope"], "tenant");
-        assert!(value["MissingSecret"]["remediation"].is_string());
-    }
-
-    #[test]
-    fn send_message_retries_and_uses_secret() {
-        let _ = Component::init_runtime_config(
-            r#"{"schema_version":1,"network":{"max_attempts":2},"telemetry":{"emit_enabled":false}}"#.into(),
-        );
-        let msg_req = SendMessageRequest {
-            chat_id: "chat-1".into(),
-            text: "hi".into(),
-            message_thread_id: None,
-            reply_to_message_id: None,
-            buttons: vec![],
-            format_options: None,
-        };
-
-        let calls = Rc::new(Cell::new(0u32));
-        let calls_for_mock = Rc::clone(&calls);
-        let resp = super::with_secrets_get_mock(
-            |_| Ok(Some(b"token".to_vec())),
-            || {
-                super::with_http_send_mock(
-                    move |_req: &client::Request, _opts: &client::RequestOptions| {
-                        let n = calls_for_mock.get() + 1;
-                        calls_for_mock.set(n);
-                        if n == 1 {
-                            Err(client::HostError {
-                                code: "timeout".into(),
-                                message: "first attempt fails".into(),
-                            })
-                        } else {
-                            Ok(client::Response {
-                                status: 200,
-                                headers: vec![],
-                                body: None,
-                            })
-                        }
+                with_http_send_mock(
+                    |req, _| {
+                        assert!(req.url.contains("/bottoken-from-store/sendMessage"));
+                        Ok(client::Response {
+                            status: 200,
+                            headers: vec![],
+                            body: Some(br#"{"ok":true,"result":{"message_id":7}}"#.to_vec()),
+                        })
                     },
-                    || Component::send_message(msg_req.clone()),
+                    || {
+                        let out = handle_send(&input);
+                        assert_eq!(out["ok"], Value::Bool(true));
+                    },
                 )
             },
-        )
-        .expect("send succeeds");
+        );
+    }
 
-        assert!(resp.payload_json.contains("\"chat_id\":\"chat-1\""));
-        assert_eq!(calls.get(), 2);
+    #[test]
+    fn schema_hash_is_stable() {
+        let describe = build_describe_payload();
+        assert_eq!(
+            describe.schema_hash,
+            "a08fec9d024f4dec10ccd9294524631388fca9f1c253d90b27d459e43de07cbb"
+        );
+    }
+
+    #[test]
+    fn describe_passes_strict_rules() {
+        let describe = build_describe_payload();
+        assert!(!describe.operations.is_empty());
+        assert_eq!(
+            describe.schema_hash,
+            schema_hash(
+                &describe.input_schema,
+                &describe.output_schema,
+                &describe.config_schema
+            )
+        );
+    }
+
+    #[test]
+    fn i18n_keys_cover_qa_specs() {
+        use bindings::exports::greentic::component::qa::Mode;
+
+        let keyset = I18N_KEYS
+            .iter()
+            .map(|value| (*value).to_string())
+            .collect::<BTreeSet<_>>();
+
+        for mode in [Mode::Default, Mode::Setup, Mode::Upgrade, Mode::Remove] {
+            let spec = build_qa_spec(mode);
+            assert!(keyset.contains(&spec.title.key));
+            for question in spec.questions {
+                assert!(keyset.contains(&question.text.key));
+            }
+        }
     }
 }

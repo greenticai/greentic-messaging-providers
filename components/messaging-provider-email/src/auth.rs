@@ -1,4 +1,4 @@
-use super::bindings::greentic::http::client;
+use super::bindings::greentic::http::http_client as client;
 use super::bindings::greentic::secrets_store::secrets_store;
 use super::{AuthUserRefV1, ProviderConfig};
 use serde_json::Value;

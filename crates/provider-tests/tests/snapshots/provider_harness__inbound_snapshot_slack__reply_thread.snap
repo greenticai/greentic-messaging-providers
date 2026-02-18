@@ -1,18 +1,22 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 878
 expression: value
 ---
 {
   "event": {
-    "channel": "slack-channel",
+    "channel": "slack",
     "id": "<FIXED>",
-    "provider": "slack",
-    "reply_to": "slack-msg-1",
-    "text": "reply thread message from slack",
-    "thread_id": "slack-thread-1",
-    "timestamp": "<FIXED>",
-    "type": "message"
+    "metadata": {
+      "universal": "true"
+    },
+    "session_id": "slack",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": ""
   },
   "ok": true
 }

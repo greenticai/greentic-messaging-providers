@@ -2,7 +2,23 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Webex Provider-Core Config",
   "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enabled",
+    "public_base_url",
+    "api_base_url"
+  ],
   "properties": {
+    "enabled": {
+      "type": "boolean",
+      "description": "Enable the Webex provider."
+    },
+    "public_base_url": {
+      "type": "string",
+      "format": "uri",
+      "minLength": 1,
+      "description": "Public base URL used to build inbound webhook callback URLs."
+    },
     "default_room_id": {
       "type": "string",
       "description": "Default room ID used when invocation omits destination."
@@ -13,16 +29,14 @@
     },
     "api_base_url": {
       "type": "string",
+      "format": "uri",
       "description": "Webex API base URL.",
       "default": "https://webexapis.com/v1"
     },
-    "public_base_url": {
+    "bot_token": {
       "type": "string",
-      "description": "Public base URL used to build inbound webhook callback URLs."
+      "description": "Optional Webex bot token. Falls back to secret store if omitted.",
+      "x-redact": true
     }
-  },
-  "required": [
-    "public_base_url"
-  ],
-  "additionalProperties": false
+  }
 }

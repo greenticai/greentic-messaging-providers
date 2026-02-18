@@ -1,38 +1,22 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 878
 expression: value
 ---
 {
-  "normalized_event": {
-    "event": {
-      "id": "<FIXED>",
-      "inputs": [
-        {
-          "id": "<FIXED>",
-          "placeholder": "Name"
-        },
-        {
-          "choices": [
-            "a",
-            "b"
-          ],
-          "id": "<FIXED>"
-        },
-        {
-          "id": "<FIXED>",
-          "title": "Opt in"
-        }
-      ],
-      "provider": "telegram",
-      "text": "adaptivecard inputs message from telegram",
-      "timestamp": "<FIXED>",
-      "type": "adaptivecard",
-      "variant": "inputs"
+  "event": {
+    "channel": "telegram",
+    "id": "<FIXED>",
+    "metadata": {
+      "universal": "true"
     },
-    "ok": true
+    "session_id": "telegram",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": ""
   },
-  "suggested_http_status": null,
-  "validation": "ok",
-  "warnings": []
+  "ok": true
 }

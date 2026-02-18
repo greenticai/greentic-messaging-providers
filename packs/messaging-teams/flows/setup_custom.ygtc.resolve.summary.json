@@ -8,7 +8,7 @@
         "kind": "local",
         "path": "../components/provision/provision.wasm"
       },
-      "digest": "sha256:aefb869a8b1fd13012e3eacb3f69137182404dc751e10f9bfcac85f089f9546a",
+      "digest": "sha256:390a250e505a88db439fcc554b966a69c1d9e3e19b9a08cbd0624d31416ba9cf",
       "manifest": {
         "world": "greentic:component/component@0.5.0",
         "version": "0.1.0"
@@ -32,7 +32,7 @@
         "kind": "local",
         "path": "../components/questions/questions.wasm"
       },
-      "digest": "sha256:d076d587ea2e2435f6781747ffc7876c981130091fed659425f6a17e860a4375",
+      "digest": "sha256:2c4e4a0bbaa53288871976fed8d7e75639fa1168c6ec1549ade458b213112b1d",
       "manifest": {
         "world": "greentic:component/component@0.5.0",
         "version": "0.1.0"
@@ -56,7 +56,7 @@
         "kind": "local",
         "path": "../components/questions/questions.wasm"
       },
-      "digest": "sha256:d076d587ea2e2435f6781747ffc7876c981130091fed659425f6a17e860a4375",
+      "digest": "sha256:2c4e4a0bbaa53288871976fed8d7e75639fa1168c6ec1549ade458b213112b1d",
       "manifest": {
         "world": "greentic:component/component@0.5.0",
         "version": "0.1.0"

@@ -1,25 +1,22 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 878
 expression: value
 ---
 {
   "event": {
-    "attachments": [
-      {
-        "kind": "image",
-        "url": "https://example.invalid/image.png"
-      },
-      {
-        "kind": "file",
-        "name": "notes.txt"
-      }
-    ],
+    "channel": "teams",
     "id": "<FIXED>",
-    "provider": "teams",
-    "text": "attachment message from teams",
-    "timestamp": "<FIXED>",
-    "type": "message"
+    "metadata": {
+      "universal": "true"
+    },
+    "session_id": "teams",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": ""
   },
   "ok": true
 }

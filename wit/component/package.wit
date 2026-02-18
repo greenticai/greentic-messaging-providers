@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-package greentic:component@0.5.0;
+package greentic:component@0.6.0;
 
 /// Cooperative control-plane hooks surfaced to components.
 interface control {
@@ -11,7 +11,7 @@ interface control {
   yield-now: func();
 }
 
-/// Component interface for greentic component version 0.5.0.
+/// Component interface for greentic component version 0.6.0.
 interface node {
   type json = string;
 

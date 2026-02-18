@@ -6,38 +6,13 @@
 pub mod greentic {
     pub mod http {
         #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
-        pub mod client {
+        pub mod http_client {
             #[used]
             #[doc(hidden)]
             static __FORCE_SECTION_REF: fn() = super::super::super::__link_custom_section_describing_imports;
             use super::super::super::_rt;
             pub type TenantCtx = super::super::super::greentic::interfaces_types::types::TenantCtx;
-            /// Canonical host error payload.
-            #[derive(Clone)]
-            pub struct HostError {
-                pub code: _rt::String,
-                pub message: _rt::String,
-            }
-            impl ::core::fmt::Debug for HostError {
-                fn fmt(
-                    &self,
-                    f: &mut ::core::fmt::Formatter<'_>,
-                ) -> ::core::fmt::Result {
-                    f.debug_struct("HostError")
-                        .field("code", &self.code)
-                        .field("message", &self.message)
-                        .finish()
-                }
-            }
-            impl ::core::fmt::Display for HostError {
-                fn fmt(
-                    &self,
-                    f: &mut ::core::fmt::Formatter<'_>,
-                ) -> ::core::fmt::Result {
-                    write!(f, "{:?}", self)
-                }
-            }
-            impl std::error::Error for HostError {}
+            pub type HostError = super::super::super::greentic::interfaces_types::types::HostError;
             /// HTTP request issued by a component.
             #[derive(Clone)]
             pub struct Request {
@@ -693,7 +668,7 @@ pub mod greentic {
                     };
                     let ptr33 = ret_area.0.as_mut_ptr().cast::<u8>();
                     #[cfg(target_arch = "wasm32")]
-                    #[link(wasm_import_module = "greentic:http/client@1.1.0")]
+                    #[link(wasm_import_module = "greentic:http/http-client@1.1.0")]
                     unsafe extern "C" {
                         #[link_name = "send"]
                         fn wit_import34(_: *mut u8, _: *mut u8);
@@ -811,7 +786,7 @@ pub mod greentic {
                                     len55,
                                     len55,
                                 );
-                                HostError {
+                                super::super::super::greentic::interfaces_types::types::HostError {
                                     code: _rt::string_lift(bytes52),
                                     message: _rt::string_lift(bytes55),
                                 }
@@ -995,6 +970,32 @@ pub mod greentic {
                     }
                 }
             }
+            /// Canonical host error payload.
+            #[derive(Clone)]
+            pub struct HostError {
+                pub code: _rt::String,
+                pub message: _rt::String,
+            }
+            impl ::core::fmt::Debug for HostError {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    f.debug_struct("HostError")
+                        .field("code", &self.code)
+                        .field("message", &self.message)
+                        .finish()
+                }
+            }
+            impl ::core::fmt::Display for HostError {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    write!(f, "{:?}", self)
+                }
+            }
+            impl std::error::Error for HostError {}
             /// Standard error codes returned by host services.
             #[repr(u8)]
             #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
@@ -1239,32 +1240,7 @@ pub mod greentic {
             use super::super::super::_rt;
             pub type StateKey = super::super::super::greentic::interfaces_types::types::StateKey;
             pub type TenantCtx = super::super::super::greentic::interfaces_types::types::TenantCtx;
-            /// Canonical host error payload.
-            #[derive(Clone)]
-            pub struct HostError {
-                pub code: _rt::String,
-                pub message: _rt::String,
-            }
-            impl ::core::fmt::Debug for HostError {
-                fn fmt(
-                    &self,
-                    f: &mut ::core::fmt::Formatter<'_>,
-                ) -> ::core::fmt::Result {
-                    f.debug_struct("HostError")
-                        .field("code", &self.code)
-                        .field("message", &self.message)
-                        .finish()
-                }
-            }
-            impl ::core::fmt::Display for HostError {
-                fn fmt(
-                    &self,
-                    f: &mut ::core::fmt::Formatter<'_>,
-                ) -> ::core::fmt::Result {
-                    write!(f, "{:?}", self)
-                }
-            }
-            impl std::error::Error for HostError {}
+            pub type HostError = super::super::super::greentic::interfaces_types::types::HostError;
             /// Trivial acknowledgment for write/delete.
             #[repr(u8)]
             #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
@@ -1791,7 +1767,7 @@ pub mod greentic {
                                     len36,
                                     len36,
                                 );
-                                HostError {
+                                super::super::super::greentic::interfaces_types::types::HostError {
                                     code: _rt::string_lift(bytes33),
                                     message: _rt::string_lift(bytes36),
                                 }
@@ -2310,7 +2286,7 @@ pub mod greentic {
                                     len35,
                                     len35,
                                 );
-                                HostError {
+                                super::super::super::greentic::interfaces_types::types::HostError {
                                     code: _rt::string_lift(bytes32),
                                     message: _rt::string_lift(bytes35),
                                 }
@@ -2821,7 +2797,7 @@ pub mod greentic {
                                     len34,
                                     len34,
                                 );
-                                HostError {
+                                super::super::super::greentic::interfaces_types::types::HostError {
                                     code: _rt::string_lift(bytes31),
                                     message: _rt::string_lift(bytes34),
                                 }
@@ -2849,32 +2825,7 @@ pub mod greentic {
             use super::super::super::_rt;
             pub type TenantCtx = super::super::super::greentic::interfaces_types::types::TenantCtx;
             pub type SpanContext = super::super::super::greentic::interfaces_types::types::SpanContext;
-            /// Canonical host error payload.
-            #[derive(Clone)]
-            pub struct HostError {
-                pub code: _rt::String,
-                pub message: _rt::String,
-            }
-            impl ::core::fmt::Debug for HostError {
-                fn fmt(
-                    &self,
-                    f: &mut ::core::fmt::Formatter<'_>,
-                ) -> ::core::fmt::Result {
-                    f.debug_struct("HostError")
-                        .field("code", &self.code)
-                        .field("message", &self.message)
-                        .finish()
-                }
-            }
-            impl ::core::fmt::Display for HostError {
-                fn fmt(
-                    &self,
-                    f: &mut ::core::fmt::Formatter<'_>,
-                ) -> ::core::fmt::Result {
-                    write!(f, "{:?}", self)
-                }
-            }
-            impl std::error::Error for HostError {}
+            pub type HostError = super::super::super::greentic::interfaces_types::types::HostError;
             #[repr(u8)]
             #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
             pub enum OpAck {
@@ -3538,7 +3489,7 @@ pub mod greentic {
                                     len43,
                                     len43,
                                 );
-                                HostError {
+                                super::super::super::greentic::interfaces_types::types::HostError {
                                     code: _rt::string_lift(bytes40),
                                     message: _rt::string_lift(bytes43),
                                 }
@@ -3836,9 +3787,9 @@ pub(crate) use __export_messaging_ingress_slack_impl as export;
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 2537] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xdb\x12\x01A\x02\x01\
-A\x0f\x01B:\x01s\x04\0\x06env-id\x03\0\0\x01s\x04\0\x09tenant-id\x03\0\x02\x01s\x04\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 2518] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xc8\x12\x01A\x02\x01\
+A\x10\x01B:\x01s\x04\0\x06env-id\x03\0\0\x01s\x04\0\x09tenant-id\x03\0\x02\x01s\x04\
 \0\x07team-id\x03\0\x04\x01s\x04\0\x07user-id\x03\0\x06\x01s\x04\0\x09state-key\x03\
 \0\x08\x01s\x04\0\x0bsession-key\x03\0\x0a\x01ks\x01r\x02\x08actor-id\x07\x06rea\
 son\x0c\x04\0\x0dimpersonation\x03\0\x0d\x01k\x05\x01k\x07\x01o\x02ss\x01p\x11\x01\
@@ -3864,31 +3815,31 @@ signature\x03\02\x01p3\x01r\x04\x07oci-urls\x07versions\x06digests\x0asignatures
 4\x04\0\x08pack-ref\x03\05\x01k\x0b\x01r\x07\x06tenant\x03\x0asession-id7\x07flo\
 w-ids\x07node-id\x0c\x08providers\x08start-ms\x13\x06end-ms\x13\x04\0\x0cspan-co\
 ntext\x03\08\x03\0%greentic:interfaces-types/types@0.1.0\x05\0\x02\x03\0\0\x0ate\
-nant-ctx\x01B\x15\x02\x03\x02\x01\x01\x04\0\x0atenant-ctx\x03\0\0\x01r\x02\x04co\
-des\x07messages\x04\0\x0ahost-error\x03\0\x02\x01o\x02ss\x01p\x04\x01p}\x01k\x06\
-\x01r\x04\x06methods\x03urls\x07headers\x05\x04body\x07\x04\0\x07request\x03\0\x08\
-\x01r\x03\x06status{\x07headers\x05\x04body\x07\x04\0\x08response\x03\0\x0a\x01k\
-y\x01k\x7f\x01r\x03\x0atimeout-ms\x0c\x0eallow-insecure\x0d\x10follow-redirects\x0d\
-\x04\0\x0frequest-options\x03\0\x0e\x01k\x0f\x01k\x01\x01j\x01\x0b\x01\x03\x01@\x03\
-\x03req\x09\x04opts\x10\x03ctx\x11\0\x12\x04\0\x04send\x01\x13\x03\0\x1agreentic\
-:http/client@1.1.0\x05\x02\x01B\x07\x01m\x04\x09not-found\x06denied\x0binvalid-k\
-ey\x08internal\x04\0\x0dsecrets-error\x03\0\0\x01p}\x01k\x02\x01j\x01\x03\x01\x01\
-\x01@\x01\x03keys\0\x04\x04\0\x03get\x01\x05\x03\0*greentic:secrets-store/secret\
-s-store@1.0.0\x05\x03\x02\x03\0\0\x09state-key\x01B\x12\x02\x03\x02\x01\x04\x04\0\
-\x09state-key\x03\0\0\x02\x03\x02\x01\x01\x04\0\x0atenant-ctx\x03\0\x02\x01r\x02\
-\x04codes\x07messages\x04\0\x0ahost-error\x03\0\x04\x01m\x01\x02ok\x04\0\x06op-a\
-ck\x03\0\x06\x01k\x03\x01p}\x01j\x01\x09\x01\x05\x01@\x02\x03key\x01\x03ctx\x08\0\
-\x0a\x04\0\x04read\x01\x0b\x01j\x01\x07\x01\x05\x01@\x03\x03key\x01\x05bytes\x09\
-\x03ctx\x08\0\x0c\x04\0\x05write\x01\x0d\x01@\x02\x03key\x01\x03ctx\x08\0\x0c\x04\
-\0\x06delete\x01\x0e\x03\0\x20greentic:state/state-store@1.0.0\x05\x05\x02\x03\0\
-\0\x0cspan-context\x01B\x0e\x02\x03\x02\x01\x01\x04\0\x0atenant-ctx\x03\0\0\x02\x03\
-\x02\x01\x06\x04\0\x0cspan-context\x03\0\x02\x01r\x02\x04codes\x07messages\x04\0\
-\x0ahost-error\x03\0\x04\x01m\x01\x02ok\x04\0\x06op-ack\x03\0\x06\x01o\x02ss\x01\
+nant-ctx\x02\x03\0\0\x0ahost-error\x01B\x15\x02\x03\x02\x01\x01\x04\0\x0atenant-\
+ctx\x03\0\0\x02\x03\x02\x01\x02\x04\0\x0ahost-error\x03\0\x02\x01o\x02ss\x01p\x04\
+\x01p}\x01k\x06\x01r\x04\x06methods\x03urls\x07headers\x05\x04body\x07\x04\0\x07\
+request\x03\0\x08\x01r\x03\x06status{\x07headers\x05\x04body\x07\x04\0\x08respon\
+se\x03\0\x0a\x01ky\x01k\x7f\x01r\x03\x0atimeout-ms\x0c\x0eallow-insecure\x0d\x10\
+follow-redirects\x0d\x04\0\x0frequest-options\x03\0\x0e\x01k\x0f\x01k\x01\x01j\x01\
+\x0b\x01\x03\x01@\x03\x03req\x09\x04opts\x10\x03ctx\x11\0\x12\x04\0\x04send\x01\x13\
+\x03\0\x1fgreentic:http/http-client@1.1.0\x05\x03\x01B\x07\x01m\x04\x09not-found\
+\x06denied\x0binvalid-key\x08internal\x04\0\x0dsecrets-error\x03\0\0\x01p}\x01k\x02\
+\x01j\x01\x03\x01\x01\x01@\x01\x03keys\0\x04\x04\0\x03get\x01\x05\x03\0*greentic\
+:secrets-store/secrets-store@1.0.0\x05\x04\x02\x03\0\0\x09state-key\x01B\x12\x02\
+\x03\x02\x01\x05\x04\0\x09state-key\x03\0\0\x02\x03\x02\x01\x01\x04\0\x0atenant-\
+ctx\x03\0\x02\x02\x03\x02\x01\x02\x04\0\x0ahost-error\x03\0\x04\x01m\x01\x02ok\x04\
+\0\x06op-ack\x03\0\x06\x01k\x03\x01p}\x01j\x01\x09\x01\x05\x01@\x02\x03key\x01\x03\
+ctx\x08\0\x0a\x04\0\x04read\x01\x0b\x01j\x01\x07\x01\x05\x01@\x03\x03key\x01\x05\
+bytes\x09\x03ctx\x08\0\x0c\x04\0\x05write\x01\x0d\x01@\x02\x03key\x01\x03ctx\x08\
+\0\x0c\x04\0\x06delete\x01\x0e\x03\0\x20greentic:state/state-store@1.0.0\x05\x06\
+\x02\x03\0\0\x0cspan-context\x01B\x0e\x02\x03\x02\x01\x01\x04\0\x0atenant-ctx\x03\
+\0\0\x02\x03\x02\x01\x07\x04\0\x0cspan-context\x03\0\x02\x02\x03\x02\x01\x02\x04\
+\0\x0ahost-error\x03\0\x04\x01m\x01\x02ok\x04\0\x06op-ack\x03\0\x06\x01o\x02ss\x01\
 p\x08\x01k\x01\x01j\x01\x07\x01\x05\x01@\x03\x04span\x03\x06fields\x09\x03ctx\x0a\
-\0\x0b\x04\0\x03log\x01\x0c\x03\0#greentic:telemetry/logger-api@1.0.0\x05\x07\x01\
+\0\x0b\x04\0\x03log\x01\x0c\x03\0#greentic:telemetry/logger-api@1.0.0\x05\x08\x01\
 B\x07\x01s\x04\0\x17normalized-payload-json\x03\0\0\x01s\x04\0\x0dingress-error\x03\
 \0\x02\x01j\x01\x01\x01\x03\x01@\x02\x0cheaders-jsons\x09body-jsons\0\x04\x04\0\x0e\
-handle-webhook\x01\x05\x04\0\x1dprovider:common/ingress@0.0.2\x05\x08\x04\0>gree\
+handle-webhook\x01\x05\x04\0\x1dprovider:common/ingress@0.0.2\x05\x09\x04\0>gree\
 ntic:messaging-ingress-slack/messaging-ingress-slack@0.0.1\x04\0\x0b\x1d\x01\0\x17\
 messaging-ingress-slack\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-c\
 omponent\x070.227.1\x10wit-bindgen-rust\x060.41.0";

@@ -8,7 +8,8 @@ use greentic_interfaces_wasmtime::host_helpers::v1::{
     HostFns, add_all_v1_to_linker, http_client, secrets_store, state_store,
 };
 use greentic_interfaces_wasmtime::http_client_client_v1_1::greentic::http::http_client as http_client_client_alias;
-use greentic_types::{ProviderManifest, provider::PROVIDER_EXTENSION_ID};
+use greentic_types::provider::PROVIDER_EXTENSION_ID;
+use provider_common::component_v0_6::{DescribePayload, canonical_cbor_bytes, decode_cbor};
 use serde_json::{Value, json};
 use wasmtime::component::{Component, ComponentExportIndex, Linker, ResourceTable, TypedFunc};
 use wasmtime::{Config, Engine, Store};
@@ -17,7 +18,7 @@ use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView, p2};
 mod bindings {
     wasmtime::component::bindgen!({
         path: "../../components/messaging-provider-email/wit/messaging-provider-email",
-        world: "messaging-provider-email",
+        world: "component-v0-v6-v0",
     });
 }
 
@@ -383,9 +384,9 @@ fn invoke_send_smoke_test() -> Result<()> {
         .get_export_index(
             &mut describe_store,
             None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
+            "greentic:component/descriptor@0.6.0",
         )
-        .context("get schema-core-api export index")?;
+        .context("get descriptor export index")?;
 
     let describe_index = instance
         .get_export_index(&mut describe_store, Some(&api_index), "describe")
@@ -396,11 +397,11 @@ fn invoke_send_smoke_test() -> Result<()> {
     let (described,) = describe
         .call(&mut describe_store, ())
         .context("call describe")?;
-    let manifest: ProviderManifest =
-        serde_json::from_slice(&described).context("decode describe output")?;
-    assert_eq!(manifest.provider_type, "messaging.email.smtp");
-    assert!(manifest.ops.contains(&"send".to_string()));
-    assert!(manifest.ops.contains(&"reply".to_string()));
+    let described: DescribePayload = decode_cbor(&described).map_err(anyhow::Error::msg)?;
+    assert_eq!(described.provider, "messaging-provider-email");
+    assert!(described.operations.iter().any(|op| op.name == "run"));
+    assert!(described.operations.iter().any(|op| op.name == "send"));
+    assert!(described.operations.iter().any(|op| op.name == "reply"));
 
     let mut store = Store::new(&engine, HostState::default());
     let instance = linker
@@ -408,12 +409,8 @@ fn invoke_send_smoke_test() -> Result<()> {
         .context("instantiate for invoke")?;
 
     let api_index: ComponentExportIndex = instance
-        .get_export_index(
-            &mut store,
-            None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
-        )
-        .context("get schema-core-api export index for invoke")?;
+        .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
+        .context("get runtime export index for invoke")?;
     let invoke_index = instance
         .get_export_index(&mut store, Some(&api_index), "invoke")
         .context("get invoke export index")?;
@@ -426,17 +423,18 @@ fn invoke_send_smoke_test() -> Result<()> {
         "subject": "hello",
         "body": "hi there",
         "config": {
+            "public_base_url": "https://example.com",
             "host": "smtp.example.com",
             "port": 2525,
             "username": "user",
             "from_address": "no-reply@example.com"
         }
     });
-    let input_bytes = serde_json::to_vec(&input)?;
+    let input_bytes = canonical_cbor_bytes(&input);
     let (resp,) = invoke
         .call(&mut store, ("send".to_string(), input_bytes))
         .context("call invoke send")?;
-    let resp_json: Value = serde_json::from_slice(&resp).context("parse invoke output")?;
+    let resp_json: Value = decode_cbor(&resp).map_err(anyhow::Error::msg)?;
     eprintln!("resp_json = {resp_json:?}");
     assert_eq!(resp_json.get("status"), Some(&Value::String("sent".into())));
     assert_eq!(
@@ -465,12 +463,8 @@ fn invoke_reply_smoke_test() -> Result<()> {
         .context("instantiate for invoke")?;
 
     let api_index: ComponentExportIndex = instance
-        .get_export_index(
-            &mut store,
-            None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
-        )
-        .context("get schema-core-api export index for invoke")?;
+        .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
+        .context("get runtime export index for invoke")?;
     let invoke_index = instance
         .get_export_index(&mut store, Some(&api_index), "invoke")
         .context("get invoke export index")?;
@@ -484,6 +478,7 @@ fn invoke_reply_smoke_test() -> Result<()> {
         "body": "reply body",
         "reply_to_id": "msg-123",
         "config": {
+            "public_base_url": "https://example.com",
             "host": "smtp.example.com",
             "port": 25,
             "username": "u",
@@ -493,10 +488,10 @@ fn invoke_reply_smoke_test() -> Result<()> {
     let (resp,) = invoke
         .call(
             &mut store,
-            ("reply".to_string(), serde_json::to_vec(&input)?),
+            ("reply".to_string(), canonical_cbor_bytes(&input)),
         )
         .context("call invoke reply")?;
-    let resp_json: Value = serde_json::from_slice(&resp).context("parse invoke output")?;
+    let resp_json: Value = decode_cbor(&resp).map_err(anyhow::Error::msg)?;
     assert_eq!(
         resp_json.get("status"),
         Some(&Value::String("replied".into()))
@@ -529,12 +524,8 @@ fn reply_requires_to() -> Result<()> {
         .context("instantiate for invoke reply failure")?;
 
     let api_index: ComponentExportIndex = instance
-        .get_export_index(
-            &mut store,
-            None,
-            "greentic:provider-schema-core/schema-core-api@1.0.0",
-        )
-        .context("get schema-core-api export index for invoke")?;
+        .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
+        .context("get runtime export index for invoke")?;
     let invoke_index = instance
         .get_export_index(&mut store, Some(&api_index), "invoke")
         .context("get invoke export index")?;
@@ -547,6 +538,7 @@ fn reply_requires_to() -> Result<()> {
         "body": "reply body",
         "reply_to_id": "msg-123",
         "config": {
+            "public_base_url": "https://example.com",
             "host": "smtp.example.com",
             "port": 25,
             "username": "u",
@@ -556,10 +548,10 @@ fn reply_requires_to() -> Result<()> {
     let (resp,) = invoke
         .call(
             &mut store,
-            ("reply".to_string(), serde_json::to_vec(&input)?),
+            ("reply".to_string(), canonical_cbor_bytes(&input)),
         )
         .context("call invoke reply failure")?;
-    let resp_json: Value = serde_json::from_slice(&resp).context("parse invoke output")?;
+    let resp_json: Value = decode_cbor(&resp).map_err(anyhow::Error::msg)?;
     assert_eq!(resp_json.get("ok"), Some(&Value::Bool(false)));
 
     Ok(())

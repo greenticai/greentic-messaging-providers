@@ -1,3 +1,6 @@
+pub mod component_v0_6;
+pub mod lifecycle_keys;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;

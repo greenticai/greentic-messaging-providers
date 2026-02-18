@@ -20,6 +20,13 @@ PACKS_DIR="${PACKS_DIR:-${ROOT_DIR}/packs}"
 TARGET_COMPONENTS="${ROOT_DIR}/target/components"
 VERSION="${PACK_VERSION:-}"
 
+if [ -f "${ROOT_DIR}/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "${ROOT_DIR}/.env"
+  set +a
+fi
+
 if [ -z "${VERSION}" ]; then
   VERSION="$(python3 - <<'PY'
 from pathlib import Path
@@ -41,10 +48,13 @@ if [ -x "${ROOT_DIR}/tools/prepare_pack_assets.sh" ]; then
 fi
 
 # Default OCI location for the shared templates component used by many packs.
-DEFAULT_TEMPLATES_IMAGE="ghcr.io/greentic-ai/components/templates"
-DEFAULT_TEMPLATES_DIGEST="sha256:0904bee6ecd737506265e3f38f3e4fe6b185c20fd1b0e7c06ce03cdeedc00340"
+TEMPLATES_REGISTRY="${TEMPLATES_REGISTRY:-${OCI_REGISTRY:-ghcr.io}}"
+TEMPLATES_NAMESPACE="${TEMPLATES_NAMESPACE:-${GHCR_NAMESPACE:-${OCI_ORG:-${GHCR_USERNAME:-greentic-ai}}}}"
+DEFAULT_TEMPLATES_IMAGE="${TEMPLATES_IMAGE:-${TEMPLATES_REGISTRY}/${TEMPLATES_NAMESPACE}/components/templates:latest}"
+DEFAULT_TEMPLATES_DIGEST=""
 DEFAULT_TEMPLATES_ARTIFACT="component_templates.wasm"
 DEFAULT_TEMPLATES_MANIFEST="component.publish.manifest.json"
+echo "Using templates image: ${DEFAULT_TEMPLATES_IMAGE}"
 
 if [ ! -d "${TARGET_COMPONENTS}" ]; then
   echo "Building components..."
@@ -94,14 +104,11 @@ copy_schema() {
 ensure_secret_requirements_asset() {
   local pack_dir="$1"
   local secrets_out="$2"
-  local dest_assets="${pack_dir}/assets/secret-requirements.json"
   local dest_root="${pack_dir}/secret-requirements.json"
-  mkdir -p "$(dirname "${dest_assets}")"
+  rm -f "${pack_dir}/assets/secret-requirements.json"
   if [ -f "${secrets_out}" ]; then
-    cp "${secrets_out}" "${dest_assets}"
     cp "${secrets_out}" "${dest_root}"
   else
-    printf '%s\n' "[]" > "${dest_assets}"
     printf '%s\n' "[]" > "${dest_root}"
   fi
 }
@@ -257,6 +264,10 @@ for dir in "${PACKS_DIR}"/*; do
     [ -z "${comp}" ] && continue
     wasm_rel="${wasm_path:-components/${comp}.wasm}"
     wasm_file="$(basename "${wasm_rel}")"
+    is_templates_component=0
+    if [ "${comp}" = "templates" ] || [ "${comp}" = "ai.greentic.component-templates" ] || [ "${wasm_file}" = "templates.wasm" ]; then
+      is_templates_component=1
+    fi
     src="${TARGET_COMPONENTS}/${wasm_file}"
     dest="${dir}/${wasm_rel}"
     manifest_src=""
@@ -266,10 +277,16 @@ for dir in "${PACKS_DIR}"/*; do
       manifest_src="${TARGET_COMPONENTS}/$(basename "${manifest_rel}")"
     fi
     # Fill in default OCI metadata for template components when missing.
-    if [ -z "${oci_image}" ] && { [ "${comp}" = "templates" ] || [ "${comp}" = "ai.greentic.component-templates" ]; }; then
+    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_image}" ]; then
       oci_image="${DEFAULT_TEMPLATES_IMAGE}"
+    fi
+    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_digest}" ]; then
       oci_digest="${DEFAULT_TEMPLATES_DIGEST}"
+    fi
+    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_artifact}" ]; then
       oci_artifact="${DEFAULT_TEMPLATES_ARTIFACT}"
+    fi
+    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_manifest}" ]; then
       oci_manifest="${DEFAULT_TEMPLATES_MANIFEST}"
     fi
     mkdir -p "$(dirname "${dest}")"

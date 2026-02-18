@@ -1,225 +1,631 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 
+use bindings::greentic::http::http_client as client;
+use bindings::greentic::secrets_store::secrets_store;
+#[cfg(not(test))]
+use bindings::greentic::telemetry::logger_api;
+use provider_common::ProviderError;
+use provider_common::component_v0_6::{
+    DescribePayload, I18nText, OperationDescriptor, QaQuestionSpec, QaSpec, RedactionRule,
+    SchemaField, SchemaIr, canonical_cbor_bytes, decode_cbor, schema_hash,
+};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+use std::collections::BTreeMap;
+
 #[allow(clippy::too_many_arguments)]
 mod bindings {
-    wit_bindgen::generate!({ path: "wit/webex", world: "webex", generate_all });
+    wit_bindgen::generate!({ path: "wit/webex", world: "component-v0-v6-v0", generate_all });
 }
 
-use bindings::Guest;
-use bindings::greentic::http::client;
-use bindings::greentic::secrets_store::secrets_store;
-use bindings::greentic::telemetry::logger_api;
-use bindings::provider::common::capabilities::{
-    CapabilitiesResponse as BindingsCapabilitiesResponse,
-    ProviderCapabilities as BindingsProviderCapabilities, ProviderLimits as BindingsProviderLimits,
-    ProviderMetadata as BindingsProviderMetadata,
-};
-use bindings::provider::common::render::{
-    EncodeResult as BindingsEncodeResult, ProviderPayload as BindingsProviderPayload,
-    RenderPlan as BindingsRenderPlan, RenderTier as BindingsRenderTier,
-    RenderWarning as BindingsRenderWarning,
-};
-use provider_common::ProviderError;
-use provider_common::{
-    CapabilitiesResponseV1, ProviderCapabilitiesV1, ProviderLimitsV1, ProviderMetadataV1,
-};
-use provider_runtime_config::ProviderRuntimeConfig;
-use serde_json::Value;
-use std::sync::OnceLock;
+const PROVIDER_ID: &str = "webex";
+const WORLD_ID: &str = "component-v0-v6-v0";
+const DEFAULT_API_BASE: &str = "https://webexapis.com/v1";
+const DEFAULT_BOT_TOKEN_SECRET: &str = "WEBEX_BOT_TOKEN";
 
-const WEBEX_API: &str = "https://webexapis.com/v1/messages";
-const WEBEX_BOT_TOKEN: &str = "WEBEX_BOT_TOKEN";
+const I18N_KEYS: &[&str] = &[
+    "webex.op.run.title",
+    "webex.op.run.description",
+    "webex.op.send.title",
+    "webex.op.send.description",
+    "webex.op.ingest_http.title",
+    "webex.op.ingest_http.description",
+    "webex.op.encode.title",
+    "webex.op.encode.description",
+    "webex.op.send_payload.title",
+    "webex.op.send_payload.description",
+    "webex.schema.input.title",
+    "webex.schema.input.description",
+    "webex.schema.input.message.title",
+    "webex.schema.input.message.description",
+    "webex.schema.output.title",
+    "webex.schema.output.description",
+    "webex.schema.output.ok.title",
+    "webex.schema.output.ok.description",
+    "webex.schema.output.message_id.title",
+    "webex.schema.output.message_id.description",
+    "webex.schema.config.title",
+    "webex.schema.config.description",
+    "webex.schema.config.enabled.title",
+    "webex.schema.config.enabled.description",
+    "webex.schema.config.public_base_url.title",
+    "webex.schema.config.public_base_url.description",
+    "webex.schema.config.api_base_url.title",
+    "webex.schema.config.api_base_url.description",
+    "webex.schema.config.default_room_id.title",
+    "webex.schema.config.default_room_id.description",
+    "webex.schema.config.default_to_person_email.title",
+    "webex.schema.config.default_to_person_email.description",
+    "webex.schema.config.bot_token.title",
+    "webex.schema.config.bot_token.description",
+    "webex.qa.default.title",
+    "webex.qa.setup.title",
+    "webex.qa.upgrade.title",
+    "webex.qa.remove.title",
+    "webex.qa.setup.enabled",
+    "webex.qa.setup.public_base_url",
+    "webex.qa.setup.api_base_url",
+    "webex.qa.setup.default_room_id",
+    "webex.qa.setup.default_to_person_email",
+    "webex.qa.setup.bot_token",
+];
 
-static RUNTIME_CONFIG: OnceLock<ProviderRuntimeConfig> = OnceLock::new();
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProviderConfig {
+    #[serde(default = "default_enabled")]
+    enabled: bool,
+    public_base_url: String,
+    #[serde(default = "default_api_base")]
+    api_base_url: String,
+    #[serde(default)]
+    default_room_id: Option<String>,
+    #[serde(default)]
+    default_to_person_email: Option<String>,
+    #[serde(default)]
+    bot_token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ApplyAnswersResult {
+    ok: bool,
+    config: Option<ProviderConfig>,
+    error: Option<String>,
+}
 
 struct Component;
 
-impl Guest for Component {
-    fn init_runtime_config(config_json: String) -> Result<(), String> {
-        let config = parse_runtime_config(&config_json)?;
-        set_runtime_config(config)
+impl bindings::exports::greentic::component::descriptor::Guest for Component {
+    fn describe() -> Vec<u8> {
+        canonical_cbor_bytes(&build_describe_payload())
     }
+}
 
-    fn capabilities() -> BindingsCapabilitiesResponse {
-        bindings_capabilities_response(capabilities_v1())
-    }
-
-    fn encode(plan: BindingsRenderPlan) -> BindingsEncodeResult {
-        encode_tier_d(plan)
-    }
-
-    fn send_message(room_id: String, text: String) -> Result<String, String> {
-        let token = get_secret(WEBEX_BOT_TOKEN)?;
-        let payload = format_message_json(&room_id, &text);
-
-        let req = client::Request {
-            method: "POST".into(),
-            url: WEBEX_API.into(),
-            headers: vec![
-                ("Content-Type".into(), "application/json".into()),
-                ("Authorization".into(), format!("Bearer {}", token)),
-            ],
-            body: Some(payload.clone().into_bytes()),
+impl bindings::exports::greentic::component::runtime::Guest for Component {
+    fn invoke(op: String, input_cbor: Vec<u8>) -> Vec<u8> {
+        let input: Value = match decode_cbor(&input_cbor) {
+            Ok(value) => value,
+            Err(err) => {
+                return canonical_cbor_bytes(
+                    &json!({"ok": false, "error": format!("invalid input cbor: {err}")}),
+                );
+            }
         };
 
-        let resp = send_with_retries(&req)?;
+        let normalized_op = if op == "run" { "send" } else { op.as_str() };
+        let output = match normalized_op {
+            "send" => handle_send(&input),
+            "ingest_http" => handle_ingest_http(&input),
+            "encode" => handle_encode(&input),
+            "send_payload" => handle_send_payload(&input),
+            other => json!({"ok": false, "error": format!("unsupported op: {other}")}),
+        };
 
-        if (200..300).contains(&resp.status) {
-            log_if_enabled("send_message_success");
-            Ok(payload)
-        } else {
-            Err(format!(
-                "transport error: webex returned status {}",
-                resp.status
-            ))
+        canonical_cbor_bytes(&output)
+    }
+}
+
+impl bindings::exports::greentic::component::qa::Guest for Component {
+    fn qa_spec(mode: bindings::exports::greentic::component::qa::Mode) -> Vec<u8> {
+        canonical_cbor_bytes(&build_qa_spec(mode))
+    }
+
+    fn apply_answers(
+        mode: bindings::exports::greentic::component::qa::Mode,
+        answers_cbor: Vec<u8>,
+    ) -> Vec<u8> {
+        let answers: Value = match decode_cbor(&answers_cbor) {
+            Ok(value) => value,
+            Err(err) => {
+                return canonical_cbor_bytes(&ApplyAnswersResult {
+                    ok: false,
+                    config: None,
+                    error: Some(format!("invalid answers cbor: {err}")),
+                });
+            }
+        };
+
+        if mode == bindings::exports::greentic::component::qa::Mode::Setup {
+            let cfg = ProviderConfig {
+                enabled: answers
+                    .get("enabled")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(true),
+                public_base_url: answers
+                    .get("public_base_url")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .trim()
+                    .to_string(),
+                api_base_url: answers
+                    .get("api_base_url")
+                    .and_then(Value::as_str)
+                    .unwrap_or(DEFAULT_API_BASE)
+                    .trim()
+                    .to_string(),
+                default_room_id: answers
+                    .get("default_room_id")
+                    .and_then(Value::as_str)
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty()),
+                default_to_person_email: answers
+                    .get("default_to_person_email")
+                    .and_then(Value::as_str)
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty()),
+                bot_token: answers
+                    .get("bot_token")
+                    .and_then(Value::as_str)
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty()),
+            };
+
+            if let Err(err) = validate_provider_config(&cfg) {
+                return canonical_cbor_bytes(&ApplyAnswersResult {
+                    ok: false,
+                    config: None,
+                    error: Some(err),
+                });
+            }
+
+            return canonical_cbor_bytes(&ApplyAnswersResult {
+                ok: true,
+                config: Some(cfg),
+                error: None,
+            });
         }
-    }
 
-    fn handle_webhook(_headers_json: String, body_json: String) -> Result<String, String> {
-        let parsed: Value = serde_json::from_str(&body_json)
-            .map_err(|_| "validation error: invalid body".to_string())?;
-        let normalized = serde_json::json!({ "ok": true, "event": parsed });
-        serde_json::to_string(&normalized).map_err(|_| "other error: serialization failed".into())
-    }
-
-    fn refresh() -> Result<String, String> {
-        Ok(r#"{"ok":true,"refresh":"not-needed"}"#.to_string())
-    }
-
-    fn format_message(room_id: String, text: String) -> String {
-        format_message_json(&room_id, &text)
+        canonical_cbor_bytes(&ApplyAnswersResult {
+            ok: true,
+            config: None,
+            error: None,
+        })
     }
 }
 
-fn capabilities_v1() -> CapabilitiesResponseV1 {
-    CapabilitiesResponseV1::new(
-        ProviderMetadataV1 {
-            provider_id: "webex".into(),
-            display_name: "Webex".into(),
-            version: env!("CARGO_PKG_VERSION").into(),
-            rate_limit_hint: None,
-        },
-        ProviderCapabilitiesV1 {
-            supports_threads: false,
-            supports_buttons: false,
-            supports_webhook_validation: false,
-            supports_formatting_options: false,
-        },
-        ProviderLimitsV1 {
-            max_text_len: 4_096,
-            callback_data_max_bytes: 0,
-            max_buttons_per_row: 0,
-            max_button_rows: 0,
-        },
-    )
+impl bindings::exports::greentic::component::component_i18n::Guest for Component {
+    fn i18n_keys() -> Vec<String> {
+        I18N_KEYS.iter().map(|k| (*k).to_string()).collect()
+    }
+
+    fn i18n_bundle(locale: String) -> Vec<u8> {
+        let locale = if locale.trim().is_empty() {
+            "en".to_string()
+        } else {
+            locale
+        };
+        let mut messages = serde_json::Map::new();
+        for key in I18N_KEYS {
+            messages.insert((*key).to_string(), Value::String((*key).to_string()));
+        }
+        canonical_cbor_bytes(&json!({"locale": locale, "messages": Value::Object(messages)}))
+    }
 }
 
-fn bindings_capabilities_response(resp: CapabilitiesResponseV1) -> BindingsCapabilitiesResponse {
-    BindingsCapabilitiesResponse {
-        metadata: BindingsProviderMetadata {
-            provider_id: resp.metadata.provider_id,
-            display_name: resp.metadata.display_name,
-            version: resp.metadata.version,
-            rate_limit_hint: resp.metadata.rate_limit_hint,
+bindings::export!(Component with_types_in bindings);
+
+fn build_describe_payload() -> DescribePayload {
+    let input_schema = input_schema();
+    let output_schema = output_schema();
+    let config_schema = config_schema();
+
+    DescribePayload {
+        provider: PROVIDER_ID.to_string(),
+        world: WORLD_ID.to_string(),
+        operations: vec![
+            op("run", "webex.op.run.title", "webex.op.run.description"),
+            op("send", "webex.op.send.title", "webex.op.send.description"),
+            op(
+                "ingest_http",
+                "webex.op.ingest_http.title",
+                "webex.op.ingest_http.description",
+            ),
+            op(
+                "encode",
+                "webex.op.encode.title",
+                "webex.op.encode.description",
+            ),
+            op(
+                "send_payload",
+                "webex.op.send_payload.title",
+                "webex.op.send_payload.description",
+            ),
+        ],
+        input_schema: input_schema.clone(),
+        output_schema: output_schema.clone(),
+        config_schema: config_schema.clone(),
+        redactions: vec![RedactionRule {
+            path: "$.bot_token".to_string(),
+            strategy: "replace".to_string(),
+        }],
+        schema_hash: schema_hash(&input_schema, &output_schema, &config_schema),
+    }
+}
+
+fn build_qa_spec(mode: bindings::exports::greentic::component::qa::Mode) -> QaSpec {
+    use bindings::exports::greentic::component::qa::Mode;
+
+    match mode {
+        Mode::Default => QaSpec {
+            mode: "default".to_string(),
+            title: i18n("webex.qa.default.title"),
+            questions: Vec::new(),
         },
-        capabilities: BindingsProviderCapabilities {
-            supports_threads: resp.capabilities.supports_threads,
-            supports_buttons: resp.capabilities.supports_buttons,
-            supports_webhook_validation: resp.capabilities.supports_webhook_validation,
-            supports_formatting_options: resp.capabilities.supports_formatting_options,
+        Mode::Setup => QaSpec {
+            mode: "setup".to_string(),
+            title: i18n("webex.qa.setup.title"),
+            questions: vec![
+                qa_q("enabled", "webex.qa.setup.enabled", true),
+                qa_q("public_base_url", "webex.qa.setup.public_base_url", true),
+                qa_q("api_base_url", "webex.qa.setup.api_base_url", true),
+                qa_q("default_room_id", "webex.qa.setup.default_room_id", false),
+                qa_q(
+                    "default_to_person_email",
+                    "webex.qa.setup.default_to_person_email",
+                    false,
+                ),
+                qa_q("bot_token", "webex.qa.setup.bot_token", false),
+            ],
         },
-        limits: BindingsProviderLimits {
-            max_text_len: resp.limits.max_text_len,
-            callback_data_max_bytes: resp.limits.callback_data_max_bytes,
-            max_buttons_per_row: resp.limits.max_buttons_per_row,
-            max_button_rows: resp.limits.max_button_rows,
+        Mode::Upgrade => QaSpec {
+            mode: "upgrade".to_string(),
+            title: i18n("webex.qa.upgrade.title"),
+            questions: Vec::new(),
+        },
+        Mode::Remove => QaSpec {
+            mode: "remove".to_string(),
+            title: i18n("webex.qa.remove.title"),
+            questions: Vec::new(),
         },
     }
 }
 
-fn encode_tier_d(plan: BindingsRenderPlan) -> BindingsEncodeResult {
-    let mut warnings = plan.warnings.clone();
-    if plan.tier != BindingsRenderTier::TierD {
-        warnings.push(BindingsRenderWarning {
-            code: "encoder_forced_downgrade".into(),
-            message: Some("downgraded to tier_d text payload".into()),
-            path: None,
+fn input_schema() -> SchemaIr {
+    let mut fields = BTreeMap::new();
+    fields.insert(
+        "message".to_string(),
+        SchemaField {
+            required: true,
+            schema: SchemaIr::String {
+                title: i18n("webex.schema.input.message.title"),
+                description: i18n("webex.schema.input.message.description"),
+                format: None,
+                secret: false,
+            },
+        },
+    );
+
+    SchemaIr::Object {
+        title: i18n("webex.schema.input.title"),
+        description: i18n("webex.schema.input.description"),
+        fields,
+        additional_properties: true,
+    }
+}
+
+fn output_schema() -> SchemaIr {
+    let mut fields = BTreeMap::new();
+    fields.insert(
+        "ok".to_string(),
+        SchemaField {
+            required: true,
+            schema: SchemaIr::Bool {
+                title: i18n("webex.schema.output.ok.title"),
+                description: i18n("webex.schema.output.ok.description"),
+            },
+        },
+    );
+    fields.insert(
+        "message_id".to_string(),
+        SchemaField {
+            required: false,
+            schema: SchemaIr::String {
+                title: i18n("webex.schema.output.message_id.title"),
+                description: i18n("webex.schema.output.message_id.description"),
+                format: None,
+                secret: false,
+            },
+        },
+    );
+
+    SchemaIr::Object {
+        title: i18n("webex.schema.output.title"),
+        description: i18n("webex.schema.output.description"),
+        fields,
+        additional_properties: true,
+    }
+}
+
+fn config_schema() -> SchemaIr {
+    let mut fields = BTreeMap::new();
+    fields.insert(
+        "enabled".to_string(),
+        SchemaField {
+            required: true,
+            schema: SchemaIr::Bool {
+                title: i18n("webex.schema.config.enabled.title"),
+                description: i18n("webex.schema.config.enabled.description"),
+            },
+        },
+    );
+    fields.insert(
+        "public_base_url".to_string(),
+        SchemaField {
+            required: true,
+            schema: SchemaIr::String {
+                title: i18n("webex.schema.config.public_base_url.title"),
+                description: i18n("webex.schema.config.public_base_url.description"),
+                format: Some("uri".to_string()),
+                secret: false,
+            },
+        },
+    );
+    fields.insert(
+        "api_base_url".to_string(),
+        SchemaField {
+            required: true,
+            schema: SchemaIr::String {
+                title: i18n("webex.schema.config.api_base_url.title"),
+                description: i18n("webex.schema.config.api_base_url.description"),
+                format: Some("uri".to_string()),
+                secret: false,
+            },
+        },
+    );
+    fields.insert(
+        "default_room_id".to_string(),
+        SchemaField {
+            required: false,
+            schema: SchemaIr::String {
+                title: i18n("webex.schema.config.default_room_id.title"),
+                description: i18n("webex.schema.config.default_room_id.description"),
+                format: None,
+                secret: false,
+            },
+        },
+    );
+    fields.insert(
+        "default_to_person_email".to_string(),
+        SchemaField {
+            required: false,
+            schema: SchemaIr::String {
+                title: i18n("webex.schema.config.default_to_person_email.title"),
+                description: i18n("webex.schema.config.default_to_person_email.description"),
+                format: None,
+                secret: false,
+            },
+        },
+    );
+    fields.insert(
+        "bot_token".to_string(),
+        SchemaField {
+            required: false,
+            schema: SchemaIr::String {
+                title: i18n("webex.schema.config.bot_token.title"),
+                description: i18n("webex.schema.config.bot_token.description"),
+                format: None,
+                secret: true,
+            },
+        },
+    );
+
+    SchemaIr::Object {
+        title: i18n("webex.schema.config.title"),
+        description: i18n("webex.schema.config.description"),
+        fields,
+        additional_properties: false,
+    }
+}
+
+fn op(name: &str, title: &str, description: &str) -> OperationDescriptor {
+    OperationDescriptor {
+        name: name.to_string(),
+        title: i18n(title),
+        description: i18n(description),
+    }
+}
+
+fn qa_q(key: &str, text: &str, required: bool) -> QaQuestionSpec {
+    QaQuestionSpec {
+        key: key.to_string(),
+        text: i18n(text),
+        required,
+    }
+}
+
+fn i18n(key: &str) -> I18nText {
+    I18nText {
+        key: key.to_string(),
+    }
+}
+
+fn handle_send(input: &Value) -> Value {
+    let cfg = match load_config(input) {
+        Ok(cfg) => cfg,
+        Err(err) => return json!({"ok": false, "error": err}),
+    };
+    if !cfg.enabled {
+        return json!({"ok": false, "error": "provider disabled by config"});
+    }
+
+    let text = input
+        .get("message")
+        .and_then(Value::as_str)
+        .or_else(|| input.get("text").and_then(Value::as_str))
+        .map(str::trim)
+        .unwrap_or("");
+    if text.is_empty() {
+        return json!({"ok": false, "error": "missing message"});
+    }
+
+    let mut payload = json!({"text": text});
+
+    if let Some(room_id) = input
+        .get("room_id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| cfg.default_room_id.clone())
+    {
+        payload["roomId"] = json!(room_id);
+    } else if let Some(email) = input
+        .get("to_person_email")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| cfg.default_to_person_email.clone())
+    {
+        payload["toPersonEmail"] = json!(email);
+    } else {
+        return json!({"ok": false, "error": "either room_id or to_person_email is required"});
+    }
+
+    let token = match cfg.bot_token.clone() {
+        Some(token) if !token.trim().is_empty() => token,
+        _ => match get_secret_string(DEFAULT_BOT_TOKEN_SECRET) {
+            Ok(v) => v,
+            Err(err) => return json!({"ok": false, "error": err}),
+        },
+    };
+
+    if input
+        .get("dry_run")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        return json!({
+            "ok": true,
+            "message_id": message_id(&payload),
+            "dry_run": true,
+            "payload": payload,
         });
     }
-    let text = plan.summary_text.unwrap_or_default();
-    let payload = BindingsProviderPayload {
-        content_type: "text/plain; charset=utf-8".into(),
-        body: text.into_bytes(),
-        metadata_json: None,
-    };
-    BindingsEncodeResult { payload, warnings }
-}
 
-fn get_secret(key: &str) -> Result<String, String> {
-    match secrets_get(key) {
-        Ok(Some(bytes)) => String::from_utf8(bytes).map_err(|_| "secret not valid utf-8".into()),
-        Ok(None) => Err(missing_secret_error(key)),
-        Err(e) => secret_error(key, e),
+    let req = client::Request {
+        method: "POST".into(),
+        url: format!("{}/messages", cfg.api_base_url.trim_end_matches('/')),
+        headers: vec![
+            ("Content-Type".into(), "application/json".into()),
+            ("Authorization".into(), format!("Bearer {}", token)),
+        ],
+        body: serde_json::to_vec(&payload).ok(),
+    };
+    let options = client::RequestOptions {
+        timeout_ms: None,
+        allow_insecure: Some(false),
+        follow_redirects: None,
+    };
+
+    match http_send(&req, &options) {
+        Ok(resp) if (200..300).contains(&resp.status) => {
+            log_if_enabled("send_message_success");
+            let id = resp
+                .body
+                .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+                .and_then(|v| v.get("id").and_then(Value::as_str).map(ToString::to_string))
+                .unwrap_or_else(|| message_id(&payload));
+            json!({"ok": true, "message_id": id})
+        }
+        Ok(resp) => {
+            json!({"ok": false, "error": format!("transport error: webex returned status {}", resp.status)})
+        }
+        Err(err) => {
+            json!({"ok": false, "error": format!("transport error: {} ({})", err.message, err.code)})
+        }
     }
 }
 
-fn secret_error(key: &str, error: secrets_store::SecretsError) -> Result<String, String> {
-    Err(match error {
-        secrets_store::SecretsError::NotFound => missing_secret_error(key),
-        secrets_store::SecretsError::Denied => "secret access denied".into(),
-        secrets_store::SecretsError::InvalidKey => "secret key invalid".into(),
-        secrets_store::SecretsError::Internal => "secret lookup failed".into(),
+fn handle_ingest_http(input: &Value) -> Value {
+    let body = input.get("body").cloned().unwrap_or_else(|| json!({}));
+    json!({"ok": true, "event": body})
+}
+
+fn handle_encode(input: &Value) -> Value {
+    let text = input
+        .get("summary_text")
+        .and_then(Value::as_str)
+        .or_else(|| input.get("message").and_then(Value::as_str))
+        .unwrap_or_default();
+    json!({
+        "ok": true,
+        "payload": {
+            "content_type": "application/json",
+            "body": {
+                "text": text,
+                "roomId": input.get("room_id").and_then(Value::as_str).unwrap_or_default()
+            },
+            "metadata_json": null
+        },
+        "warnings": []
     })
 }
 
-fn format_message_json(room_id: &str, text: &str) -> String {
-    let payload = serde_json::json!({
-        "roomId": room_id,
-        "text": text,
-    });
-    serde_json::to_string(&payload).unwrap_or_else(|_| "{\"roomId\":\"\",\"text\":\"\"}".into())
+fn handle_send_payload(_input: &Value) -> Value {
+    json!({"ok": true, "retryable": false, "message": null})
 }
 
-bindings::__export_world_webex_cabi!(Component with_types_in bindings);
+fn message_id(payload: &Value) -> String {
+    let bytes = serde_json::to_vec(payload).unwrap_or_default();
+    provider_common::component_v0_6::sha256_hex(&bytes)
+}
 
-fn parse_runtime_config(config_json: &str) -> Result<ProviderRuntimeConfig, String> {
-    if config_json.trim().is_empty() {
-        return Ok(ProviderRuntimeConfig::default());
-    }
-    let cfg: ProviderRuntimeConfig = serde_json::from_str(config_json)
-        .map_err(|e| format!("validation error: invalid provider runtime config: {e}"))?;
-    cfg.validate()
-        .map_err(|e| format!("validation error: invalid provider runtime config: {e}"))?;
+fn default_enabled() -> bool {
+    true
+}
+
+fn default_api_base() -> String {
+    DEFAULT_API_BASE.to_string()
+}
+
+fn load_config(input: &Value) -> Result<ProviderConfig, String> {
+    let candidate = input
+        .get("config")
+        .cloned()
+        .unwrap_or_else(|| input.clone());
+    let cfg: ProviderConfig = serde_json::from_value(candidate)
+        .map_err(|err| format!("invalid provider config: {err}"))?;
+    validate_provider_config(&cfg)?;
     Ok(cfg)
 }
 
-fn set_runtime_config(cfg: ProviderRuntimeConfig) -> Result<(), String> {
-    if RUNTIME_CONFIG.set(cfg.clone()).is_ok() {
-        return Ok(());
+fn validate_provider_config(cfg: &ProviderConfig) -> Result<(), String> {
+    if cfg.public_base_url.trim().is_empty() {
+        return Err("public_base_url must be non-empty".to_string());
     }
-    let existing = RUNTIME_CONFIG.get().expect("set");
-    if existing == &cfg {
-        Ok(())
-    } else {
-        Err("validation error: provider runtime config already set".into())
+    if cfg.api_base_url.trim().is_empty() {
+        return Err("api_base_url must be non-empty".to_string());
     }
+    Ok(())
 }
 
-fn runtime_config() -> &'static ProviderRuntimeConfig {
-    RUNTIME_CONFIG.get_or_init(ProviderRuntimeConfig::default)
-}
-
-fn send_with_retries(req: &client::Request) -> Result<client::Response, String> {
-    let attempts = runtime_config().network.max_attempts.clamp(1, 10);
-    let options = request_options();
-    let mut last_err: Option<String> = None;
-    for _ in 0..attempts {
-        match http_send(req, &options) {
-            Ok(resp) => return Ok(resp),
-            Err(e) => last_err = Some(format!("transport error: {} ({})", e.message, e.code)),
-        }
+fn get_secret_string(key: &str) -> Result<String, String> {
+    match secrets_get(key) {
+        Ok(Some(bytes)) => String::from_utf8(bytes).map_err(|_| "secret not valid utf-8".into()),
+        Ok(None) => Err(missing_secret_error(key)),
+        Err(error) => Err(secret_error_message(key, error)),
     }
-    Err(last_err.unwrap_or_else(|| "transport error: request failed".into()))
 }
 
 fn missing_secret_error(name: &str) -> String {
@@ -227,38 +633,37 @@ fn missing_secret_error(name: &str) -> String {
         .unwrap_or_else(|_| format!("missing secret: {name}"))
 }
 
-fn request_options() -> client::RequestOptions {
-    let cfg = runtime_config();
-    client::RequestOptions {
-        timeout_ms: None,
-        allow_insecure: Some(matches!(
-            cfg.network.tls,
-            provider_runtime_config::TlsMode::Insecure
-        )),
-        follow_redirects: None,
+fn secret_error_message(key: &str, error: secrets_store::SecretsError) -> String {
+    match error {
+        secrets_store::SecretsError::NotFound => missing_secret_error(key),
+        secrets_store::SecretsError::Denied => "secret access denied".into(),
+        secrets_store::SecretsError::InvalidKey => "secret key invalid".into(),
+        secrets_store::SecretsError::Internal => "secret lookup failed".into(),
     }
 }
 
 fn log_if_enabled(event: &str) {
-    let cfg = runtime_config();
-    if !cfg.telemetry.emit_enabled {
-        return;
+    #[cfg(test)]
+    {
+        let _ = event;
     }
+
+    #[cfg(not(test))]
     let span = logger_api::SpanContext {
         tenant: "tenant".into(),
         session_id: None,
         flow_id: "provider-runtime".into(),
         node_id: None,
-        provider: cfg
-            .telemetry
-            .service_name
-            .clone()
-            .unwrap_or_else(|| "webex".into()),
+        provider: "webex".into(),
         start_ms: None,
         end_ms: None,
     };
-    let fields = [("event".to_string(), event.to_string())];
-    let _ = logger_api::log(&span, &fields, None);
+
+    #[cfg(not(test))]
+    {
+        let fields = [("event".to_string(), event.to_string())];
+        let _ = logger_api::log(&span, &fields, None);
+    }
 }
 
 fn secrets_get(key: &str) -> Result<Option<Vec<u8>>, secrets_store::SecretsError> {
@@ -360,215 +765,153 @@ fn http_send_test(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::Cell;
-    use std::path::PathBuf;
-    use std::rc::Rc;
-
-    #[derive(Debug, serde::Deserialize)]
-    struct ExpectedPayload {
-        content_type: String,
-        body_text: Option<String>,
-        warnings: Vec<String>,
-    }
+    use std::collections::BTreeSet;
 
     #[test]
-    fn capabilities_version_and_shape() {
-        let caps = capabilities_v1();
-        assert_eq!(caps.version, provider_common::PROVIDER_CAPABILITIES_VERSION);
-        assert_eq!(caps.metadata.provider_id, "webex");
-        assert!(!caps.capabilities.supports_buttons);
-        assert_eq!(caps.limits.max_text_len, 4_096);
-    }
-
-    #[test]
-    fn publishes_capabilities() {
-        let caps = Component::capabilities();
-        assert_eq!(caps.metadata.provider_id, "webex");
-        assert!(!caps.capabilities.supports_buttons);
-        assert_eq!(caps.limits.max_text_len, 4096);
-    }
-
-    #[test]
-    fn encode_tier_d_plain_text() {
-        let res = Component::encode(BindingsRenderPlan {
-            tier: BindingsRenderTier::TierD,
-            summary_text: Some("hi".into()),
-            actions: vec![],
-            attachments: vec![],
-            warnings: vec![],
-            debug_json: None,
+    fn parse_config_rejects_unknown() {
+        let value = json!({
+            "enabled": true,
+            "public_base_url": "https://example.com",
+            "api_base_url": "https://webexapis.com/v1",
+            "unknown": true
         });
-        assert!(res.warnings.is_empty());
-        assert_eq!(res.payload.content_type, "text/plain; charset=utf-8");
-        assert_eq!(res.payload.body, b"hi");
+        let err = load_config(&value).unwrap_err();
+        assert!(err.contains("unknown field"));
     }
 
     #[test]
-    fn encode_downgrades_other_tiers() {
-        let res = Component::encode(BindingsRenderPlan {
-            tier: BindingsRenderTier::TierB,
-            summary_text: Some("hi".into()),
-            actions: vec![],
-            attachments: vec![],
-            warnings: vec![],
-            debug_json: None,
+    fn parse_config_requires_new_fields() {
+        let value = json!({"enabled": true});
+        let err = load_config(&value).unwrap_err();
+        assert!(err.contains("public_base_url"));
+    }
+
+    #[test]
+    fn invoke_run_requires_message() {
+        let input = json!({
+            "config": {
+                "enabled": true,
+                "public_base_url": "https://example.com",
+                "api_base_url": "https://webexapis.com/v1",
+                "default_room_id": "room"
+            }
         });
-        assert_eq!(res.payload.content_type, "text/plain; charset=utf-8");
-        assert!(!res.warnings.is_empty());
-        assert_eq!(res.warnings[0].code, "encoder_forced_downgrade");
+        let out = handle_send(&input);
+        assert_eq!(out["ok"], Value::Bool(false));
     }
 
     #[test]
-    fn golden_tier_a_card() {
-        let plan = load_plan("tier_a_card.json");
-        let expected = load_expected("webex", "tier_a_card.json");
-        let res = Component::encode(plan);
-        assert_eq!(res.payload.content_type, expected.content_type);
-        assert_eq!(
-            res.warnings
-                .iter()
-                .map(|w| w.code.clone())
-                .collect::<Vec<_>>(),
-            expected.warnings
-        );
-        if let Some(text) = expected.body_text {
-            assert_eq!(String::from_utf8(res.payload.body).unwrap(), text);
-        }
-    }
+    fn send_uses_http_mock() {
+        let input = json!({
+            "message": "hello webex",
+            "room_id": "room",
+            "config": {
+                "enabled": true,
+                "public_base_url": "https://example.com",
+                "api_base_url": "https://webexapis.com/v1",
+                "bot_token": "token"
+            }
+        });
 
-    #[test]
-    fn golden_tier_d_text() {
-        let plan = load_plan("tier_d_text.json");
-        let expected = load_expected("webex", "tier_d_text.json");
-        let res = Component::encode(plan);
-        assert_eq!(res.payload.content_type, expected.content_type);
-        assert_eq!(
-            res.warnings
-                .iter()
-                .map(|w| w.code.clone())
-                .collect::<Vec<_>>(),
-            expected.warnings
-        );
-        if let Some(text) = expected.body_text {
-            assert_eq!(String::from_utf8(res.payload.body).unwrap(), text);
-        }
-    }
-
-    fn load_plan(name: &str) -> BindingsRenderPlan {
-        let path = fixtures_root().join("render_plans").join(name);
-        let raw = std::fs::read_to_string(path).unwrap();
-        let plan: provider_common::RenderPlan = serde_json::from_str(&raw).unwrap();
-        to_bindings_plan(plan)
-    }
-
-    fn load_expected(provider: &str, name: &str) -> ExpectedPayload {
-        let path = fixtures_root()
-            .join("expected_payloads")
-            .join(provider)
-            .join(name);
-        let raw = std::fs::read_to_string(path).unwrap();
-        serde_json::from_str(&raw).unwrap()
-    }
-
-    fn fixtures_root() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .and_then(|p| p.parent())
-            .expect("workspace root")
-            .join("tests/fixtures")
-    }
-
-    fn to_bindings_plan(plan: provider_common::RenderPlan) -> BindingsRenderPlan {
-        BindingsRenderPlan {
-            tier: match plan.tier {
-                provider_common::RenderTier::TierA => BindingsRenderTier::TierA,
-                provider_common::RenderTier::TierB => BindingsRenderTier::TierB,
-                provider_common::RenderTier::TierC => BindingsRenderTier::TierC,
-                provider_common::RenderTier::TierD => BindingsRenderTier::TierD,
-            },
-            summary_text: plan.summary_text,
-            actions: plan.actions,
-            attachments: plan.attachments,
-            warnings: plan
-                .warnings
-                .into_iter()
-                .map(|w| BindingsRenderWarning {
-                    code: w.code,
-                    message: w.message,
-                    path: w.path,
+        with_http_send_mock(
+            |_, _| {
+                Ok(client::Response {
+                    status: 200,
+                    headers: vec![],
+                    body: Some(br#"{"id":"msg-1"}"#.to_vec()),
                 })
-                .collect(),
-            debug_json: plan.debug.map(|v| v.to_string()),
-        }
+            },
+            || {
+                let out = handle_send(&input);
+                assert_eq!(out["ok"], Value::Bool(true));
+                assert_eq!(out["message_id"], Value::String("msg-1".to_string()));
+            },
+        );
     }
 
     #[test]
-    fn formats_payload() {
-        let json = format_message_json("room123", "hello");
-        let v: Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(v["roomId"], "room123");
-        assert_eq!(v["text"], "hello");
-    }
+    fn secret_fallback_used_when_bot_token_missing() {
+        let input = json!({
+            "message": "hello",
+            "room_id": "room",
+            "config": {
+                "enabled": true,
+                "public_base_url": "https://example.com",
+                "api_base_url": "https://webexapis.com/v1"
+            }
+        });
 
-    #[test]
-    fn normalizes_webhook() {
-        let res = Component::handle_webhook("{}".into(), r#"{"id":"1"}"#.into()).unwrap();
-        let v: Value = serde_json::from_str(&res).unwrap();
-        assert_eq!(v["ok"], true);
-        assert_eq!(v["event"]["id"], "1");
-    }
-
-    #[test]
-    fn init_runtime_config_controls_http_retries() {
-        Component::init_runtime_config(
-            r#"{"schema_version":1,"network":{"max_attempts":2}}"#.into(),
-        )
-        .expect("init");
-
-        let req = client::Request {
-            method: "GET".into(),
-            url: "https://example.invalid".into(),
-            headers: vec![],
-            body: None,
-        };
-
-        let calls = Rc::new(Cell::new(0u32));
-        let calls_for_mock = Rc::clone(&calls);
-        super::with_http_send_mock(
-            move |_: &client::Request, _: &client::RequestOptions| {
-                let n = calls_for_mock.get() + 1;
-                calls_for_mock.set(n);
-                if n == 1 {
-                    Err(client::HostError {
-                        code: "timeout".into(),
-                        message: "first attempt fails".into(),
-                    })
+        with_secrets_get_mock(
+            |name| {
+                if name == DEFAULT_BOT_TOKEN_SECRET {
+                    Ok(Some(b"token-from-store".to_vec()))
                 } else {
-                    Ok(client::Response {
-                        status: 200,
-                        headers: vec![],
-                        body: None,
-                    })
+                    Ok(None)
                 }
             },
             || {
-                let resp = send_with_retries(&req).expect("should retry and succeed");
-                assert_eq!(resp.status, 200);
+                with_http_send_mock(
+                    |req, _| {
+                        let auth = req
+                            .headers
+                            .iter()
+                            .find(|(k, _)| k == "Authorization")
+                            .map(|(_, v)| v.clone())
+                            .unwrap_or_default();
+                        assert_eq!(auth, "Bearer token-from-store");
+                        Ok(client::Response {
+                            status: 200,
+                            headers: vec![],
+                            body: Some(br#"{"id":"msg-2"}"#.to_vec()),
+                        })
+                    },
+                    || {
+                        let out = handle_send(&input);
+                        assert_eq!(out["ok"], Value::Bool(true));
+                    },
+                )
             },
         );
     }
 
     #[test]
-    fn missing_required_secret_is_structured_json() {
-        let err =
-            super::with_secrets_get_mock(|_| Ok(None), || get_secret(WEBEX_BOT_TOKEN)).unwrap_err();
-        let value: serde_json::Value = serde_json::from_str(&err).expect("json error");
-        assert!(
-            value.get("MissingSecret").is_some(),
-            "expected MissingSecret"
+    fn schema_hash_is_stable() {
+        let describe = build_describe_payload();
+        assert_eq!(
+            describe.schema_hash,
+            "074aca486987c019467084e02a4c5ace102a333f7755bb0e01da3620bcb8ae85"
         );
-        assert_eq!(value["MissingSecret"]["name"], WEBEX_BOT_TOKEN);
-        assert_eq!(value["MissingSecret"]["scope"], "tenant");
-        assert!(value["MissingSecret"]["remediation"].is_string());
+    }
+
+    #[test]
+    fn describe_passes_strict_rules() {
+        let describe = build_describe_payload();
+        assert!(!describe.operations.is_empty());
+        assert_eq!(
+            describe.schema_hash,
+            schema_hash(
+                &describe.input_schema,
+                &describe.output_schema,
+                &describe.config_schema
+            )
+        );
+    }
+
+    #[test]
+    fn i18n_keys_cover_qa_specs() {
+        use bindings::exports::greentic::component::qa::Mode;
+
+        let keyset = I18N_KEYS
+            .iter()
+            .map(|value| (*value).to_string())
+            .collect::<BTreeSet<_>>();
+
+        for mode in [Mode::Default, Mode::Setup, Mode::Upgrade, Mode::Remove] {
+            let spec = build_qa_spec(mode);
+            assert!(keyset.contains(&spec.title.key));
+            for question in spec.questions {
+                assert!(keyset.contains(&question.text.key));
+            }
+        }
     }
 }

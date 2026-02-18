@@ -10,10 +10,10 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 anyhow.workspace = true
-regex = "1"
+regex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-serde_yaml_bw = "2"
+serde_yaml_bw.workspace = true
 greentic-interfaces-guest = { workspace = true, features = ["component-node"] }
 
 [dev-dependencies]

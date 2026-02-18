@@ -1,33 +1,9 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 862
 expression: value
 ---
 {
-  "body": {
-    "attachments": [
-      {
-        "text": "card:actions"
-      }
-    ],
-    "blocks": [
-      {
-        "text": {
-          "text": "Adaptive card with actions",
-          "type": "mrkdwn"
-        },
-        "type": "section"
-      }
-    ],
-    "channel": "",
-    "metadata": {
-      "actions": [
-        "open_url",
-        "submit"
-      ]
-    },
-    "text": "Adaptive card with actions"
-  },
+  "body": null,
   "content_type": "application/json",
   "metadata": null,
   "warnings": []

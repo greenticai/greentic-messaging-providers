@@ -16,7 +16,7 @@
     {
       "name": "setup_custom___setup_custom__apply",
       "ref": "file:///Users/maarten/Documents/GitHub/agentic/greentic-messaging-providers/packs/messaging-telegram/flows/../components/provision/provision.wasm",
-      "digest": "sha256:aefb869a8b1fd13012e3eacb3f69137182404dc751e10f9bfcac85f089f9546a",
+      "digest": "sha256:60d17f368d75ea69f4691d5b03957a2e07fa4284d6cd3b1d04b0534ddc71345b",
       "component_id": "ai.greentic.component-provision"
     },
     {
@@ -28,13 +28,25 @@
     {
       "name": "setup_custom___setup_custom__emit_questions",
       "ref": "file:///Users/maarten/Documents/GitHub/agentic/greentic-messaging-providers/packs/messaging-telegram/flows/../components/questions/questions.wasm",
-      "digest": "sha256:d076d587ea2e2435f6781747ffc7876c981130091fed659425f6a17e860a4375",
+      "digest": "sha256:3e46baa6c4314829fc0bf68d1b53688293cc0717ec809f16b2000c68595ed4e2",
+      "component_id": "ai.greentic.component-questions"
+    },
+    {
+      "name": "setup_custom___setup_custom__summary",
+      "ref": "file:///Users/maarten/Documents/GitHub/agentic/greentic-messaging-providers/packs/messaging-telegram/flows/../components/templates/templates.wasm",
+      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
+      "component_id": "ai.greentic.component-templates"
+    },
+    {
+      "name": "setup_custom___setup_custom__validate",
+      "ref": "file:///Users/maarten/Documents/GitHub/agentic/greentic-messaging-providers/packs/messaging-telegram/flows/../components/questions/questions.wasm",
+      "digest": "sha256:3e46baa6c4314829fc0bf68d1b53688293cc0717ec809f16b2000c68595ed4e2",
       "component_id": "ai.greentic.component-questions"
     },
     {
       "name": "setup_default___setup_default__apply",
       "ref": "file:///Users/maarten/Documents/GitHub/agentic/greentic-messaging-providers/packs/messaging-telegram/flows/../components/provision/provision.wasm",
-      "digest": "sha256:aefb869a8b1fd13012e3eacb3f69137182404dc751e10f9bfcac85f089f9546a",
+      "digest": "sha256:60d17f368d75ea69f4691d5b03957a2e07fa4284d6cd3b1d04b0534ddc71345b",
       "component_id": "ai.greentic.component-provision"
     },
     {
@@ -46,7 +58,19 @@
     {
       "name": "setup_default___setup_default__emit_questions",
       "ref": "file:///Users/maarten/Documents/GitHub/agentic/greentic-messaging-providers/packs/messaging-telegram/flows/../components/questions/questions.wasm",
-      "digest": "sha256:d076d587ea2e2435f6781747ffc7876c981130091fed659425f6a17e860a4375",
+      "digest": "sha256:3e46baa6c4314829fc0bf68d1b53688293cc0717ec809f16b2000c68595ed4e2",
+      "component_id": "ai.greentic.component-questions"
+    },
+    {
+      "name": "setup_default___setup_default__summary",
+      "ref": "file:///Users/maarten/Documents/GitHub/agentic/greentic-messaging-providers/packs/messaging-telegram/flows/../components/templates/templates.wasm",
+      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
+      "component_id": "ai.greentic.component-templates"
+    },
+    {
+      "name": "setup_default___setup_default__validate",
+      "ref": "file:///Users/maarten/Documents/GitHub/agentic/greentic-messaging-providers/packs/messaging-telegram/flows/../components/questions/questions.wasm",
+      "digest": "sha256:3e46baa6c4314829fc0bf68d1b53688293cc0717ec809f16b2000c68595ed4e2",
       "component_id": "ai.greentic.component-questions"
     },
     {

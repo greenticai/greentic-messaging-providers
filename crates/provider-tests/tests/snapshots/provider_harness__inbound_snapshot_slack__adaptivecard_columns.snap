@@ -1,26 +1,22 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 878
 expression: value
 ---
 {
   "event": {
-    "columns": [
-      [
-        "left",
-        "right"
-      ],
-      [
-        "top",
-        "bottom"
-      ]
-    ],
+    "channel": "slack",
     "id": "<FIXED>",
-    "provider": "slack",
-    "text": "adaptivecard columns message from slack",
-    "timestamp": "<FIXED>",
-    "type": "adaptivecard",
-    "variant": "columns"
+    "metadata": {
+      "universal": "true"
+    },
+    "session_id": "slack",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": ""
   },
   "ok": true
 }

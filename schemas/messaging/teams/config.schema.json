@@ -2,14 +2,36 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Teams Provider-Core Config",
   "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enabled",
+    "tenant_id",
+    "client_id",
+    "public_base_url",
+    "graph_base_url",
+    "auth_base_url",
+    "token_scope"
+  ],
   "properties": {
+    "enabled": {
+      "type": "boolean",
+      "description": "Enable the Teams provider."
+    },
     "tenant_id": {
       "type": "string",
+      "minLength": 1,
       "description": "Azure AD tenant ID for Graph auth."
     },
     "client_id": {
       "type": "string",
+      "minLength": 1,
       "description": "App registration client ID."
+    },
+    "public_base_url": {
+      "type": "string",
+      "format": "uri",
+      "minLength": 1,
+      "description": "Public base URL for inbound webhook callbacks."
     },
     "team_id": {
       "type": "string",
@@ -19,27 +41,33 @@
       "type": "string",
       "description": "Default channel ID if not provided in invocation."
     },
-    "public_base_url": {
-      "type": "string",
-      "format": "uri",
-      "description": "Public base URL for inbound webhook callbacks."
-    },
     "graph_base_url": {
       "type": "string",
+      "format": "uri",
       "description": "Graph API base URL.",
       "default": "https://graph.microsoft.com/v1.0"
     },
     "auth_base_url": {
       "type": "string",
+      "format": "uri",
       "description": "AAD authority base URL.",
       "default": "https://login.microsoftonline.com"
     },
     "token_scope": {
       "type": "string",
+      "minLength": 1,
       "description": "OAuth scope for access tokens.",
       "default": "https://graph.microsoft.com/.default"
+    },
+    "client_secret": {
+      "type": "string",
+      "description": "Optional client secret. Falls back to secrets store if omitted.",
+      "x-redact": true
+    },
+    "refresh_token": {
+      "type": "string",
+      "description": "Optional refresh token. Falls back to secrets store if omitted.",
+      "x-redact": true
     }
-  },
-  "required": ["tenant_id", "client_id", "public_base_url"],
-  "additionalProperties": false
+  }
 }

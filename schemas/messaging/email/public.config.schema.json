@@ -2,9 +2,30 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Email Provider-Core Config",
   "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enabled",
+    "public_base_url",
+    "host",
+    "port",
+    "username",
+    "from_address",
+    "tls_mode"
+  ],
   "properties": {
+    "enabled": {
+      "type": "boolean",
+      "description": "Enable the email provider."
+    },
+    "public_base_url": {
+      "type": "string",
+      "format": "uri",
+      "minLength": 1,
+      "description": "Public base URL for inbound webhook callbacks."
+    },
     "host": {
       "type": "string",
+      "minLength": 1,
       "description": "SMTP host name or address"
     },
     "port": {
@@ -14,10 +35,12 @@
     },
     "username": {
       "type": "string",
+      "minLength": 1,
       "description": "SMTP username"
     },
     "from_address": {
       "type": "string",
+      "minLength": 1,
       "description": "Default from address"
     },
     "tls_mode": {
@@ -25,8 +48,33 @@
       "enum": ["starttls", "implicit", "none"],
       "default": "starttls",
       "description": "TLS mode to use"
+    },
+    "default_to_address": {
+      "type": "string",
+      "description": "Default recipient address"
+    },
+    "password": {
+      "type": "string",
+      "description": "Optional SMTP password (fallback to secret store)",
+      "x-redact": true
+    },
+    "graph_tenant_id": {
+      "type": "string"
+    },
+    "graph_authority": {
+      "type": "string",
+      "format": "uri"
+    },
+    "graph_base_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "graph_token_endpoint": {
+      "type": "string",
+      "format": "uri"
+    },
+    "graph_scope": {
+      "type": "string"
     }
-  },
-  "required": ["host", "username", "from_address"],
-  "additionalProperties": false
+  }
 }

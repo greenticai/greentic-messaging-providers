@@ -19,16 +19,16 @@ chrono.workspace = true
 hmac.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 urlencoding.workspace = true
+provider-common.workspace = true
 
 [package.metadata.component]
 package = "greentic:messaging-provider-webchat-core"
 
 [package.metadata.component.target]
 path = "wit/messaging-provider-webchat"
-world = "messaging-provider-webchat"
+world = "component-v0-v6-v0"
 
 [package.metadata.component.target.dependencies]
 "greentic:state" = { path = "wit/messaging-provider-webchat/deps/state" }
 "greentic:interfaces-types" = { path = "wit/messaging-provider-webchat/deps/interfaces-types" }
-"greentic:provider-schema-core" = { path = "wit/messaging-provider-webchat/deps/provider-schema-core" }
 "greentic:secrets-store" = { path = "wit/messaging-provider-webchat/deps/secrets-store" }

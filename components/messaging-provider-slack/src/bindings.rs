@@ -6,38 +6,13 @@
 pub mod greentic {
     pub mod http {
         #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
-        pub mod client {
+        pub mod http_client {
             #[used]
             #[doc(hidden)]
             static __FORCE_SECTION_REF: fn() = super::super::super::__link_custom_section_describing_imports;
             use super::super::super::_rt;
             pub type TenantCtx = super::super::super::greentic::interfaces_types::types::TenantCtx;
-            /// Canonical host error payload.
-            #[derive(Clone)]
-            pub struct HostError {
-                pub code: _rt::String,
-                pub message: _rt::String,
-            }
-            impl ::core::fmt::Debug for HostError {
-                fn fmt(
-                    &self,
-                    f: &mut ::core::fmt::Formatter<'_>,
-                ) -> ::core::fmt::Result {
-                    f.debug_struct("HostError")
-                        .field("code", &self.code)
-                        .field("message", &self.message)
-                        .finish()
-                }
-            }
-            impl ::core::fmt::Display for HostError {
-                fn fmt(
-                    &self,
-                    f: &mut ::core::fmt::Formatter<'_>,
-                ) -> ::core::fmt::Result {
-                    write!(f, "{:?}", self)
-                }
-            }
-            impl std::error::Error for HostError {}
+            pub type HostError = super::super::super::greentic::interfaces_types::types::HostError;
             /// HTTP request issued by a component.
             #[derive(Clone)]
             pub struct Request {
@@ -693,7 +668,7 @@ pub mod greentic {
                     };
                     let ptr33 = ret_area.0.as_mut_ptr().cast::<u8>();
                     #[cfg(target_arch = "wasm32")]
-                    #[link(wasm_import_module = "greentic:http/client@1.1.0")]
+                    #[link(wasm_import_module = "greentic:http/http-client@1.1.0")]
                     unsafe extern "C" {
                         #[link_name = "send"]
                         fn wit_import34(_: *mut u8, _: *mut u8);
@@ -811,7 +786,7 @@ pub mod greentic {
                                     len55,
                                     len55,
                                 );
-                                HostError {
+                                super::super::super::greentic::interfaces_types::types::HostError {
                                     code: _rt::string_lift(bytes52),
                                     message: _rt::string_lift(bytes55),
                                 }
@@ -991,6 +966,32 @@ pub mod greentic {
                     }
                 }
             }
+            /// Canonical host error payload.
+            #[derive(Clone)]
+            pub struct HostError {
+                pub code: _rt::String,
+                pub message: _rt::String,
+            }
+            impl ::core::fmt::Debug for HostError {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    f.debug_struct("HostError")
+                        .field("code", &self.code)
+                        .field("message", &self.message)
+                        .finish()
+                }
+            }
+            impl ::core::fmt::Display for HostError {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    write!(f, "{:?}", self)
+                }
+            }
+            impl std::error::Error for HostError {}
             /// Standard error codes returned by host services.
             #[repr(u8)]
             #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
@@ -1204,20 +1205,13 @@ pub mod greentic {
 #[allow(dead_code, clippy::all)]
 pub mod exports {
     pub mod greentic {
-        pub mod provider_schema_core {
-            /// Minimal provider schema surface for messaging/secrets/events providers.
+        pub mod component {
             #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
-            pub mod schema_core_api {
+            pub mod descriptor {
                 #[used]
                 #[doc(hidden)]
                 static __FORCE_SECTION_REF: fn() = super::super::super::super::__link_custom_section_describing_imports;
                 use super::super::super::super::_rt;
-                /// Opaque validation result JSON payload.
-                pub type ValidationResult = _rt::Vec<u8>;
-                /// Opaque health status JSON payload.
-                pub type HealthStatus = _rt::Vec<u8>;
-                /// Opaque invocation result JSON payload.
-                pub type InvokeResult = _rt::Vec<u8>;
                 #[doc(hidden)]
                 #[allow(non_snake_case)]
                 pub unsafe fn _export_describe_cabi<T: Guest>() -> *mut u8 {
@@ -1243,62 +1237,42 @@ pub mod exports {
                     let len2 = l1;
                     _rt::cabi_dealloc(base2, len2 * 1, 1);
                 }
-                #[doc(hidden)]
-                #[allow(non_snake_case)]
-                pub unsafe fn _export_validate_config_cabi<T: Guest>(
-                    arg0: *mut u8,
-                    arg1: usize,
-                ) -> *mut u8 {
-                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
-                    let len0 = arg1;
-                    let result1 = T::validate_config(
-                        _rt::Vec::from_raw_parts(arg0.cast(), len0, len0),
-                    );
-                    let ptr2 = (&raw mut _RET_AREA.0).cast::<u8>();
-                    let vec3 = (result1).into_boxed_slice();
-                    let ptr3 = vec3.as_ptr().cast::<u8>();
-                    let len3 = vec3.len();
-                    ::core::mem::forget(vec3);
-                    *ptr2.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len3;
-                    *ptr2.add(0).cast::<*mut u8>() = ptr3.cast_mut();
-                    ptr2
+                pub trait Guest {
+                    fn describe() -> _rt::Vec<u8>;
                 }
                 #[doc(hidden)]
-                #[allow(non_snake_case)]
-                pub unsafe fn __post_return_validate_config<T: Guest>(arg0: *mut u8) {
-                    let l0 = *arg0.add(0).cast::<*mut u8>();
-                    let l1 = *arg0
-                        .add(::core::mem::size_of::<*const u8>())
-                        .cast::<usize>();
-                    let base2 = l0;
-                    let len2 = l1;
-                    _rt::cabi_dealloc(base2, len2 * 1, 1);
+                macro_rules! __export_greentic_component_descriptor_0_6_1_cabi {
+                    ($ty:ident with_types_in $($path_to_types:tt)*) => {
+                        const _ : () = { #[unsafe (export_name =
+                        "greentic:component/descriptor@0.6.1#describe")] unsafe extern
+                        "C" fn export_describe() -> * mut u8 { unsafe {
+                        $($path_to_types)*:: _export_describe_cabi::<$ty > () } }
+                        #[unsafe (export_name =
+                        "cabi_post_greentic:component/descriptor@0.6.1#describe")] unsafe
+                        extern "C" fn _post_return_describe(arg0 : * mut u8,) { unsafe {
+                        $($path_to_types)*:: __post_return_describe::<$ty > (arg0) } } };
+                    };
                 }
                 #[doc(hidden)]
-                #[allow(non_snake_case)]
-                pub unsafe fn _export_healthcheck_cabi<T: Guest>() -> *mut u8 {
-                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
-                    let result0 = T::healthcheck();
-                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
-                    let vec2 = (result0).into_boxed_slice();
-                    let ptr2 = vec2.as_ptr().cast::<u8>();
-                    let len2 = vec2.len();
-                    ::core::mem::forget(vec2);
-                    *ptr1.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len2;
-                    *ptr1.add(0).cast::<*mut u8>() = ptr2.cast_mut();
-                    ptr1
-                }
+                pub(crate) use __export_greentic_component_descriptor_0_6_1_cabi;
+                #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+                #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
+                struct _RetArea(
+                    [::core::mem::MaybeUninit<
+                        u8,
+                    >; 2 * ::core::mem::size_of::<*const u8>()],
+                );
+                static mut _RET_AREA: _RetArea = _RetArea(
+                    [::core::mem::MaybeUninit::uninit(); 2
+                        * ::core::mem::size_of::<*const u8>()],
+                );
+            }
+            #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+            pub mod runtime {
+                #[used]
                 #[doc(hidden)]
-                #[allow(non_snake_case)]
-                pub unsafe fn __post_return_healthcheck<T: Guest>(arg0: *mut u8) {
-                    let l0 = *arg0.add(0).cast::<*mut u8>();
-                    let l1 = *arg0
-                        .add(::core::mem::size_of::<*const u8>())
-                        .cast::<usize>();
-                    let base2 = l0;
-                    let len2 = l1;
-                    _rt::cabi_dealloc(base2, len2 * 1, 1);
-                }
+                static __FORCE_SECTION_REF: fn() = super::super::super::super::__link_custom_section_describing_imports;
+                use super::super::super::super::_rt;
                 #[doc(hidden)]
                 #[allow(non_snake_case)]
                 pub unsafe fn _export_invoke_cabi<T: Guest>(
@@ -1336,59 +1310,310 @@ pub mod exports {
                     _rt::cabi_dealloc(base2, len2 * 1, 1);
                 }
                 pub trait Guest {
-                    /// Describes the provider manifest as JSON bytes.
-                    /// The JSON should at minimum include: `provider_type`, `capabilities`, and `ops`.
-                    fn describe() -> _rt::Vec<u8>;
-                    /// Validates configuration JSON; returns a JSON payload (opaque to the ABI).
-                    fn validate_config(config_json: _rt::Vec<u8>) -> ValidationResult;
-                    /// Returns provider health as a JSON payload.
-                    fn healthcheck() -> HealthStatus;
-                    /// Invokes a provider operation with JSON input, returning JSON output.
-                    fn invoke(op: _rt::String, input_json: _rt::Vec<u8>) -> InvokeResult;
+                    fn invoke(op: _rt::String, input_cbor: _rt::Vec<u8>) -> _rt::Vec<u8>;
                 }
                 #[doc(hidden)]
-                macro_rules! __export_greentic_provider_schema_core_schema_core_api_1_0_0_cabi {
+                macro_rules! __export_greentic_component_runtime_0_6_1_cabi {
                     ($ty:ident with_types_in $($path_to_types:tt)*) => {
                         const _ : () = { #[unsafe (export_name =
-                        "greentic:provider-schema-core/schema-core-api@1.0.0#describe")]
-                        unsafe extern "C" fn export_describe() -> * mut u8 { unsafe {
-                        $($path_to_types)*:: _export_describe_cabi::<$ty > () } }
-                        #[unsafe (export_name =
-                        "cabi_post_greentic:provider-schema-core/schema-core-api@1.0.0#describe")]
-                        unsafe extern "C" fn _post_return_describe(arg0 : * mut u8,) {
-                        unsafe { $($path_to_types)*:: __post_return_describe::<$ty >
-                        (arg0) } } #[unsafe (export_name =
-                        "greentic:provider-schema-core/schema-core-api@1.0.0#validate-config")]
-                        unsafe extern "C" fn export_validate_config(arg0 : * mut u8, arg1
-                        : usize,) -> * mut u8 { unsafe { $($path_to_types)*::
-                        _export_validate_config_cabi::<$ty > (arg0, arg1) } } #[unsafe
+                        "greentic:component/runtime@0.6.1#invoke")] unsafe extern "C" fn
+                        export_invoke(arg0 : * mut u8, arg1 : usize, arg2 : * mut u8,
+                        arg3 : usize,) -> * mut u8 { unsafe { $($path_to_types)*::
+                        _export_invoke_cabi::<$ty > (arg0, arg1, arg2, arg3) } } #[unsafe
                         (export_name =
-                        "cabi_post_greentic:provider-schema-core/schema-core-api@1.0.0#validate-config")]
-                        unsafe extern "C" fn _post_return_validate_config(arg0 : * mut
-                        u8,) { unsafe { $($path_to_types)*::
-                        __post_return_validate_config::<$ty > (arg0) } } #[unsafe
-                        (export_name =
-                        "greentic:provider-schema-core/schema-core-api@1.0.0#healthcheck")]
-                        unsafe extern "C" fn export_healthcheck() -> * mut u8 { unsafe {
-                        $($path_to_types)*:: _export_healthcheck_cabi::<$ty > () } }
-                        #[unsafe (export_name =
-                        "cabi_post_greentic:provider-schema-core/schema-core-api@1.0.0#healthcheck")]
-                        unsafe extern "C" fn _post_return_healthcheck(arg0 : * mut u8,) {
-                        unsafe { $($path_to_types)*:: __post_return_healthcheck::<$ty >
-                        (arg0) } } #[unsafe (export_name =
-                        "greentic:provider-schema-core/schema-core-api@1.0.0#invoke")]
-                        unsafe extern "C" fn export_invoke(arg0 : * mut u8, arg1 : usize,
-                        arg2 : * mut u8, arg3 : usize,) -> * mut u8 { unsafe {
-                        $($path_to_types)*:: _export_invoke_cabi::<$ty > (arg0, arg1,
-                        arg2, arg3) } } #[unsafe (export_name =
-                        "cabi_post_greentic:provider-schema-core/schema-core-api@1.0.0#invoke")]
-                        unsafe extern "C" fn _post_return_invoke(arg0 : * mut u8,) {
-                        unsafe { $($path_to_types)*:: __post_return_invoke::<$ty > (arg0)
-                        } } };
+                        "cabi_post_greentic:component/runtime@0.6.1#invoke")] unsafe
+                        extern "C" fn _post_return_invoke(arg0 : * mut u8,) { unsafe {
+                        $($path_to_types)*:: __post_return_invoke::<$ty > (arg0) } } };
                     };
                 }
                 #[doc(hidden)]
-                pub(crate) use __export_greentic_provider_schema_core_schema_core_api_1_0_0_cabi;
+                pub(crate) use __export_greentic_component_runtime_0_6_1_cabi;
+                #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+                #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
+                struct _RetArea(
+                    [::core::mem::MaybeUninit<
+                        u8,
+                    >; 2 * ::core::mem::size_of::<*const u8>()],
+                );
+                static mut _RET_AREA: _RetArea = _RetArea(
+                    [::core::mem::MaybeUninit::uninit(); 2
+                        * ::core::mem::size_of::<*const u8>()],
+                );
+            }
+            #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+            pub mod qa {
+                #[used]
+                #[doc(hidden)]
+                static __FORCE_SECTION_REF: fn() = super::super::super::super::__link_custom_section_describing_imports;
+                use super::super::super::super::_rt;
+                #[repr(u8)]
+                #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+                pub enum Mode {
+                    Default,
+                    Setup,
+                    Upgrade,
+                    Remove,
+                }
+                impl ::core::fmt::Debug for Mode {
+                    fn fmt(
+                        &self,
+                        f: &mut ::core::fmt::Formatter<'_>,
+                    ) -> ::core::fmt::Result {
+                        match self {
+                            Mode::Default => f.debug_tuple("Mode::Default").finish(),
+                            Mode::Setup => f.debug_tuple("Mode::Setup").finish(),
+                            Mode::Upgrade => f.debug_tuple("Mode::Upgrade").finish(),
+                            Mode::Remove => f.debug_tuple("Mode::Remove").finish(),
+                        }
+                    }
+                }
+                impl Mode {
+                    #[doc(hidden)]
+                    pub unsafe fn _lift(val: u8) -> Mode {
+                        if !cfg!(debug_assertions) {
+                            return ::core::mem::transmute(val);
+                        }
+                        match val {
+                            0 => Mode::Default,
+                            1 => Mode::Setup,
+                            2 => Mode::Upgrade,
+                            3 => Mode::Remove,
+                            _ => panic!("invalid enum discriminant"),
+                        }
+                    }
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_qa_spec_cabi<T: Guest>(arg0: i32) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::qa_spec(Mode::_lift(arg0 as u8));
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    let vec2 = (result0).into_boxed_slice();
+                    let ptr2 = vec2.as_ptr().cast::<u8>();
+                    let len2 = vec2.len();
+                    ::core::mem::forget(vec2);
+                    *ptr1.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len2;
+                    *ptr1.add(0).cast::<*mut u8>() = ptr2.cast_mut();
+                    ptr1
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn __post_return_qa_spec<T: Guest>(arg0: *mut u8) {
+                    let l0 = *arg0.add(0).cast::<*mut u8>();
+                    let l1 = *arg0
+                        .add(::core::mem::size_of::<*const u8>())
+                        .cast::<usize>();
+                    let base2 = l0;
+                    let len2 = l1;
+                    _rt::cabi_dealloc(base2, len2 * 1, 1);
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_apply_answers_cabi<T: Guest>(
+                    arg0: i32,
+                    arg1: *mut u8,
+                    arg2: usize,
+                ) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let len0 = arg2;
+                    let result1 = T::apply_answers(
+                        Mode::_lift(arg0 as u8),
+                        _rt::Vec::from_raw_parts(arg1.cast(), len0, len0),
+                    );
+                    let ptr2 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    let vec3 = (result1).into_boxed_slice();
+                    let ptr3 = vec3.as_ptr().cast::<u8>();
+                    let len3 = vec3.len();
+                    ::core::mem::forget(vec3);
+                    *ptr2.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len3;
+                    *ptr2.add(0).cast::<*mut u8>() = ptr3.cast_mut();
+                    ptr2
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn __post_return_apply_answers<T: Guest>(arg0: *mut u8) {
+                    let l0 = *arg0.add(0).cast::<*mut u8>();
+                    let l1 = *arg0
+                        .add(::core::mem::size_of::<*const u8>())
+                        .cast::<usize>();
+                    let base2 = l0;
+                    let len2 = l1;
+                    _rt::cabi_dealloc(base2, len2 * 1, 1);
+                }
+                pub trait Guest {
+                    fn qa_spec(mode: Mode) -> _rt::Vec<u8>;
+                    fn apply_answers(
+                        mode: Mode,
+                        answers_cbor: _rt::Vec<u8>,
+                    ) -> _rt::Vec<u8>;
+                }
+                #[doc(hidden)]
+                macro_rules! __export_greentic_component_qa_0_6_1_cabi {
+                    ($ty:ident with_types_in $($path_to_types:tt)*) => {
+                        const _ : () = { #[unsafe (export_name =
+                        "greentic:component/qa@0.6.1#qa-spec")] unsafe extern "C" fn
+                        export_qa_spec(arg0 : i32,) -> * mut u8 { unsafe {
+                        $($path_to_types)*:: _export_qa_spec_cabi::<$ty > (arg0) } }
+                        #[unsafe (export_name =
+                        "cabi_post_greentic:component/qa@0.6.1#qa-spec")] unsafe extern
+                        "C" fn _post_return_qa_spec(arg0 : * mut u8,) { unsafe {
+                        $($path_to_types)*:: __post_return_qa_spec::<$ty > (arg0) } }
+                        #[unsafe (export_name =
+                        "greentic:component/qa@0.6.1#apply-answers")] unsafe extern "C"
+                        fn export_apply_answers(arg0 : i32, arg1 : * mut u8, arg2 :
+                        usize,) -> * mut u8 { unsafe { $($path_to_types)*::
+                        _export_apply_answers_cabi::<$ty > (arg0, arg1, arg2) } }
+                        #[unsafe (export_name =
+                        "cabi_post_greentic:component/qa@0.6.1#apply-answers")] unsafe
+                        extern "C" fn _post_return_apply_answers(arg0 : * mut u8,) {
+                        unsafe { $($path_to_types)*:: __post_return_apply_answers::<$ty >
+                        (arg0) } } };
+                    };
+                }
+                #[doc(hidden)]
+                pub(crate) use __export_greentic_component_qa_0_6_1_cabi;
+                #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+                #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
+                struct _RetArea(
+                    [::core::mem::MaybeUninit<
+                        u8,
+                    >; 2 * ::core::mem::size_of::<*const u8>()],
+                );
+                static mut _RET_AREA: _RetArea = _RetArea(
+                    [::core::mem::MaybeUninit::uninit(); 2
+                        * ::core::mem::size_of::<*const u8>()],
+                );
+            }
+            #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+            pub mod component_i18n {
+                #[used]
+                #[doc(hidden)]
+                static __FORCE_SECTION_REF: fn() = super::super::super::super::__link_custom_section_describing_imports;
+                use super::super::super::super::_rt;
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_i18n_keys_cabi<T: Guest>() -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::i18n_keys();
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    let vec3 = result0;
+                    let len3 = vec3.len();
+                    let layout3 = _rt::alloc::Layout::from_size_align_unchecked(
+                        vec3.len() * (2 * ::core::mem::size_of::<*const u8>()),
+                        ::core::mem::size_of::<*const u8>(),
+                    );
+                    let result3 = if layout3.size() != 0 {
+                        let ptr = _rt::alloc::alloc(layout3).cast::<u8>();
+                        if ptr.is_null() {
+                            _rt::alloc::handle_alloc_error(layout3);
+                        }
+                        ptr
+                    } else {
+                        ::core::ptr::null_mut()
+                    };
+                    for (i, e) in vec3.into_iter().enumerate() {
+                        let base = result3
+                            .add(i * (2 * ::core::mem::size_of::<*const u8>()));
+                        {
+                            let vec2 = (e.into_bytes()).into_boxed_slice();
+                            let ptr2 = vec2.as_ptr().cast::<u8>();
+                            let len2 = vec2.len();
+                            ::core::mem::forget(vec2);
+                            *base
+                                .add(::core::mem::size_of::<*const u8>())
+                                .cast::<usize>() = len2;
+                            *base.add(0).cast::<*mut u8>() = ptr2.cast_mut();
+                        }
+                    }
+                    *ptr1.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len3;
+                    *ptr1.add(0).cast::<*mut u8>() = result3;
+                    ptr1
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn __post_return_i18n_keys<T: Guest>(arg0: *mut u8) {
+                    let l0 = *arg0.add(0).cast::<*mut u8>();
+                    let l1 = *arg0
+                        .add(::core::mem::size_of::<*const u8>())
+                        .cast::<usize>();
+                    let base4 = l0;
+                    let len4 = l1;
+                    for i in 0..len4 {
+                        let base = base4
+                            .add(i * (2 * ::core::mem::size_of::<*const u8>()));
+                        {
+                            let l2 = *base.add(0).cast::<*mut u8>();
+                            let l3 = *base
+                                .add(::core::mem::size_of::<*const u8>())
+                                .cast::<usize>();
+                            _rt::cabi_dealloc(l2, l3, 1);
+                        }
+                    }
+                    _rt::cabi_dealloc(
+                        base4,
+                        len4 * (2 * ::core::mem::size_of::<*const u8>()),
+                        ::core::mem::size_of::<*const u8>(),
+                    );
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_i18n_bundle_cabi<T: Guest>(
+                    arg0: *mut u8,
+                    arg1: usize,
+                ) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let len0 = arg1;
+                    let bytes0 = _rt::Vec::from_raw_parts(arg0.cast(), len0, len0);
+                    let result1 = T::i18n_bundle(_rt::string_lift(bytes0));
+                    let ptr2 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    let vec3 = (result1).into_boxed_slice();
+                    let ptr3 = vec3.as_ptr().cast::<u8>();
+                    let len3 = vec3.len();
+                    ::core::mem::forget(vec3);
+                    *ptr2.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len3;
+                    *ptr2.add(0).cast::<*mut u8>() = ptr3.cast_mut();
+                    ptr2
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn __post_return_i18n_bundle<T: Guest>(arg0: *mut u8) {
+                    let l0 = *arg0.add(0).cast::<*mut u8>();
+                    let l1 = *arg0
+                        .add(::core::mem::size_of::<*const u8>())
+                        .cast::<usize>();
+                    let base2 = l0;
+                    let len2 = l1;
+                    _rt::cabi_dealloc(base2, len2 * 1, 1);
+                }
+                pub trait Guest {
+                    fn i18n_keys() -> _rt::Vec<_rt::String>;
+                    fn i18n_bundle(locale: _rt::String) -> _rt::Vec<u8>;
+                }
+                #[doc(hidden)]
+                macro_rules! __export_greentic_component_component_i18n_0_6_1_cabi {
+                    ($ty:ident with_types_in $($path_to_types:tt)*) => {
+                        const _ : () = { #[unsafe (export_name =
+                        "greentic:component/component-i18n@0.6.1#i18n-keys")] unsafe
+                        extern "C" fn export_i18n_keys() -> * mut u8 { unsafe {
+                        $($path_to_types)*:: _export_i18n_keys_cabi::<$ty > () } }
+                        #[unsafe (export_name =
+                        "cabi_post_greentic:component/component-i18n@0.6.1#i18n-keys")]
+                        unsafe extern "C" fn _post_return_i18n_keys(arg0 : * mut u8,) {
+                        unsafe { $($path_to_types)*:: __post_return_i18n_keys::<$ty >
+                        (arg0) } } #[unsafe (export_name =
+                        "greentic:component/component-i18n@0.6.1#i18n-bundle")] unsafe
+                        extern "C" fn export_i18n_bundle(arg0 : * mut u8, arg1 : usize,)
+                        -> * mut u8 { unsafe { $($path_to_types)*::
+                        _export_i18n_bundle_cabi::<$ty > (arg0, arg1) } } #[unsafe
+                        (export_name =
+                        "cabi_post_greentic:component/component-i18n@0.6.1#i18n-bundle")]
+                        unsafe extern "C" fn _post_return_i18n_bundle(arg0 : * mut u8,) {
+                        unsafe { $($path_to_types)*:: __post_return_i18n_bundle::<$ty >
+                        (arg0) } } };
+                    };
+                }
+                #[doc(hidden)]
+                pub(crate) use __export_greentic_component_component_i18n_0_6_1_cabi;
                 #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
                 #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
                 struct _RetArea(
@@ -1537,28 +1762,37 @@ mod _rt {
 /// ```
 #[allow(unused_macros)]
 #[doc(hidden)]
-macro_rules! __export_messaging_provider_slack_impl {
+macro_rules! __export_component_v0_v6_v0_impl {
     ($ty:ident) => {
         self::export!($ty with_types_in self);
     };
     ($ty:ident with_types_in $($path_to_types_root:tt)*) => {
         $($path_to_types_root)*::
-        exports::greentic::provider_schema_core::schema_core_api::__export_greentic_provider_schema_core_schema_core_api_1_0_0_cabi!($ty
+        exports::greentic::component::descriptor::__export_greentic_component_descriptor_0_6_1_cabi!($ty
         with_types_in $($path_to_types_root)*::
-        exports::greentic::provider_schema_core::schema_core_api);
+        exports::greentic::component::descriptor); $($path_to_types_root)*::
+        exports::greentic::component::runtime::__export_greentic_component_runtime_0_6_1_cabi!($ty
+        with_types_in $($path_to_types_root)*:: exports::greentic::component::runtime);
+        $($path_to_types_root)*::
+        exports::greentic::component::qa::__export_greentic_component_qa_0_6_1_cabi!($ty
+        with_types_in $($path_to_types_root)*:: exports::greentic::component::qa);
+        $($path_to_types_root)*::
+        exports::greentic::component::component_i18n::__export_greentic_component_component_i18n_0_6_1_cabi!($ty
+        with_types_in $($path_to_types_root)*::
+        exports::greentic::component::component_i18n);
     };
 }
 #[doc(inline)]
-pub(crate) use __export_messaging_provider_slack_impl as export;
+pub(crate) use __export_component_v0_v6_v0_impl as export;
 #[cfg(target_arch = "wasm32")]
 #[unsafe(
-    link_section = "component-type:wit-bindgen:0.41.0:greentic:messaging-provider-slack-core@0.0.1:messaging-provider-slack:encoded world"
+    link_section = "component-type:wit-bindgen:0.41.0:greentic:component@0.6.1:component-v0-v6-v0:encoded world"
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 2190] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xff\x0f\x01A\x02\x01\
-A\x09\x01B:\x01s\x04\0\x06env-id\x03\0\0\x01s\x04\0\x09tenant-id\x03\0\x02\x01s\x04\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 2310] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xfd\x10\x01A\x02\x01\
+A\x10\x01B:\x01s\x04\0\x06env-id\x03\0\0\x01s\x04\0\x09tenant-id\x03\0\x02\x01s\x04\
 \0\x07team-id\x03\0\x04\x01s\x04\0\x07user-id\x03\0\x06\x01s\x04\0\x09state-key\x03\
 \0\x08\x01s\x04\0\x0bsession-key\x03\0\x0a\x01ks\x01r\x02\x08actor-id\x07\x06rea\
 son\x0c\x04\0\x0dimpersonation\x03\0\x0d\x01k\x05\x01k\x07\x01o\x02ss\x01p\x11\x01\
@@ -1584,25 +1818,28 @@ signature\x03\02\x01p3\x01r\x04\x07oci-urls\x07versions\x06digests\x0asignatures
 4\x04\0\x08pack-ref\x03\05\x01k\x0b\x01r\x07\x06tenant\x03\x0asession-id7\x07flo\
 w-ids\x07node-id\x0c\x08providers\x08start-ms\x13\x06end-ms\x13\x04\0\x0cspan-co\
 ntext\x03\08\x03\0%greentic:interfaces-types/types@0.1.0\x05\0\x02\x03\0\0\x0ate\
-nant-ctx\x01B\x15\x02\x03\x02\x01\x01\x04\0\x0atenant-ctx\x03\0\0\x01r\x02\x04co\
-des\x07messages\x04\0\x0ahost-error\x03\0\x02\x01o\x02ss\x01p\x04\x01p}\x01k\x06\
-\x01r\x04\x06methods\x03urls\x07headers\x05\x04body\x07\x04\0\x07request\x03\0\x08\
-\x01r\x03\x06status{\x07headers\x05\x04body\x07\x04\0\x08response\x03\0\x0a\x01k\
-y\x01k\x7f\x01r\x03\x0atimeout-ms\x0c\x0eallow-insecure\x0d\x10follow-redirects\x0d\
-\x04\0\x0frequest-options\x03\0\x0e\x01k\x0f\x01k\x01\x01j\x01\x0b\x01\x03\x01@\x03\
-\x03req\x09\x04opts\x10\x03ctx\x11\0\x12\x04\0\x04send\x01\x13\x03\0\x1agreentic\
-:http/client@1.1.0\x05\x02\x01B\x07\x01m\x04\x09not-found\x06denied\x0binvalid-k\
-ey\x08internal\x04\0\x0dsecrets-error\x03\0\0\x01p}\x01k\x02\x01j\x01\x03\x01\x01\
-\x01@\x01\x03keys\0\x04\x04\0\x03get\x01\x05\x03\0*greentic:secrets-store/secret\
-s-store@1.0.0\x05\x03\x01B\x0f\x01p}\x04\0\x11validation-result\x03\0\0\x01p}\x04\
-\0\x0dhealth-status\x03\0\x02\x01p}\x04\0\x0dinvoke-result\x03\0\x04\x01p}\x01@\0\
-\0\x06\x04\0\x08describe\x01\x07\x01@\x01\x0bconfig-json\x06\0\x01\x04\0\x0fvali\
-date-config\x01\x08\x01@\0\0\x03\x04\0\x0bhealthcheck\x01\x09\x01@\x02\x02ops\x0a\
-input-json\x06\0\x05\x04\0\x06invoke\x01\x0a\x04\03greentic:provider-schema-core\
-/schema-core-api@1.0.0\x05\x04\x04\0Egreentic:messaging-provider-slack-core/mess\
-aging-provider-slack@0.0.1\x04\0\x0b\x1e\x01\0\x18messaging-provider-slack\x03\0\
-\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-bi\
-ndgen-rust\x060.41.0";
+nant-ctx\x02\x03\0\0\x0ahost-error\x01B\x15\x02\x03\x02\x01\x01\x04\0\x0atenant-\
+ctx\x03\0\0\x02\x03\x02\x01\x02\x04\0\x0ahost-error\x03\0\x02\x01o\x02ss\x01p\x04\
+\x01p}\x01k\x06\x01r\x04\x06methods\x03urls\x07headers\x05\x04body\x07\x04\0\x07\
+request\x03\0\x08\x01r\x03\x06status{\x07headers\x05\x04body\x07\x04\0\x08respon\
+se\x03\0\x0a\x01ky\x01k\x7f\x01r\x03\x0atimeout-ms\x0c\x0eallow-insecure\x0d\x10\
+follow-redirects\x0d\x04\0\x0frequest-options\x03\0\x0e\x01k\x0f\x01k\x01\x01j\x01\
+\x0b\x01\x03\x01@\x03\x03req\x09\x04opts\x10\x03ctx\x11\0\x12\x04\0\x04send\x01\x13\
+\x03\0\x1fgreentic:http/http-client@1.1.0\x05\x03\x01B\x07\x01m\x04\x09not-found\
+\x06denied\x0binvalid-key\x08internal\x04\0\x0dsecrets-error\x03\0\0\x01p}\x01k\x02\
+\x01j\x01\x03\x01\x01\x01@\x01\x03keys\0\x04\x04\0\x03get\x01\x05\x03\0*greentic\
+:secrets-store/secrets-store@1.0.0\x05\x04\x01B\x03\x01p}\x01@\0\0\0\x04\0\x08de\
+scribe\x01\x01\x04\0#greentic:component/descriptor@0.6.1\x05\x05\x01B\x03\x01p}\x01\
+@\x02\x02ops\x0ainput-cbor\0\0\0\x04\0\x06invoke\x01\x01\x04\0\x20greentic:compo\
+nent/runtime@0.6.1\x05\x06\x01B\x07\x01m\x04\x07default\x05setup\x07upgrade\x06r\
+emove\x04\0\x04mode\x03\0\0\x01p}\x01@\x01\x04mode\x01\0\x02\x04\0\x07qa-spec\x01\
+\x03\x01@\x02\x04mode\x01\x0canswers-cbor\x02\0\x02\x04\0\x0dapply-answers\x01\x04\
+\x04\0\x1bgreentic:component/qa@0.6.1\x05\x07\x01B\x06\x01ps\x01@\0\0\0\x04\0\x09\
+i18n-keys\x01\x01\x01p}\x01@\x01\x06locales\0\x02\x04\0\x0bi18n-bundle\x01\x03\x04\
+\0'greentic:component/component-i18n@0.6.1\x05\x08\x04\0+greentic:component/comp\
+onent-v0-v6-v0@0.6.1\x04\0\x0b\x18\x01\0\x12component-v0-v6-v0\x03\0\0\0G\x09pro\
+ducers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rust\x06\
+0.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

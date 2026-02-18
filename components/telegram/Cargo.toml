@@ -14,19 +14,17 @@ serde_json.workspace = true
 provider-common = { path = "../../crates/provider-common" }
 provider-runtime-config = { path = "../../crates/provider-runtime-config" }
 wit-bindgen.workspace = true
-htmlescape = "0.3"
+htmlescape.workspace = true
 
 [package.metadata.component]
 package = "provider:telegram"
 
 [package.metadata.component.target]
 path = "wit/telegram"
-world = "telegram"
+world = "component-v0-v6-v0"
 
 [package.metadata.component.target.dependencies]
+"greentic:interfaces-types" = { path = "wit/telegram/deps/interfaces-types" }
 "greentic:secrets-store" = { path = "wit/telegram/deps/secrets-store" }
 "greentic:http" = { path = "wit/telegram/deps/http" }
-"greentic:state" = { path = "wit/telegram/deps/state" }
 "greentic:telemetry" = { path = "wit/telegram/deps/telemetry" }
-"greentic:interfaces-types" = { path = "wit/telegram/deps/interfaces-types" }
-"provider:common" = { path = "wit/telegram/deps/provider-common" }

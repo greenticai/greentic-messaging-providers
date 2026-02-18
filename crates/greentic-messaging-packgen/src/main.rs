@@ -209,6 +209,26 @@ fn default_capabilities() -> serde_json::Value {
     json!({ "render_tiers": ["tier-d"] })
 }
 
+fn ystr(value: impl Into<String>) -> serde_yaml::Value {
+    serde_yaml::Value::from(value.into())
+}
+
+fn ybool(value: bool) -> serde_yaml::Value {
+    serde_yaml::Value::from(value)
+}
+
+fn ynum(value: i64) -> serde_yaml::Value {
+    serde_yaml::Value::from(value)
+}
+
+fn yseq(values: Vec<serde_yaml::Value>) -> serde_yaml::Value {
+    serde_yaml::Value::from(values)
+}
+
+fn ynull() -> serde_yaml::Value {
+    serde_yaml::Value::Null(None)
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
@@ -627,7 +647,7 @@ fn validate_source_spec(
         ));
     }
     for key in &source.extensions.include {
-        if !source_extensions.contains_key(serde_yaml::Value::String(key.clone())) {
+        if !source_extensions.contains_key(ystr(key.clone())) {
             return Err(anyhow::anyhow!("source pack missing extension '{}'", key));
         }
     }
@@ -1008,75 +1028,45 @@ fn write_setup_yaml(path: &Path, spec: &Spec) -> Result<()> {
         .iter()
         .map(|question| {
             let mut map = serde_yaml::Mapping::new();
-            map.insert(
-                serde_yaml::Value::String("name".to_string()),
-                serde_yaml::Value::String(question.key.clone()),
-            );
-            map.insert(
-                serde_yaml::Value::String("title".to_string()),
-                serde_yaml::Value::String(question.prompt.clone()),
-            );
-            map.insert(
-                serde_yaml::Value::String("kind".to_string()),
-                serde_yaml::Value::String(question.kind.clone()),
-            );
+            map.insert(ystr("name".to_string()), ystr(question.key.clone()));
+            map.insert(ystr("title".to_string()), ystr(question.prompt.clone()));
+            map.insert(ystr("kind".to_string()), ystr(question.kind.clone()));
             if let Some(required) = question.required {
-                map.insert(
-                    serde_yaml::Value::String("required".to_string()),
-                    serde_yaml::Value::Bool(required),
-                );
+                map.insert(ystr("required".to_string()), ybool(required));
             }
             if let Some(help) = &question.help {
-                map.insert(
-                    serde_yaml::Value::String("help".to_string()),
-                    serde_yaml::Value::String(help.clone()),
-                );
+                map.insert(ystr("help".to_string()), ystr(help.clone()));
             }
             if let Some(choices) = &question.choices {
                 let values = choices
                     .iter()
-                    .map(|choice| serde_yaml::Value::String(choice.clone()))
+                    .map(|choice| ystr(choice.clone()))
                     .collect::<Vec<_>>();
-                map.insert(
-                    serde_yaml::Value::String("choices".to_string()),
-                    serde_yaml::Value::Sequence(values),
-                );
+                map.insert(ystr("choices".to_string()), yseq(values));
             }
             if let Some(default) = &question.default {
-                let value = serde_yaml::to_value(default).unwrap_or(serde_yaml::Value::Null);
-                map.insert(serde_yaml::Value::String("default".to_string()), value);
+                let value = serde_yaml::to_value(default).unwrap_or(ynull());
+                map.insert(ystr("default".to_string()), value);
             }
             if let Some(validate) = &question.validate {
-                let value = serde_yaml::to_value(validate).unwrap_or(serde_yaml::Value::Null);
-                map.insert(serde_yaml::Value::String("validate".to_string()), value);
+                let value = serde_yaml::to_value(validate).unwrap_or(ynull());
+                map.insert(ystr("validate".to_string()), value);
             }
             if question.write_to.trim_start().starts_with("secrets:") {
-                map.insert(
-                    serde_yaml::Value::String("secret".to_string()),
-                    serde_yaml::Value::Bool(true),
-                );
+                map.insert(ystr("secret".to_string()), ybool(true));
             }
             serde_yaml::Value::Mapping(map)
         })
         .collect();
 
     let mut payload = serde_yaml::Mapping::new();
+    payload.insert(ystr("provider_id".to_string()), ystr(provider_id(spec)));
+    payload.insert(ystr("version".to_string()), ynum(1));
     payload.insert(
-        serde_yaml::Value::String("provider_id".to_string()),
-        serde_yaml::Value::String(provider_id(spec)),
+        ystr("title".to_string()),
+        ystr(format!("{} provider setup", provider_id(spec))),
     );
-    payload.insert(
-        serde_yaml::Value::String("version".to_string()),
-        serde_yaml::Value::Number(serde_yaml::Number::from(1)),
-    );
-    payload.insert(
-        serde_yaml::Value::String("title".to_string()),
-        serde_yaml::Value::String(format!("{} provider setup", provider_id(spec))),
-    );
-    payload.insert(
-        serde_yaml::Value::String("questions".to_string()),
-        serde_yaml::Value::Sequence(questions),
-    );
+    payload.insert(ystr("questions".to_string()), yseq(questions));
 
     let contents = serde_yaml::to_string(&serde_yaml::Value::Mapping(payload))?;
     fs::write(path, contents).with_context(|| format!("writing setup.yaml {}", path.display()))?;
@@ -1191,23 +1181,11 @@ fn update_pack_yaml(
         .kind
         .clone()
         .unwrap_or_else(|| "application".to_string());
-    mapping.insert(
-        serde_yaml::Value::String("pack_id".to_string()),
-        serde_yaml::Value::String(spec.pack.id.clone()),
-    );
-    mapping.insert(
-        serde_yaml::Value::String("version".to_string()),
-        serde_yaml::Value::String(spec.pack.version.clone()),
-    );
-    mapping.insert(
-        serde_yaml::Value::String("kind".to_string()),
-        serde_yaml::Value::String(kind),
-    );
+    mapping.insert(ystr("pack_id".to_string()), ystr(spec.pack.id.clone()));
+    mapping.insert(ystr("version".to_string()), ystr(spec.pack.version.clone()));
+    mapping.insert(ystr("kind".to_string()), ystr(kind));
     if let Some(publisher) = &spec.pack.publisher {
-        mapping.insert(
-            serde_yaml::Value::String("publisher".to_string()),
-            serde_yaml::Value::String(publisher.clone()),
-        );
+        mapping.insert(ystr("publisher".to_string()), ystr(publisher.clone()));
     }
 
     if let Some(source_pack_yaml) = source_pack_yaml {
@@ -1364,13 +1342,13 @@ fn flow_entrypoints_from_pack(pack: &serde_yaml::Value) -> BTreeSet<(String, Vec
             continue;
         };
         let Some(id) = flow_map
-            .get(serde_yaml::Value::String("id".to_string()))
+            .get(ystr("id".to_string()))
             .and_then(|value| value.as_str())
         else {
             continue;
         };
         let entry = flow_map
-            .get(serde_yaml::Value::String("entrypoints".to_string()))
+            .get(ystr("entrypoints".to_string()))
             .and_then(|value| value.as_sequence())
             .map(|seq| {
                 seq.iter()
@@ -1395,7 +1373,7 @@ fn source_component_worlds(pack: &serde_yaml::Value) -> BTreeSet<String> {
             continue;
         };
         if let Some(world) = component_map
-            .get(serde_yaml::Value::String("world".to_string()))
+            .get(ystr("world".to_string()))
             .and_then(|value| value.as_str())
         {
             worlds.insert(world.to_string());
@@ -1419,16 +1397,16 @@ fn merge_extensions_from_source(
         return Ok(());
     };
     let extensions = mapping
-        .entry(serde_yaml::Value::String("extensions".to_string()))
+        .entry(ystr("extensions".to_string()))
         .or_insert_with(|| serde_yaml::Value::Mapping(serde_yaml::Mapping::new()));
     let Some(dest_extensions) = extensions.as_mapping_mut() else {
         return Err(anyhow::anyhow!("pack.yaml extensions is not a mapping"));
     };
     for key in &source_spec.extensions.include {
-        let Some(value) = source_extensions.get(serde_yaml::Value::String(key.clone())) else {
+        let Some(value) = source_extensions.get(ystr(key.clone())) else {
             continue;
         };
-        dest_extensions.insert(serde_yaml::Value::String(key.clone()), value.clone());
+        dest_extensions.insert(ystr(key.clone()), value.clone());
     }
     Ok(())
 }
@@ -1444,8 +1422,8 @@ fn merge_components_from_source(
         return Ok(());
     };
     mapping.insert(
-        serde_yaml::Value::String("components".to_string()),
-        serde_yaml::Value::Sequence(source_components.clone()),
+        ystr("components".to_string()),
+        yseq(source_components.elements.clone()),
     );
     Ok(())
 }
@@ -1453,23 +1431,13 @@ fn merge_components_from_source(
 fn validator_from_source(source_pack: &serde_yaml::Value) -> Option<ValidatorSpec> {
     let extensions = source_pack.get("extensions")?.as_mapping()?;
     let validators = extensions
-        .get(serde_yaml::Value::String(
-            "greentic.messaging.validators.v1".to_string(),
-        ))?
+        .get(ystr("greentic.messaging.validators.v1".to_string()))?
         .as_mapping()?;
-    let inline = validators
-        .get(serde_yaml::Value::String("inline".to_string()))?
-        .as_mapping()?;
-    let validators_list = inline
-        .get(serde_yaml::Value::String("validators".to_string()))?
-        .as_sequence()?;
+    let inline = validators.get(ystr("inline".to_string()))?.as_mapping()?;
+    let validators_list = inline.get(ystr("validators".to_string()))?.as_sequence()?;
     let first = validators_list.first()?.as_mapping()?;
-    let id = first
-        .get(serde_yaml::Value::String("id".to_string()))?
-        .as_str()?;
-    let component_ref = first
-        .get(serde_yaml::Value::String("component_ref".to_string()))?
-        .as_str()?;
+    let id = first.get(ystr("id".to_string()))?.as_str()?;
+    let component_ref = first.get(ystr("component_ref".to_string()))?.as_str()?;
     Some(ValidatorSpec {
         id: id.to_string(),
         component_ref: component_ref.to_string(),
@@ -1485,15 +1453,15 @@ fn find_provider_entry<'a>(
         .and_then(|value| value.as_mapping())
         .ok_or_else(|| anyhow::anyhow!("pack.yaml missing extensions"))?;
     let provider_extension = extensions
-        .get(serde_yaml::Value::String(PROVIDER_EXTENSION_ID.to_string()))
+        .get(ystr(PROVIDER_EXTENSION_ID.to_string()))
         .and_then(|value| value.as_mapping())
         .ok_or_else(|| anyhow::anyhow!("pack.yaml missing {}", PROVIDER_EXTENSION_ID))?;
     let inline = provider_extension
-        .get(serde_yaml::Value::String("inline".to_string()))
+        .get(ystr("inline".to_string()))
         .and_then(|value| value.as_mapping())
         .ok_or_else(|| anyhow::anyhow!("{} inline block missing", PROVIDER_EXTENSION_ID))?;
     let providers = inline
-        .get(serde_yaml::Value::String("providers".to_string()))
+        .get(ystr("providers".to_string()))
         .and_then(|value| value.as_sequence())
         .ok_or_else(|| anyhow::anyhow!("{} providers missing", PROVIDER_EXTENSION_ID))?;
     for provider in providers {
@@ -1501,7 +1469,7 @@ fn find_provider_entry<'a>(
             continue;
         };
         let Some(existing_type) = provider_map
-            .get(serde_yaml::Value::String("provider_type".to_string()))
+            .get(ystr("provider_type".to_string()))
             .and_then(|value| value.as_str())
         else {
             continue;
@@ -1519,7 +1487,7 @@ fn find_provider_entry<'a>(
 
 fn validate_provider_entry(spec: &Spec, provider_entry: &serde_yaml::Mapping) -> Result<()> {
     let ops = provider_entry
-        .get(serde_yaml::Value::String("ops".to_string()))
+        .get(ystr("ops".to_string()))
         .and_then(|value| value.as_sequence())
         .map(|seq| {
             seq.iter()
@@ -1535,19 +1503,19 @@ fn validate_provider_entry(spec: &Spec, provider_entry: &serde_yaml::Mapping) ->
     }
 
     let runtime = provider_entry
-        .get(serde_yaml::Value::String("runtime".to_string()))
+        .get(ystr("runtime".to_string()))
         .and_then(|value| value.as_mapping())
         .ok_or_else(|| anyhow::anyhow!("provider runtime missing"))?;
     let component_ref = runtime
-        .get(serde_yaml::Value::String("component_ref".to_string()))
+        .get(ystr("component_ref".to_string()))
         .and_then(|value| value.as_str())
         .unwrap_or("");
     let export = runtime
-        .get(serde_yaml::Value::String("export".to_string()))
+        .get(ystr("export".to_string()))
         .and_then(|value| value.as_str())
         .unwrap_or("");
     let world = runtime
-        .get(serde_yaml::Value::String("world".to_string()))
+        .get(ystr("world".to_string()))
         .and_then(|value| value.as_str())
         .unwrap_or("");
 
@@ -1623,7 +1591,7 @@ fn verify_pack_dir(out_dir: &Path, spec: &Spec, flows: &[String]) -> Result<()> 
         .ok_or_else(|| anyhow::anyhow!("pack.yaml is not a mapping"))?;
 
     let pack_id = mapping
-        .get(serde_yaml::Value::String("pack_id".to_string()))
+        .get(ystr("pack_id".to_string()))
         .and_then(|value| value.as_str())
         .unwrap_or("");
     if pack_id != spec.pack.id {
@@ -1635,7 +1603,7 @@ fn verify_pack_dir(out_dir: &Path, spec: &Spec, flows: &[String]) -> Result<()> 
     }
 
     let flows_value = mapping
-        .get(serde_yaml::Value::String("flows".to_string()))
+        .get(ystr("flows".to_string()))
         .ok_or_else(|| anyhow::anyhow!("pack.yaml missing flows section"))?;
     let pack_flows = flows_value
         .as_sequence()
@@ -1646,13 +1614,13 @@ fn verify_pack_dir(out_dir: &Path, spec: &Spec, flows: &[String]) -> Result<()> 
             continue;
         };
         let Some(id) = flow_map
-            .get(serde_yaml::Value::String("id".to_string()))
+            .get(ystr("id".to_string()))
             .and_then(|value| value.as_str())
         else {
             continue;
         };
         let entrypoints = flow_map
-            .get(serde_yaml::Value::String("entrypoints".to_string()))
+            .get(ystr("entrypoints".to_string()))
             .and_then(|value| value.as_sequence())
             .map(|seq| {
                 seq.iter()
@@ -1682,19 +1650,19 @@ fn verify_pack_dir(out_dir: &Path, spec: &Spec, flows: &[String]) -> Result<()> 
     }
 
     let extensions = mapping
-        .get(serde_yaml::Value::String("extensions".to_string()))
+        .get(ystr("extensions".to_string()))
         .and_then(|value| value.as_mapping())
         .ok_or_else(|| anyhow::anyhow!("pack.yaml missing extensions section"))?;
     let provider_extension = extensions
-        .get(serde_yaml::Value::String(PROVIDER_EXTENSION_ID.to_string()))
+        .get(ystr(PROVIDER_EXTENSION_ID.to_string()))
         .and_then(|value| value.as_mapping())
         .ok_or_else(|| anyhow::anyhow!("pack.yaml missing {}", PROVIDER_EXTENSION_ID))?;
     let inline = provider_extension
-        .get(serde_yaml::Value::String("inline".to_string()))
+        .get(ystr("inline".to_string()))
         .and_then(|value| value.as_mapping())
         .ok_or_else(|| anyhow::anyhow!("{} inline block missing", PROVIDER_EXTENSION_ID))?;
     let providers = inline
-        .get(serde_yaml::Value::String("providers".to_string()))
+        .get(ystr("providers".to_string()))
         .and_then(|value| value.as_sequence())
         .ok_or_else(|| anyhow::anyhow!("{} providers missing", PROVIDER_EXTENSION_ID))?;
     let mut has_provider = false;
@@ -1703,7 +1671,7 @@ fn verify_pack_dir(out_dir: &Path, spec: &Spec, flows: &[String]) -> Result<()> 
             continue;
         };
         let Some(provider_type) = provider_map
-            .get(serde_yaml::Value::String("provider_type".to_string()))
+            .get(ystr("provider_type".to_string()))
             .and_then(|value| value.as_str())
         else {
             continue;
@@ -1727,7 +1695,7 @@ fn update_flow_entrypoints(
     source_entrypoints: &BTreeSet<(String, Vec<String>)>,
 ) -> Result<()> {
     let flows_value = mapping
-        .get_mut(serde_yaml::Value::String("flows".to_string()))
+        .get_mut(ystr("flows".to_string()))
         .ok_or_else(|| anyhow::anyhow!("pack.yaml missing flows section"))?;
     let flows = flows_value
         .as_sequence_mut()
@@ -1737,7 +1705,7 @@ fn update_flow_entrypoints(
             continue;
         };
         let Some(id) = flow_map
-            .get(serde_yaml::Value::String("id".to_string()))
+            .get(ystr("id".to_string()))
             .and_then(|value| value.as_str())
         else {
             continue;
@@ -1756,13 +1724,8 @@ fn update_flow_entrypoints(
             continue;
         }
         flow_map.insert(
-            serde_yaml::Value::String("entrypoints".to_string()),
-            serde_yaml::Value::Sequence(
-                entrypoints
-                    .into_iter()
-                    .map(serde_yaml::Value::String)
-                    .collect(),
-            ),
+            ystr("entrypoints".to_string()),
+            yseq(entrypoints.into_iter().map(ystr).collect::<Vec<_>>()),
         );
     }
     Ok(())
@@ -1811,6 +1774,23 @@ fn generate_flows(
     flows: &[String],
 ) -> Result<()> {
     let root = workspace_root()?;
+    let generated_components_dir = flows_dir
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("flows dir has no parent: {}", flows_dir.display()))?
+        .join("components");
+    // Keep flow-local component references stable even when source packs omit staged components.
+    copy_file(
+        &root.join("components/questions/questions.wasm"),
+        &generated_components_dir.join("questions/questions.wasm"),
+    )?;
+    copy_file(
+        &root.join("components/templates/templates.wasm"),
+        &generated_components_dir.join("templates/templates.wasm"),
+    )?;
+    copy_file(
+        &root.join("components/provision/provision.wasm"),
+        &generated_components_dir.join("provision/provision.wasm"),
+    )?;
     let templates_manifest = root.join("components/templates/component.manifest.json");
     let questions_manifest = root.join("components/questions/component.manifest.json");
     let provision_manifest = root.join("components/provision/component.manifest.json");
@@ -2721,28 +2701,22 @@ fn stamp_generated_header(flow_path: &Path, meta: &GeneratedFlowMetadata) -> Res
         .ok_or_else(|| anyhow::anyhow!("flow yaml is not a mapping"))?;
 
     mapping.insert(
-        serde_yaml::Value::String("x-generated-by".to_string()),
-        serde_yaml::Value::String("greentic-messaging-packgen".to_string()),
+        ystr("x-generated-by".to_string()),
+        ystr("greentic-messaging-packgen".to_string()),
     );
     let mut source = serde_yaml::Mapping::new();
+    source.insert(ystr("spec".to_string()), ystr(meta.spec_path.clone()));
+    source.insert(ystr("spec-hash".to_string()), ystr(meta.spec_hash.clone()));
     source.insert(
-        serde_yaml::Value::String("spec".to_string()),
-        serde_yaml::Value::String(meta.spec_path.clone()),
+        ystr("manifest-hash".to_string()),
+        ystr(meta.manifest_hash.clone()),
     );
     source.insert(
-        serde_yaml::Value::String("spec-hash".to_string()),
-        serde_yaml::Value::String(meta.spec_hash.clone()),
-    );
-    source.insert(
-        serde_yaml::Value::String("manifest-hash".to_string()),
-        serde_yaml::Value::String(meta.manifest_hash.clone()),
-    );
-    source.insert(
-        serde_yaml::Value::String("schemas-hash".to_string()),
-        serde_yaml::Value::String(meta.schemas_hash.clone()),
+        ystr("schemas-hash".to_string()),
+        ystr(meta.schemas_hash.clone()),
     );
     mapping.insert(
-        serde_yaml::Value::String("x-generated-from".to_string()),
+        ystr("x-generated-from".to_string()),
         serde_yaml::Value::Mapping(source),
     );
 

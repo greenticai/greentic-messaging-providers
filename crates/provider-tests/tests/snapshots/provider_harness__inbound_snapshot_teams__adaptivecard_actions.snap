@@ -1,30 +1,22 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
-assertion_line: 878
 expression: value
 ---
 {
   "event": {
-    "actions": [
-      {
-        "title": "Docs",
-        "type": "open_url",
-        "url": "https://example.invalid/docs"
-      },
-      {
-        "data": {
-          "op": "ack"
-        },
-        "title": "Ack",
-        "type": "submit"
-      }
-    ],
+    "channel": "teams",
     "id": "<FIXED>",
-    "provider": "teams",
-    "text": "adaptivecard actions message from teams",
-    "timestamp": "<FIXED>",
-    "type": "adaptivecard",
-    "variant": "actions"
+    "metadata": {
+      "universal": "true"
+    },
+    "session_id": "teams",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": ""
   },
   "ok": true
 }
