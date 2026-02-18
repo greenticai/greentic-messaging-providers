@@ -3802,6 +3802,7 @@ dependencies = [
 name = "provision"
 version = "0.4.34"
 dependencies = [
+ "greentic-interfaces",
  "greentic-interfaces-guest",
  "serde",
  "serde_json",
@@ -3851,6 +3852,7 @@ name = "questions"
 version = "0.4.34"
 dependencies = [
  "anyhow",
+ "greentic-interfaces",
  "greentic-interfaces-guest",
  "insta",
  "regex",
@@ -4998,6 +5000,7 @@ dependencies = [
 name = "telegram-webhook"
 version = "0.4.34"
 dependencies = [
+ "greentic-interfaces",
  "greentic-interfaces-guest",
  "serde",
  "serde_json",
@@ -6272,6 +6275,7 @@ dependencies = [
 name = "webex-webhook"
 version = "0.4.34"
 dependencies = [
+ "greentic-interfaces",
  "greentic-interfaces-guest",
  "serde",
  "serde_json",
