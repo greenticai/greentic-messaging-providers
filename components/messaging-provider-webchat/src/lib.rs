@@ -684,6 +684,8 @@ fn render_plan(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return render_plan_error(&format!("invalid render input: {err}")),
     };
+    let has_ac = plan_in.message.metadata.contains_key("adaptive_card");
+    let tier = if has_ac { "TierA" } else { "TierD" };
     let summary = plan_in
         .message
         .text
@@ -691,7 +693,7 @@ fn render_plan(input_json: &[u8]) -> Vec<u8> {
         .filter(|text| !text.trim().is_empty())
         .unwrap_or_else(|| "webchat message".to_string());
     let plan_obj = json!({
-        "tier": "TierD",
+        "tier": tier,
         "summary_text": summary,
         "actions": [],
         "attachments": [],
@@ -699,7 +701,7 @@ fn render_plan(input_json: &[u8]) -> Vec<u8> {
         "debug": plan_in.metadata,
     });
     let plan_json =
-        serde_json::to_string(&plan_obj).unwrap_or_else(|_| "{\"tier\":\"TierD\"}".to_string());
+        serde_json::to_string(&plan_obj).unwrap_or_else(|_| format!("{{\"tier\":\"{tier}\"}}"));
     let plan_out = RenderPlanOutV1 { plan_json };
     json_bytes(&json!({"ok": true, "plan": plan_out}))
 }

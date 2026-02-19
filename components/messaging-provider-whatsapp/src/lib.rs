@@ -961,18 +961,26 @@ fn render_plan(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return render_plan_error(&format!("invalid render input: {err}")),
     };
-    let summary = plan_in
-        .message
-        .text
-        .clone()
-        .filter(|text| !text.trim().is_empty())
+    let ac_summary = provider_common::extract_ac_text_summary(&plan_in.message.metadata);
+    let summary = ac_summary
+        .or_else(|| {
+            plan_in
+                .message
+                .text
+                .clone()
+                .filter(|text| !text.trim().is_empty())
+        })
         .unwrap_or_else(|| "whatsapp message".to_string());
+    let mut warnings: Vec<Value> = Vec::new();
+    if plan_in.message.metadata.contains_key("adaptive_card") {
+        warnings.push(json!({"code": "adaptive_cards_not_supported", "message": null, "path": null}));
+    }
     let plan_obj = json!({
         "tier": "TierD",
         "summary_text": summary,
         "actions": [],
         "attachments": [],
-        "warnings": [],
+        "warnings": warnings,
         "debug": plan_in.metadata,
     });
     let plan_json =

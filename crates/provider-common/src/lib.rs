@@ -100,6 +100,79 @@ impl CapabilitiesResponseV1 {
     }
 }
 
+/// Extract a text summary from an Adaptive Card stored in message metadata.
+///
+/// This is a lightweight extraction for WASM providers that don't import the
+/// full renderer crate. It walks TextBlock elements and joins their text.
+pub fn extract_ac_text_summary(metadata: &std::collections::BTreeMap<String, String>) -> Option<String> {
+    let ac_json = metadata.get("adaptive_card")?;
+    let ac: Value = serde_json::from_str(ac_json).ok()?;
+    let body = ac.get("body")?.as_array()?;
+    let mut parts = Vec::new();
+    collect_text_blocks(body, &mut parts);
+    if parts.is_empty() {
+        return None;
+    }
+    Some(parts.join("\n"))
+}
+
+fn collect_text_blocks(elements: &[Value], parts: &mut Vec<String>) {
+    for element in elements {
+        let element_type = element
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        match element_type {
+            "TextBlock" => {
+                if let Some(text) = element.get("text").and_then(Value::as_str) {
+                    let trimmed = text.trim();
+                    if !trimmed.is_empty() {
+                        parts.push(trimmed.to_string());
+                    }
+                }
+            }
+            "RichTextBlock" => {
+                if let Some(inlines) = element.get("inlines").and_then(Value::as_array) {
+                    for inline in inlines {
+                        if let Some(text) = inline.get("text").and_then(Value::as_str) {
+                            let trimmed = text.trim();
+                            if !trimmed.is_empty() {
+                                parts.push(trimmed.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            "Container" => {
+                if let Some(items) = element.get("items").and_then(Value::as_array) {
+                    collect_text_blocks(items, parts);
+                }
+            }
+            "ColumnSet" => {
+                if let Some(columns) = element.get("columns").and_then(Value::as_array) {
+                    for col in columns {
+                        if let Some(items) = col.get("items").and_then(Value::as_array) {
+                            collect_text_blocks(items, parts);
+                        }
+                    }
+                }
+            }
+            "FactSet" => {
+                if let Some(facts) = element.get("facts").and_then(Value::as_array) {
+                    for fact in facts {
+                        let title = fact.get("title").and_then(Value::as_str).unwrap_or("");
+                        let value = fact.get("value").and_then(Value::as_str).unwrap_or("");
+                        if !title.is_empty() || !value.is_empty() {
+                            parts.push(format!("{}: {}", title, value));
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 /// Backwards-friendly aliases for V1.
 pub type ProviderCapabilities = ProviderCapabilitiesV1;
 pub type ProviderLimits = ProviderLimitsV1;
