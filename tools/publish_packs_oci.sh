@@ -47,7 +47,7 @@ git_sha="$(cd "${ROOT_DIR}" && git rev-parse --short HEAD 2>/dev/null || echo "u
 
 # Default OCI location for the shared templates component used by many packs.
 TEMPLATES_REGISTRY="${TEMPLATES_REGISTRY:-${OCI_REGISTRY:-ghcr.io}}"
-TEMPLATES_NAMESPACE="${TEMPLATES_NAMESPACE:-${GHCR_NAMESPACE:-${OCI_ORG:-${GHCR_USERNAME:-greentic-ai}}}}"
+TEMPLATES_NAMESPACE="${TEMPLATES_NAMESPACE:-${GHCR_NAMESPACE:-${OCI_ORG:-greentic-ai-org}}}"
 DEFAULT_TEMPLATES_IMAGE="${TEMPLATES_IMAGE:-${TEMPLATES_REGISTRY}/${TEMPLATES_NAMESPACE}/components/templates:latest}"
 DEFAULT_TEMPLATES_DIGEST=""
 DEFAULT_TEMPLATES_ARTIFACT="component_templates.wasm"

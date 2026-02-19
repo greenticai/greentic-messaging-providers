@@ -12,13 +12,9 @@ if [ -f "${ROOT_DIR}/.env" ]; then
   set +a
 fi
 
-# Keep local GHCR namespace variables in sync so sync scripts don't
-# accidentally prefer stale OCI_ORG/GHCR_NAMESPACE over GHCR_USERNAME.
-if [ -n "${GHCR_USERNAME:-}" ]; then
-  export GHCR_NAMESPACE="${GHCR_USERNAME}"
-  export OCI_ORG="${GHCR_USERNAME}"
-  export TEMPLATES_NAMESPACE="${GHCR_USERNAME}"
-fi
+# Keep authentication identity (GHCR_USERNAME) decoupled from namespace
+# selection. Namespace resolution is handled in tools/sync_packs.sh via
+# TEMPLATES_NAMESPACE/GHCR_NAMESPACE/OCI_ORG.
 
 PACK_VERSION="${PACK_VERSION:-$(python3 - <<'PY'
 from pathlib import Path
