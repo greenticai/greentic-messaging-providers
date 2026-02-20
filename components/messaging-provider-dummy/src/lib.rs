@@ -224,6 +224,53 @@ impl bindings::exports::greentic::component::component_i18n::Guest for Component
     }
 }
 
+// Backward-compatible schema-core-api export for operator v0.4.x
+impl bindings::exports::greentic::provider_schema_core::schema_core_api::Guest for Component {
+    fn describe() -> Vec<u8> {
+        serde_json::to_vec(&build_describe_payload()).unwrap_or_default()
+    }
+
+    fn validate_config(_config_json: Vec<u8>) -> Vec<u8> {
+        serde_json::to_vec(&serde_json::json!({"ok": true})).unwrap_or_default()
+    }
+
+    fn healthcheck() -> Vec<u8> {
+        serde_json::to_vec(&serde_json::json!({"status": "healthy"})).unwrap_or_default()
+    }
+
+    fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
+        if op != "run" {
+            return serde_json::to_vec(&RunResult {
+                ok: false,
+                message_id: None,
+                error: Some(format!("unsupported op: {op}")),
+            })
+            .unwrap_or_default();
+        }
+        let input: RunInput = match serde_json::from_slice(&input_json) {
+            Ok(value) => value,
+            Err(err) => {
+                return serde_json::to_vec(&RunResult {
+                    ok: false,
+                    message_id: None,
+                    error: Some(format!("invalid input json: {err}")),
+                })
+                .unwrap_or_default();
+            }
+        };
+        let message_id = format!(
+            "dummy:{}",
+            provider_common::component_v0_6::sha256_hex(input.message.as_bytes())
+        );
+        serde_json::to_vec(&RunResult {
+            ok: true,
+            message_id: Some(message_id),
+            error: None,
+        })
+        .unwrap_or_default()
+    }
+}
+
 bindings::export!(Component with_types_in bindings);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

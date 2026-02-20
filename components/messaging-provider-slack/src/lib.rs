@@ -383,6 +383,36 @@ impl bindings::exports::greentic::component::component_i18n::Guest for Component
     }
 }
 
+// Backward-compatible schema-core-api export for operator v0.4.x
+impl bindings::exports::greentic::provider_schema_core::schema_core_api::Guest for Component {
+    fn describe() -> Vec<u8> {
+        serde_json::to_vec(&build_describe_payload()).unwrap_or_default()
+    }
+
+    fn validate_config(_config_json: Vec<u8>) -> Vec<u8> {
+        json_bytes(&serde_json::json!({"ok": true}))
+    }
+
+    fn healthcheck() -> Vec<u8> {
+        json_bytes(&serde_json::json!({"status": "healthy"}))
+    }
+
+    fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
+        let op = if op == "run" { "send" } else { op.as_str() };
+        match op {
+            "send" => handle_send(&input_json, false),
+            "reply" => handle_send(&input_json, true),
+            "ingest_http" => ingest_http(&input_json),
+            "render_plan" => render_plan(&input_json),
+            "encode" => encode_op(&input_json),
+            "send_payload" => send_payload(&input_json),
+            other => json_bytes(
+                &serde_json::json!({"ok": false, "error": format!("unsupported op: {other}")}),
+            ),
+        }
+    }
+}
+
 bindings::export!(Component with_types_in bindings);
 
 fn build_describe_payload() -> DescribePayload {
@@ -1074,11 +1104,15 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
-    let channel = encode_in.message.channel.trim();
+    let channel = encode_in
+        .message
+        .to
+        .first()
+        .map(|d| d.id.clone())
+        .unwrap_or_default();
     if channel.is_empty() {
-        return encode_error("channel required");
+        return encode_error("destination (to) required");
     }
-    let channel = channel.to_string();
     let text = encode_in
         .message
         .text

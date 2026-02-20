@@ -341,6 +341,26 @@ impl bindings::exports::greentic::component::component_i18n::Guest for Component
     }
 }
 
+// Backward-compatible schema-core-api export for operator v0.4.x
+impl bindings::exports::greentic::provider_schema_core::schema_core_api::Guest for Component {
+    fn describe() -> Vec<u8> {
+        serde_json::to_vec(&build_describe_payload()).unwrap_or_default()
+    }
+
+    fn validate_config(_config_json: Vec<u8>) -> Vec<u8> {
+        json_bytes(&json!({"ok": true}))
+    }
+
+    fn healthcheck() -> Vec<u8> {
+        json_bytes(&json!({"status": "healthy"}))
+    }
+
+    fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
+        let op = if op == "run" { "send".to_string() } else { op };
+        dispatch_json_invoke(&op, &input_json)
+    }
+}
+
 bindings::export!(Component with_types_in bindings);
 
 fn default_enabled() -> bool {
