@@ -17,4 +17,6 @@ pub use errors::RendererError;
 pub use mode::RendererMode;
 pub use plan::{RenderItem, RenderPlan, RenderTier, RenderWarning};
 pub use planner::{PlannerAction, PlannerCapabilities, PlannerCard, plan_render};
-pub use renderer::{CardRenderer, DownsampleCardRenderer, NoopCardRenderer, render_plan_from_envelope};
+pub use renderer::{
+    CardRenderer, DownsampleCardRenderer, NoopCardRenderer, render_plan_from_envelope,
+};

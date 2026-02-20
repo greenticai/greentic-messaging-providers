@@ -98,7 +98,10 @@ impl CardRenderer for DownsampleCardRenderer {
                 // If AC-capable but planner didn't include the card (shouldn't happen for TierA/B),
                 // ensure it's included
                 if self.capabilities.supports_adaptive_cards
-                    && !plan.items.iter().any(|i| matches!(i, RenderItem::AdaptiveCard(_)))
+                    && !plan
+                        .items
+                        .iter()
+                        .any(|i| matches!(i, RenderItem::AdaptiveCard(_)))
                 {
                     plan.items.push(RenderItem::AdaptiveCard(ac_value));
                 }

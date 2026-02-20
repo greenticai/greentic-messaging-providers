@@ -104,7 +104,9 @@ impl CapabilitiesResponseV1 {
 ///
 /// This is a lightweight extraction for WASM providers that don't import the
 /// full renderer crate. It walks TextBlock elements and joins their text.
-pub fn extract_ac_text_summary(metadata: &std::collections::BTreeMap<String, String>) -> Option<String> {
+pub fn extract_ac_text_summary(
+    metadata: &std::collections::BTreeMap<String, String>,
+) -> Option<String> {
     let ac_json = metadata.get("adaptive_card")?;
     let ac: Value = serde_json::from_str(ac_json).ok()?;
     let body = ac.get("body")?.as_array()?;

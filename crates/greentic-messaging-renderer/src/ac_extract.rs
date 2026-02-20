@@ -242,10 +242,7 @@ mod tests {
         let card = extract_planner_card(&ac);
         assert_eq!(card.actions.len(), 2);
         assert_eq!(card.actions[0].title, "Visit");
-        assert_eq!(
-            card.actions[0].url,
-            Some("https://example.com".to_string())
-        );
+        assert_eq!(card.actions[0].url, Some("https://example.com".to_string()));
         assert_eq!(card.actions[1].title, "Submit");
         assert!(card.actions[1].url.is_none());
     }

@@ -422,10 +422,11 @@ mod tests {
         let ac = serde_json::json!({"type": "AdaptiveCard"});
         let plan = plan_render(&card, &caps, Some(&ac));
         assert_eq!(plan.tier, RenderTier::TierD);
-        assert!(plan
-            .warnings
-            .iter()
-            .any(|w| w.code == "adaptive_card_downsampled"));
+        assert!(
+            plan.warnings
+                .iter()
+                .any(|w| w.code == "adaptive_card_downsampled")
+        );
     }
 
     #[test]
@@ -444,6 +445,10 @@ mod tests {
         let ac = serde_json::json!({"type": "AdaptiveCard"});
         let plan = plan_render(&card, &caps, Some(&ac));
         assert_eq!(plan.tier, RenderTier::TierA);
-        assert!(plan.items.iter().any(|i| matches!(i, RenderItem::AdaptiveCard(_))));
+        assert!(
+            plan.items
+                .iter()
+                .any(|i| matches!(i, RenderItem::AdaptiveCard(_)))
+        );
     }
 }

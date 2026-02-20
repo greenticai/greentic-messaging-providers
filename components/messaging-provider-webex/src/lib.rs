@@ -1497,7 +1497,7 @@ fn render_plan(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return render_plan_error(&format!("invalid render input: {err}")),
     };
     let has_ac = plan_in.message.metadata.contains_key("adaptive_card");
-    let tier = if has_ac { "TierA" } else { "TierD" };
+    let tier = if has_ac { "TierB" } else { "TierD" };
     let summary = plan_in
         .message
         .text

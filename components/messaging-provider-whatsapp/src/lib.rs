@@ -973,7 +973,8 @@ fn render_plan(input_json: &[u8]) -> Vec<u8> {
         .unwrap_or_else(|| "whatsapp message".to_string());
     let mut warnings: Vec<Value> = Vec::new();
     if plan_in.message.metadata.contains_key("adaptive_card") {
-        warnings.push(json!({"code": "adaptive_cards_not_supported", "message": null, "path": null}));
+        warnings
+            .push(json!({"code": "adaptive_cards_not_supported", "message": null, "path": null}));
     }
     let plan_obj = json!({
         "tier": "TierD",
