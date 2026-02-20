@@ -691,7 +691,10 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         return json_bytes(&json!({"ok": false, "error": "destination id required"}));
     }
     let dest_id = dest_id.to_string();
-    let kind = destination.kind.as_deref().unwrap_or("email");
+    let kind = destination
+        .kind
+        .as_deref()
+        .unwrap_or_else(|| detect_destination_kind(&dest_id));
 
     let api_base = cfg
         .api_base_url
@@ -925,6 +928,21 @@ fn validate_provider_config(cfg: ProviderConfig) -> Result<ProviderConfig, Strin
         return Err("invalid config: public_base_url cannot be empty".to_string());
     }
     Ok(cfg)
+}
+
+/// Auto-detect Webex destination kind from the ID format.
+/// Webex room/person IDs are base64-encoded URNs starting with "Y2lz".
+/// Emails contain "@".
+fn detect_destination_kind(dest_id: &str) -> &'static str {
+    if dest_id.contains('@') {
+        "email"
+    } else if dest_id.starts_with("Y2lz") {
+        // Base64 prefix for "ciscospark://..." URNs — could be room or person.
+        // Try roomId first as it's the most common API target.
+        "room"
+    } else {
+        "email"
+    }
 }
 
 fn get_token(cfg: &ProviderConfig) -> Result<String, String> {
@@ -1640,7 +1658,10 @@ fn send_payload(input_json: &[u8]) -> Vec<u8> {
     let summary_text = text.clone().or(card_summary.clone());
     let markdown_value = summary_text.clone().unwrap_or_else(|| " ".to_string());
     let mut body_map = build_webex_body(card_payload.as_ref(), text.as_ref(), &markdown_value);
-    let kind = destination.kind.as_deref().unwrap_or("email");
+    let kind = destination
+        .kind
+        .as_deref()
+        .unwrap_or_else(|| detect_destination_kind(dest_id));
     match kind {
         "room" => {
             body_map.insert("roomId".into(), Value::String(dest_id.to_string()));
