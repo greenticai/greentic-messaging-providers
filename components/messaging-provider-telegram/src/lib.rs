@@ -848,7 +848,7 @@ fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         body_b64: STANDARD.encode(&normalized_bytes),
         events: vec![envelope],
     };
-    json_bytes(&out)
+    http_out_v1_bytes(&out)
 }
 
 fn render_plan(input_json: &[u8]) -> Vec<u8> {
@@ -1070,6 +1070,15 @@ fn extract_from_user(value: &Value) -> Option<String> {
         .map(|id| id.to_string())
 }
 
+/// Serialize HttpOutV1 with "v":1 for operator v0.4.x compatibility.
+fn http_out_v1_bytes(out: &HttpOutV1) -> Vec<u8> {
+    let mut val = serde_json::to_value(out).unwrap_or(Value::Null);
+    if let Some(map) = val.as_object_mut() {
+        map.insert("v".to_string(), json!(1));
+    }
+    serde_json::to_vec(&val).unwrap_or_default()
+}
+
 fn http_out_error(status: u16, message: &str) -> Vec<u8> {
     let out = HttpOutV1 {
         status,
@@ -1077,7 +1086,7 @@ fn http_out_error(status: u16, message: &str) -> Vec<u8> {
         body_b64: STANDARD.encode(message.as_bytes()),
         events: Vec::new(),
     };
-    json_bytes(&out)
+    http_out_v1_bytes(&out)
 }
 
 fn render_plan_error(message: &str) -> Vec<u8> {

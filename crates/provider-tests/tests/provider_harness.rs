@@ -5,7 +5,9 @@ use std::path::PathBuf;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
-use greentic_types::{Actor, ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_types::{
+    Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
+};
 use provider_common::RenderPlan;
 use provider_common::component_v0_6::{canonical_cbor_bytes, decode_cbor};
 use serde::Deserialize;
@@ -171,7 +173,10 @@ fn test_message_from_plan(plan: &RenderPlan) -> ChannelMessageEnvelope {
             kind: Some("user".into()),
         }),
         correlation_id: None,
-        to: Vec::new(),
+        to: vec![Destination {
+            id: "test-destination-id".to_string(),
+            kind: Some("channel".to_string()),
+        }],
         text: plan.summary_text.clone(),
         attachments: Vec::new(),
         metadata,

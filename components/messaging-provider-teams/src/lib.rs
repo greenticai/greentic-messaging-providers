@@ -1001,7 +1001,7 @@ fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         body_b64: STANDARD.encode(&normalized_bytes),
         events: vec![envelope],
     };
-    json_bytes(&out)
+    http_out_v1_bytes(&out)
 }
 
 fn render_plan(input_json: &[u8]) -> Vec<u8> {
@@ -1036,39 +1036,11 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
-    let text = encode_in
-        .message
-        .text
-        .clone()
-        .filter(|t| !t.trim().is_empty())
-        .unwrap_or_else(|| "universal teams payload".to_string());
-    let team_id = encode_in.message.metadata.get("team_id").cloned();
-    let channel_id = encode_in
-        .message
-        .metadata
-        .get("channel_id")
-        .cloned()
-        .or_else(|| {
-            let channel = encode_in.message.channel.clone();
-            if channel.is_empty() {
-                None
-            } else {
-                Some(channel)
-            }
-        });
-    let payload_body = json!({
-        "text": text,
-        "team_id": team_id.clone(),
-        "channel_id": channel_id.clone(),
-    });
-    let body_bytes = serde_json::to_vec(&payload_body).unwrap_or_else(|_| b"{}".to_vec());
+    // Serialize the full envelope so send_payload → handle_send can parse it
+    // as ChannelMessageEnvelope and use envelope.to for the destination.
+    let envelope = encode_in.message;
+    let body_bytes = serde_json::to_vec(&envelope).unwrap_or_else(|_| b"{}".to_vec());
     let mut metadata = BTreeMap::new();
-    if let Some(team) = team_id {
-        metadata.insert("team_id".to_string(), Value::String(team));
-    }
-    if let Some(channel) = channel_id {
-        metadata.insert("channel_id".to_string(), Value::String(channel));
-    }
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
     let payload = ProviderPayloadV1 {
         content_type: "application/json".to_string(),
@@ -1274,6 +1246,15 @@ fn extract_sender(value: &Value) -> Option<String> {
         .map(|s| s.to_string())
 }
 
+/// Serialize HttpOutV1 with "v":1 for operator v0.4.x compatibility.
+fn http_out_v1_bytes(out: &HttpOutV1) -> Vec<u8> {
+    let mut val = serde_json::to_value(out).unwrap_or(Value::Null);
+    if let Some(map) = val.as_object_mut() {
+        map.insert("v".to_string(), json!(1));
+    }
+    serde_json::to_vec(&val).unwrap_or_default()
+}
+
 fn http_out_error(status: u16, message: &str) -> Vec<u8> {
     let out = HttpOutV1 {
         status,
@@ -1281,7 +1262,7 @@ fn http_out_error(status: u16, message: &str) -> Vec<u8> {
         body_b64: STANDARD.encode(message.as_bytes()),
         events: Vec::new(),
     };
-    json_bytes(&out)
+    http_out_v1_bytes(&out)
 }
 
 fn render_plan_error(message: &str) -> Vec<u8> {
