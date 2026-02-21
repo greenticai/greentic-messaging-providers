@@ -13,6 +13,7 @@ use provider_common::component_v0_6::{
     SchemaField, SchemaIr, canonical_cbor_bytes, decode_cbor, default_en_i18n_messages,
     schema_hash,
 };
+use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -35,6 +36,8 @@ const PROVIDER_TYPE: &str = "messaging.teams.graph";
 const WORLD_ID: &str = "component-v0-v6-v0";
 const DEFAULT_CLIENT_SECRET_KEY: &str = "MS_GRAPH_CLIENT_SECRET";
 const DEFAULT_REFRESH_TOKEN_KEY: &str = "MS_GRAPH_REFRESH_TOKEN";
+const DEFAULT_TENANT_ID_KEY: &str = "MS_GRAPH_TENANT_ID";
+const DEFAULT_CLIENT_ID_KEY: &str = "MS_GRAPH_CLIENT_ID";
 const DEFAULT_TOKEN_SCOPE: &str = "https://graph.microsoft.com/.default";
 const DEFAULT_GRAPH_BASE: &str = "https://graph.microsoft.com/v1.0";
 const DEFAULT_AUTH_BASE: &str = "https://login.microsoftonline.com";
@@ -974,9 +977,13 @@ fn handle_reply(input_json: &[u8]) -> Vec<u8> {
 }
 
 fn ingest_http(input_json: &[u8]) -> Vec<u8> {
+    // Try native greentic-types format first, fall back to operator format
     let request = match serde_json::from_slice::<HttpInV1>(input_json) {
         Ok(req) => req,
-        Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+        Err(_) => match parse_operator_http_in(input_json) {
+            Ok(req) => req,
+            Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+        },
     };
     let body_bytes = match STANDARD.decode(&request.body_b64) {
         Ok(bytes) => bytes,
@@ -1120,7 +1127,16 @@ fn build_team_envelope(
         session_id: channel_name,
         reply_scope: None,
         from: sender,
-        to: Vec::new(),
+        to: {
+            let mut dests = Vec::new();
+            if let (Some(team), Some(channel)) = (&team_id, &channel_id) {
+                dests.push(Destination {
+                    id: format!("{}:{}", team, channel),
+                    kind: Some("channel".to_string()),
+                });
+            }
+            dests
+        },
         correlation_id: None,
         text: Some(text),
         attachments: Vec::new(),
@@ -1244,25 +1260,6 @@ fn extract_sender(value: &Value) -> Option<String> {
         .and_then(|from| from.get("user"))
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
-}
-
-/// Serialize HttpOutV1 with "v":1 for operator v0.4.x compatibility.
-fn http_out_v1_bytes(out: &HttpOutV1) -> Vec<u8> {
-    let mut val = serde_json::to_value(out).unwrap_or(Value::Null);
-    if let Some(map) = val.as_object_mut() {
-        map.insert("v".to_string(), json!(1));
-    }
-    serde_json::to_vec(&val).unwrap_or_default()
-}
-
-fn http_out_error(status: u16, message: &str) -> Vec<u8> {
-    let out = HttpOutV1 {
-        status,
-        headers: Vec::new(),
-        body_b64: STANDARD.encode(message.as_bytes()),
-        events: Vec::new(),
-    };
-    http_out_v1_bytes(&out)
 }
 
 fn render_plan_error(message: &str) -> Vec<u8> {
@@ -1635,7 +1632,32 @@ fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         return parse_config_value(&Value::Object(partial));
     }
 
-    Err("config required".into())
+    // Fall back to secret store for required fields when no config is provided.
+    load_config_from_secrets()
+}
+
+fn get_secret_any_case(uppercase: &str) -> Result<String, String> {
+    get_secret(uppercase).or_else(|_| get_secret(&uppercase.to_ascii_lowercase()))
+}
+
+fn load_config_from_secrets() -> Result<ProviderConfig, String> {
+    let tenant_id = get_secret_any_case(DEFAULT_TENANT_ID_KEY)
+        .map_err(|e| format!("config required: tenant_id not found (tried {} and {}): {e}", DEFAULT_TENANT_ID_KEY, DEFAULT_TENANT_ID_KEY.to_ascii_lowercase()))?;
+    let client_id = get_secret_any_case(DEFAULT_CLIENT_ID_KEY)
+        .map_err(|e| format!("config required: client_id not found (tried {} and {}): {e}", DEFAULT_CLIENT_ID_KEY, DEFAULT_CLIENT_ID_KEY.to_ascii_lowercase()))?;
+    Ok(ProviderConfig {
+        enabled: true,
+        tenant_id,
+        client_id,
+        public_base_url: String::new(),
+        team_id: None,
+        channel_id: None,
+        graph_base_url: None,
+        auth_base_url: None,
+        token_scope: None,
+        client_secret: get_secret_any_case(DEFAULT_CLIENT_SECRET_KEY).ok(),
+        refresh_token: get_secret_any_case(DEFAULT_REFRESH_TOKEN_KEY).ok(),
+    })
 }
 
 fn existing_config_from_answers(answers: &Value) -> Option<ProviderConfigOut> {

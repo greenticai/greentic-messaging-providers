@@ -10,7 +10,7 @@ end-to-end through the `greentic-operator` demo pipeline.
 | Rust toolchain | 1.90+ | `rustup update` |
 | `wasm32-wasip2` target | — | `rustup target add wasm32-wasip2` |
 | `greentic-operator` | 0.4.23+ | `cargo binstall greentic-operator` |
-| `seed-secret` | local | `cargo build --release -p seed-secret` (in `tools/seed-secret/`) |
+| `greentic-secrets` | 0.4.x+ | `cargo binstall greentic-secrets` or build from `greentic-secrets/` |
 | `zip` | any | `apt install zip` |
 
 ## 1. Unit Tests
@@ -120,38 +120,43 @@ done
 Secrets are stored in the encrypted dev secrets file at
 `demo-bundle/.greentic/dev/.dev.secrets.env`.
 
-Seed a secret using the `seed-secret` tool:
+Seed a secret using `greentic-secrets apply` (or the legacy `seed-secret` tool if
+available). Secrets are written to the encrypted dev secrets file.
 
 ```bash
-SEED_SECRET="/root/works/personal/greentic/tools/seed-secret/target/release/seed-secret"
 SECRETS_FILE="/root/works/personal/greentic/demo-bundle/.greentic/dev/.dev.secrets.env"
 
 # Slack bot token
-$SEED_SECRET "$SECRETS_FILE" \
+greentic-secrets apply "$SECRETS_FILE" \
   "secrets://dev/default/_/messaging-slack/slack_bot_token" \
   "<your-slack-bot-token>"
 
 # Telegram bot token
-$SEED_SECRET "$SECRETS_FILE" \
+greentic-secrets apply "$SECRETS_FILE" \
   "secrets://dev/default/_/messaging-telegram/bot_token" \
   "<your-telegram-bot-token>"
 
 # Webex bot token
-$SEED_SECRET "$SECRETS_FILE" \
+greentic-secrets apply "$SECRETS_FILE" \
   "secrets://dev/default/_/messaging-webex/WEBEX_BOT_TOKEN" \
   "<your-webex-bot-token>"
 
-# Teams (MS Graph)
-$SEED_SECRET "$SECRETS_FILE" \
-  "secrets://dev/default/_/messaging-teams/MS_GRAPH_TENANT_ID" \
+# Teams (MS Graph) — Public client (refresh_token grant)
+# NOTE: Do NOT seed MS_GRAPH_CLIENT_SECRET for public client apps.
+# Azure public clients must not include a client_secret with the refresh_token flow.
+greentic-secrets apply "$SECRETS_FILE" \
+  "secrets://dev/demo/_/messaging-teams/MS_GRAPH_TENANT_ID" \
   "<your-tenant-id>"
-$SEED_SECRET "$SECRETS_FILE" \
-  "secrets://dev/default/_/messaging-teams/MS_GRAPH_CLIENT_ID" \
+greentic-secrets apply "$SECRETS_FILE" \
+  "secrets://dev/demo/_/messaging-teams/MS_GRAPH_CLIENT_ID" \
   "<your-client-id>"
-$SEED_SECRET "$SECRETS_FILE" \
-  "secrets://dev/default/_/messaging-teams/MS_GRAPH_CLIENT_SECRET" \
-  "<your-client-secret>"
+greentic-secrets apply "$SECRETS_FILE" \
+  "secrets://dev/demo/_/messaging-teams/MS_GRAPH_REFRESH_TOKEN" \
+  "<your-refresh-token>"
 ```
+
+For Teams with a **confidential client** (web app with secret), replace
+`MS_GRAPH_REFRESH_TOKEN` with `MS_GRAPH_CLIENT_SECRET`.
 
 ## 5. E2E Tests via Operator
 
@@ -267,6 +272,78 @@ For a full WebChat demo, you need:
 2. Seed `jwt_signing_key` for token generation
 3. Point `greentic-webchat` frontend at the operator
 
+### 5.7 Teams — Send Text
+
+```bash
+GREENTIC_ENV=dev greentic-operator demo send \
+  --bundle /root/works/personal/greentic/demo-bundle \
+  --provider messaging-teams \
+  --to "c3392cbc-2cb0-48e8-9247-504d8defea40:19:wQzzrth6t3YA-aEdLzt8Pse3kW3Us-nJl9XzN-5NcEE1@thread.tacv2" \
+  --text "Hello from Greentic operator" \
+  --tenant demo --env dev
+```
+
+Expected output:
+```json
+{"ok":true,"message_id":"..."}
+```
+
+Verify: message appears in the Teams channel. The `--to` format is `{team_id}:{channel_id}`.
+
+Note: Teams secrets must be seeded under tenant `demo` (not `default`).
+
+### 5.8 Teams — Ingress (CLI)
+
+Create a sample Teams webhook payload:
+
+```bash
+cat > /tmp/teams-webhook.json << 'EOF'
+{
+  "type": "message",
+  "text": "Hello from webhook test",
+  "from": { "id": "user123", "name": "Test User" },
+  "channelData": {
+    "team": { "id": "c3392cbc-2cb0-48e8-9247-504d8defea40" },
+    "channel": { "id": "19:wQzzrth6t3YA-aEdLzt8Pse3kW3Us-nJl9XzN-5NcEE1@thread.tacv2" }
+  }
+}
+EOF
+```
+
+```bash
+GREENTIC_ENV=dev greentic-operator demo ingress \
+  --bundle /root/works/personal/greentic/demo-bundle \
+  --provider messaging-teams \
+  --tenant demo \
+  --body /tmp/teams-webhook.json
+```
+
+Expected: `events[0].to` contains `[{id: "c3392cbc-...:19:...@thread.tacv2", kind: "channel"}]`.
+
+### 5.9 Teams — Ingress via Operator HTTP
+
+```bash
+# Start the operator HTTP server
+GREENTIC_ENV=dev greentic-operator demo start \
+  --bundle /root/works/personal/greentic/demo-bundle \
+  --cloudflared off --nats off --skip-setup --skip-secrets-init --domains messaging
+
+# POST the webhook payload
+curl -X POST http://localhost:8080/messaging/ingress/messaging-teams/demo/default \
+  -H "Content-Type: application/json" \
+  -d @/tmp/teams-webhook.json
+```
+
+Expected: HTTP 200 with `{"ok": true, ...}` and operator logs show `dispatch_egress`.
+
+### 5.10 Teams — Full Round-Trip
+
+1. Start operator: see 5.9 above.
+2. POST a Teams webhook payload to the ingress endpoint.
+3. The operator dispatches egress with the envelope's `to` field populated.
+4. The egress pipeline calls `send_payload` which sends a reply via the Graph API.
+5. Verify: reply message appears in the Teams channel.
+
 ## 6. Operator Send Pipeline
 
 The `demo send` command exercises this pipeline for each provider:
@@ -301,10 +378,10 @@ The `schema-core-api` `invoke()` function delegates to the same handlers as the 
 | Issue | Impact | Workaround |
 |-------|--------|------------|
 | `cargo component build` can't find `provider-schema-core` | Build fails | Use `cargo build` (build script already updated) |
-| Teams encode uses `message.channel` as fallback | May send to wrong destination | Needs fix similar to Slack encode fix |
 | `demo setup` broken (flow engine mismatch) | Can't run interactive setup | Use `demo send` for validation |
 | `greentic-pack build` broken (state-store mismatch) | Can't rebuild packs from scratch | Replace WASM inside existing gtpack zips |
 | WebChat needs full HTTP server for real demo | `demo send` only validates pipeline | Use `demo start` + frontend |
+| Teams Azure public client must not send `client_secret` | Auth fails with 400 | Only seed `refresh_token`, not `client_secret` |
 | Pre-existing clippy errors in `greentic-messaging-renderer` | 5 `collapsible_if` warnings | Not related to our changes |
 
 ## 9. Troubleshooting
