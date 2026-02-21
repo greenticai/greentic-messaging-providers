@@ -283,6 +283,26 @@ impl bindings::exports::greentic::component::component_i18n::Guest for Component
     }
 }
 
+// Backward-compatible schema-core-api export for operator v0.4.x
+impl bindings::exports::greentic::provider_schema_core::schema_core_api::Guest for Component {
+    fn describe() -> Vec<u8> {
+        serde_json::to_vec(&build_describe_payload()).unwrap_or_default()
+    }
+
+    fn validate_config(_config_json: Vec<u8>) -> Vec<u8> {
+        json_bytes(&json!({"ok": true}))
+    }
+
+    fn healthcheck() -> Vec<u8> {
+        json_bytes(&json!({"status": "healthy"}))
+    }
+
+    fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
+        let op = if op == "run" { "send".to_string() } else { op };
+        dispatch_json_invoke(&op, &input_json)
+    }
+}
+
 bindings::export!(Component with_types_in bindings);
 
 fn default_enabled() -> bool {
@@ -671,7 +691,10 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         return json_bytes(&json!({"ok": false, "error": "destination id required"}));
     }
     let dest_id = dest_id.to_string();
-    let kind = destination.kind.as_deref().unwrap_or("email");
+    let kind = destination
+        .kind
+        .as_deref()
+        .unwrap_or_else(|| detect_destination_kind(&dest_id));
 
     let api_base = cfg
         .api_base_url
@@ -905,6 +928,21 @@ fn validate_provider_config(cfg: ProviderConfig) -> Result<ProviderConfig, Strin
         return Err("invalid config: public_base_url cannot be empty".to_string());
     }
     Ok(cfg)
+}
+
+/// Auto-detect Webex destination kind from the ID format.
+/// Webex room/person IDs are base64-encoded URNs starting with "Y2lz".
+/// Emails contain "@".
+fn detect_destination_kind(dest_id: &str) -> &'static str {
+    if dest_id.contains('@') {
+        "email"
+    } else if dest_id.starts_with("Y2lz") {
+        // Base64 prefix for "ciscospark://..." URNs — could be room or person.
+        // Try roomId first as it's the most common API target.
+        "room"
+    } else {
+        "email"
+    }
 }
 
 fn get_token(cfg: &ProviderConfig) -> Result<String, String> {
@@ -1488,7 +1526,7 @@ fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         body_b64: STANDARD.encode(&normalized_bytes),
         events: vec![outcome.envelope],
     };
-    json_bytes(&out)
+    http_out_v1_bytes(&out)
 }
 
 fn render_plan(input_json: &[u8]) -> Vec<u8> {
@@ -1496,6 +1534,8 @@ fn render_plan(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return render_plan_error(&format!("invalid render input: {err}")),
     };
+    let has_ac = plan_in.message.metadata.contains_key("adaptive_card");
+    let tier = if has_ac { "TierB" } else { "TierD" };
     let summary = plan_in
         .message
         .text
@@ -1503,7 +1543,7 @@ fn render_plan(input_json: &[u8]) -> Vec<u8> {
         .filter(|text| !text.trim().is_empty())
         .unwrap_or_else(|| "webex message".to_string());
     let plan_obj = json!({
-        "tier": "TierC",
+        "tier": tier,
         "summary_text": summary,
         "actions": [],
         "attachments": [],
@@ -1511,7 +1551,7 @@ fn render_plan(input_json: &[u8]) -> Vec<u8> {
         "debug": plan_in.metadata,
     });
     let plan_json =
-        serde_json::to_string(&plan_obj).unwrap_or_else(|_| "{\"tier\":\"TierC\"}".to_string());
+        serde_json::to_string(&plan_obj).unwrap_or_else(|_| format!("{{\"tier\":\"{tier}\"}}"));
     let plan_out = RenderPlanOutV1 { plan_json };
     json_bytes(&json!({"ok": true, "plan": plan_out}))
 }
@@ -1618,7 +1658,10 @@ fn send_payload(input_json: &[u8]) -> Vec<u8> {
     let summary_text = text.clone().or(card_summary.clone());
     let markdown_value = summary_text.clone().unwrap_or_else(|| " ".to_string());
     let mut body_map = build_webex_body(card_payload.as_ref(), text.as_ref(), &markdown_value);
-    let kind = destination.kind.as_deref().unwrap_or("email");
+    let kind = destination
+        .kind
+        .as_deref()
+        .unwrap_or_else(|| detect_destination_kind(dest_id));
     match kind {
         "room" => {
             body_map.insert("roomId".into(), Value::String(dest_id.to_string()));
@@ -1666,6 +1709,15 @@ fn send_payload(input_json: &[u8]) -> Vec<u8> {
     send_payload_success()
 }
 
+/// Serialize HttpOutV1 with "v":1 for operator v0.4.x compatibility.
+fn http_out_v1_bytes(out: &HttpOutV1) -> Vec<u8> {
+    let mut val = serde_json::to_value(out).unwrap_or(Value::Null);
+    if let Some(map) = val.as_object_mut() {
+        map.insert("v".to_string(), json!(1));
+    }
+    serde_json::to_vec(&val).unwrap_or_default()
+}
+
 fn http_out_error(status: u16, message: &str) -> Vec<u8> {
     let out = HttpOutV1 {
         status,
@@ -1673,7 +1725,7 @@ fn http_out_error(status: u16, message: &str) -> Vec<u8> {
         body_b64: STANDARD.encode(message.as_bytes()),
         events: Vec::new(),
     };
-    json_bytes(&out)
+    http_out_v1_bytes(&out)
 }
 
 fn render_plan_error(message: &str) -> Vec<u8> {
