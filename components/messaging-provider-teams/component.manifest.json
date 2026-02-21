@@ -9,6 +9,16 @@
   },
   "secret_requirements": [
     {
+      "name": "MS_GRAPH_TENANT_ID",
+      "scope": "tenant",
+      "description": "Azure AD / Entra ID tenant (directory) ID."
+    },
+    {
+      "name": "MS_GRAPH_CLIENT_ID",
+      "scope": "tenant",
+      "description": "Application (client) ID from Azure app registration."
+    },
+    {
       "name": "MS_GRAPH_CLIENT_SECRET",
       "scope": "tenant",
       "description": "Client secret used for client_credentials or refresh flows."

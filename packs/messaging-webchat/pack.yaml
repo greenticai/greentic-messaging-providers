@@ -151,7 +151,10 @@ components:
     wasi:
       random: false
       clocks: false
-    host: {}
+    host:
+      state:
+        read: true
+        write: true
   wasm: components/messaging-provider-webchat.wasm
 - id: requirements___summary
   version: 0.4.34

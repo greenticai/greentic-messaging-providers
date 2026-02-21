@@ -11,6 +11,7 @@ use provider_common::component_v0_6::{
     SchemaField, SchemaIr, canonical_cbor_bytes, decode_cbor, default_en_i18n_messages,
     schema_hash,
 };
+use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap};
@@ -928,9 +929,13 @@ fn handle_reply(_input_json: &[u8]) -> Vec<u8> {
 }
 
 fn ingest_http(input_json: &[u8]) -> Vec<u8> {
+    // Try native greentic-types format first, fall back to operator format
     let request = match serde_json::from_slice::<HttpInV1>(input_json) {
         Ok(req) => req,
-        Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+        Err(_) => match parse_operator_http_in(input_json) {
+            Ok(req) => req,
+            Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+        },
     };
     if request.method.eq_ignore_ascii_case("GET") {
         let challenge = parse_query(&request.query)
@@ -949,17 +954,45 @@ fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
     let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
-    let text = body_val
+    // Extract message from Cloud API nested format: entry[].changes[].value.messages[]
+    let cloud_msg = body_val
+        .get("entry")
+        .and_then(|e| e.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|e| e.get("changes"))
+        .and_then(|c| c.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|c| c.get("value"))
+        .and_then(|v| v.get("messages"))
+        .and_then(|m| m.as_array())
+        .and_then(|arr| arr.first());
+    // Use Cloud API message if available, otherwise fall back to flat format
+    let msg = cloud_msg.unwrap_or(&body_val);
+    let text = msg
         .get("text")
         .and_then(|t| t.get("body"))
         .and_then(Value::as_str)
+        .or_else(|| msg.get("text").and_then(Value::as_str))
         .unwrap_or("")
         .to_string();
-    let from = body_val
+    let from = msg
         .get("from")
         .and_then(Value::as_str)
         .map(str::to_string);
-    let envelope = build_whatsapp_envelope(text.clone(), from.clone());
+    // Extract phone_number_id from Cloud API metadata
+    let cloud_phone_id = body_val
+        .get("entry")
+        .and_then(|e| e.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|e| e.get("changes"))
+        .and_then(|c| c.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|c| c.get("value"))
+        .and_then(|v| v.get("metadata"))
+        .and_then(|m| m.get("phone_number_id"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let envelope = build_whatsapp_envelope(text.clone(), from.clone(), cloud_phone_id);
     let normalized = json!({
         "ok": true,
         "event": body_val,
@@ -1021,12 +1054,20 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
         .clone()
         .filter(|t| !t.trim().is_empty())
         .unwrap_or_else(|| "universal whatsapp payload".to_string());
+    // Destination: try metadata["from"] (ingress path), then message.to[0].id (demo send path)
     let to_id = encode_in
         .message
         .metadata
         .get("from")
         .cloned()
+        .or_else(|| encode_in.message.to.first().map(|d| d.id.clone()))
         .unwrap_or_else(|| "whatsapp-user".to_string());
+    let to_kind = encode_in
+        .message
+        .to
+        .first()
+        .and_then(|d| d.kind.clone())
+        .unwrap_or_else(|| "phone".to_string());
     let phone_number_id = encode_in
         .message
         .metadata
@@ -1034,11 +1075,13 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
         .cloned()
         .unwrap_or_else(|| "phone-universal".to_string());
     let to = json!({
-        "kind": "user",
+        "kind": to_kind,
         "id": to_id,
     });
     let config = json!({
         "phone_number_id": phone_number_id,
+        "enabled": true,
+        "public_base_url": "https://localhost",
     });
     let payload_body = json!({
         "text": text,
@@ -1101,12 +1144,14 @@ fn forward_send_payload(payload: &Value) -> Result<(), String> {
     }
 }
 
-fn build_whatsapp_envelope(text: String, from: Option<String>) -> ChannelMessageEnvelope {
+fn build_whatsapp_envelope(text: String, from: Option<String>, phone_number_id: Option<String>) -> ChannelMessageEnvelope {
     let env = EnvId::try_from("default").expect("env id");
     let tenant = TenantId::try_from("default").expect("tenant id");
     let mut metadata = MessageMetadata::new();
     metadata.insert("universal".to_string(), "true".to_string());
     metadata.insert("channel_id".to_string(), "whatsapp".to_string());
+    let pnid = phone_number_id.unwrap_or_else(|| "unknown".to_string());
+    metadata.insert("phone_number_id".to_string(), pnid);
     let sender = from.map(|id| Actor {
         id,
         kind: Some("user".into()),
@@ -1114,6 +1159,11 @@ fn build_whatsapp_envelope(text: String, from: Option<String>) -> ChannelMessage
     if let Some(actor) = &sender {
         metadata.insert("from".to_string(), actor.id.clone());
     }
+    let destinations = if let Some(actor) = &sender {
+        vec![Destination { id: actor.id.clone(), kind: Some("phone".into()) }]
+    } else {
+        Vec::new()
+    };
     ChannelMessageEnvelope {
         id: format!("whatsapp-{}", text),
         tenant: TenantCtx::new(env.clone(), tenant.clone()),
@@ -1121,7 +1171,7 @@ fn build_whatsapp_envelope(text: String, from: Option<String>) -> ChannelMessage
         session_id: "whatsapp".to_string(),
         reply_scope: None,
         from: sender,
-        to: Vec::new(),
+        to: destinations,
         correlation_id: None,
         text: Some(text),
         attachments: Vec::new(),
@@ -1139,25 +1189,6 @@ fn parse_query(query: &Option<String>) -> Option<HashMap<String, String>> {
         }
     }
     if map.is_empty() { None } else { Some(map) }
-}
-
-/// Serialize HttpOutV1 with "v":1 for operator v0.4.x compatibility.
-fn http_out_v1_bytes(out: &HttpOutV1) -> Vec<u8> {
-    let mut val = serde_json::to_value(out).unwrap_or(Value::Null);
-    if let Some(map) = val.as_object_mut() {
-        map.insert("v".to_string(), json!(1));
-    }
-    serde_json::to_vec(&val).unwrap_or_default()
-}
-
-fn http_out_error(status: u16, message: &str) -> Vec<u8> {
-    let out = HttpOutV1 {
-        status,
-        headers: Vec::new(),
-        body_b64: general_purpose::STANDARD.encode(message.as_bytes()),
-        events: Vec::new(),
-    };
-    http_out_v1_bytes(&out)
 }
 
 fn render_plan_error(message: &str) -> Vec<u8> {
@@ -1482,5 +1513,66 @@ mod tests {
             .and_then(Value::as_str)
             .unwrap_or_default();
         assert!(error.contains("public_base_url"));
+    }
+
+    #[test]
+    fn ingest_http_cloud_api_webhook() {
+        let webhook_body = json!({
+            "object": "whatsapp_business_account",
+            "entry": [{
+                "id": "123456",
+                "changes": [{
+                    "value": {
+                        "messaging_product": "whatsapp",
+                        "metadata": {"display_phone_number": "1234567890", "phone_number_id": "100875836196955"},
+                        "contacts": [{"profile": {"name": "Test User"}, "wa_id": "6282371863566"}],
+                        "messages": [{
+                            "from": "6282371863566",
+                            "id": "wamid.test123",
+                            "timestamp": "1708000000",
+                            "text": {"body": "Halo dari WhatsApp!"},
+                            "type": "text"
+                        }]
+                    },
+                    "field": "messages"
+                }]
+            }]
+        });
+        let body_bytes = serde_json::to_vec(&webhook_body).unwrap();
+        let body_b64 = general_purpose::STANDARD.encode(&body_bytes);
+        // Simulate EXACT operator format (v, provider, query as tuples, headers as tuples)
+        let http_in = json!({
+            "v": 1,
+            "provider": "messaging-whatsapp",
+            "method": "POST",
+            "path": "/messaging/ingress/messaging-whatsapp/default/_/",
+            "body_b64": body_b64,
+            "headers": [["content-type", "application/json"]],
+            "query": [],
+            "tenant_hint": "default",
+            "team_hint": "_"
+        });
+        let input = serde_json::to_vec(&http_in).unwrap();
+        let result_bytes = ingest_http(&input);
+        let result: Value = serde_json::from_slice(&result_bytes).unwrap();
+        // Check events array
+        let events = result.get("events").and_then(Value::as_array).expect("events array");
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.get("text").and_then(Value::as_str), Some("Halo dari WhatsApp!"));
+        assert_eq!(
+            event.get("metadata").and_then(|m| m.get("from")).and_then(Value::as_str),
+            Some("6282371863566")
+        );
+        assert_eq!(
+            event.get("metadata").and_then(|m| m.get("phone_number_id")).and_then(Value::as_str),
+            Some("100875836196955")
+        );
+        // Check body_b64 response contains the event
+        let resp_body_b64 = result.get("body_b64").and_then(Value::as_str).unwrap();
+        let resp_bytes = general_purpose::STANDARD.decode(resp_body_b64).unwrap();
+        let resp: Value = serde_json::from_slice(&resp_bytes).unwrap();
+        assert_eq!(resp.get("text").and_then(Value::as_str), Some("Halo dari WhatsApp!"));
+        assert_eq!(resp.get("from").and_then(Value::as_str), Some("6282371863566"));
     }
 }

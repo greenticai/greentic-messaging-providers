@@ -3758,9 +3758,11 @@ name = "provider-common"
 version = "0.4.34"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "ciborium",
  "glob",
  "greentic-runner-desktop",
+ "greentic-types",
  "once_cell",
  "schemars 1.2.1",
  "serde",

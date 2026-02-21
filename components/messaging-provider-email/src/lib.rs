@@ -11,11 +11,12 @@ use provider_common::component_v0_6::{
     SchemaField, SchemaIr, canonical_cbor_bytes, decode_cbor, default_en_i18n_messages,
     schema_hash,
 };
+use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in_with_config};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
-use urlencoding::decode as url_decode;
+use urlencoding::{decode as url_decode, encode as url_encode};
 
 mod bindings {
     wit_bindgen::generate!({
@@ -834,9 +835,13 @@ fn handle_reply(_input_json: &[u8]) -> Vec<u8> {
 }
 
 fn ingest_http(input_json: &[u8]) -> Vec<u8> {
+    // Try native greentic-types format first, fall back to operator format
     let http = match serde_json::from_slice::<HttpInV1>(input_json) {
         Ok(value) => value,
-        Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+        Err(_) => match parse_operator_http_in_with_config(input_json) {
+            Ok(req) => req,
+            Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+        },
     };
     match http.method.to_uppercase().as_str() {
         "GET" => handle_validation(&http),
@@ -890,18 +895,26 @@ fn encode_op(input_json: &[u8]) -> Vec<u8> {
         .clone()
         .filter(|t| !t.trim().is_empty())
         .unwrap_or_else(|| "universal email payload".to_string());
+    // Extract destination email from envelope.to[0].id (preferred) or metadata
     let to = encode_in
         .message
-        .metadata
-        .get("to")
-        .cloned()
-        .unwrap_or_else(|| "recipient@example.com".to_string());
+        .to
+        .first()
+        .map(|d| d.id.clone())
+        .or_else(|| encode_in.message.metadata.get("to").cloned())
+        .unwrap_or_default();
+    if to.is_empty() {
+        return encode_error("missing email target");
+    }
     let subject = encode_in
         .message
         .metadata
         .get("subject")
         .cloned()
-        .unwrap_or_else(|| "universal subject".to_string());
+        .unwrap_or_else(|| {
+            // Use text as subject if no explicit subject
+            text.chars().take(78).collect::<String>()
+        });
     let payload_body = json!({
         "to": to.clone(),
         "subject": subject.clone(),
@@ -960,10 +973,6 @@ fn send_payload(input_json: &[u8]) -> Vec<u8> {
     if subject.is_empty() {
         return send_payload_error("subject required", false);
     }
-    let auth_user = match send_in.auth_user {
-        Some(user) => user,
-        None => return send_payload_error("auth_user missing", false),
-    };
     let mut config_value = serde_json::Map::new();
     for key in [
         "enabled",
@@ -990,9 +999,19 @@ fn send_payload(input_json: &[u8]) -> Vec<u8> {
             Err(err) => return send_payload_error(&err, false),
         }
     } else {
-        return send_payload_error("config metadata required for send_payload", false);
+        // Metadata unavailable (operator uses metadata_json, not metadata).
+        // Build a minimal config from secrets for Graph API send.
+        match config_from_secrets() {
+            Ok(cfg) => cfg,
+            Err(err) => return send_payload_error(&err, false),
+        }
     };
-    let token = match auth::acquire_graph_token(&cfg, &auth_user) {
+    let token = if let Some(user) = &send_in.auth_user {
+        auth::acquire_graph_token(&cfg, user)
+    } else {
+        auth::acquire_graph_token_from_store(&cfg)
+    };
+    let token = match token {
         Ok(value) => value,
         Err(err) => return send_payload_error(&err, true),
     };
@@ -1006,30 +1025,20 @@ fn send_payload(input_json: &[u8]) -> Vec<u8> {
         },
         "saveToSentItems": false
     });
-    let url = format!("{}/me/sendMail", graph_base_url(&cfg));
+    // Use /me/sendMail for delegated tokens, /users/{from}/sendMail for app-only
+    let url = if send_in.auth_user.is_some() {
+        format!("{}/me/sendMail", graph_base_url(&cfg))
+    } else {
+        format!(
+            "{}/users/{}/sendMail",
+            graph_base_url(&cfg),
+            url_encode(&cfg.from_address)
+        )
+    };
     if let Err(err) = graph_post(&token, &url, &mail_body) {
         return send_payload_error(&err, true);
     }
     send_payload_success()
-}
-
-/// Serialize HttpOutV1 with "v":1 for operator v0.4.x compatibility.
-fn http_out_v1_bytes(out: &HttpOutV1) -> Vec<u8> {
-    let mut val = serde_json::to_value(out).unwrap_or(Value::Null);
-    if let Some(map) = val.as_object_mut() {
-        map.insert("v".to_string(), json!(1));
-    }
-    serde_json::to_vec(&val).unwrap_or_default()
-}
-
-fn http_out_error(status: u16, message: &str) -> Vec<u8> {
-    let out = HttpOutV1 {
-        status,
-        headers: Vec::new(),
-        body_b64: STANDARD.encode(message.as_bytes()),
-        events: Vec::new(),
-    };
-    http_out_v1_bytes(&out)
 }
 
 fn render_plan_error(message: &str) -> Vec<u8> {
@@ -1277,6 +1286,36 @@ fn parse_datetime_value(unix_ms: u64) -> Option<DateTime<Utc>> {
     Utc.timestamp_millis_opt(unix_ms as i64).single()
 }
 
+/// Build a minimal ProviderConfig from secrets for the Graph API send path.
+/// This is used when the operator doesn't pass config via payload metadata.
+fn config_from_secrets() -> Result<ProviderConfig, String> {
+    let from_address = auth::get_secret_any_case("from_address")
+        .or_else(|_| auth::get_secret_any_case("FROM_ADDRESS"))
+        .unwrap_or_default();
+    let graph_tenant_id = auth::get_secret_any_case("graph_tenant_id")
+        .or_else(|_| auth::get_secret_any_case("GRAPH_TENANT_ID"))
+        .ok();
+    if from_address.is_empty() {
+        return Err("from_address not found in secrets (seed 'from_address' secret)".to_string());
+    }
+    Ok(ProviderConfig {
+        enabled: true,
+        public_base_url: "https://localhost".to_string(),
+        host: "unused".to_string(),
+        port: 587,
+        username: from_address.clone(),
+        from_address,
+        tls_mode: "starttls".to_string(),
+        default_to_address: None,
+        graph_tenant_id,
+        graph_authority: None,
+        graph_base_url: None,
+        graph_token_endpoint: None,
+        graph_scope: None,
+        password: None,
+    })
+}
+
 fn graph_base_url(cfg: &ProviderConfig) -> String {
     cfg.graph_base_url
         .as_ref()
@@ -1325,7 +1364,16 @@ fn graph_request(
     let resp = client::send(&request, None, None)
         .map_err(|e| format!("graph request error: {}", e.message))?;
     if resp.status < 200 || resp.status >= 300 {
-        return Err(format!("graph request returned {}", resp.status));
+        let err_body = resp
+            .body
+            .as_deref()
+            .and_then(|b| std::str::from_utf8(b).ok())
+            .unwrap_or("");
+        return Err(format!(
+            "graph request returned {} body={}",
+            resp.status,
+            &err_body[..err_body.len().min(500)]
+        ));
     }
     let body = match resp.body {
         Some(body) if !body.is_empty() => body,
@@ -1514,10 +1562,16 @@ fn channel_message_envelope(
     }
     if !from_address.is_empty() {
         metadata.insert("from".to_string(), from_address.to_string());
+        metadata.insert("to".to_string(), from_address.to_string());
     }
     metadata.insert("resource".to_string(), resource.to_string());
     let env = default_env();
     let tenant = default_tenant();
+    let destinations = if !from_address.is_empty() {
+        vec![Destination { id: from_address.to_string(), kind: Some("email".into()) }]
+    } else {
+        Vec::new()
+    };
     ChannelMessageEnvelope {
         id: format!("email-{message_id}"),
         tenant: TenantCtx::new(env, tenant),
@@ -1528,7 +1582,7 @@ fn channel_message_envelope(
             id: user.user_id.clone(),
             kind: Some("user".into()),
         }),
-        to: Vec::new(),
+        to: destinations,
         correlation_id: Some(resource.to_string()),
         text: Some(subject),
         attachments: Vec::new(),

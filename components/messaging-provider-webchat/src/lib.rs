@@ -8,6 +8,7 @@ use provider_common::component_v0_6::{
     DescribePayload, I18nText, OperationDescriptor, QaQuestionSpec, QaSpec, SchemaField, SchemaIr,
     canonical_cbor_bytes, decode_cbor, default_en_i18n_messages, schema_hash,
 };
+use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -23,6 +24,9 @@ mod bindings {
 mod directline;
 
 use bindings::greentic::state::state_store;
+use directline::jwt::DirectLineContext;
+use directline::state::{StoredActivity, conversation_key};
+use directline::store::StateStore as _;
 use directline::{HostSecretStore, HostStateStore, handle_directline_request};
 
 const PROVIDER_ID: &str = "messaging-provider-webchat";
@@ -657,14 +661,64 @@ fn handle_ingest(input_json: &[u8]) -> Vec<u8> {
 }
 
 fn ingest_http(input_json: &[u8]) -> Vec<u8> {
+    // Try native greentic-types format first, fall back to operator format
     let request = match serde_json::from_slice::<HttpInV1>(input_json) {
         Ok(req) => req,
-        Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+        Err(_) => match parse_operator_http_in(input_json) {
+            Ok(req) => req,
+            Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+        },
     };
-    if request.path.starts_with("/v3/directline") {
+    // Extract Direct Line sub-path from operator-prefixed or direct paths.
+    // Operator forwards full URI like /messaging/ingress/webchat/default/_/v3/directline/...
+    if let Some(offset) = request.path.find("/v3/directline") {
+        let dl_path = &request.path[offset..];
+        let dl_request = HttpInV1 {
+            method: request.method.clone(),
+            path: dl_path.to_string(),
+            query: request.query.clone(),
+            headers: request.headers.clone(),
+            body_b64: request.body_b64.clone(),
+            route_hint: request.route_hint.clone(),
+            binding_id: request.binding_id.clone(),
+            config: request.config.clone(),
+        };
         let mut state_driver = HostStateStore;
         let secrets_driver = HostSecretStore;
-        let out = handle_directline_request(&request, &mut state_driver, &secrets_driver);
+        let mut out = handle_directline_request(&dl_request, &mut state_driver, &secrets_driver);
+
+        // Emit ChannelMessageEnvelope for POST /activities so the operator can
+        // forward user messages to the flow engine.
+        if request.method.eq_ignore_ascii_case("POST")
+            && dl_path.contains("/activities")
+            && out.status == 201
+        {
+            if let Ok(body_bytes) = general_purpose::STANDARD.decode(&request.body_b64) {
+                if let Ok(body) = serde_json::from_slice::<Value>(&body_bytes) {
+                    let text = extract_text(&body);
+                    let user = body
+                        .get("from")
+                        .and_then(|f| f.get("id"))
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+                    // Extract conversation_id from the path
+                    let conv_id = dl_path
+                        .strip_prefix("/v3/directline/conversations/")
+                        .and_then(|rest| rest.split('/').next())
+                        .map(|s| s.to_string());
+                    if !text.is_empty() {
+                        let envelope = build_webchat_envelope(
+                            text,
+                            user,
+                            conv_id.clone(),
+                            None,
+                        );
+                        out.events.push(envelope);
+                    }
+                }
+            }
+        }
+
         return http_out_v1_bytes(&out);
     }
     let body_bytes = match general_purpose::STANDARD.decode(&request.body_b64) {
@@ -793,6 +847,13 @@ fn persist_send_payload(payload: &Value) -> Result<(), String> {
     if text.is_empty() {
         return Err("text required".into());
     }
+
+    // If session_id is present, try to append the bot response as a Direct Line
+    // activity so that GET /activities polling returns it to the frontend.
+    if let Some(session_id) = value_as_trimmed_string(payload.get("session_id")) {
+        let _ = append_bot_activity_to_conversation(&session_id, &text);
+    }
+
     let public_base_url = public_base_url_from_value(payload);
     let stored = json!({
         "route": route,
@@ -804,6 +865,47 @@ fn persist_send_payload(payload: &Value) -> Result<(), String> {
     });
     state_store::write(&key, &json_bytes(&stored), None)
         .map_err(|err| format!("state write error: {}", err.message))?;
+    Ok(())
+}
+
+/// Append a bot-originated activity to the Direct Line conversation state.
+/// Uses default context (env=default, tenant=default, team=_) matching the demo setup.
+/// Best-effort: silently ignores errors (conversation may not exist).
+fn append_bot_activity_to_conversation(conversation_id: &str, text: &str) -> Result<(), String> {
+    let ctx = DirectLineContext {
+        env: "default".into(),
+        tenant: "default".into(),
+        team: None,
+    };
+    let conv_key = conversation_key(&ctx, conversation_id);
+    let mut store = HostStateStore;
+
+    let conv_bytes = match store.read(&conv_key) {
+        Ok(Some(bytes)) => bytes,
+        _ => return Ok(()), // conversation not found, skip silently
+    };
+
+    let mut conversation: directline::state::ConversationState =
+        serde_json::from_slice(&conv_bytes).map_err(|e| e.to_string())?;
+
+    let watermark = conversation.bump_watermark();
+    let activity = StoredActivity {
+        id: format!("bot-{watermark}"),
+        type_: "message".to_string(),
+        text: Some(text.to_string()),
+        from: Some("bot".to_string()),
+        timestamp: chrono::Utc::now().timestamp_millis(),
+        watermark,
+        raw: json!({
+            "type": "message",
+            "text": text,
+            "from": {"id": "bot", "name": "Bot"},
+        }),
+    };
+    conversation.activities.push(activity);
+
+    let updated = serde_json::to_vec(&conversation).map_err(|e| e.to_string())?;
+    store.write(&conv_key, &updated)?;
     Ok(())
 }
 
@@ -889,24 +991,6 @@ fn non_empty_string(value: Option<&str>) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-/// Serialize HttpOutV1 with "v":1 for operator v0.4.x compatibility.
-fn http_out_v1_bytes(out: &HttpOutV1) -> Vec<u8> {
-    let mut val = serde_json::to_value(out).unwrap_or(Value::Null);
-    if let Some(map) = val.as_object_mut() {
-        map.insert("v".to_string(), json!(1));
-    }
-    serde_json::to_vec(&val).unwrap_or_default()
-}
-
-fn http_out_error(status: u16, message: &str) -> Vec<u8> {
-    let out = HttpOutV1 {
-        status,
-        headers: Vec::new(),
-        body_b64: general_purpose::STANDARD.encode(message.as_bytes()),
-        events: Vec::new(),
-    };
-    http_out_v1_bytes(&out)
-}
 
 fn render_plan_error(message: &str) -> Vec<u8> {
     json_bytes(&json!({"ok": false, "error": message}))

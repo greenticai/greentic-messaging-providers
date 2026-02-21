@@ -11,6 +11,7 @@ use provider_common::component_v0_6::{
     SchemaField, SchemaIr, canonical_cbor_bytes, decode_cbor, default_en_i18n_messages,
     schema_hash,
 };
+use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -820,9 +821,13 @@ fn handle_reply(input_json: &[u8]) -> Vec<u8> {
 }
 
 fn ingest_http(input_json: &[u8]) -> Vec<u8> {
+    // Try native greentic-types format first, fall back to operator format
     let request = match serde_json::from_slice::<HttpInV1>(input_json) {
         Ok(req) => req,
-        Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+        Err(_) => match parse_operator_http_in(input_json) {
+            Ok(req) => req,
+            Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+        },
     };
     let body_bytes = match STANDARD.decode(&request.body_b64) {
         Ok(bytes) => bytes,
@@ -984,6 +989,14 @@ fn build_telegram_envelope(
         id,
         kind: Some("user".into()),
     });
+    let destinations = if let Some(chat) = &chat_id {
+        vec![Destination {
+            id: chat.clone(),
+            kind: Some("chat".into()),
+        }]
+    } else {
+        Vec::new()
+    };
     ChannelMessageEnvelope {
         id: format!("telegram-{channel}"),
         tenant: TenantCtx::new(env.clone(), tenant.clone()),
@@ -991,7 +1004,7 @@ fn build_telegram_envelope(
         session_id: chat_id.clone().unwrap_or_else(|| "telegram".to_string()),
         reply_scope: None,
         from: sender,
-        to: Vec::new(),
+        to: destinations,
         correlation_id: None,
         text: Some(text),
         attachments: Vec::new(),
@@ -1068,25 +1081,6 @@ fn extract_from_user(value: &Value) -> Option<String> {
         .and_then(|from| from.get("id"))
         .and_then(Value::as_i64)
         .map(|id| id.to_string())
-}
-
-/// Serialize HttpOutV1 with "v":1 for operator v0.4.x compatibility.
-fn http_out_v1_bytes(out: &HttpOutV1) -> Vec<u8> {
-    let mut val = serde_json::to_value(out).unwrap_or(Value::Null);
-    if let Some(map) = val.as_object_mut() {
-        map.insert("v".to_string(), json!(1));
-    }
-    serde_json::to_vec(&val).unwrap_or_default()
-}
-
-fn http_out_error(status: u16, message: &str) -> Vec<u8> {
-    let out = HttpOutV1 {
-        status,
-        headers: Vec::new(),
-        body_b64: STANDARD.encode(message.as_bytes()),
-        events: Vec::new(),
-    };
-    http_out_v1_bytes(&out)
 }
 
 fn render_plan_error(message: &str) -> Vec<u8> {

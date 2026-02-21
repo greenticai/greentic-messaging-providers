@@ -10,6 +10,7 @@ use provider_common::component_v0_6::{
     DescribePayload, I18nText, OperationDescriptor, QaQuestionSpec, QaSpec, RedactionRule,
     SchemaField, SchemaIr, canonical_cbor_bytes, decode_cbor, schema_hash,
 };
+use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -1025,16 +1026,27 @@ fn json_bytes<T: serde::Serialize>(value: &T) -> Vec<u8> {
 }
 
 fn ingest_http(input_json: &[u8]) -> Vec<u8> {
+    // Try native greentic-types format first, fall back to operator format
     let request = match serde_json::from_slice::<HttpInV1>(input_json) {
         Ok(req) => req,
-        Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+        Err(_) => match parse_operator_http_in(input_json) {
+            Ok(req) => req,
+            Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
+        },
     };
     let body_bytes = match STANDARD.decode(&request.body_b64) {
         Ok(bytes) => bytes,
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
     let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
-    let payload = body_val.get("body").cloned().unwrap_or(Value::Null);
+    // Slack Events API: {"type":"event_callback","event":{...}}
+    // Legacy/generic:   {"body":{...}}
+    // Flat:             {"text":"...","channel":"..."}
+    let payload = body_val
+        .get("event")
+        .or_else(|| body_val.get("body"))
+        .cloned()
+        .unwrap_or_else(|| body_val.clone());
     let text = payload
         .get("text")
         .and_then(Value::as_str)
@@ -1193,25 +1205,6 @@ fn metadata_string(metadata: &BTreeMap<String, Value>, key: &str) -> Option<Stri
         .and_then(|value| value.as_str().map(|s| s.to_string()))
 }
 
-/// Serialize HttpOutV1 with "v":1 for operator v0.4.x compatibility.
-fn http_out_v1_bytes(out: &HttpOutV1) -> Vec<u8> {
-    let mut val = serde_json::to_value(out).unwrap_or(Value::Null);
-    if let Some(map) = val.as_object_mut() {
-        map.insert("v".to_string(), json!(1));
-    }
-    serde_json::to_vec(&val).unwrap_or_default()
-}
-
-fn http_out_error(status: u16, message: &str) -> Vec<u8> {
-    let out = HttpOutV1 {
-        status,
-        headers: Vec::new(),
-        body_b64: STANDARD.encode(message.as_bytes()),
-        events: Vec::new(),
-    };
-    http_out_v1_bytes(&out)
-}
-
 fn render_plan_error(message: &str) -> Vec<u8> {
     json_bytes(&json!({"ok": false, "error": message}))
 }
@@ -1240,6 +1233,14 @@ fn build_slack_envelope(
         id,
         kind: Some("user".into()),
     });
+    let destinations = if let Some(ch) = &channel {
+        vec![Destination {
+            id: ch.clone(),
+            kind: None,
+        }]
+    } else {
+        Vec::new()
+    };
     ChannelMessageEnvelope {
         id: format!("slack-{channel_name}"),
         tenant: TenantCtx::new(env.clone(), tenant.clone()),
@@ -1247,7 +1248,7 @@ fn build_slack_envelope(
         session_id: channel_name,
         reply_scope: None,
         from: actor,
-        to: Vec::new(),
+        to: destinations,
         correlation_id: None,
         text: Some(text),
         attachments: Vec::new(),
