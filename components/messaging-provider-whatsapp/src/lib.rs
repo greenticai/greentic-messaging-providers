@@ -298,6 +298,26 @@ impl bindings::exports::greentic::component::component_i18n::Guest for Component
     }
 }
 
+// Backward-compatible schema-core-api export for operator v0.4.x
+impl bindings::exports::greentic::provider_schema_core::schema_core_api::Guest for Component {
+    fn describe() -> Vec<u8> {
+        serde_json::to_vec(&build_describe_payload()).unwrap_or_default()
+    }
+
+    fn validate_config(_config_json: Vec<u8>) -> Vec<u8> {
+        json_bytes(&json!({"ok": true}))
+    }
+
+    fn healthcheck() -> Vec<u8> {
+        json_bytes(&json!({"status": "healthy"}))
+    }
+
+    fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
+        let op = if op == "run" { "send".to_string() } else { op };
+        dispatch_json_invoke(&op, &input_json)
+    }
+}
+
 bindings::export!(Component with_types_in bindings);
 
 fn default_enabled() -> bool {
@@ -922,7 +942,7 @@ fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             body_b64: general_purpose::STANDARD.encode(challenge.as_bytes()),
             events: Vec::new(),
         };
-        return json_bytes(&out);
+        return http_out_v1_bytes(&out);
     }
     let body_bytes = match general_purpose::STANDARD.decode(&request.body_b64) {
         Ok(bytes) => bytes,
@@ -953,7 +973,7 @@ fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         body_b64: general_purpose::STANDARD.encode(&normalized_bytes),
         events: vec![envelope],
     };
-    json_bytes(&out)
+    http_out_v1_bytes(&out)
 }
 
 fn render_plan(input_json: &[u8]) -> Vec<u8> {
@@ -961,18 +981,27 @@ fn render_plan(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return render_plan_error(&format!("invalid render input: {err}")),
     };
-    let summary = plan_in
-        .message
-        .text
-        .clone()
-        .filter(|text| !text.trim().is_empty())
+    let ac_summary = provider_common::extract_ac_text_summary(&plan_in.message.metadata);
+    let summary = ac_summary
+        .or_else(|| {
+            plan_in
+                .message
+                .text
+                .clone()
+                .filter(|text| !text.trim().is_empty())
+        })
         .unwrap_or_else(|| "whatsapp message".to_string());
+    let mut warnings: Vec<Value> = Vec::new();
+    if plan_in.message.metadata.contains_key("adaptive_card") {
+        warnings
+            .push(json!({"code": "adaptive_cards_not_supported", "message": null, "path": null}));
+    }
     let plan_obj = json!({
         "tier": "TierD",
         "summary_text": summary,
         "actions": [],
         "attachments": [],
-        "warnings": [],
+        "warnings": warnings,
         "debug": plan_in.metadata,
     });
     let plan_json =
@@ -1112,6 +1141,15 @@ fn parse_query(query: &Option<String>) -> Option<HashMap<String, String>> {
     if map.is_empty() { None } else { Some(map) }
 }
 
+/// Serialize HttpOutV1 with "v":1 for operator v0.4.x compatibility.
+fn http_out_v1_bytes(out: &HttpOutV1) -> Vec<u8> {
+    let mut val = serde_json::to_value(out).unwrap_or(Value::Null);
+    if let Some(map) = val.as_object_mut() {
+        map.insert("v".to_string(), json!(1));
+    }
+    serde_json::to_vec(&val).unwrap_or_default()
+}
+
 fn http_out_error(status: u16, message: &str) -> Vec<u8> {
     let out = HttpOutV1 {
         status,
@@ -1119,7 +1157,7 @@ fn http_out_error(status: u16, message: &str) -> Vec<u8> {
         body_b64: general_purpose::STANDARD.encode(message.as_bytes()),
         events: Vec::new(),
     };
-    json_bytes(&out)
+    http_out_v1_bytes(&out)
 }
 
 fn render_plan_error(message: &str) -> Vec<u8> {

@@ -14,7 +14,7 @@ ARTIFACT_PATH="${TARGET_DIR_OVERRIDE}/release/${ARTIFACT_NAME}"
 NESTED_ARTIFACT_PATH="${TARGET_DIR_OVERRIDE}/${BUILD_TARGET}/release/${ARTIFACT_NAME}"
 NESTED_WASIP1_PATH="${TARGET_DIR_OVERRIDE}/wasm32-wasip1/release/${ARTIFACT_NAME}"
 
-cargo component build --release --package "${PACKAGE_NAME}" --target "${BUILD_TARGET}" --target-dir "${TARGET_DIR_OVERRIDE}"
+cargo build --release --package "${PACKAGE_NAME}" --target "${BUILD_TARGET}" --target-dir "${TARGET_DIR_OVERRIDE}"
 
 if [ ! -f "${ARTIFACT_PATH}" ] && [ -f "${NESTED_ARTIFACT_PATH}" ]; then
   ARTIFACT_PATH="${NESTED_ARTIFACT_PATH}"

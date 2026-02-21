@@ -10,4 +10,5 @@ world component-v0-v6-v0 {
     export runtime;
     export qa;
     export component-i18n;
+    export greentic:provider-schema-core/schema-core-api@1.0.0;
 }
