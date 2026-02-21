@@ -1,4 +1,5 @@
 pub mod component_v0_6;
+pub mod http_compat;
 pub mod lifecycle_keys;
 
 use serde::{Deserialize, Serialize};

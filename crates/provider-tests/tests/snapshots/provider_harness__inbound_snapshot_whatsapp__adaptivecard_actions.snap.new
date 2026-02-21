@@ -1,22 +1,25 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 359
 expression: value
 ---
 {
   "event": {
-    "channel": "slack",
+    "channel": "whatsapp",
     "id": "<FIXED>",
     "metadata": {
+      "channel_id": "whatsapp",
+      "phone_number_id": "unknown",
       "universal": "true"
     },
-    "session_id": "slack",
+    "session_id": "whatsapp",
     "tenant": {
       "attempt": 0,
       "env": "default",
       "tenant": "default",
       "tenant_id": "default"
     },
-    "text": "adaptivecard columns message from slack"
+    "text": "adaptivecard actions message from whatsapp"
   },
   "ok": true
 }

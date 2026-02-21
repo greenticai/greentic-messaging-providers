@@ -41,6 +41,11 @@ where
         return respond_not_found("missing directline prefix");
     }
 
+    // Handle CORS preflight requests
+    if method_is(request, "OPTIONS") {
+        return respond_cors_preflight();
+    }
+
     let segments = request
         .path
         .trim_start_matches('/')
@@ -552,10 +557,24 @@ fn method_is(request: &HttpInV1, method: &str) -> bool {
 }
 
 fn json_headers() -> Vec<Header> {
-    vec![Header {
-        name: "Content-Type".to_string(),
-        value: JSON_CONTENT_TYPE.to_string(),
-    }]
+    vec![
+        Header {
+            name: "Content-Type".to_string(),
+            value: JSON_CONTENT_TYPE.to_string(),
+        },
+        Header {
+            name: "Access-Control-Allow-Origin".to_string(),
+            value: "*".to_string(),
+        },
+        Header {
+            name: "Access-Control-Allow-Headers".to_string(),
+            value: "Authorization, Content-Type".to_string(),
+        },
+        Header {
+            name: "Access-Control-Allow-Methods".to_string(),
+            value: "GET, POST, OPTIONS".to_string(),
+        },
+    ]
 }
 
 fn respond_json(status: u16, payload: Value) -> HttpOutV1 {
@@ -604,6 +623,15 @@ fn respond_unauthorized(message: &str) -> HttpOutV1 {
 
 fn respond_forbidden(message: &str) -> HttpOutV1 {
     respond_error(403, "forbidden", message)
+}
+
+fn respond_cors_preflight() -> HttpOutV1 {
+    HttpOutV1 {
+        status: 204,
+        headers: json_headers(),
+        body_b64: String::new(),
+        events: Vec::new(),
+    }
 }
 
 #[cfg(test)]
