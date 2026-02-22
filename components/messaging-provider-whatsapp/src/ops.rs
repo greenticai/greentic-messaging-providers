@@ -102,12 +102,99 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         api_base, api_version, cfg.phone_number_id
     );
 
-    let payload = json!({
-        "messaging_product": "whatsapp",
-        "to": dest_id,
-        "type": "text",
-        "text": {"body": text},
-    });
+    // Check for WhatsApp-specific rich content from AC conversion.
+    let wa_buttons: Vec<Value> = parsed
+        .get("wa_buttons")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let wa_image = parsed
+        .get("wa_image")
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
+    let wa_header = parsed
+        .get("wa_header")
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
+
+    // Send image first if present.
+    if let Some(ref image_url) = wa_image {
+        let caption: String = text.chars().take(1024).collect();
+        let image_payload = json!({
+            "messaging_product": "whatsapp",
+            "to": dest_id,
+            "type": "image",
+            "image": { "link": image_url, "caption": caption }
+        });
+        let image_req = client::Request {
+            method: "POST".into(),
+            url: url.clone(),
+            headers: vec![
+                ("Content-Type".into(), "application/json".into()),
+                ("Authorization".into(), format!("Bearer {token}")),
+            ],
+            body: Some(serde_json::to_vec(&image_payload).unwrap_or_else(|_| b"{}".to_vec())),
+        };
+        // Send image (ignore errors — text/interactive message below is the important one).
+        let _ = client::send(&image_req, None, None);
+    }
+
+    // Build the main message payload.
+    let payload = if !wa_buttons.is_empty() {
+        // Interactive message with reply buttons (max 3).
+        let buttons: Vec<Value> = wa_buttons
+            .into_iter()
+            .take(3)
+            .enumerate()
+            .map(|(i, btn)| {
+                let title = btn
+                    .get("title")
+                    .and_then(Value::as_str)
+                    .unwrap_or("Button");
+                let truncated: String = title.chars().take(20).collect();
+                json!({
+                    "type": "reply",
+                    "reply": { "id": format!("btn_{i}"), "title": truncated }
+                })
+            })
+            .collect();
+        let body_text: String = text.chars().take(1024).collect();
+        let mut interactive = json!({
+            "type": "button",
+            "body": { "text": body_text },
+            "action": { "buttons": buttons }
+        });
+        if let Some(header) = wa_header {
+            let h: String = header.chars().take(60).collect();
+            interactive.as_object_mut().unwrap().insert(
+                "header".into(),
+                json!({ "type": "text", "text": h }),
+            );
+        }
+        json!({
+            "messaging_product": "whatsapp",
+            "to": dest_id,
+            "type": "interactive",
+            "interactive": interactive
+        })
+    } else if wa_image.is_some() {
+        // Image already sent above — skip text-only if no additional content.
+        // But if there are facts/columns beyond the image caption, send text too.
+        // We always send text as fallback after image.
+        json!({
+            "messaging_product": "whatsapp",
+            "to": dest_id,
+            "type": "text",
+            "text": {"body": text},
+        })
+    } else {
+        json!({
+            "messaging_product": "whatsapp",
+            "to": dest_id,
+            "type": "text",
+            "text": {"body": text},
+        })
+    };
 
     let request = client::Request {
         method: "POST".into(),
@@ -438,32 +525,41 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
-    // If the message carries an Adaptive Card, use the downsampled summary.
-    let ac_summary = encode_in
+
+    // If the message carries an Adaptive Card, extract rich content for WhatsApp.
+    let wa_content = encode_in
         .message
         .metadata
         .get("adaptive_card")
-        .and_then(|ac_raw| {
-            let caps = PlannerCapabilities {
-                supports_adaptive_cards: false,
-                supports_markdown: false,
-                supports_html: false,
-                supports_images: true,
-                supports_buttons: false,
-                max_text_len: Some(4096),
-                max_payload_bytes: None,
-            };
-            extract_ac_summary(ac_raw, &caps)
-        });
-    let text = ac_summary
-        .or_else(|| {
-            encode_in
-                .message
-                .text
-                .clone()
-                .filter(|t| !t.trim().is_empty())
-        })
-        .unwrap_or_else(|| "universal whatsapp payload".to_string());
+        .and_then(|ac_raw| ac_to_whatsapp(ac_raw));
+
+    let text = if let Some(ref content) = wa_content {
+        content.body.clone()
+    } else {
+        let caps = PlannerCapabilities {
+            supports_adaptive_cards: false,
+            supports_markdown: false,
+            supports_html: false,
+            supports_images: true,
+            supports_buttons: false,
+            max_text_len: Some(4096),
+            max_payload_bytes: None,
+        };
+        encode_in
+            .message
+            .metadata
+            .get("adaptive_card")
+            .and_then(|ac_raw| extract_ac_summary(ac_raw, &caps))
+            .or_else(|| {
+                encode_in
+                    .message
+                    .text
+                    .clone()
+                    .filter(|t| !t.trim().is_empty())
+            })
+            .unwrap_or_else(|| "universal whatsapp payload".to_string())
+    };
+
     // Destination: try metadata["from"] (ingress path), then message.to[0].id (demo send path)
     let to_id = encode_in
         .message
@@ -493,11 +589,27 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
         "enabled": true,
         "public_base_url": "https://localhost",
     });
-    let payload_body = json!({
+    let mut payload_body = json!({
         "text": text,
         "to": to,
         "config": config,
     });
+    // Store WhatsApp-specific content in the payload for handle_send.
+    if let Some(content) = wa_content {
+        let obj = payload_body.as_object_mut().unwrap();
+        if let Some(header) = content.header {
+            obj.insert("wa_header".into(), json!(header));
+        }
+        if let Some(image_url) = content.image_url {
+            obj.insert("wa_image".into(), json!(image_url));
+        }
+        if !content.buttons.is_empty() {
+            obj.insert(
+                "wa_buttons".into(),
+                json!(content.buttons),
+            );
+        }
+    }
     let body_bytes = serde_json::to_vec(&payload_body).unwrap_or_else(|_| b"{}".to_vec());
     let mut metadata = BTreeMap::new();
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
@@ -593,6 +705,269 @@ fn build_whatsapp_envelope(
         text: Some(text),
         attachments: Vec::new(),
         metadata,
+    }
+}
+
+// ─── Adaptive Card → WhatsApp converter ─────────────────────────────────
+
+/// Extracted WhatsApp content from an Adaptive Card.
+struct WhatsAppAcContent {
+    header: Option<String>,
+    body: String,
+    buttons: Vec<Value>,
+    image_url: Option<String>,
+}
+
+/// Convert an Adaptive Card JSON string into WhatsApp-native content.
+///
+/// WhatsApp supports:
+/// - Interactive messages with reply buttons (max 3, title max 20 chars)
+/// - Image messages with caption (max 1024 chars)
+/// - Plain text (max 4096 chars)
+fn ac_to_whatsapp(ac_raw: &str) -> Option<WhatsAppAcContent> {
+    let ac: Value = serde_json::from_str(ac_raw).ok()?;
+    let body_elements = ac.get("body").and_then(Value::as_array);
+    let top_actions = ac.get("actions").and_then(Value::as_array);
+
+    let mut header: Option<String> = None;
+    let mut lines: Vec<String> = Vec::new();
+    let mut buttons: Vec<Value> = Vec::new();
+    let mut image_url: Option<String> = None;
+
+    if let Some(elements) = body_elements {
+        for element in elements {
+            wa_extract_element(element, &mut header, &mut lines, &mut buttons, &mut image_url);
+        }
+    }
+    if let Some(actions) = top_actions {
+        wa_collect_buttons(actions, &mut buttons);
+    }
+
+    let body = lines.join("\n");
+    if body.trim().is_empty() {
+        return None;
+    }
+    // WhatsApp body max 4096 for text, 1024 for interactive.
+    let max = if buttons.is_empty() { 4096 } else { 1024 };
+    let body: String = body.chars().take(max).collect();
+
+    Some(WhatsAppAcContent {
+        header,
+        body,
+        buttons,
+        image_url,
+    })
+}
+
+/// Extract content from a single AC element for WhatsApp.
+fn wa_extract_element(
+    element: &Value,
+    header: &mut Option<String>,
+    lines: &mut Vec<String>,
+    buttons: &mut Vec<Value>,
+    image_url: &mut Option<String>,
+) {
+    let etype = element
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    match etype {
+        "TextBlock" => {
+            let text = element
+                .get("text")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .trim();
+            if text.is_empty() {
+                return;
+            }
+            let is_bold = element
+                .get("weight")
+                .and_then(Value::as_str)
+                .is_some_and(|w| w.eq_ignore_ascii_case("bolder"));
+            let size = element
+                .get("size")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+            let is_heading = element
+                .get("style")
+                .and_then(Value::as_str)
+                .is_some_and(|s| s.eq_ignore_ascii_case("heading"));
+
+            if (is_bold || is_heading || size == "large" || size == "extralarge")
+                && header.is_none()
+            {
+                *header = Some(text.to_string());
+            } else {
+                let formatted = if is_bold { format!("*{text}*") } else { text.to_string() };
+                lines.push(formatted);
+            }
+        }
+
+        "RichTextBlock" => {
+            if let Some(inlines) = element.get("inlines").and_then(Value::as_array) {
+                let mut line = String::new();
+                for inline in inlines {
+                    let text = inline
+                        .get("text")
+                        .and_then(Value::as_str)
+                        .or_else(|| inline.as_str())
+                        .unwrap_or_default();
+                    if !text.is_empty() {
+                        let mut s = text.to_string();
+                        if inline
+                            .get("fontWeight")
+                            .and_then(Value::as_str)
+                            .is_some_and(|w| w.eq_ignore_ascii_case("bolder"))
+                        {
+                            s = format!("*{s}*");
+                        }
+                        if inline
+                            .get("italic")
+                            .and_then(Value::as_bool)
+                            .unwrap_or(false)
+                        {
+                            s = format!("_{s}_");
+                        }
+                        if inline
+                            .get("strikethrough")
+                            .and_then(Value::as_bool)
+                            .unwrap_or(false)
+                        {
+                            s = format!("~{s}~");
+                        }
+                        if inline
+                            .get("fontType")
+                            .and_then(Value::as_str)
+                            .is_some_and(|f| f.eq_ignore_ascii_case("monospace"))
+                        {
+                            s = format!("`{s}`");
+                        }
+                        line.push_str(&s);
+                    }
+                }
+                if !line.is_empty() {
+                    lines.push(line);
+                }
+            }
+        }
+
+        "Image" => {
+            if image_url.is_none() {
+                if let Some(url) = element.get("url").and_then(Value::as_str) {
+                    *image_url = Some(url.to_string());
+                }
+            }
+        }
+
+        "ImageSet" => {
+            if image_url.is_none() {
+                if let Some(imgs) = element.get("images").and_then(Value::as_array) {
+                    if let Some(url) = imgs.first().and_then(|i| i.get("url")).and_then(Value::as_str) {
+                        *image_url = Some(url.to_string());
+                    }
+                }
+            }
+        }
+
+        "FactSet" => {
+            if let Some(facts) = element.get("facts").and_then(Value::as_array) {
+                for fact in facts {
+                    let title = fact
+                        .get("title")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
+                    let value = fact
+                        .get("value")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
+                    if !title.is_empty() || !value.is_empty() {
+                        lines.push(format!("*{title}:* {value}"));
+                    }
+                }
+            }
+        }
+
+        "ColumnSet" => {
+            if let Some(columns) = element.get("columns").and_then(Value::as_array) {
+                let mut col_texts: Vec<String> = Vec::new();
+                for col in columns {
+                    if let Some(items) = col.get("items").and_then(Value::as_array) {
+                        let text: Vec<String> = items
+                            .iter()
+                            .filter_map(|i| i.get("text").and_then(Value::as_str).map(|s| s.to_string()))
+                            .collect();
+                        if !text.is_empty() {
+                            col_texts.push(text.join(" "));
+                        }
+                    }
+                }
+                if !col_texts.is_empty() {
+                    lines.push(col_texts.join(" | "));
+                }
+            }
+        }
+
+        "Container" => {
+            if let Some(items) = element.get("items").and_then(Value::as_array) {
+                for item in items {
+                    wa_extract_element(item, header, lines, buttons, image_url);
+                }
+            }
+        }
+
+        "ActionSet" => {
+            if let Some(action_list) = element.get("actions").and_then(Value::as_array) {
+                wa_collect_buttons(action_list, buttons);
+            }
+        }
+
+        "Table" => {
+            let rows = element.get("rows").and_then(Value::as_array);
+            if let Some(rows) = rows {
+                for row in rows {
+                    if let Some(cells) = row.get("cells").and_then(Value::as_array) {
+                        let cell_texts: Vec<String> = cells
+                            .iter()
+                            .map(|cell| {
+                                cell.get("items")
+                                    .and_then(Value::as_array)
+                                    .map(|items| {
+                                        items
+                                            .iter()
+                                            .filter_map(|i| i.get("text").and_then(Value::as_str))
+                                            .collect::<Vec<_>>()
+                                            .join(" ")
+                                    })
+                                    .unwrap_or_default()
+                            })
+                            .collect();
+                        lines.push(cell_texts.join(" | "));
+                    }
+                }
+            }
+        }
+
+        _ => {}
+    }
+}
+
+/// Collect AC actions into WhatsApp button format (max 3 reply buttons).
+fn wa_collect_buttons(action_list: &[Value], buttons: &mut Vec<Value>) {
+    for action in action_list {
+        if buttons.len() >= 3 {
+            break;
+        }
+        let title = action
+            .get("title")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if title.is_empty() {
+            continue;
+        }
+        buttons.push(json!({ "title": title }));
     }
 }
 
