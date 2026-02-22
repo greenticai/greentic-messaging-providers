@@ -123,65 +123,87 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         p
     };
 
-    // Try sendPhoto if AC has images, fall back to sendMessage on failure.
-    let resp = if let Some(photo_url) = images.first() {
-        let url = format!("{api_base}/bot{token}/sendPhoto");
-        let mut p = json!({
-            "chat_id": dest_id.clone(),
-            "photo": photo_url,
-            "caption": text,
-        });
-        if let Some(pm) = &parse_mode {
-            p.as_object_mut().unwrap().insert("parse_mode".into(), json!(pm));
+    // Choose API method based on content:
+    //   1 image  → sendPhoto (photo + caption + buttons)
+    //   2+ images → sendMediaGroup (album) + sendMessage (text + buttons)
+    //   0 images → sendMessage (text + buttons)
+    let resp = match images.len() {
+        0 => {
+            // No images: simple sendMessage.
+            match tg_send_message(&api_base, &token, &text_payload) {
+                Ok(r) => r,
+                Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
+            }
         }
-        if let Some(rm) = &reply_markup {
-            p.as_object_mut().unwrap().insert("reply_markup".into(), rm.clone());
-        }
-        let req = client::Request {
-            method: "POST".to_string(),
-            url,
-            headers: vec![("Content-Type".into(), "application/json".into())],
-            body: Some(serde_json::to_vec(&p).unwrap_or_else(|_| b"{}".to_vec())),
-        };
-        match client::send(&req, None, None) {
-            Ok(r) if r.status >= 200 && r.status < 300 => r,
-            _ => {
-                // sendPhoto failed (bad image URL, etc.) — fall back to sendMessage.
-                let url = format!("{api_base}/bot{token}/sendMessage");
-                let req = client::Request {
-                    method: "POST".to_string(),
-                    url,
-                    headers: vec![("Content-Type".into(), "application/json".into())],
-                    body: Some(
-                        serde_json::to_vec(&text_payload).unwrap_or_else(|_| b"{}".to_vec()),
-                    ),
-                };
-                match client::send(&req, None, None) {
-                    Ok(r) => r,
-                    Err(err) => {
-                        return json_bytes(&json!({
-                            "ok": false,
-                            "error": format!("transport error: {}", err.message),
-                        }));
+        1 => {
+            // Single image: sendPhoto with caption (max 1024 chars) + buttons.
+            let caption = truncate_html(&text, 1024);
+            let mut p = json!({
+                "chat_id": dest_id.clone(),
+                "photo": images[0],
+                "caption": caption,
+            });
+            if let Some(pm) = &parse_mode {
+                p.as_object_mut().unwrap().insert("parse_mode".into(), json!(pm));
+            }
+            if let Some(rm) = &reply_markup {
+                p.as_object_mut().unwrap().insert("reply_markup".into(), rm.clone());
+            }
+            let req = client::Request {
+                method: "POST".to_string(),
+                url: format!("{api_base}/bot{token}/sendPhoto"),
+                headers: vec![("Content-Type".into(), "application/json".into())],
+                body: Some(serde_json::to_vec(&p).unwrap_or_else(|_| b"{}".to_vec())),
+            };
+            match client::send(&req, None, None) {
+                Ok(r) if (200..300).contains(&r.status) => r,
+                _ => {
+                    // sendPhoto failed — fall back to sendMessage.
+                    match tg_send_message(&api_base, &token, &text_payload) {
+                        Ok(r) => r,
+                        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
                     }
                 }
             }
         }
-    } else {
-        let url = format!("{api_base}/bot{token}/sendMessage");
-        let req = client::Request {
-            method: "POST".to_string(),
-            url,
-            headers: vec![("Content-Type".into(), "application/json".into())],
-            body: Some(serde_json::to_vec(&text_payload).unwrap_or_else(|_| b"{}".to_vec())),
-        };
-        match client::send(&req, None, None) {
-            Ok(r) => r,
-            Err(err) => {
-                return json_bytes(&json!({
-                    "ok": false,
-                    "error": format!("transport error: {}", err.message),
-                }));
+        _ => {
+            // Multiple images: sendMediaGroup (album), then sendMessage (text + buttons).
+            let media: Vec<Value> = images
+                .iter()
+                .take(10) // Telegram max 10 media per group
+                .enumerate()
+                .map(|(i, url)| {
+                    if i == 0 {
+                        // First item can have caption
+                        let mut m = json!({"type": "photo", "media": url});
+                        // Only short caption on album, full text in follow-up message
+                        if let Some(pm) = &parse_mode {
+                            m.as_object_mut().unwrap().insert("parse_mode".into(), json!(pm));
+                        }
+                        m
+                    } else {
+                        json!({"type": "photo", "media": url})
+                    }
+                })
+                .collect();
+            let album_payload = json!({
+                "chat_id": dest_id.clone(),
+                "media": media,
+            });
+            let album_req = client::Request {
+                method: "POST".to_string(),
+                url: format!("{api_base}/bot{token}/sendMediaGroup"),
+                headers: vec![("Content-Type".into(), "application/json".into())],
+                body: Some(
+                    serde_json::to_vec(&album_payload).unwrap_or_else(|_| b"{}".to_vec()),
+                ),
+            };
+            // Send album (ignore errors — text message below is the important one).
+            let _ = client::send(&album_req, None, None);
+            // Follow up with text + inline keyboard.
+            match tg_send_message(&api_base, &token, &text_payload) {
+                Ok(r) => r,
+                Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
             }
         }
     };
@@ -373,46 +395,27 @@ fn render_plan_inner(input_json: &[u8]) -> Vec<u8> {
 }
 
 pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
-    use provider_common::helpers::extract_ac_plan;
-
     let encode_in = match serde_json::from_slice::<EncodeInV1>(input_json) {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
     let mut envelope = encode_in.message;
 
-    // If the message carries an Adaptive Card, build rich Telegram content:
-    // - HTML-formatted text (bold title, escaped body)
-    // - Inline keyboard buttons from AC actions
-    // - Image URL for sendPhoto
+    // If the message carries an Adaptive Card, convert it to rich Telegram
+    // content: HTML text, inline keyboard buttons, images for sendPhoto.
     if let Some(ac_raw) = envelope.metadata.get("adaptive_card") {
-        let caps = PlannerCapabilities {
-            supports_adaptive_cards: false,
-            supports_markdown: false,
-            supports_html: true,
-            supports_images: true,
-            supports_buttons: true,
-            max_text_len: Some(4096),
-            max_payload_bytes: None,
-        };
-        if let Some(plan) = extract_ac_plan(ac_raw, &caps) {
-            // Build HTML text: bold title + escaped body
-            let html = build_html_text(plan.title.as_deref(), &plan.summary);
-            envelope.text = Some(html);
+        if let Some(content) = ac_to_telegram(ac_raw) {
+            envelope.text = Some(content.html);
             envelope
                 .metadata
                 .insert("parse_mode".to_string(), "HTML".to_string());
-            if !plan.actions.is_empty() {
-                let actions_json = serde_json::to_string(&plan.actions).unwrap_or_default();
-                envelope
-                    .metadata
-                    .insert("ac_actions".to_string(), actions_json);
+            if !content.actions.is_empty() {
+                let aj = serde_json::to_string(&content.actions).unwrap_or_default();
+                envelope.metadata.insert("ac_actions".to_string(), aj);
             }
-            if !plan.images.is_empty() {
-                let images_json = serde_json::to_string(&plan.images).unwrap_or_default();
-                envelope
-                    .metadata
-                    .insert("ac_images".to_string(), images_json);
+            if !content.images.is_empty() {
+                let ij = serde_json::to_string(&content.images).unwrap_or_default();
+                envelope.metadata.insert("ac_images".to_string(), ij);
             }
         }
     }
@@ -570,33 +573,349 @@ fn build_synthetic_envelope(
     })
 }
 
-/// Build HTML-formatted text for Telegram from AC title + summary.
+// ─── Adaptive Card → Telegram HTML converter ───────────────────────────
+
+/// Extracted Telegram content from an Adaptive Card.
+struct TelegramAcContent {
+    html: String,
+    actions: Vec<Value>,
+    images: Vec<String>,
+}
+
+/// Convert an Adaptive Card JSON string into rich Telegram HTML + actions + images.
 ///
-/// Title is rendered as `<b>title</b>`, body text is HTML-escaped.
-/// Telegram supports: `<b>`, `<i>`, `<u>`, `<s>`, `<code>`, `<pre>`,
-/// `<a href="url">text</a>`, `<blockquote>`.
-fn build_html_text(title: Option<&str>, summary: &str) -> String {
-    let mut parts = Vec::new();
-    if let Some(t) = title {
-        let t = t.trim();
-        if !t.is_empty() {
-            parts.push(format!("<b>{}</b>", html_escape(t)));
+/// Maps every AC element to its best Telegram-native representation:
+/// - TextBlock → `<b>` for bold/heading, plain for normal, `<i>` for subtle
+/// - RichTextBlock → inline formatting (`<b>`, `<i>`, `<s>`, `<code>`)
+/// - Image/ImageSet → collected for sendPhoto/sendMediaGroup
+/// - FactSet → `<b>key:</b> value` lines
+/// - ColumnSet → columns separated by ` │ `
+/// - Container → recursive processing
+/// - ActionSet + top-level actions → inline keyboard buttons
+/// - Table → `<pre>` formatted table
+fn ac_to_telegram(ac_raw: &str) -> Option<TelegramAcContent> {
+    let ac: Value = serde_json::from_str(ac_raw).ok()?;
+    let body = ac.get("body").and_then(Value::as_array);
+    let top_actions = ac.get("actions").and_then(Value::as_array);
+
+    let mut html_parts: Vec<String> = Vec::new();
+    let mut actions: Vec<Value> = Vec::new();
+    let mut images: Vec<String> = Vec::new();
+
+    if let Some(body) = body {
+        for element in body {
+            ac_element_to_html(element, &mut html_parts, &mut actions, &mut images);
         }
     }
-    // The summary may already contain the title as first line, skip it.
-    let body = if let Some(t) = title {
-        summary
-            .strip_prefix(t.trim())
-            .map(|rest| rest.trim_start_matches('\n'))
-            .unwrap_or(summary)
-    } else {
-        summary
-    };
-    let body = body.trim();
-    if !body.is_empty() {
-        parts.push(html_escape(body));
+    if let Some(top_actions) = top_actions {
+        collect_actions(top_actions, &mut actions);
     }
-    parts.join("\n\n")
+
+    let html = html_parts.join("\n");
+    if html.trim().is_empty() {
+        return None;
+    }
+
+    // Telegram sendMessage max 4096 chars, sendPhoto caption max 1024 chars.
+    // Truncate to 4096 for sendMessage; handle_send will further truncate for caption.
+    let html = truncate_html(&html, 4096);
+
+    Some(TelegramAcContent {
+        html,
+        actions,
+        images,
+    })
+}
+
+/// Recursively convert a single AC body element to Telegram HTML.
+fn ac_element_to_html(
+    element: &Value,
+    parts: &mut Vec<String>,
+    actions: &mut Vec<Value>,
+    images: &mut Vec<String>,
+) {
+    let etype = element
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    match etype {
+        "TextBlock" => {
+            let text = element
+                .get("text")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .trim();
+            if text.is_empty() {
+                return;
+            }
+            let escaped = html_escape(text);
+            let is_bold = element
+                .get("weight")
+                .and_then(Value::as_str)
+                .is_some_and(|w| w.eq_ignore_ascii_case("bolder"));
+            let size = element
+                .get("size")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+            let is_heading = element
+                .get("style")
+                .and_then(Value::as_str)
+                .is_some_and(|s| s.eq_ignore_ascii_case("heading"));
+            let is_subtle = element
+                .get("isSubtle")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+
+            let html = if is_bold || is_heading || size == "large" || size == "extralarge" {
+                format!("<b>{escaped}</b>")
+            } else if size == "small" || is_subtle {
+                format!("<i>{escaped}</i>")
+            } else {
+                escaped
+            };
+            parts.push(html);
+        }
+
+        "RichTextBlock" => {
+            let inlines = element.get("inlines").and_then(Value::as_array);
+            if let Some(inlines) = inlines {
+                let mut rich = String::new();
+                for inline in inlines {
+                    let text = inline
+                        .get("text")
+                        .and_then(Value::as_str)
+                        .or_else(|| inline.as_str())
+                        .unwrap_or_default();
+                    if text.is_empty() {
+                        continue;
+                    }
+                    let mut s = html_escape(text);
+                    if inline
+                        .get("fontWeight")
+                        .and_then(Value::as_str)
+                        .is_some_and(|w| w.eq_ignore_ascii_case("bolder"))
+                    {
+                        s = format!("<b>{s}</b>");
+                    }
+                    if inline
+                        .get("italic")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                    {
+                        s = format!("<i>{s}</i>");
+                    }
+                    if inline
+                        .get("strikethrough")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                    {
+                        s = format!("<s>{s}</s>");
+                    }
+                    if inline
+                        .get("fontType")
+                        .and_then(Value::as_str)
+                        .is_some_and(|f| f.eq_ignore_ascii_case("monospace"))
+                    {
+                        s = format!("<code>{s}</code>");
+                    }
+                    if inline
+                        .get("underline")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                    {
+                        s = format!("<u>{s}</u>");
+                    }
+                    // Check for hyperlink on TextRun
+                    if let Some(url) = inline.get("selectAction").and_then(|a| {
+                        if a.get("type").and_then(Value::as_str) == Some("Action.OpenUrl") {
+                            a.get("url").and_then(Value::as_str)
+                        } else {
+                            None
+                        }
+                    }) {
+                        s = format!("<a href=\"{}\">{s}</a>", html_escape(url));
+                    }
+                    rich.push_str(&s);
+                }
+                if !rich.is_empty() {
+                    parts.push(rich);
+                }
+            }
+        }
+
+        "Image" => {
+            if let Some(url) = element.get("url").and_then(Value::as_str) {
+                images.push(url.to_string());
+            }
+        }
+
+        "ImageSet" => {
+            if let Some(imgs) = element.get("images").and_then(Value::as_array) {
+                for img in imgs {
+                    if let Some(url) = img.get("url").and_then(Value::as_str) {
+                        images.push(url.to_string());
+                    }
+                }
+            }
+        }
+
+        "FactSet" => {
+            if let Some(facts) = element.get("facts").and_then(Value::as_array) {
+                let mut lines = Vec::new();
+                for fact in facts {
+                    let title = fact
+                        .get("title")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
+                    let value = fact
+                        .get("value")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
+                    if !title.is_empty() || !value.is_empty() {
+                        lines.push(format!(
+                            "<b>{}:</b> {}",
+                            html_escape(title),
+                            html_escape(value)
+                        ));
+                    }
+                }
+                if !lines.is_empty() {
+                    parts.push(lines.join("\n"));
+                }
+            }
+        }
+
+        "ColumnSet" => {
+            if let Some(columns) = element.get("columns").and_then(Value::as_array) {
+                let mut col_texts: Vec<String> = Vec::new();
+                for col in columns {
+                    if let Some(items) = col.get("items").and_then(Value::as_array) {
+                        let mut col_parts: Vec<String> = Vec::new();
+                        for item in items {
+                            ac_element_to_html(item, &mut col_parts, actions, images);
+                        }
+                        if !col_parts.is_empty() {
+                            col_texts.push(col_parts.join("\n"));
+                        }
+                    }
+                }
+                if !col_texts.is_empty() {
+                    parts.push(col_texts.join(" │ "));
+                }
+            }
+        }
+
+        "Container" => {
+            if let Some(items) = element.get("items").and_then(Value::as_array) {
+                for item in items {
+                    ac_element_to_html(item, parts, actions, images);
+                }
+            }
+        }
+
+        "ActionSet" => {
+            if let Some(action_list) = element.get("actions").and_then(Value::as_array) {
+                collect_actions(action_list, actions);
+            }
+        }
+
+        "Table" => {
+            // Render table rows as pre-formatted text.
+            let rows = element.get("rows").and_then(Value::as_array);
+            let columns = element.get("columns").and_then(Value::as_array);
+            if let Some(rows) = rows {
+                let mut table_lines = Vec::new();
+                // Header from column titles
+                if let Some(cols) = columns {
+                    let headers: Vec<String> = cols
+                        .iter()
+                        .map(|c| {
+                            c.get("title")
+                                .or_else(|| c.get("header"))
+                                .and_then(Value::as_str)
+                                .unwrap_or("")
+                                .to_string()
+                        })
+                        .collect();
+                    if headers.iter().any(|h| !h.is_empty()) {
+                        table_lines.push(headers.join(" │ "));
+                        table_lines.push(
+                            headers
+                                .iter()
+                                .map(|h| "─".repeat(h.len().max(3)))
+                                .collect::<Vec<_>>()
+                                .join("─┼─"),
+                        );
+                    }
+                }
+                for row in rows {
+                    if let Some(cells) = row.get("cells").and_then(Value::as_array) {
+                        let cell_texts: Vec<String> = cells
+                            .iter()
+                            .map(|cell| {
+                                cell.get("items")
+                                    .and_then(Value::as_array)
+                                    .map(|items| {
+                                        items
+                                            .iter()
+                                            .filter_map(|i| {
+                                                i.get("text").and_then(Value::as_str)
+                                            })
+                                            .collect::<Vec<_>>()
+                                            .join(" ")
+                                    })
+                                    .unwrap_or_default()
+                            })
+                            .collect();
+                        table_lines.push(cell_texts.join(" │ "));
+                    }
+                }
+                if !table_lines.is_empty() {
+                    parts.push(format!(
+                        "<pre>{}</pre>",
+                        html_escape(&table_lines.join("\n"))
+                    ));
+                }
+            }
+        }
+
+        _ => {
+            // Unknown element type — ignore gracefully.
+        }
+    }
+}
+
+/// Collect AC actions into a flat JSON array for inline keyboard.
+fn collect_actions(action_list: &[Value], actions: &mut Vec<Value>) {
+    for action in action_list {
+        let atype = action
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let title = action
+            .get("title")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if title.is_empty() {
+            continue;
+        }
+        match atype {
+            "Action.OpenUrl" => {
+                let url = action.get("url").and_then(Value::as_str).unwrap_or("");
+                actions.push(json!({"title": title, "url": url}));
+            }
+            "Action.Submit" | "Action.Execute" => {
+                actions.push(json!({"title": title}));
+            }
+            _ => {
+                // Action.ShowCard, Action.ToggleVisibility — no Telegram equivalent.
+                // Store as callback button so user at least sees the label.
+                actions.push(json!({"title": title}));
+            }
+        }
+    }
 }
 
 /// Escape HTML special characters for Telegram's HTML parse mode.
@@ -606,11 +925,19 @@ fn html_escape(text: &str) -> String {
         .replace('>', "&gt;")
 }
 
+/// Truncate HTML string to at most `max` chars, preserving char boundaries.
+fn truncate_html(text: &str, max: usize) -> String {
+    if text.chars().count() <= max {
+        return text.to_string();
+    }
+    let truncated: String = text.chars().take(max.saturating_sub(1)).collect();
+    format!("{truncated}\u{2026}")
+}
+
 /// Build Telegram inline keyboard rows from AC actions stored in metadata.
 ///
-/// Reads `metadata["ac_actions"]` (JSON array of `PlannerAction`), converts
-/// `Action.OpenUrl` entries to inline URL buttons, other actions to callback
-/// buttons. Supports multiple rows (max 8 rows, max 5 buttons per row).
+/// Supports multiple rows (max 8 rows, max 3 buttons per row).
+/// URL buttons use `url` field, others use `callback_data` (max 64 bytes).
 fn build_inline_keyboard_from_metadata(
     metadata: &greentic_types::MessageMetadata,
 ) -> Vec<Vec<Value>> {
@@ -645,7 +972,6 @@ fn build_inline_keyboard_from_metadata(
         if let Some(url) = url {
             current_row.push(json!({"text": title, "url": url}));
         } else {
-            // Callback button: callback_data max 64 bytes
             let cb: String = title.chars().take(64).collect();
             current_row.push(json!({"text": title, "callback_data": cb}));
         }
@@ -654,6 +980,23 @@ fn build_inline_keyboard_from_metadata(
         rows.push(current_row);
     }
     rows
+}
+
+/// Send a Telegram `sendMessage` request.
+fn tg_send_message(
+    api_base: &str,
+    token: &str,
+    payload: &Value,
+) -> Result<client::Response, String> {
+    let url = format!("{api_base}/bot{token}/sendMessage");
+    let body = serde_json::to_vec(payload).unwrap_or_else(|_| b"{}".to_vec());
+    let req = client::Request {
+        method: "POST".to_string(),
+        url,
+        headers: vec![("Content-Type".into(), "application/json".into())],
+        body: Some(body),
+    };
+    client::send(&req, None, None).map_err(|err| format!("transport error: {}", err.message))
 }
 
 pub(crate) fn extract_message_text(value: &Value) -> String {
