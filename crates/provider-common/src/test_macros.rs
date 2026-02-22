@@ -79,9 +79,9 @@ macro_rules! standard_provider_tests {
                 );
                 for question in spec.questions {
                     assert!(
-                        keyset.contains(&question.text.key),
+                        keyset.contains(&question.label.key),
                         "missing i18n key for question: {}",
-                        question.text.key,
+                        question.label.key,
                     );
                 }
             }
@@ -93,7 +93,7 @@ macro_rules! standard_provider_tests {
             let keys: Vec<String> = spec
                 .questions
                 .into_iter()
-                .map(|q| q.key)
+                .map(|q| q.id)
                 .collect();
             let expected: Vec<String> = vec![$($qa_key.to_string()),*];
             assert_eq!(keys, expected);

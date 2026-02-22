@@ -34,9 +34,7 @@ pub(crate) fn acquire_graph_token(
 
 /// Acquire token from secrets store directly (no auth_user binding required).
 /// Tries refresh_token grant first, falls back to client_credentials.
-pub(crate) fn acquire_graph_token_from_store(
-    cfg: &ProviderConfig,
-) -> Result<String, String> {
+pub(crate) fn acquire_graph_token_from_store(cfg: &ProviderConfig) -> Result<String, String> {
     let client_id = get_secret_any_case(MS_GRAPH_CLIENT_ID_KEY)?;
     let client_secret = get_secret_any_case(MS_GRAPH_CLIENT_SECRET_KEY).ok();
     let tenant_id = cfg
@@ -71,8 +69,8 @@ pub(crate) fn acquire_graph_token_from_store(
     }
 
     // Fall back to client_credentials grant (app-only token)
-    let secret = client_secret
-        .ok_or_else(|| "no refresh_token or client_secret available".to_string())?;
+    let secret =
+        client_secret.ok_or_else(|| "no refresh_token or client_secret available".to_string())?;
     let cc_scope = "https://graph.microsoft.com/.default";
     let form = format!(
         "client_id={}&client_secret={}&grant_type=client_credentials&scope={}",
@@ -128,8 +126,15 @@ fn request_token(url: &str, body: &[u8]) -> Result<String, String> {
     let resp = client::send(&request, None, None)
         .map_err(|e| format!("token exchange error: {}", e.message))?;
     if resp.status < 200 || resp.status >= 300 {
-        let err_body = resp.body.as_deref().and_then(|b| std::str::from_utf8(b).ok()).unwrap_or("");
-        return Err(format!("token endpoint returned status {} body={}", resp.status, err_body));
+        let err_body = resp
+            .body
+            .as_deref()
+            .and_then(|b| std::str::from_utf8(b).ok())
+            .unwrap_or("");
+        return Err(format!(
+            "token endpoint returned status {} body={}",
+            resp.status, err_body
+        ));
     }
     let body = resp.body.unwrap_or_default();
     let parsed: Value =

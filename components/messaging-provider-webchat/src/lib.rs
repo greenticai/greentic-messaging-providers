@@ -1,7 +1,8 @@
+use config::{ProviderConfigOut, default_config_out, validate_config_out};
 use provider_common::component_v0_6::{canonical_cbor_bytes, decode_cbor};
 use provider_common::helpers::{
-    cbor_json_invoke_bridge, json_bytes, schema_core_describe, schema_core_healthcheck,
-    schema_core_validate_config,
+    cbor_json_invoke_bridge, existing_config_from_answers, json_bytes, optional_string_from,
+    schema_core_describe, schema_core_healthcheck, schema_core_validate_config, string_or_default,
 };
 use provider_common::qa_helpers::ApplyAnswersResult;
 use serde_json::{Value, json};
@@ -18,13 +19,8 @@ mod describe;
 mod directline;
 mod ops;
 
-use config::{ProviderConfigOut, apply_answers_merge};
-use describe::{
-    I18N_KEYS, I18N_PAIRS, build_describe_payload, build_qa_spec,
-};
-use ops::{
-    encode_op, handle_ingest, handle_send, ingest_http, render_plan, send_payload,
-};
+use describe::{I18N_KEYS, I18N_PAIRS, build_describe_payload, build_qa_spec};
+use ops::{encode_op, handle_ingest, handle_send, ingest_http, render_plan, send_payload};
 
 const PROVIDER_ID: &str = "messaging-provider-webchat";
 const PROVIDER_TYPE: &str = "messaging.webchat";
@@ -53,29 +49,14 @@ impl bindings::exports::greentic::component::qa::Guest for Component {
         mode: bindings::exports::greentic::component::qa::Mode,
         answers_cbor: Vec<u8>,
     ) -> Vec<u8> {
-        let answers: Value = match decode_cbor(&answers_cbor) {
-            Ok(value) => value,
-            Err(err) => {
-                return canonical_cbor_bytes(
-                    &ApplyAnswersResult::<ProviderConfigOut>::decode_error(format!(
-                        "invalid answers cbor: {err}"
-                    )),
-                );
-            }
+        use bindings::exports::greentic::component::qa::Mode;
+        let mode_str = match mode {
+            Mode::Default => "default",
+            Mode::Setup => "setup",
+            Mode::Upgrade => "upgrade",
+            Mode::Remove => "remove",
         };
-
-        if mode == bindings::exports::greentic::component::qa::Mode::Remove {
-            return canonical_cbor_bytes(
-                &ApplyAnswersResult::<ProviderConfigOut>::remove_default(),
-            );
-        }
-
-        match apply_answers_merge(&mode, &answers) {
-            Ok(merged) => canonical_cbor_bytes(&ApplyAnswersResult::success(merged)),
-            Err(error) => canonical_cbor_bytes(
-                &ApplyAnswersResult::<ProviderConfigOut>::validation_error(error),
-            ),
-        }
+        apply_answers_impl(mode_str, answers_cbor)
     }
 }
 
@@ -104,12 +85,89 @@ impl bindings::exports::greentic::provider_schema_core::schema_core_api::Guest f
     }
 
     fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
+        if let Some(result) = provider_common::qa_invoke_bridge::dispatch_qa_ops(
+            &op,
+            &input_json,
+            "webchat",
+            describe::SETUP_QUESTIONS,
+            describe::DEFAULT_KEYS,
+            describe::I18N_KEYS,
+            apply_answers_impl,
+        ) {
+            return result;
+        }
         let op = if op == "run" { "send" } else { op.as_str() };
         dispatch_json_invoke(op, &input_json)
     }
 }
 
 bindings::export!(Component with_types_in bindings);
+
+fn apply_answers_impl(mode: &str, answers_cbor: Vec<u8>) -> Vec<u8> {
+    let answers: Value = match decode_cbor(&answers_cbor) {
+        Ok(value) => value,
+        Err(err) => {
+            return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfigOut>::decode_error(
+                format!("invalid answers cbor: {err}"),
+            ));
+        }
+    };
+
+    if mode == "remove" {
+        return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfigOut>::remove_default());
+    }
+
+    let mut merged = existing_config_from_answers(&answers).unwrap_or_else(default_config_out);
+    let answer_obj = answers.as_object();
+    let has = |key: &str| answer_obj.is_some_and(|obj| obj.contains_key(key));
+
+    if mode == "setup" || mode == "default" {
+        merged.enabled = answers
+            .get("enabled")
+            .and_then(Value::as_bool)
+            .unwrap_or(merged.enabled);
+        merged.public_base_url =
+            string_or_default(&answers, "public_base_url", &merged.public_base_url);
+        merged.mode = string_or_default(&answers, "mode", &merged.mode);
+        merged.route = optional_string_from(&answers, "route").or(merged.route.clone());
+        merged.tenant_channel_id = optional_string_from(&answers, "tenant_channel_id")
+            .or(merged.tenant_channel_id.clone());
+        merged.base_url = optional_string_from(&answers, "base_url").or(merged.base_url.clone());
+    }
+
+    if mode == "upgrade" {
+        if has("enabled") {
+            merged.enabled = answers
+                .get("enabled")
+                .and_then(Value::as_bool)
+                .unwrap_or(merged.enabled);
+        }
+        if has("public_base_url") {
+            merged.public_base_url =
+                string_or_default(&answers, "public_base_url", &merged.public_base_url);
+        }
+        if has("mode") {
+            merged.mode = string_or_default(&answers, "mode", &merged.mode);
+        }
+        if has("route") {
+            merged.route = optional_string_from(&answers, "route");
+        }
+        if has("tenant_channel_id") {
+            merged.tenant_channel_id = optional_string_from(&answers, "tenant_channel_id");
+        }
+        if has("base_url") {
+            merged.base_url = optional_string_from(&answers, "base_url");
+        }
+    }
+
+    if let Err(error) = validate_config_out(&merged) {
+        return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfigOut>::validation_error(
+            error,
+        ));
+    }
+
+    canonical_cbor_bytes(&ApplyAnswersResult::success(merged))
+}
 
 fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
     match op {
@@ -172,7 +230,6 @@ mod tests {
     fn apply_answers_upgrade_preserves_unspecified_fields() {
         use bindings::exports::greentic::component::qa::Guest as QaGuest;
         use bindings::exports::greentic::component::qa::Mode;
-
 
         let answers = json!({
             "existing_config": {

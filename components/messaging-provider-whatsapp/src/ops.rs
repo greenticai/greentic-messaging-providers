@@ -6,8 +6,8 @@ use greentic_types::{
     Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
 };
 use provider_common::helpers::{
-    encode_error, json_bytes, render_plan_common, send_payload_error,
-    send_payload_success, RenderPlanConfig,
+    PlannerCapabilities, RenderPlanConfig, encode_error, json_bytes, render_plan_common,
+    send_payload_error, send_payload_success,
 };
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde_json::{Value, json};
@@ -382,10 +382,7 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         .or_else(|| msg.get("text").and_then(Value::as_str))
         .unwrap_or("")
         .to_string();
-    let from = msg
-        .get("from")
-        .and_then(Value::as_str)
-        .map(str::to_string);
+    let from = msg.get("from").and_then(Value::as_str).map(str::to_string);
     // Extract phone_number_id from Cloud API metadata
     let cloud_phone_id = body_val
         .get("entry")
@@ -420,24 +417,52 @@ pub(crate) fn render_plan(input_json: &[u8]) -> Vec<u8> {
     render_plan_common(
         input_json,
         &RenderPlanConfig {
-            ac_tier: None,
-            default_tier: "TierD",
+            capabilities: PlannerCapabilities {
+                supports_adaptive_cards: false,
+                supports_markdown: false,
+                supports_html: false,
+                supports_images: true,
+                supports_buttons: false,
+                max_text_len: Some(4096),
+                max_payload_bytes: None,
+            },
             default_summary: "whatsapp message",
-            extract_ac_text: true,
         },
     )
 }
 
 pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
+    use provider_common::helpers::extract_ac_summary;
+
     let encode_in = match serde_json::from_slice::<EncodeInV1>(input_json) {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
-    let text = encode_in
+    // If the message carries an Adaptive Card, use the downsampled summary.
+    let ac_summary = encode_in
         .message
-        .text
-        .clone()
-        .filter(|t| !t.trim().is_empty())
+        .metadata
+        .get("adaptive_card")
+        .and_then(|ac_raw| {
+            let caps = PlannerCapabilities {
+                supports_adaptive_cards: false,
+                supports_markdown: false,
+                supports_html: false,
+                supports_images: true,
+                supports_buttons: false,
+                max_text_len: Some(4096),
+                max_payload_bytes: None,
+            };
+            extract_ac_summary(ac_raw, &caps)
+        });
+    let text = ac_summary
+        .or_else(|| {
+            encode_in
+                .message
+                .text
+                .clone()
+                .filter(|t| !t.trim().is_empty())
+        })
         .unwrap_or_else(|| "universal whatsapp payload".to_string());
     // Destination: try metadata["from"] (ingress path), then message.to[0].id (demo send path)
     let to_id = encode_in
@@ -529,7 +554,11 @@ pub(crate) fn forward_send_payload(payload: &Value) -> Result<(), String> {
     }
 }
 
-fn build_whatsapp_envelope(text: String, from: Option<String>, phone_number_id: Option<String>) -> ChannelMessageEnvelope {
+fn build_whatsapp_envelope(
+    text: String,
+    from: Option<String>,
+    phone_number_id: Option<String>,
+) -> ChannelMessageEnvelope {
     let env = EnvId::try_from("default").expect("env id");
     let tenant = TenantId::try_from("default").expect("tenant id");
     let mut metadata = MessageMetadata::new();
@@ -545,7 +574,10 @@ fn build_whatsapp_envelope(text: String, from: Option<String>, phone_number_id: 
         metadata.insert("from".to_string(), actor.id.clone());
     }
     let destinations = if let Some(actor) = &sender {
-        vec![Destination { id: actor.id.clone(), kind: Some("phone".into()) }]
+        vec![Destination {
+            id: actor.id.clone(),
+            kind: Some("phone".into()),
+        }]
     } else {
         Vec::new()
     };

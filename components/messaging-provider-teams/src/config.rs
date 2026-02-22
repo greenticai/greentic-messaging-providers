@@ -167,10 +167,20 @@ fn get_secret_any_case(uppercase: &str) -> Result<String, String> {
 }
 
 fn load_config_from_secrets() -> Result<ProviderConfig, String> {
-    let tenant_id = get_secret_any_case(DEFAULT_TENANT_ID_KEY)
-        .map_err(|e| format!("config required: tenant_id not found (tried {} and {}): {e}", DEFAULT_TENANT_ID_KEY, DEFAULT_TENANT_ID_KEY.to_ascii_lowercase()))?;
-    let client_id = get_secret_any_case(DEFAULT_CLIENT_ID_KEY)
-        .map_err(|e| format!("config required: client_id not found (tried {} and {}): {e}", DEFAULT_CLIENT_ID_KEY, DEFAULT_CLIENT_ID_KEY.to_ascii_lowercase()))?;
+    let tenant_id = get_secret_any_case(DEFAULT_TENANT_ID_KEY).map_err(|e| {
+        format!(
+            "config required: tenant_id not found (tried {} and {}): {e}",
+            DEFAULT_TENANT_ID_KEY,
+            DEFAULT_TENANT_ID_KEY.to_ascii_lowercase()
+        )
+    })?;
+    let client_id = get_secret_any_case(DEFAULT_CLIENT_ID_KEY).map_err(|e| {
+        format!(
+            "config required: client_id not found (tried {} and {}): {e}",
+            DEFAULT_CLIENT_ID_KEY,
+            DEFAULT_CLIENT_ID_KEY.to_ascii_lowercase()
+        )
+    })?;
     Ok(ProviderConfig {
         enabled: true,
         tenant_id,

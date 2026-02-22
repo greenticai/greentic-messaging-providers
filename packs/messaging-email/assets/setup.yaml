@@ -2,15 +2,22 @@ provider_id: email
 version: 1
 title: Email provider setup
 questions:
+  - name: public_base_url
+    title: Public base URL
+    kind: string
+    required: true
+    help: "Example: https://xxxx.trycloudflare.com"
+    validate:
+      regex: "^https://"
   - name: host
     title: SMTP host
     kind: string
     required: true
   - name: port
     title: SMTP port
-    kind: number
-    required: false
-    default: 587
+    kind: string
+    required: true
+    default: "587"
   - name: username
     title: SMTP username
     kind: string
@@ -21,15 +28,19 @@ questions:
     required: true
   - name: tls_mode
     title: TLS mode
-    kind: choice
-    required: false
+    kind: string
+    required: true
     choices:
       - starttls
       - implicit
       - none
     default: starttls
+  - name: default_to_address
+    title: Default to address
+    kind: string
+    required: false
   - name: password
     title: SMTP password
     kind: string
-    required: true
+    required: false
     secret: true

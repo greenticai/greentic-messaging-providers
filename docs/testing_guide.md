@@ -22,28 +22,95 @@ cd greentic-messaging-providers
 cargo test --workspace
 ```
 
-Expected: **287 passed, 0 failed, 2 ignored** (the 2 ignored are pre-existing `pack_doctor` tests).
+Expected: **329 passed, 0 failed, 2 ignored** (the 2 ignored are pre-existing `pack_doctor` tests).
 
 ### Per-crate breakdown
 
 | Crate | Tests | Notes |
 |-------|-------|-------|
-| `messaging-provider-dummy` | 8 | QA ops + send |
-| `messaging-provider-telegram` | 8 | QA ops + send |
+| `messaging-provider-dummy` | 7 | QA ops + send |
+| `messaging-provider-telegram` | 11 | QA ops + send + ingress |
 | `messaging-provider-slack` | 8 | QA ops + send |
-| `messaging-provider-teams` | 8 | QA ops + send |
-| `messaging-provider-webex` | 8 | QA ops + send |
-| `messaging-provider-webchat` | 8+3 | QA ops + send + integration |
-| `messaging-provider-whatsapp` | 8 | QA ops + send |
-| `messaging-provider-email` | 8 | QA ops + send |
+| `messaging-provider-teams` | 10 | QA ops + send + config |
+| `messaging-provider-webex` | 12 | QA ops + send + ingress |
+| `messaging-provider-webchat` | 16 | QA ops + send + integration |
+| `messaging-provider-whatsapp` | 11 | QA ops + send + ingress |
+| `messaging-provider-email` | 10 | QA ops + send + config |
 | `greentic-messaging-renderer` | 35 | 12 ac_extract + 14 planner + 5 downsample + 4 noop |
-| `provider-common` | misc | Shared utilities |
+| `provider-common` | 14 | QA bridge + helpers + shared utilities |
+| `provider-tests` (WASM) | 11 | 8 instantiation + 3 QA invoke integration |
 
 Run a single provider's tests:
 
 ```bash
 cargo test -p messaging-provider-slack
 ```
+
+## 1b. QA-Specific Tests
+
+### Unit Tests (provider-common)
+
+The `qa_invoke_bridge` module has 5 unit tests covering the JSON↔CBOR bridge:
+
+```bash
+cargo test -p provider-common qa_invoke_bridge
+```
+
+Tests: `extract_mode_parses_setup`, `extract_mode_defaults_to_setup`,
+`dispatch_returns_none_for_unknown_op`, `dispatch_qa_spec_returns_json`,
+`dispatch_apply_answers_bridges_json_cbor`, `dispatch_i18n_keys_returns_json_array`.
+
+### Per-Provider QA Tests (standard_provider_tests!)
+
+Each provider has generated tests from the `standard_provider_tests!` macro:
+
+```bash
+# Run QA tests for a single provider
+cargo test -p messaging-provider-slack qa
+```
+
+Tests per provider:
+- `qa_spec_returns_questions_for_setup` — verifies qa-spec returns questions with i18n keys
+- `apply_answers_setup_returns_valid_config` — validates apply-answers round-trip
+- `apply_answers_remove_returns_remove_plan` — checks remove mode
+- `apply_answers_validation_rejects_invalid` — confirms validation errors
+- `schema_hash_is_stable` — ensures describe payload hash matches expected
+
+### WASM Integration Tests (provider-tests)
+
+Three integration tests verify the QA ops work through the full WASM → schema-core-api
+invoke() → qa_invoke_bridge → provider pipeline:
+
+```bash
+cargo test -p provider-tests -- qa_spec_via_invoke
+cargo test -p provider-tests -- apply_answers_via_invoke
+cargo test -p provider-tests -- i18n_keys_via_invoke
+```
+
+These instantiate real WASM components via Wasmtime and call invoke() with JSON, exactly
+as the operator does. All 8 providers (including Dummy) are tested.
+
+### E2E QA via Operator
+
+The operator's `demo setup` command exercises the full QA flow end-to-end:
+
+```bash
+GREENTIC_ENV=dev greentic-operator demo setup \
+  --bundle demo-bundle \
+  --domain messaging \
+  --provider messaging-slack
+```
+
+This runs the complete QA contract:
+1. `supports_component_qa_contract()` — checks pack manifest for QA ops
+2. `invoke("qa-spec", {"mode":"setup"})` — gets question list
+3. `invoke("i18n-keys", {})` — gets localization keys, validates against qa-spec
+4. `invoke("apply-answers", {...})` — validates answers, returns config
+5. `validate_config_strict()` — validates config against JSON schema
+
+**Note:** For `demo setup` to work, the gtpack's `manifest.cbor` must declare the
+QA ops (`qa-spec`, `apply-answers`, `i18n-keys`). See "Update manifest.cbor in gtpacks"
+below.
 
 ## 2. WASM Build
 
@@ -373,12 +440,52 @@ All 8 providers export **two** interfaces for backward/forward compatibility:
 The `schema-core-api` `invoke()` function delegates to the same handlers as the v0.6
 `runtime` interface, with JSON ↔ CBOR translation where needed.
 
+### QA Operations via invoke()
+
+QA ops (`qa-spec`, `apply-answers`, `i18n-keys`) are dispatched through the same
+`invoke()` path. The `qa_invoke_bridge` module in `provider-common` handles the
+JSON→CBOR→JSON round-trip:
+
+```
+invoke("qa-spec", {"mode":"setup"})        → questions list (JSON)
+invoke("apply-answers", {"mode":"setup",
+  "answers":{...}, "current_config":{...}}) → {"ok":true, "config":{...}}
+invoke("i18n-keys", {})                    → ["key1", "key2", ...]
+```
+
+## 7b. Update manifest.cbor in gtpacks (for QA E2E)
+
+The operator checks `manifest.cbor` inside the gtpack for QA op declarations. If you've
+added QA ops to `pack.manifest.json` but the gtpack's `manifest.cbor` is stale, the
+operator won't detect QA support.
+
+To update, either:
+1. Rebuild packs with `greentic-pack build` (if working)
+2. Or regenerate `manifest.cbor` from `pack.manifest.json` and replace in the zip:
+
+```bash
+# Convert pack.manifest.json to CBOR and update gtpack
+for provider in slack teams telegram email webex whatsapp webchat dummy; do
+  manifest_json="packs/messaging-${provider}/pack.manifest.json"
+  gtpack="packs/messaging-${provider}/dist/messaging-${provider}.gtpack"
+  [ ! -f "$manifest_json" ] || [ ! -f "$gtpack" ] && continue
+
+  tmpdir=$(mktemp -d)
+  # Use a small script or tool to convert JSON → CBOR
+  # Then: (cd "$tmpdir" && zip -u "$gtpack" manifest.cbor)
+  rm -rf "$tmpdir"
+done
+```
+
+**Note:** This requires a JSON-to-CBOR conversion tool. The `greentic-messaging-packgen`
+crate generates both formats during pack builds.
+
 ## 8. Known Issues
 
 | Issue | Impact | Workaround |
 |-------|--------|------------|
 | `cargo component build` can't find `provider-schema-core` | Build fails | Use `cargo build` (build script already updated) |
-| `demo setup` broken (flow engine mismatch) | Can't run interactive setup | Use `demo send` for validation |
+| `demo setup` may need manifest.cbor update | QA ops not detected | Regenerate manifest.cbor in gtpack (see section 7b) |
 | `greentic-pack build` broken (state-store mismatch) | Can't rebuild packs from scratch | Replace WASM inside existing gtpack zips |
 | WebChat needs full HTTP server for real demo | `demo send` only validates pipeline | Use `demo start` + frontend |
 | Teams Azure public client must not send `client_secret` | Auth fails with 400 | Only seed `refresh_token`, not `client_secret` |

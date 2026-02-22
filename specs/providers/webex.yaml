@@ -10,6 +10,9 @@ provider:
   ops:
   - send
   - reply
+  - qa-spec
+  - apply-answers
+  - i18n-keys
   capabilities:
     render_tiers:
     - tier-d

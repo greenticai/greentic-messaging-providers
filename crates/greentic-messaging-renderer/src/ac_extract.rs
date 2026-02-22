@@ -74,10 +74,10 @@ fn extract_body_elements(
                             if !text.is_empty() {
                                 parts.push(text.to_string());
                             }
-                        } else if let Some(text) = inline.as_str() {
-                            if !text.is_empty() {
-                                parts.push(text.to_string());
-                            }
+                        } else if let Some(text) = inline.as_str()
+                            && !text.is_empty()
+                        {
+                            parts.push(text.to_string());
                         }
                     }
                 }
@@ -163,10 +163,10 @@ fn extract_actions(action_list: &[Value], actions: &mut Vec<PlannerAction>) {
 
 fn is_title_textblock(element: &Value) -> bool {
     // Check weight
-    if let Some(weight) = element.get("weight").and_then(Value::as_str) {
-        if weight.eq_ignore_ascii_case("bolder") {
-            return true;
-        }
+    if let Some(weight) = element.get("weight").and_then(Value::as_str)
+        && weight.eq_ignore_ascii_case("bolder")
+    {
+        return true;
     }
     // Check size
     if let Some(size) = element.get("size").and_then(Value::as_str) {
@@ -176,10 +176,10 @@ fn is_title_textblock(element: &Value) -> bool {
         }
     }
     // Check style
-    if let Some(style) = element.get("style").and_then(Value::as_str) {
-        if style.eq_ignore_ascii_case("heading") {
-            return true;
-        }
+    if let Some(style) = element.get("style").and_then(Value::as_str)
+        && style.eq_ignore_ascii_case("heading")
+    {
+        return true;
     }
     false
 }

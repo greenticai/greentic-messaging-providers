@@ -98,63 +98,14 @@ impl bindings::exports::greentic::component::qa::Guest for Component {
         mode: bindings::exports::greentic::component::qa::Mode,
         answers_cbor: Vec<u8>,
     ) -> Vec<u8> {
-        let answers: serde_json::Value = match decode_cbor(&answers_cbor) {
-            Ok(value) => value,
-            Err(err) => {
-                return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfig>::decode_error(
-                    format!("invalid answers cbor: {err}"),
-                ));
-            }
+        use bindings::exports::greentic::component::qa::Mode;
+        let mode_str = match mode {
+            Mode::Default => "default",
+            Mode::Setup => "setup",
+            Mode::Upgrade => "upgrade",
+            Mode::Remove => "remove",
         };
-
-        if mode == bindings::exports::greentic::component::qa::Mode::Remove {
-            return canonical_cbor_bytes(
-                &ApplyAnswersResult::<ProviderConfig>::remove(vec![
-                    "delete_config_key".to_string(),
-                    "delete_provenance_key".to_string(),
-                    "delete_provider_state_namespace".to_string(),
-                ]),
-            );
-        }
-
-        let mut merged = existing_config_from_answers(&answers).unwrap_or_else(default_config_out);
-        let answer_obj = answers.as_object();
-        let has = |key: &str| answer_obj.is_some_and(|obj| obj.contains_key(key));
-
-        if mode == bindings::exports::greentic::component::qa::Mode::Setup
-            || mode == bindings::exports::greentic::component::qa::Mode::Default
-        {
-            merged.enabled = answers
-                .get("enabled")
-                .and_then(serde_json::Value::as_bool)
-                .unwrap_or(merged.enabled);
-            merged.api_token = string_or_default(&answers, "api_token", &merged.api_token);
-            merged.endpoint_url = string_or_default(&answers, "endpoint_url", &merged.endpoint_url);
-        }
-
-        if mode == bindings::exports::greentic::component::qa::Mode::Upgrade {
-            if has("enabled") {
-                merged.enabled = answers
-                    .get("enabled")
-                    .and_then(serde_json::Value::as_bool)
-                    .unwrap_or(merged.enabled);
-            }
-            if has("api_token") {
-                merged.api_token = string_or_default(&answers, "api_token", &merged.api_token);
-            }
-            if has("endpoint_url") {
-                merged.endpoint_url =
-                    string_or_default(&answers, "endpoint_url", &merged.endpoint_url);
-            }
-        }
-
-        if let Err(error) = validate_config_out(&merged) {
-            return canonical_cbor_bytes(
-                &ApplyAnswersResult::<ProviderConfig>::validation_error(error),
-            );
-        }
-
-        canonical_cbor_bytes(&ApplyAnswersResult::success(merged))
+        apply_answers_impl(mode_str, answers_cbor)
     }
 }
 
@@ -164,35 +115,65 @@ impl bindings::exports::greentic::component::component_i18n::Guest for Component
     }
 
     fn i18n_bundle(locale: String) -> Vec<u8> {
-        provider_common::helpers::i18n_bundle_from_pairs(locale, &[
-            ("dummy.op.run.title", "Run"),
-            ("dummy.op.run.description", "Run dummy provider operation"),
-            ("dummy.schema.input.title", "Dummy input"),
-            ("dummy.schema.input.description", "Input for dummy provider run"),
-            ("dummy.schema.input.message.title", "Message"),
-            ("dummy.schema.input.message.description", "Message text to hash"),
-            ("dummy.schema.output.title", "Dummy output"),
-            ("dummy.schema.output.description", "Result of dummy provider run"),
-            ("dummy.schema.output.ok.title", "Success"),
-            ("dummy.schema.output.ok.description", "Whether provider run succeeded"),
-            ("dummy.schema.output.message_id.title", "Message ID"),
-            ("dummy.schema.output.message_id.description", "Deterministic message identifier"),
-            ("dummy.schema.config.title", "Dummy config"),
-            ("dummy.schema.config.description", "Dummy provider configuration"),
-            ("dummy.schema.config.enabled.title", "Enabled"),
-            ("dummy.schema.config.enabled.description", "Enable this provider"),
-            ("dummy.schema.config.api_token.title", "API token"),
-            ("dummy.schema.config.api_token.description", "Tenant token for dummy provider"),
-            ("dummy.schema.config.endpoint_url.title", "Endpoint URL"),
-            ("dummy.schema.config.endpoint_url.description", "Dummy endpoint URL"),
-            ("dummy.qa.default.title", "Default"),
-            ("dummy.qa.setup.title", "Setup"),
-            ("dummy.qa.upgrade.title", "Upgrade"),
-            ("dummy.qa.remove.title", "Remove"),
-            ("dummy.qa.setup.enabled", "Enable provider"),
-            ("dummy.qa.setup.api_token", "API token"),
-            ("dummy.qa.setup.endpoint_url", "Endpoint URL"),
-        ])
+        provider_common::helpers::i18n_bundle_from_pairs(
+            locale,
+            &[
+                ("dummy.op.run.title", "Run"),
+                ("dummy.op.run.description", "Run dummy provider operation"),
+                ("dummy.schema.input.title", "Dummy input"),
+                (
+                    "dummy.schema.input.description",
+                    "Input for dummy provider run",
+                ),
+                ("dummy.schema.input.message.title", "Message"),
+                (
+                    "dummy.schema.input.message.description",
+                    "Message text to hash",
+                ),
+                ("dummy.schema.output.title", "Dummy output"),
+                (
+                    "dummy.schema.output.description",
+                    "Result of dummy provider run",
+                ),
+                ("dummy.schema.output.ok.title", "Success"),
+                (
+                    "dummy.schema.output.ok.description",
+                    "Whether provider run succeeded",
+                ),
+                ("dummy.schema.output.message_id.title", "Message ID"),
+                (
+                    "dummy.schema.output.message_id.description",
+                    "Deterministic message identifier",
+                ),
+                ("dummy.schema.config.title", "Dummy config"),
+                (
+                    "dummy.schema.config.description",
+                    "Dummy provider configuration",
+                ),
+                ("dummy.schema.config.enabled.title", "Enabled"),
+                (
+                    "dummy.schema.config.enabled.description",
+                    "Enable this provider",
+                ),
+                ("dummy.schema.config.api_token.title", "API token"),
+                (
+                    "dummy.schema.config.api_token.description",
+                    "Tenant token for dummy provider",
+                ),
+                ("dummy.schema.config.endpoint_url.title", "Endpoint URL"),
+                (
+                    "dummy.schema.config.endpoint_url.description",
+                    "Dummy endpoint URL",
+                ),
+                ("dummy.qa.default.title", "Default"),
+                ("dummy.qa.setup.title", "Setup"),
+                ("dummy.qa.upgrade.title", "Upgrade"),
+                ("dummy.qa.remove.title", "Remove"),
+                ("dummy.qa.setup.enabled", "Enable provider"),
+                ("dummy.qa.setup.api_token", "API token"),
+                ("dummy.qa.setup.endpoint_url", "Endpoint URL"),
+            ],
+        )
     }
 }
 
@@ -211,6 +192,17 @@ impl bindings::exports::greentic::provider_schema_core::schema_core_api::Guest f
     }
 
     fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
+        if let Some(result) = provider_common::qa_invoke_bridge::dispatch_qa_ops(
+            &op,
+            &input_json,
+            "dummy",
+            SETUP_QUESTIONS,
+            DEFAULT_KEYS,
+            I18N_KEYS,
+            apply_answers_impl,
+        ) {
+            return result;
+        }
         if op != "run" {
             return serde_json::to_vec(&RunResult {
                 ok: false,
@@ -296,7 +288,9 @@ const SETUP_QUESTIONS: &[provider_common::helpers::QaQuestionDef] = &[
 ];
 const DEFAULT_KEYS: &[&str] = &["api_token", "endpoint_url"];
 
-fn build_qa_spec(mode: bindings::exports::greentic::component::qa::Mode) -> provider_common::component_v0_6::QaSpec {
+fn build_qa_spec(
+    mode: bindings::exports::greentic::component::qa::Mode,
+) -> provider_common::component_v0_6::QaSpec {
     use bindings::exports::greentic::component::qa::Mode;
     let mode_str = match mode {
         Mode::Default => "default",
@@ -309,18 +303,41 @@ fn build_qa_spec(mode: bindings::exports::greentic::component::qa::Mode) -> prov
 
 fn input_schema() -> SchemaIr {
     provider_common::helpers::schema_obj(
-        "dummy.schema.input.title", "dummy.schema.input.description",
-        vec![("message", true, provider_common::helpers::schema_str("dummy.schema.input.message.title", "dummy.schema.input.message.description"))],
+        "dummy.schema.input.title",
+        "dummy.schema.input.description",
+        vec![(
+            "message",
+            true,
+            provider_common::helpers::schema_str(
+                "dummy.schema.input.message.title",
+                "dummy.schema.input.message.description",
+            ),
+        )],
         false,
     )
 }
 
 fn output_schema() -> SchemaIr {
     provider_common::helpers::schema_obj(
-        "dummy.schema.output.title", "dummy.schema.output.description",
+        "dummy.schema.output.title",
+        "dummy.schema.output.description",
         vec![
-            ("ok", true, provider_common::helpers::schema_bool_ir("dummy.schema.output.ok.title", "dummy.schema.output.ok.description")),
-            ("message_id", false, provider_common::helpers::schema_str("dummy.schema.output.message_id.title", "dummy.schema.output.message_id.description")),
+            (
+                "ok",
+                true,
+                provider_common::helpers::schema_bool_ir(
+                    "dummy.schema.output.ok.title",
+                    "dummy.schema.output.ok.description",
+                ),
+            ),
+            (
+                "message_id",
+                false,
+                provider_common::helpers::schema_str(
+                    "dummy.schema.output.message_id.title",
+                    "dummy.schema.output.message_id.description",
+                ),
+            ),
         ],
         false,
     )
@@ -328,11 +345,34 @@ fn output_schema() -> SchemaIr {
 
 fn config_schema() -> SchemaIr {
     provider_common::helpers::schema_obj(
-        "dummy.schema.config.title", "dummy.schema.config.description",
+        "dummy.schema.config.title",
+        "dummy.schema.config.description",
         vec![
-            ("enabled", true, provider_common::helpers::schema_bool_ir("dummy.schema.config.enabled.title", "dummy.schema.config.enabled.description")),
-            ("api_token", true, provider_common::helpers::schema_secret("dummy.schema.config.api_token.title", "dummy.schema.config.api_token.description")),
-            ("endpoint_url", true, provider_common::helpers::schema_str_fmt("dummy.schema.config.endpoint_url.title", "dummy.schema.config.endpoint_url.description", "uri")),
+            (
+                "enabled",
+                true,
+                provider_common::helpers::schema_bool_ir(
+                    "dummy.schema.config.enabled.title",
+                    "dummy.schema.config.enabled.description",
+                ),
+            ),
+            (
+                "api_token",
+                true,
+                provider_common::helpers::schema_secret(
+                    "dummy.schema.config.api_token.title",
+                    "dummy.schema.config.api_token.description",
+                ),
+            ),
+            (
+                "endpoint_url",
+                true,
+                provider_common::helpers::schema_str_fmt(
+                    "dummy.schema.config.endpoint_url.title",
+                    "dummy.schema.config.endpoint_url.description",
+                    "uri",
+                ),
+            ),
         ],
         false,
     )
@@ -358,6 +398,61 @@ fn validate_config_out(config: &ProviderConfig) -> Result<(), String> {
         return Err("config validation failed: endpoint_url must be an absolute URL".to_string());
     }
     Ok(())
+}
+
+fn apply_answers_impl(mode: &str, answers_cbor: Vec<u8>) -> Vec<u8> {
+    let answers: serde_json::Value = match decode_cbor(&answers_cbor) {
+        Ok(value) => value,
+        Err(err) => {
+            return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfig>::decode_error(
+                format!("invalid answers cbor: {err}"),
+            ));
+        }
+    };
+
+    if mode == "remove" {
+        return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfig>::remove(vec![
+            "delete_config_key".to_string(),
+            "delete_provenance_key".to_string(),
+            "delete_provider_state_namespace".to_string(),
+        ]));
+    }
+
+    let mut merged = existing_config_from_answers(&answers).unwrap_or_else(default_config_out);
+    let answer_obj = answers.as_object();
+    let has = |key: &str| answer_obj.is_some_and(|obj| obj.contains_key(key));
+
+    if mode == "setup" || mode == "default" {
+        merged.enabled = answers
+            .get("enabled")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(merged.enabled);
+        merged.api_token = string_or_default(&answers, "api_token", &merged.api_token);
+        merged.endpoint_url = string_or_default(&answers, "endpoint_url", &merged.endpoint_url);
+    }
+
+    if mode == "upgrade" {
+        if has("enabled") {
+            merged.enabled = answers
+                .get("enabled")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(merged.enabled);
+        }
+        if has("api_token") {
+            merged.api_token = string_or_default(&answers, "api_token", &merged.api_token);
+        }
+        if has("endpoint_url") {
+            merged.endpoint_url = string_or_default(&answers, "endpoint_url", &merged.endpoint_url);
+        }
+    }
+
+    if let Err(error) = validate_config_out(&merged) {
+        return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfig>::validation_error(
+            error,
+        ));
+    }
+
+    canonical_cbor_bytes(&ApplyAnswersResult::success(merged))
 }
 
 #[cfg(test)]

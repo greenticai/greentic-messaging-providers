@@ -74,87 +74,14 @@ impl bindings::exports::greentic::component::qa::Guest for Component {
         mode: bindings::exports::greentic::component::qa::Mode,
         answers_cbor: Vec<u8>,
     ) -> Vec<u8> {
-        let answers: Value = match decode_cbor(&answers_cbor) {
-            Ok(value) => value,
-            Err(err) => {
-                return canonical_cbor_bytes(
-                    &ApplyAnswersResult::<ProviderConfigOut>::decode_error(format!(
-                        "invalid answers cbor: {err}"
-                    )),
-                );
-            }
+        use bindings::exports::greentic::component::qa::Mode;
+        let mode_str = match mode {
+            Mode::Default => "default",
+            Mode::Setup => "setup",
+            Mode::Upgrade => "upgrade",
+            Mode::Remove => "remove",
         };
-
-        if mode == bindings::exports::greentic::component::qa::Mode::Remove {
-            return canonical_cbor_bytes(
-                &ApplyAnswersResult::<ProviderConfigOut>::remove_default(),
-            );
-        }
-
-        let mut merged =
-            existing_config_from_answers(&answers).unwrap_or_else(config::default_config_out);
-        let answer_obj = answers.as_object();
-        let has = |key: &str| answer_obj.is_some_and(|obj| obj.contains_key(key));
-
-        if mode == bindings::exports::greentic::component::qa::Mode::Setup
-            || mode == bindings::exports::greentic::component::qa::Mode::Default
-        {
-            merged.enabled = answers
-                .get("enabled")
-                .and_then(Value::as_bool)
-                .unwrap_or(merged.enabled);
-            merged.public_base_url =
-                string_or_default(&answers, "public_base_url", &merged.public_base_url);
-            merged.default_room_id = optional_string_from(&answers, "default_room_id")
-                .or(merged.default_room_id.clone());
-            merged.default_to_person_email =
-                optional_string_from(&answers, "default_to_person_email")
-                    .or(merged.default_to_person_email.clone());
-            merged.api_base_url = string_or_default(&answers, "api_base_url", &merged.api_base_url);
-            if merged.api_base_url.trim().is_empty() {
-                merged.api_base_url = DEFAULT_API_BASE.to_string();
-            }
-            merged.bot_token =
-                optional_string_from(&answers, "bot_token").or(merged.bot_token.clone());
-        }
-
-        if mode == bindings::exports::greentic::component::qa::Mode::Upgrade {
-            if has("enabled") {
-                merged.enabled = answers
-                    .get("enabled")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(merged.enabled);
-            }
-            if has("public_base_url") {
-                merged.public_base_url =
-                    string_or_default(&answers, "public_base_url", &merged.public_base_url);
-            }
-            if has("default_room_id") {
-                merged.default_room_id = optional_string_from(&answers, "default_room_id");
-            }
-            if has("default_to_person_email") {
-                merged.default_to_person_email =
-                    optional_string_from(&answers, "default_to_person_email");
-            }
-            if has("api_base_url") {
-                merged.api_base_url =
-                    string_or_default(&answers, "api_base_url", &merged.api_base_url);
-            }
-            if has("bot_token") {
-                merged.bot_token = optional_string_from(&answers, "bot_token");
-            }
-            if merged.api_base_url.trim().is_empty() {
-                merged.api_base_url = DEFAULT_API_BASE.to_string();
-            }
-        }
-
-        if let Err(error) = config::validate_config_out(&merged) {
-            return canonical_cbor_bytes(
-                &ApplyAnswersResult::<ProviderConfigOut>::validation_error(error),
-            );
-        }
-
-        canonical_cbor_bytes(&ApplyAnswersResult::success(merged))
+        apply_answers_impl(mode_str, answers_cbor)
     }
 }
 
@@ -183,12 +110,98 @@ impl bindings::exports::greentic::provider_schema_core::schema_core_api::Guest f
     }
 
     fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
+        if let Some(result) = provider_common::qa_invoke_bridge::dispatch_qa_ops(
+            &op,
+            &input_json,
+            "webex",
+            describe::SETUP_QUESTIONS,
+            describe::DEFAULT_KEYS,
+            describe::I18N_KEYS,
+            apply_answers_impl,
+        ) {
+            return result;
+        }
         let op = if op == "run" { "send" } else { op.as_str() };
         dispatch_json_invoke(op, &input_json)
     }
 }
 
 bindings::export!(Component with_types_in bindings);
+
+fn apply_answers_impl(mode: &str, answers_cbor: Vec<u8>) -> Vec<u8> {
+    let answers: Value = match decode_cbor(&answers_cbor) {
+        Ok(value) => value,
+        Err(err) => {
+            return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfigOut>::decode_error(
+                format!("invalid answers cbor: {err}"),
+            ));
+        }
+    };
+
+    if mode == "remove" {
+        return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfigOut>::remove_default());
+    }
+
+    let mut merged =
+        existing_config_from_answers(&answers).unwrap_or_else(config::default_config_out);
+    let answer_obj = answers.as_object();
+    let has = |key: &str| answer_obj.is_some_and(|obj| obj.contains_key(key));
+
+    if mode == "setup" || mode == "default" {
+        merged.enabled = answers
+            .get("enabled")
+            .and_then(Value::as_bool)
+            .unwrap_or(merged.enabled);
+        merged.public_base_url =
+            string_or_default(&answers, "public_base_url", &merged.public_base_url);
+        merged.default_room_id =
+            optional_string_from(&answers, "default_room_id").or(merged.default_room_id.clone());
+        merged.default_to_person_email = optional_string_from(&answers, "default_to_person_email")
+            .or(merged.default_to_person_email.clone());
+        merged.api_base_url = string_or_default(&answers, "api_base_url", &merged.api_base_url);
+        if merged.api_base_url.trim().is_empty() {
+            merged.api_base_url = DEFAULT_API_BASE.to_string();
+        }
+        merged.bot_token = optional_string_from(&answers, "bot_token").or(merged.bot_token.clone());
+    }
+
+    if mode == "upgrade" {
+        if has("enabled") {
+            merged.enabled = answers
+                .get("enabled")
+                .and_then(Value::as_bool)
+                .unwrap_or(merged.enabled);
+        }
+        if has("public_base_url") {
+            merged.public_base_url =
+                string_or_default(&answers, "public_base_url", &merged.public_base_url);
+        }
+        if has("default_room_id") {
+            merged.default_room_id = optional_string_from(&answers, "default_room_id");
+        }
+        if has("default_to_person_email") {
+            merged.default_to_person_email =
+                optional_string_from(&answers, "default_to_person_email");
+        }
+        if has("api_base_url") {
+            merged.api_base_url = string_or_default(&answers, "api_base_url", &merged.api_base_url);
+        }
+        if has("bot_token") {
+            merged.bot_token = optional_string_from(&answers, "bot_token");
+        }
+        if merged.api_base_url.trim().is_empty() {
+            merged.api_base_url = DEFAULT_API_BASE.to_string();
+        }
+    }
+
+    if let Err(error) = config::validate_config_out(&merged) {
+        return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfigOut>::validation_error(
+            error,
+        ));
+    }
+
+    canonical_cbor_bytes(&ApplyAnswersResult::success(merged))
+}
 
 fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
     match op {

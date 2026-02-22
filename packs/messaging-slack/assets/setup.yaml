@@ -9,12 +9,19 @@ questions:
     help: "Example: https://xxxx.trycloudflare.com"
     validate:
       regex: "^https://"
-  - name: default_channel
-    title: Default channel
+  - name: api_base_url
+    title: API base URL
     kind: string
-    required: false
+    required: true
+    help: "Slack API base URL (default: https://slack.com/api)"
+    validate:
+      regex: "^https?://"
   - name: bot_token
     title: Slack bot token
     kind: string
     required: true
     secret: true
+  - name: default_channel
+    title: Default channel
+    kind: string
+    required: false

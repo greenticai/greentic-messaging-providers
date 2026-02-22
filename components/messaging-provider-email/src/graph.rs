@@ -6,10 +6,10 @@ use greentic_types::messaging::universal_dto::{
 use provider_common::helpers::json_bytes;
 use serde_json::{Value, json};
 
+use crate::auth;
 use crate::bindings::greentic::http::http_client as client;
 use crate::config::{ProviderConfig, load_config};
 use crate::{DEFAULT_GRAPH_BASE, GRAPH_MAX_EXPIRATION_MINUTES, PROVIDER_TYPE};
-use crate::auth;
 
 pub(crate) fn graph_base_url(cfg: &ProviderConfig) -> String {
     cfg.graph_base_url

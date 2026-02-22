@@ -674,6 +674,9 @@ extensions:
         ops:
         - send
         - ingest
+        - qa-spec
+        - apply-answers
+        - i18n-keys
         config_schema_ref: schemas/messaging/webchat/public.config.schema.json
         state_schema_ref: ''
         runtime:

@@ -4,21 +4,21 @@ use greentic_types::messaging::universal_dto::{
 };
 use greentic_types::{Actor, ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
 use provider_common::helpers::{
-    encode_error, json_bytes, render_plan_common, send_payload_error, send_payload_success,
-    RenderPlanConfig,
+    PlannerCapabilities, RenderPlanConfig, encode_error, json_bytes, render_plan_common,
+    send_payload_error, send_payload_success,
 };
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
+use crate::PROVIDER_TYPE;
 use crate::bindings::greentic::state::state_store;
 use crate::config::load_config;
 use crate::directline::jwt::DirectLineContext;
 use crate::directline::state::{StoredActivity, conversation_key};
 use crate::directline::store::StateStore as _;
 use crate::directline::{HostSecretStore, HostStateStore, handle_directline_request};
-use crate::PROVIDER_TYPE;
 
 pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
     let parsed: Value = match serde_json::from_slice(input_json) {
@@ -170,12 +170,7 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
                 .and_then(|rest| rest.split('/').next())
                 .map(|s| s.to_string());
             if !text.is_empty() {
-                let envelope = build_webchat_envelope(
-                    text,
-                    user,
-                    conv_id.clone(),
-                    None,
-                );
+                let envelope = build_webchat_envelope(text, user, conv_id.clone(), None);
                 out.events.push(envelope);
             }
         }
@@ -218,10 +213,16 @@ pub(crate) fn render_plan(input_json: &[u8]) -> Vec<u8> {
     render_plan_common(
         input_json,
         &RenderPlanConfig {
-            ac_tier: Some("TierA"),
-            default_tier: "TierD",
+            capabilities: PlannerCapabilities {
+                supports_adaptive_cards: true,
+                supports_markdown: true,
+                supports_html: true,
+                supports_images: true,
+                supports_buttons: true,
+                max_text_len: None,
+                max_payload_bytes: None,
+            },
             default_summary: "webchat message",
-            extract_ac_text: false,
         },
     )
 }

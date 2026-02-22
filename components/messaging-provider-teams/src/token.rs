@@ -3,7 +3,9 @@ use urlencoding::encode as url_encode;
 
 use crate::bindings::greentic::http::http_client as client;
 use crate::config::{ProviderConfig, get_secret};
-use crate::{DEFAULT_AUTH_BASE, DEFAULT_CLIENT_SECRET_KEY, DEFAULT_REFRESH_TOKEN_KEY, DEFAULT_TOKEN_SCOPE};
+use crate::{
+    DEFAULT_AUTH_BASE, DEFAULT_CLIENT_SECRET_KEY, DEFAULT_REFRESH_TOKEN_KEY, DEFAULT_TOKEN_SCOPE,
+};
 
 pub(crate) fn acquire_token(cfg: &ProviderConfig) -> Result<String, String> {
     let auth_base = cfg

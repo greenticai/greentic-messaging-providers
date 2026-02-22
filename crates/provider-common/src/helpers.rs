@@ -7,12 +7,15 @@ use crate::component_v0_6::{
     DescribePayload, I18nText, OperationDescriptor, QaQuestionSpec, QaSpec, SchemaField, SchemaIr,
     canonical_cbor_bytes, decode_cbor, default_en_i18n_messages,
 };
+// Re-export so providers can write `use provider_common::helpers::PlannerCapabilities`.
+use base64::Engine as _;
+pub use greentic_messaging_renderer::PlannerCapabilities;
+use greentic_messaging_renderer::{RenderItem, extract_planner_card, plan_render};
 use greentic_types::messaging::universal_dto::{
     RenderPlanInV1, RenderPlanOutV1, SendPayloadInV1, SendPayloadResultV1,
 };
-use base64::Engine as _;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
@@ -48,9 +51,13 @@ pub fn op(name: &str, title_key: &str, desc_key: &str) -> OperationDescriptor {
 /// Build a [`QaQuestionSpec`] from a key, i18n text key, and required flag.
 pub fn qa_q(key: &str, text_key: &str, required: bool) -> QaQuestionSpec {
     QaQuestionSpec {
-        key: key.to_string(),
-        text: i18n(text_key),
+        id: key.to_string(),
+        label: i18n(text_key),
+        help: None,
+        error: None,
+        kind: crate::component_v0_6::QuestionKind::Text,
         required,
+        default: None,
     }
 }
 
@@ -181,19 +188,31 @@ pub fn schema_core_healthcheck() -> Vec<u8> {
 // ---------------------------------------------------------------------------
 
 /// Configuration for the shared [`render_plan_common`] function.
+///
+/// Uses [`PlannerCapabilities`] from the renderer crate to drive tier selection,
+/// text truncation, HTML/markdown sanitization, and AC element extraction.
 pub struct RenderPlanConfig<'a> {
-    /// Tier to use when an Adaptive Card is present.
-    /// `None` means the provider does not support ACs (a warning is emitted).
-    pub ac_tier: Option<&'a str>,
-    /// Tier when no AC is present (usually `"TierD"`).
-    pub default_tier: &'a str,
-    /// Fallback summary text (e.g. `"slack message"`).
+    /// Channel capabilities that drive tier selection and text processing.
+    pub capabilities: PlannerCapabilities,
+    /// Fallback summary text when the message has no text and no AC
+    /// (e.g. `"slack message"`).
     pub default_summary: &'a str,
-    /// Whether to extract text from an AC for the summary (TierD providers).
-    pub extract_ac_text: bool,
 }
 
-/// Build a render plan response using the shared template.
+/// Extract a downsampled text summary from an Adaptive Card JSON string.
+///
+/// Returns `Some(summary)` if the AC was parsed and produced non-empty text;
+/// `None` otherwise.  Used by `encode_op` in non-AC providers to replace
+/// `message.text` with the AC content (since the operator does not forward
+/// the render-plan output to the encode step).
+pub fn extract_ac_summary(ac_raw: &str, caps: &PlannerCapabilities) -> Option<String> {
+    let ac: Value = serde_json::from_str(ac_raw).ok()?;
+    let card = extract_planner_card(&ac);
+    let plan = plan_render(&card, caps, Some(&ac));
+    plan.summary_text.filter(|s| !s.trim().is_empty())
+}
+
+/// Build a render plan response using the full renderer pipeline.
 ///
 /// This covers the common render_plan logic used by 7 of the 8 providers
 /// (all except dummy, which has no render_plan op).
@@ -203,49 +222,91 @@ pub fn render_plan_common(input_json: &[u8], config: &RenderPlanConfig) -> Vec<u
         Err(err) => return render_plan_error(&format!("invalid render input: {err}")),
     };
 
-    let has_ac = plan_in.message.metadata.contains_key("adaptive_card");
-    let tier = if has_ac {
-        config.ac_tier.unwrap_or(config.default_tier)
-    } else {
-        config.default_tier
-    };
+    let ac_json: Option<Value> = plan_in
+        .message
+        .metadata
+        .get("adaptive_card")
+        .and_then(|raw| serde_json::from_str(raw).ok());
 
-    let summary = if config.extract_ac_text {
-        let ac_summary = crate::extract_ac_text_summary(&plan_in.message.metadata);
-        ac_summary
-            .or_else(|| {
-                plan_in
+    let render_plan = match &ac_json {
+        Some(ac) => {
+            let card = extract_planner_card(ac);
+            // Always pass ac_ref so the planner can emit downsampled warnings
+            // for non-AC providers. The planner only includes the AC as an
+            // attachment in TierA/B (when supports_adaptive_cards is true).
+            plan_render(&card, &config.capabilities, Some(ac))
+        }
+        None => {
+            // No AC — build a simple text-only plan through the planner
+            let card = greentic_messaging_renderer::PlannerCard {
+                title: None,
+                text: plan_in
                     .message
                     .text
                     .clone()
-                    .filter(|t| !t.trim().is_empty())
-            })
-            .unwrap_or_else(|| config.default_summary.to_string())
-    } else {
-        plan_in
-            .message
-            .text
-            .clone()
-            .filter(|text| !text.trim().is_empty())
-            .unwrap_or_else(|| config.default_summary.to_string())
+                    .filter(|t| !t.trim().is_empty()),
+                actions: Vec::new(),
+                images: Vec::new(),
+            };
+            plan_render(&card, &config.capabilities, None)
+        }
     };
 
-    let mut warnings: Vec<Value> = Vec::new();
-    if has_ac && config.ac_tier.is_none() {
-        warnings
-            .push(json!({"code": "adaptive_cards_not_supported", "message": null, "path": null}));
-    }
+    // Use planner summary or fall back to message text / default
+    let summary_text = render_plan
+        .summary_text
+        .clone()
+        .or_else(|| {
+            plan_in
+                .message
+                .text
+                .clone()
+                .filter(|t| !t.trim().is_empty())
+        })
+        .unwrap_or_else(|| config.default_summary.to_string());
+
+    let tier_str = match render_plan.tier {
+        greentic_messaging_renderer::RenderTier::TierA => "TierA",
+        greentic_messaging_renderer::RenderTier::TierB => "TierB",
+        greentic_messaging_renderer::RenderTier::TierC => "TierC",
+        greentic_messaging_renderer::RenderTier::TierD => "TierD",
+    };
+
+    // Collect actions from the planner items (action labels)
+    let actions: Vec<Value> = Vec::new();
+
+    // Collect attachments (AC JSON for AC-capable tiers)
+    let attachments: Vec<Value> = render_plan
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            RenderItem::AdaptiveCard(ac) => Some(ac.clone()),
+            _ => None,
+        })
+        .collect();
+
+    let warnings: Vec<Value> = render_plan
+        .warnings
+        .iter()
+        .map(|w| {
+            json!({
+                "code": w.code,
+                "message": w.message,
+                "path": w.path,
+            })
+        })
+        .collect();
 
     let plan_obj = json!({
-        "tier": tier,
-        "summary_text": summary,
-        "actions": [],
-        "attachments": [],
+        "tier": tier_str,
+        "summary_text": summary_text,
+        "actions": actions,
+        "attachments": attachments,
         "warnings": warnings,
         "debug": plan_in.metadata,
     });
     let plan_json =
-        serde_json::to_string(&plan_obj).unwrap_or_else(|_| format!("{{\"tier\":\"{tier}\"}}"));
+        serde_json::to_string(&plan_obj).unwrap_or_else(|_| format!("{{\"tier\":\"{tier_str}\"}}"));
     let plan_out = RenderPlanOutV1 { plan_json };
     json_bytes(&json!({"ok": true, "plan": plan_out}))
 }
@@ -273,14 +334,13 @@ pub fn send_payload_dispatch(
     if send_in.provider_type != provider_type {
         return send_payload_error("provider type mismatch", false);
     }
-    let payload_bytes = match base64::engine::general_purpose::STANDARD
-        .decode(&send_in.payload.body_b64)
-    {
-        Ok(bytes) => bytes,
-        Err(err) => {
-            return send_payload_error(&format!("payload decode failed: {err}"), false);
-        }
-    };
+    let payload_bytes =
+        match base64::engine::general_purpose::STANDARD.decode(&send_in.payload.body_b64) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                return send_payload_error(&format!("payload decode failed: {err}"), false);
+            }
+        };
     let payload: Value = serde_json::from_slice(&payload_bytes).unwrap_or(Value::Null);
     let payload_bytes = serde_json::to_vec(&payload).unwrap_or_else(|_| b"{}".to_vec());
     let result_bytes = send_fn(&payload_bytes);
@@ -385,10 +445,7 @@ pub fn schema_obj(
 ) -> SchemaIr {
     let mut fields = BTreeMap::new();
     for (name, required, schema) in field_defs {
-        fields.insert(
-            name.to_string(),
-            SchemaField { required, schema },
-        );
+        fields.insert(name.to_string(), SchemaField { required, schema });
     }
     SchemaIr::Object {
         title: i18n(title),
@@ -433,29 +490,37 @@ pub fn qa_spec_for_mode(
             QaSpec {
                 mode: "default".to_string(),
                 title: i18n(&format!("{prefix}.qa.default.title")),
+                description: None,
                 questions,
+                defaults: Default::default(),
             }
         }
         "setup" => QaSpec {
             mode: "setup".to_string(),
             title: i18n(&format!("{prefix}.qa.setup.title")),
+            description: None,
             questions: setup_questions
                 .iter()
                 .map(|(k, t, r)| qa_q(k, t, *r))
                 .collect(),
+            defaults: Default::default(),
         },
         "upgrade" => QaSpec {
             mode: "upgrade".to_string(),
             title: i18n(&format!("{prefix}.qa.upgrade.title")),
+            description: None,
             questions: setup_questions
                 .iter()
                 .map(|(k, t, _)| qa_q(k, t, false))
                 .collect(),
+            defaults: Default::default(),
         },
         _ => QaSpec {
             mode: "remove".to_string(),
             title: i18n(&format!("{prefix}.qa.remove.title")),
+            description: None,
             questions: Vec::new(),
+            defaults: Default::default(),
         },
     }
 }
@@ -469,10 +534,7 @@ pub fn qa_spec_for_mode(
 /// Tries `input["config"]` first, then falls back to extracting top-level
 /// fields listed in `keys`.  Returns `Err` if neither source yields a valid
 /// `T`.
-pub fn load_config_generic<T: DeserializeOwned>(
-    input: &Value,
-    keys: &[&str],
-) -> Result<T, String> {
+pub fn load_config_generic<T: DeserializeOwned>(input: &Value, keys: &[&str]) -> Result<T, String> {
     if let Some(cfg) = input.get("config") {
         return serde_json::from_value::<T>(cfg.clone())
             .map_err(|e| format!("invalid config: {e}"));
@@ -581,8 +643,8 @@ mod tests {
     #[test]
     fn qa_q_builds_question() {
         let q = qa_q("name", "p.qa.name", true);
-        assert_eq!(q.key, "name");
-        assert_eq!(q.text.key, "p.qa.name");
+        assert_eq!(q.id, "name");
+        assert_eq!(q.label.key, "p.qa.name");
         assert!(q.required);
     }
 
@@ -598,5 +660,138 @@ mod tests {
         let bytes = schema_core_healthcheck();
         let val: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(val["status"], "healthy");
+    }
+
+    // -----------------------------------------------------------------------
+    // render_plan_common integration tests
+    // -----------------------------------------------------------------------
+
+    fn make_plan_input(text: Option<&str>, ac_json: Option<&str>) -> Vec<u8> {
+        use greentic_types::{Actor, ChannelMessageEnvelope, EnvId, TenantCtx, TenantId};
+        let mut metadata = BTreeMap::new();
+        if let Some(ac) = ac_json {
+            metadata.insert("adaptive_card".to_string(), ac.to_string());
+        }
+        let env = EnvId::try_from("default").unwrap();
+        let tenant = TenantId::try_from("default").unwrap();
+        let plan_in = RenderPlanInV1 {
+            message: ChannelMessageEnvelope {
+                id: "test-envelope".to_string(),
+                tenant: TenantCtx::new(env, tenant),
+                channel: "test".to_string(),
+                session_id: "test-session".to_string(),
+                reply_scope: None,
+                from: Some(Actor {
+                    id: "test-user".to_string(),
+                    kind: None,
+                }),
+                correlation_id: None,
+                to: Vec::new(),
+                text: text.map(|t| t.to_string()),
+                attachments: Vec::new(),
+                metadata,
+            },
+            metadata: BTreeMap::new(),
+        };
+        serde_json::to_vec(&plan_in).unwrap()
+    }
+
+    fn parse_plan(bytes: &[u8]) -> Value {
+        let response: Value = serde_json::from_slice(bytes).unwrap();
+        assert_eq!(response["ok"], true);
+        let plan_json_str = response["plan"]["plan_json"].as_str().unwrap();
+        serde_json::from_str(plan_json_str).unwrap()
+    }
+
+    #[test]
+    fn render_plan_ac_capable_returns_tier_a_with_attachment() {
+        let ac = r#"{"type":"AdaptiveCard","body":[{"type":"TextBlock","text":"Hello","weight":"Bolder"}]}"#;
+        let input = make_plan_input(None, Some(ac));
+        let config = RenderPlanConfig {
+            capabilities: PlannerCapabilities {
+                supports_adaptive_cards: true,
+                supports_buttons: true,
+                supports_images: true,
+                supports_markdown: true,
+                supports_html: true,
+                max_text_len: None,
+                max_payload_bytes: None,
+            },
+            default_summary: "test message",
+        };
+        let result = render_plan_common(&input, &config);
+        let plan = parse_plan(&result);
+        assert_eq!(plan["tier"], "TierA");
+        assert!(plan["attachments"].as_array().unwrap().len() > 0);
+    }
+
+    #[test]
+    fn render_plan_text_only_provider_downsample_ac() {
+        let ac = r#"{"type":"AdaptiveCard","body":[{"type":"TextBlock","text":"Important info"}]}"#;
+        let input = make_plan_input(None, Some(ac));
+        let config = RenderPlanConfig {
+            capabilities: PlannerCapabilities::default(),
+            default_summary: "test message",
+        };
+        let result = render_plan_common(&input, &config);
+        let plan = parse_plan(&result);
+        assert_eq!(plan["tier"], "TierD");
+        assert_eq!(plan["summary_text"], "Important info");
+        let warnings = plan["warnings"].as_array().unwrap();
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w["code"] == "adaptive_card_downsampled"),
+            "expected adaptive_card_downsampled warning"
+        );
+    }
+
+    #[test]
+    fn render_plan_no_ac_uses_message_text() {
+        let input = make_plan_input(Some("Hello world"), None);
+        let config = RenderPlanConfig {
+            capabilities: PlannerCapabilities::default(),
+            default_summary: "fallback",
+        };
+        let result = render_plan_common(&input, &config);
+        let plan = parse_plan(&result);
+        assert_eq!(plan["tier"], "TierD");
+        assert_eq!(plan["summary_text"], "Hello world");
+        assert!(plan["warnings"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn render_plan_no_text_no_ac_uses_default_summary() {
+        let input = make_plan_input(None, None);
+        let config = RenderPlanConfig {
+            capabilities: PlannerCapabilities::default(),
+            default_summary: "fallback summary",
+        };
+        let result = render_plan_common(&input, &config);
+        let plan = parse_plan(&result);
+        assert_eq!(plan["tier"], "TierD");
+        assert_eq!(plan["summary_text"], "fallback summary");
+    }
+
+    #[test]
+    fn render_plan_text_truncation_with_max_text_len() {
+        let long_text = "A".repeat(5000);
+        let input = make_plan_input(Some(&long_text), None);
+        let config = RenderPlanConfig {
+            capabilities: PlannerCapabilities {
+                max_text_len: Some(100),
+                ..Default::default()
+            },
+            default_summary: "fallback",
+        };
+        let result = render_plan_common(&input, &config);
+        let plan = parse_plan(&result);
+        let summary = plan["summary_text"].as_str().unwrap();
+        assert!(summary.chars().count() <= 100);
+        let warnings = plan["warnings"].as_array().unwrap();
+        assert!(
+            warnings.iter().any(|w| w["code"] == "text_truncated"),
+            "expected text_truncated warning"
+        );
     }
 }

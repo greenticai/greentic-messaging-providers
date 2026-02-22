@@ -1,4 +1,3 @@
-use provider_common::helpers::{optional_string_from, string_or_default};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -113,60 +112,4 @@ pub(crate) fn parse_config_bytes(bytes: &[u8]) -> Result<ProviderConfig, String>
     let cfg = serde_json::from_slice::<ProviderConfig>(bytes)
         .map_err(|e| format!("invalid config: {e}"))?;
     validate_provider_config(cfg)
-}
-
-/// Helper used by `apply_answers` in lib.rs.
-pub(crate) fn apply_answers_merge(
-    mode: &crate::bindings::exports::greentic::component::qa::Mode,
-    answers: &Value,
-) -> Result<ProviderConfigOut, String> {
-    use provider_common::helpers::existing_config_from_answers;
-    use crate::bindings::exports::greentic::component::qa::Mode;
-
-    let mut merged = existing_config_from_answers(answers).unwrap_or_else(default_config_out);
-    let answer_obj = answers.as_object();
-    let has = |key: &str| answer_obj.is_some_and(|obj| obj.contains_key(key));
-
-    if *mode == Mode::Setup || *mode == Mode::Default {
-        merged.enabled = answers
-            .get("enabled")
-            .and_then(Value::as_bool)
-            .unwrap_or(merged.enabled);
-        merged.public_base_url =
-            string_or_default(answers, "public_base_url", &merged.public_base_url);
-        merged.mode = string_or_default(answers, "mode", &merged.mode);
-        merged.route = optional_string_from(answers, "route").or(merged.route.clone());
-        merged.tenant_channel_id = optional_string_from(answers, "tenant_channel_id")
-            .or(merged.tenant_channel_id.clone());
-        merged.base_url =
-            optional_string_from(answers, "base_url").or(merged.base_url.clone());
-    }
-
-    if *mode == Mode::Upgrade {
-        if has("enabled") {
-            merged.enabled = answers
-                .get("enabled")
-                .and_then(Value::as_bool)
-                .unwrap_or(merged.enabled);
-        }
-        if has("public_base_url") {
-            merged.public_base_url =
-                string_or_default(answers, "public_base_url", &merged.public_base_url);
-        }
-        if has("mode") {
-            merged.mode = string_or_default(answers, "mode", &merged.mode);
-        }
-        if has("route") {
-            merged.route = optional_string_from(answers, "route");
-        }
-        if has("tenant_channel_id") {
-            merged.tenant_channel_id = optional_string_from(answers, "tenant_channel_id");
-        }
-        if has("base_url") {
-            merged.base_url = optional_string_from(answers, "base_url");
-        }
-    }
-
-    validate_config_out(&merged)?;
-    Ok(merged)
 }
