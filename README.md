@@ -259,7 +259,7 @@ greentic-messaging-providers/
 │   ├── messaging-provider-webex/        # Cisco Webex
 │   ├── messaging-provider-webchat/      # BotFramework WebChat
 │   ├── messaging-provider-whatsapp/     # WhatsApp Business
-│   ├── messaging-provider-email/        # Email (SMTP)
+│   ├── messaging-provider-email/        # Email (Graph API + SMTP)
 │   ├── messaging-provider-dummy/        # Test / conformance
 │   ├── messaging-provision/             # Pack provisioning wizard
 │   └── messaging-secrets-probe/         # Secrets diagnostics
@@ -288,6 +288,41 @@ greentic-messaging-providers/
 ├── schemas/                             # JSON Schemas for provider config
 └── docs/
     └── testing_guide.md
+```
+
+### Provider Module Structure
+
+Each provider (except Dummy) is split into focused modules:
+
+```
+components/messaging-provider-*/src/
+├── lib.rs          # WIT bindings, Component struct, trait impls, apply_answers, tests
+├── config.rs       # ProviderConfig structs, defaults, validation, load_config, secrets access
+├── describe.rs     # I18N keys/pairs, QA spec, describe payload, JSON schemas
+└── ops.rs          # handle_send, handle_reply, ingest_http, render_plan, encode_op, send_payload
+```
+
+Teams and Email have additional modules for their Graph API integrations:
+
+```
+# Teams
+├── graph.rs        # Graph API subscription CRUD, ExistingSubscription, GraphRequestError
+└── token.rs        # OAuth token acquisition (refresh_token / client_credentials)
+
+# Email
+├── graph.rs        # Graph API helpers (post/patch/delete/get), subscription management
+├── ingress.rs      # Webhook handling (validation, Graph notifications, message fetch)
+└── auth.rs         # OAuth token acquisition
+```
+
+The `provider-common` crate provides shared utilities used by all providers:
+
+```
+crates/provider-common/src/
+├── lib.rs          # Shared types (ProviderError, RenderTier, ProviderPayload, etc.)
+├── helpers.rs      # Utility functions, CBOR-JSON bridge, schema builders, QA/I18N helpers
+├── qa_helpers.rs   # Generic ApplyAnswersResult<C>, RemovePlan, result builders
+└── test_macros.rs  # standard_provider_tests! macro for shared test generation
 ```
 
 ## Building
@@ -574,13 +609,13 @@ cargo test -p greentic-messaging-renderer
 
 | Crate | Tests | Notes |
 |-------|-------|-------|
-| `messaging-provider-dummy` | 8 | QA ops + send |
-| `messaging-provider-telegram` | 8 | QA ops + send |
+| `messaging-provider-dummy` | 7 | QA ops + send |
+| `messaging-provider-telegram` | 11 | QA ops + send + ingress |
 | `messaging-provider-slack` | 8 | QA ops + send |
-| `messaging-provider-teams` | 8 | QA ops + send |
-| `messaging-provider-webex` | 8 | QA ops + send |
-| `messaging-provider-webchat` | 11 | QA ops + send + integration |
-| `messaging-provider-whatsapp` | 8 | QA ops + send |
+| `messaging-provider-teams` | 10 | QA ops + send + config |
+| `messaging-provider-webex` | 12 | QA ops + send + ingress |
+| `messaging-provider-webchat` | 16 | QA ops + send + integration |
+| `messaging-provider-whatsapp` | 11 | QA ops + send + ingress |
 | `messaging-provider-email` | 10 | QA ops + send + config |
 | `greentic-messaging-renderer` | 35 | 12 ac_extract + 14 planner + 5 downsample + 4 noop |
 | `provider-common` | misc | Shared utilities |
@@ -599,7 +634,7 @@ Each provider has tests for:
 | `cargo component build` fails | WIT resolution bug | Use `cargo build` (build script already patched) |
 | `greentic-pack build` broken | state-store interface mismatch | Replace WASM inside existing `.gtpack` with `zip -u` |
 | WebChat needs state-store linker | Can't run in operator without it | Use operator Direct Line endpoints (built-in) |
-| 5 clippy warnings in renderer | `collapsible_if` lint | Pre-existing, not from provider changes |
+| 5 clippy warnings in renderer | `collapsible_if` lint | Pre-existing in `greentic-messaging-renderer`, not from provider code |
 
 ### Troubleshooting
 
