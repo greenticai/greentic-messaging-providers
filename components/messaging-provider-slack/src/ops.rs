@@ -252,37 +252,57 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
     if channel.is_empty() {
         return encode_error("destination (to) required");
     }
-    // If the message carries an Adaptive Card, use the downsampled summary.
-    let ac_summary = encode_in
+
+    // If the message carries an Adaptive Card, convert to Slack Block Kit.
+    let ac_blocks = encode_in
         .message
         .metadata
         .get("adaptive_card")
-        .and_then(|ac_raw| {
-            let caps = PlannerCapabilities {
-                supports_adaptive_cards: false,
-                supports_markdown: true,
-                supports_html: false,
-                supports_images: false,
-                supports_buttons: false,
-                max_text_len: Some(40_000),
-                max_payload_bytes: None,
-            };
-            extract_ac_summary(ac_raw, &caps)
-        });
-    let text = ac_summary
-        .or_else(|| {
-            encode_in
-                .message
-                .text
-                .clone()
-                .filter(|t| !t.trim().is_empty())
-        })
-        .unwrap_or_else(|| "slack universal payload".to_string());
+        .and_then(|ac_raw| ac_to_slack_blocks(ac_raw));
+
+    let text = if ac_blocks.is_some() {
+        // Blocks present — text is the plain-text fallback for notifications.
+        let caps = PlannerCapabilities {
+            supports_adaptive_cards: false,
+            supports_markdown: true,
+            supports_html: false,
+            supports_images: false,
+            supports_buttons: false,
+            max_text_len: Some(40_000),
+            max_payload_bytes: None,
+        };
+        encode_in
+            .message
+            .metadata
+            .get("adaptive_card")
+            .and_then(|ac_raw| extract_ac_summary(ac_raw, &caps))
+            .or_else(|| {
+                encode_in
+                    .message
+                    .text
+                    .clone()
+                    .filter(|t| !t.trim().is_empty())
+            })
+            .unwrap_or_else(|| "slack universal payload".to_string())
+    } else {
+        encode_in
+            .message
+            .text
+            .clone()
+            .filter(|t| !t.trim().is_empty())
+            .unwrap_or_else(|| "slack universal payload".to_string())
+    };
+
     let url = format!("{}/chat.postMessage", DEFAULT_API_BASE);
-    let body = json!({
+    let mut body = json!({
         "channel": channel,
         "text": text,
     });
+    if let Some(blocks) = ac_blocks {
+        body.as_object_mut()
+            .unwrap()
+            .insert("blocks".into(), Value::Array(blocks));
+    }
     let body_bytes = serde_json::to_vec(&body).unwrap_or_else(|_| b"{}".to_vec());
     let mut metadata = BTreeMap::new();
     metadata.insert("url".to_string(), Value::String(url));
@@ -442,5 +462,391 @@ fn build_slack_envelope(
         text: Some(text),
         attachments: Vec::new(),
         metadata,
+    }
+}
+
+// ─── Adaptive Card → Slack Block Kit converter ──────────────────────────
+
+/// Convert an Adaptive Card JSON string into Slack Block Kit blocks.
+///
+/// Maps AC elements to their best Slack-native representation:
+/// - TextBlock (bold/heading) → `header` block (max 150 chars)
+/// - TextBlock (normal) → `section` block with mrkdwn
+/// - RichTextBlock → `section` with mrkdwn formatting
+/// - Image/ImageSet → `image` block
+/// - FactSet → `section` with `fields` array
+/// - ColumnSet → `section` with `fields`
+/// - Container → recursive processing
+/// - ActionSet + top-level actions → `actions` block with buttons
+/// - Table → `section` with preformatted code block
+fn ac_to_slack_blocks(ac_raw: &str) -> Option<Vec<Value>> {
+    let ac: Value = serde_json::from_str(ac_raw).ok()?;
+    let body = ac.get("body").and_then(Value::as_array);
+    let top_actions = ac.get("actions").and_then(Value::as_array);
+
+    let mut blocks: Vec<Value> = Vec::new();
+    let mut actions: Vec<Value> = Vec::new();
+
+    if let Some(body) = body {
+        for element in body {
+            ac_element_to_blocks(element, &mut blocks, &mut actions);
+        }
+    }
+    if let Some(top_actions) = top_actions {
+        collect_slack_actions(top_actions, &mut actions);
+    }
+
+    // Add actions block if any buttons were collected.
+    if !actions.is_empty() {
+        // Slack max 25 elements per actions block.
+        let capped: Vec<Value> = actions.into_iter().take(25).collect();
+        blocks.push(json!({
+            "type": "actions",
+            "elements": capped
+        }));
+    }
+
+    if blocks.is_empty() {
+        return None;
+    }
+
+    // Slack max 50 blocks per message.
+    blocks.truncate(50);
+    Some(blocks)
+}
+
+/// Recursively convert an AC body element to Slack Block Kit blocks.
+fn ac_element_to_blocks(
+    element: &Value,
+    blocks: &mut Vec<Value>,
+    actions: &mut Vec<Value>,
+) {
+    let etype = element
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    match etype {
+        "TextBlock" => {
+            let text = element
+                .get("text")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .trim();
+            if text.is_empty() {
+                return;
+            }
+            let is_bold = element
+                .get("weight")
+                .and_then(Value::as_str)
+                .is_some_and(|w| w.eq_ignore_ascii_case("bolder"));
+            let size = element
+                .get("size")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+            let is_heading = element
+                .get("style")
+                .and_then(Value::as_str)
+                .is_some_and(|s| s.eq_ignore_ascii_case("heading"));
+
+            if is_bold || is_heading || size == "large" || size == "extralarge" {
+                // Slack header block: plain_text, max 150 chars.
+                let truncated: String = text.chars().take(150).collect();
+                blocks.push(json!({
+                    "type": "header",
+                    "text": { "type": "plain_text", "text": truncated }
+                }));
+            } else {
+                let mrkdwn = if element
+                    .get("isSubtle")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+                    || size == "small"
+                {
+                    format!("_{text}_")
+                } else {
+                    text.to_string()
+                };
+                blocks.push(json!({
+                    "type": "section",
+                    "text": { "type": "mrkdwn", "text": mrkdwn }
+                }));
+            }
+        }
+
+        "RichTextBlock" => {
+            let inlines = element.get("inlines").and_then(Value::as_array);
+            if let Some(inlines) = inlines {
+                let mut mrkdwn = String::new();
+                for inline in inlines {
+                    let text = inline
+                        .get("text")
+                        .and_then(Value::as_str)
+                        .or_else(|| inline.as_str())
+                        .unwrap_or_default();
+                    if text.is_empty() {
+                        continue;
+                    }
+                    let mut s = text.to_string();
+                    if inline
+                        .get("fontWeight")
+                        .and_then(Value::as_str)
+                        .is_some_and(|w| w.eq_ignore_ascii_case("bolder"))
+                    {
+                        s = format!("*{s}*");
+                    }
+                    if inline
+                        .get("italic")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                    {
+                        s = format!("_{s}_");
+                    }
+                    if inline
+                        .get("strikethrough")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                    {
+                        s = format!("~{s}~");
+                    }
+                    if inline
+                        .get("fontType")
+                        .and_then(Value::as_str)
+                        .is_some_and(|f| f.eq_ignore_ascii_case("monospace"))
+                    {
+                        s = format!("`{s}`");
+                    }
+                    // Hyperlink
+                    if let Some(url) = inline.get("selectAction").and_then(|a| {
+                        if a.get("type").and_then(Value::as_str) == Some("Action.OpenUrl") {
+                            a.get("url").and_then(Value::as_str)
+                        } else {
+                            None
+                        }
+                    }) {
+                        s = format!("<{url}|{s}>");
+                    }
+                    mrkdwn.push_str(&s);
+                }
+                if !mrkdwn.is_empty() {
+                    blocks.push(json!({
+                        "type": "section",
+                        "text": { "type": "mrkdwn", "text": mrkdwn }
+                    }));
+                }
+            }
+        }
+
+        "Image" => {
+            if let Some(url) = element.get("url").and_then(Value::as_str) {
+                let alt = element
+                    .get("altText")
+                    .and_then(Value::as_str)
+                    .unwrap_or("image");
+                blocks.push(json!({
+                    "type": "image",
+                    "image_url": url,
+                    "alt_text": alt
+                }));
+            }
+        }
+
+        "ImageSet" => {
+            if let Some(imgs) = element.get("images").and_then(Value::as_array) {
+                for img in imgs {
+                    if let Some(url) = img.get("url").and_then(Value::as_str) {
+                        let alt = img
+                            .get("altText")
+                            .and_then(Value::as_str)
+                            .unwrap_or("image");
+                        blocks.push(json!({
+                            "type": "image",
+                            "image_url": url,
+                            "alt_text": alt
+                        }));
+                    }
+                }
+            }
+        }
+
+        "FactSet" => {
+            if let Some(facts) = element.get("facts").and_then(Value::as_array) {
+                // Slack section fields: max 10 fields, each max 2000 chars.
+                let fields: Vec<Value> = facts
+                    .iter()
+                    .take(10)
+                    .filter_map(|fact| {
+                        let title = fact
+                            .get("title")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default();
+                        let value = fact
+                            .get("value")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default();
+                        if title.is_empty() && value.is_empty() {
+                            return None;
+                        }
+                        Some(json!({
+                            "type": "mrkdwn",
+                            "text": format!("*{title}:* {value}")
+                        }))
+                    })
+                    .collect();
+                if !fields.is_empty() {
+                    blocks.push(json!({
+                        "type": "section",
+                        "fields": fields
+                    }));
+                }
+            }
+        }
+
+        "ColumnSet" => {
+            if let Some(columns) = element.get("columns").and_then(Value::as_array) {
+                // Map columns to section fields.
+                let mut fields: Vec<Value> = Vec::new();
+                for col in columns {
+                    if let Some(items) = col.get("items").and_then(Value::as_array) {
+                        let col_text: Vec<String> = items
+                            .iter()
+                            .filter_map(|item| {
+                                item.get("text").and_then(Value::as_str).map(|s| s.to_string())
+                            })
+                            .collect();
+                        if !col_text.is_empty() {
+                            fields.push(json!({
+                                "type": "mrkdwn",
+                                "text": col_text.join("\n")
+                            }));
+                        }
+                    }
+                }
+                if !fields.is_empty() {
+                    // Slack max 10 fields per section.
+                    fields.truncate(10);
+                    blocks.push(json!({
+                        "type": "section",
+                        "fields": fields
+                    }));
+                }
+            }
+        }
+
+        "Container" => {
+            if let Some(items) = element.get("items").and_then(Value::as_array) {
+                for item in items {
+                    ac_element_to_blocks(item, blocks, actions);
+                }
+            }
+        }
+
+        "ActionSet" => {
+            if let Some(action_list) = element.get("actions").and_then(Value::as_array) {
+                collect_slack_actions(action_list, actions);
+            }
+        }
+
+        "Table" => {
+            let rows = element.get("rows").and_then(Value::as_array);
+            let columns = element.get("columns").and_then(Value::as_array);
+            if let Some(rows) = rows {
+                let mut lines = Vec::new();
+                if let Some(cols) = columns {
+                    let headers: Vec<String> = cols
+                        .iter()
+                        .map(|c| {
+                            c.get("title")
+                                .or_else(|| c.get("header"))
+                                .and_then(Value::as_str)
+                                .unwrap_or("")
+                                .to_string()
+                        })
+                        .collect();
+                    if headers.iter().any(|h| !h.is_empty()) {
+                        lines.push(headers.join(" | "));
+                        lines.push(
+                            headers
+                                .iter()
+                                .map(|h| "-".repeat(h.len().max(3)))
+                                .collect::<Vec<_>>()
+                                .join("-+-"),
+                        );
+                    }
+                }
+                for row in rows {
+                    if let Some(cells) = row.get("cells").and_then(Value::as_array) {
+                        let cell_texts: Vec<String> = cells
+                            .iter()
+                            .map(|cell| {
+                                cell.get("items")
+                                    .and_then(Value::as_array)
+                                    .map(|items| {
+                                        items
+                                            .iter()
+                                            .filter_map(|i| {
+                                                i.get("text").and_then(Value::as_str)
+                                            })
+                                            .collect::<Vec<_>>()
+                                            .join(" ")
+                                    })
+                                    .unwrap_or_default()
+                            })
+                            .collect();
+                        lines.push(cell_texts.join(" | "));
+                    }
+                }
+                if !lines.is_empty() {
+                    blocks.push(json!({
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": format!("```\n{}\n```", lines.join("\n"))
+                        }
+                    }));
+                }
+            }
+        }
+
+        _ => {}
+    }
+}
+
+/// Collect AC actions into Slack button elements.
+fn collect_slack_actions(action_list: &[Value], actions: &mut Vec<Value>) {
+    for action in action_list {
+        let atype = action
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let title = action
+            .get("title")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if title.is_empty() {
+            continue;
+        }
+        // Slack button text max 75 chars.
+        let btn_text: String = title.chars().take(75).collect();
+        match atype {
+            "Action.OpenUrl" => {
+                let url = action.get("url").and_then(Value::as_str).unwrap_or("");
+                actions.push(json!({
+                    "type": "button",
+                    "text": { "type": "plain_text", "text": btn_text },
+                    "url": url,
+                    "action_id": format!("ac_url_{}", actions.len())
+                }));
+            }
+            _ => {
+                // Action.Submit, Action.Execute, etc. → callback button.
+                actions.push(json!({
+                    "type": "button",
+                    "text": { "type": "plain_text", "text": btn_text },
+                    "action_id": format!("ac_action_{}", actions.len())
+                }));
+            }
+        }
     }
 }
