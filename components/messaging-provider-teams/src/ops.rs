@@ -7,7 +7,7 @@ use greentic_types::{
 };
 use provider_common::helpers::{
     PlannerCapabilities, RenderPlanConfig, encode_error, json_bytes, render_plan_common,
-    send_payload_error, send_payload_success,
+    send_payload_error,
 };
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde_json::{Value, json};
@@ -82,6 +82,22 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         .clone()
         .unwrap_or_else(|| DEFAULT_GRAPH_BASE.to_string());
 
+    // Reply-in-thread: check for reply_to_id in envelope or metadata.
+    // Strip surrounding quotes — operator may double-quote args-json values.
+    let reply_to_id = parsed
+        .get("reply_to_id")
+        .and_then(Value::as_str)
+        .or_else(|| parsed.get("reply_scope").and_then(Value::as_str))
+        .or_else(|| {
+            parsed
+                .get("metadata")
+                .and_then(|m| m.get("reply_to_id"))
+                .and_then(Value::as_str)
+        })
+        .map(|s| s.trim_matches('"'))
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+
     let url = match kind {
         "channel" => {
             let (team_id, channel_id) = match dest_id.split_once(':') {
@@ -103,7 +119,11 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
                     }));
                 }
             };
-            format!("{graph_base}/teams/{team_id}/channels/{channel_id}/messages")
+            if let Some(ref msg_id) = reply_to_id {
+                format!("{graph_base}/teams/{team_id}/channels/{channel_id}/messages/{msg_id}/replies")
+            } else {
+                format!("{graph_base}/teams/{team_id}/channels/{channel_id}/messages")
+            }
         }
         "chat" => {
             if dest_id.is_empty() {
@@ -124,12 +144,36 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let body = json!({
-        "body": {
-            "content": text,
-            "contentType": "html"
-        }
-    });
+    // Check if an Adaptive Card was injected by encode_op.
+    let ac_json_str = parsed
+        .get("_ac_json")
+        .and_then(Value::as_str)
+        .and_then(|s| serde_json::from_str::<Value>(s).ok());
+
+    let body = if let Some(ac_card) = ac_json_str {
+        // Send as native AC attachment — Teams renders it in full fidelity.
+        json!({
+            "body": {
+                "content": "<attachment id=\"ac-card-1\"></attachment>",
+                "contentType": "html"
+            },
+            "attachments": [{
+                "id": "ac-card-1",
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "contentUrl": null,
+                "content": serde_json::to_string(&ac_card).unwrap_or_default(),
+                "name": null,
+                "thumbnailUrl": null
+            }]
+        })
+    } else {
+        json!({
+            "body": {
+                "content": text,
+                "contentType": "html"
+            }
+        })
+    };
 
     let request = client::Request {
         method: "POST".into(),
@@ -152,9 +196,20 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
     };
 
     if resp.status < 200 || resp.status >= 300 {
+        let err_body = resp
+            .body
+            .as_ref()
+            .and_then(|b| serde_json::from_slice::<Value>(b).ok())
+            .unwrap_or(Value::Null);
+        let err_msg = err_body
+            .get("error")
+            .and_then(|e| e.get("message"))
+            .and_then(Value::as_str)
+            .unwrap_or("");
         return json_bytes(&json!({
             "ok": false,
-            "error": format!("graph returned status {}", resp.status),
+            "error": format!("graph returned status {}: {}", resp.status, err_msg),
+            "response": err_body,
         }));
     }
 
@@ -346,10 +401,35 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
-    // Serialize the full envelope so send_payload -> handle_send can parse it
-    // as ChannelMessageEnvelope and use envelope.to for the destination.
-    let envelope = encode_in.message;
-    let body_bytes = serde_json::to_vec(&envelope).unwrap_or_else(|_| b"{}".to_vec());
+    // Extract AC card from metadata if present — Teams renders it natively.
+    let ac_json = encode_in
+        .message
+        .metadata
+        .get("adaptive_card")
+        .cloned();
+
+    // Serialize the full envelope so send_payload -> handle_send can parse it.
+    // Inject ac_json into the serialized form so handle_send can attach it.
+    let mut envelope_val =
+        serde_json::to_value(&encode_in.message).unwrap_or(Value::Object(Default::default()));
+    if let Some(ac) = &ac_json {
+        envelope_val
+            .as_object_mut()
+            .unwrap()
+            .insert("_ac_json".to_string(), Value::String(ac.clone()));
+    }
+    // Forward reply_to_id from metadata so handle_send can thread replies.
+    // Strip surrounding quotes — operator may double-quote args-json values.
+    if let Some(reply_id) = encode_in.message.metadata.get("reply_to_id") {
+        let clean = reply_id.trim_matches('"');
+        if !clean.is_empty() {
+            envelope_val
+                .as_object_mut()
+                .unwrap()
+                .insert("reply_to_id".to_string(), Value::String(clean.to_string()));
+        }
+    }
+    let body_bytes = serde_json::to_vec(&envelope_val).unwrap_or_else(|_| b"{}".to_vec());
     let mut metadata = BTreeMap::new();
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
     let payload = ProviderPayloadV1 {
@@ -385,7 +465,16 @@ pub(crate) fn send_payload(input_json: &[u8]) -> Vec<u8> {
         .and_then(Value::as_bool)
         .unwrap_or(false);
     if ok {
-        send_payload_success()
+        // Forward message_id so callers can use it for replies/threading.
+        let msg_id = result_value
+            .get("message_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        json_bytes(&json!({
+            "ok": true,
+            "message": msg_id,
+            "retryable": false
+        }))
     } else {
         let message = result_value
             .get("error")
