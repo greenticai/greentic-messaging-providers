@@ -1,6 +1,7 @@
-use super::bindings::greentic::http::http_client as client;
-use super::bindings::greentic::secrets_store::secrets_store;
-use super::{AuthUserRefV1, ProviderConfig};
+use crate::bindings::greentic::http::http_client as client;
+use crate::bindings::greentic::secrets_store::secrets_store;
+use crate::config::ProviderConfig;
+use greentic_types::messaging::universal_dto::AuthUserRefV1;
 use serde_json::Value;
 use urlencoding::encode as url_encode;
 

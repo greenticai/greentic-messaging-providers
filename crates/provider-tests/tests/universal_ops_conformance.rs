@@ -12,7 +12,7 @@ use greentic_types::messaging::universal_dto::{
     EncodeInV1, Header, HttpInV1, HttpOutV1, ProviderPayloadV1, RenderPlanInV1, RenderPlanOutV1,
     SendPayloadInV1, SendPayloadResultV1,
 };
-use greentic_types::{Actor, EnvId, MessageMetadata, TenantCtx, TenantId};
+use greentic_types::{Actor, Destination, EnvId, MessageMetadata, TenantCtx, TenantId};
 use provider_common::component_v0_6::{canonical_cbor_bytes, decode_cbor};
 use provider_tests::harness::{
     TestHostState, add_wasi_to_linker, add_wasmtime_hosts, component_path, default_secret_values,
@@ -412,7 +412,10 @@ fn build_envelope(id: ProviderId) -> ChannelMessageEnvelope {
             kind: Some("user".into()),
         }),
         correlation_id: None,
-        to: Vec::new(),
+        to: match id {
+            ProviderId::Email => vec![Destination { id: "test@example.com".to_string(), kind: Some("email".into()) }],
+            _ => Vec::new(),
+        },
         text: Some(format!("universal {} message", channel)),
         attachments: Vec::new(),
         metadata,
