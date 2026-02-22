@@ -1,5 +1,6 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 359
 expression: value
 ---
 {
@@ -8,6 +9,7 @@ expression: value
     "id": "<FIXED>",
     "metadata": {
       "channel_id": "whatsapp",
+      "phone_number_id": "unknown",
       "universal": "true"
     },
     "session_id": "whatsapp",
@@ -17,7 +19,7 @@ expression: value
       "tenant": "default",
       "tenant_id": "default"
     },
-    "text": ""
+    "text": "adaptivecard actions message from whatsapp"
   },
   "ok": true
 }

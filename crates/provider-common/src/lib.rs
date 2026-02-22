@@ -1,6 +1,9 @@
 pub mod component_v0_6;
+pub mod helpers;
 pub mod http_compat;
 pub mod lifecycle_keys;
+pub mod qa_helpers;
+pub mod test_macros;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
