@@ -7,10 +7,10 @@ use provider_common::helpers::json_bytes;
 use serde_json::{Value, json};
 use std::fmt;
 
+use crate::DEFAULT_GRAPH_BASE;
 use crate::bindings::greentic::http::http_client as client;
 use crate::config::{ProviderConfig, load_config};
 use crate::token::acquire_token;
-use crate::DEFAULT_GRAPH_BASE;
 
 #[derive(Clone, Debug)]
 pub(crate) struct ExistingSubscription {

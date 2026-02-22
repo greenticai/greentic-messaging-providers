@@ -60,7 +60,12 @@ impl<C: Serialize> ApplyAnswersResult<C> {
 
     /// A remove result using the [`DEFAULT_REMOVE_CLEANUP`] steps.
     pub fn remove_default() -> Self {
-        Self::remove(DEFAULT_REMOVE_CLEANUP.iter().map(|s| (*s).to_string()).collect())
+        Self::remove(
+            DEFAULT_REMOVE_CLEANUP
+                .iter()
+                .map(|s| (*s).to_string())
+                .collect(),
+        )
     }
 
     /// A validation error (config was invalid).

@@ -23,11 +23,26 @@ pub fn parse_operator_http_in_with_config(input_json: &[u8]) -> Result<HttpInV1,
     parse_operator_http_in_inner(input_json, true)
 }
 
-fn parse_operator_http_in_inner(input_json: &[u8], extract_config: bool) -> Result<HttpInV1, String> {
+fn parse_operator_http_in_inner(
+    input_json: &[u8],
+    extract_config: bool,
+) -> Result<HttpInV1, String> {
     let val: Value = serde_json::from_slice(input_json).map_err(|e| e.to_string())?;
-    let method = val.get("method").and_then(|v| v.as_str()).unwrap_or("POST").to_string();
-    let path = val.get("path").and_then(|v| v.as_str()).unwrap_or("/").to_string();
-    let body_b64 = val.get("body_b64").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let method = val
+        .get("method")
+        .and_then(|v| v.as_str())
+        .unwrap_or("POST")
+        .to_string();
+    let path = val
+        .get("path")
+        .and_then(|v| v.as_str())
+        .unwrap_or("/")
+        .to_string();
+    let body_b64 = val
+        .get("body_b64")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let query = match val.get("query") {
         Some(Value::String(s)) => Some(s.clone()),
         Some(Value::Array(arr)) => {
@@ -43,13 +58,23 @@ fn parse_operator_http_in_inner(input_json: &[u8], extract_config: bool) -> Resu
                     }
                 })
                 .collect();
-            if pairs.is_empty() { None } else { Some(pairs.join("&")) }
+            if pairs.is_empty() {
+                None
+            } else {
+                Some(pairs.join("&"))
+            }
         }
         _ => None,
     };
     let headers = parse_headers(&val);
-    let route_hint = val.get("route").and_then(|v| v.as_str()).map(|s| s.to_string());
-    let binding_id = val.get("binding_id").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let route_hint = val
+        .get("route")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let binding_id = val
+        .get("binding_id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
     let config = if extract_config {
         val.get("config").cloned()
     } else {
@@ -78,7 +103,11 @@ fn parse_headers(val: &Value) -> Vec<Header> {
                     Some(Header { name, value })
                 } else if let Value::Object(map) = item {
                     let name = map.get("name").and_then(|v| v.as_str())?.to_string();
-                    let value = map.get("value").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let value = map
+                        .get("value")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
                     Some(Header { name, value })
                 } else {
                     None
@@ -141,7 +170,10 @@ mod tests {
         let req = parse_operator_http_in(&input).unwrap();
         assert_eq!(req.method, "GET");
         assert_eq!(req.path, "/webhook");
-        assert_eq!(req.query.as_deref(), Some("hub.mode=subscribe&hub.challenge=test123"));
+        assert_eq!(
+            req.query.as_deref(),
+            Some("hub.mode=subscribe&hub.challenge=test123")
+        );
         assert_eq!(req.headers.len(), 1);
         assert_eq!(req.headers[0].name, "content-type");
         assert!(req.config.is_none());

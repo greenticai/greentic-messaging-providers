@@ -113,8 +113,8 @@ fn validate_provider_config(cfg: ProviderConfig) -> Result<ProviderConfig, Strin
 }
 
 pub(crate) fn get_bot_token(cfg: &ProviderConfig) -> Result<String, String> {
-    use crate::bindings::greentic::secrets_store::secrets_store;
     use crate::TOKEN_SECRET;
+    use crate::bindings::greentic::secrets_store::secrets_store;
 
     if let Some(token) = cfg.bot_token.clone() {
         let token = token.trim().to_string();

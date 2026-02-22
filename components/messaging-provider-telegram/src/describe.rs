@@ -58,7 +58,11 @@ pub(crate) const I18N_KEYS: &[&str] = &[
 pub(crate) const SETUP_QUESTIONS: &[provider_common::helpers::QaQuestionDef] = &[
     ("enabled", "telegram.qa.setup.enabled", true),
     ("public_base_url", "telegram.qa.setup.public_base_url", true),
-    ("default_chat_id", "telegram.qa.setup.default_chat_id", false),
+    (
+        "default_chat_id",
+        "telegram.qa.setup.default_chat_id",
+        false,
+    ),
     ("api_base_url", "telegram.qa.setup.api_base_url", true),
     ("bot_token", "telegram.qa.setup.bot_token", false),
 ];
@@ -66,51 +70,99 @@ pub(crate) const SETUP_QUESTIONS: &[provider_common::helpers::QaQuestionDef] = &
 pub(crate) const DEFAULT_KEYS: &[&str] = &["public_base_url"];
 
 pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
-    ("telegram.op.run.title", "Title"),
-    ("telegram.op.run.description", "Description"),
-    ("telegram.op.send.title", "Title"),
-    ("telegram.op.send.description", "Description"),
-    ("telegram.op.reply.title", "Title"),
-    ("telegram.op.reply.description", "Description"),
-    ("telegram.op.ingest_http.title", "Title"),
-    ("telegram.op.ingest_http.description", "Description"),
-    ("telegram.op.render_plan.title", "Title"),
-    ("telegram.op.render_plan.description", "Description"),
-    ("telegram.op.encode.title", "Title"),
-    ("telegram.op.encode.description", "Description"),
-    ("telegram.op.send_payload.title", "Title"),
-    ("telegram.op.send_payload.description", "Description"),
-    ("telegram.schema.input.title", "Title"),
-    ("telegram.schema.input.description", "Description"),
-    ("telegram.schema.input.message.title", "Title"),
-    ("telegram.schema.input.message.description", "Description"),
-    ("telegram.schema.output.title", "Title"),
-    ("telegram.schema.output.description", "Description"),
-    ("telegram.schema.output.ok.title", "Title"),
-    ("telegram.schema.output.ok.description", "Description"),
-    ("telegram.schema.output.message_id.title", "Title"),
-    ("telegram.schema.output.message_id.description", "Description"),
-    ("telegram.schema.config.title", "Title"),
-    ("telegram.schema.config.description", "Description"),
-    ("telegram.schema.config.enabled.title", "Title"),
-    ("telegram.schema.config.enabled.description", "Description"),
-    ("telegram.schema.config.public_base_url.title", "Title"),
-    ("telegram.schema.config.public_base_url.description", "Description"),
-    ("telegram.schema.config.default_chat_id.title", "Title"),
-    ("telegram.schema.config.default_chat_id.description", "Description"),
-    ("telegram.schema.config.api_base_url.title", "Title"),
-    ("telegram.schema.config.api_base_url.description", "Description"),
-    ("telegram.schema.config.bot_token.title", "Title"),
-    ("telegram.schema.config.bot_token.description", "Description"),
-    ("telegram.qa.default.title", "Title"),
-    ("telegram.qa.setup.title", "Title"),
-    ("telegram.qa.upgrade.title", "Title"),
-    ("telegram.qa.remove.title", "Title"),
-    ("telegram.qa.setup.enabled", "Enabled"),
-    ("telegram.qa.setup.public_base_url", "Public Base URL"),
-    ("telegram.qa.setup.default_chat_id", "Default Chat ID"),
-    ("telegram.qa.setup.api_base_url", "API Base URL"),
-    ("telegram.qa.setup.bot_token", "Bot Token"),
+    ("telegram.op.run.title", "Run"),
+    ("telegram.op.run.description", "Run Telegram provider operation"),
+    ("telegram.op.send.title", "Send"),
+    ("telegram.op.send.description", "Send a Telegram message"),
+    ("telegram.op.reply.title", "Reply"),
+    ("telegram.op.reply.description", "Reply to a Telegram message"),
+    ("telegram.op.ingest_http.title", "Ingest HTTP"),
+    (
+        "telegram.op.ingest_http.description",
+        "Normalize Telegram webhook payload",
+    ),
+    ("telegram.op.render_plan.title", "Render Plan"),
+    (
+        "telegram.op.render_plan.description",
+        "Render universal message plan",
+    ),
+    ("telegram.op.encode.title", "Encode"),
+    (
+        "telegram.op.encode.description",
+        "Encode universal payload for Telegram",
+    ),
+    ("telegram.op.send_payload.title", "Send Payload"),
+    (
+        "telegram.op.send_payload.description",
+        "Send encoded payload to Telegram API",
+    ),
+    ("telegram.schema.input.title", "Telegram input"),
+    (
+        "telegram.schema.input.description",
+        "Input for Telegram run/send operations",
+    ),
+    ("telegram.schema.input.message.title", "Message"),
+    ("telegram.schema.input.message.description", "Message text"),
+    ("telegram.schema.output.title", "Telegram output"),
+    (
+        "telegram.schema.output.description",
+        "Result of Telegram operation",
+    ),
+    ("telegram.schema.output.ok.title", "Success"),
+    (
+        "telegram.schema.output.ok.description",
+        "Whether operation succeeded",
+    ),
+    ("telegram.schema.output.message_id.title", "Message ID"),
+    (
+        "telegram.schema.output.message_id.description",
+        "Telegram message identifier",
+    ),
+    ("telegram.schema.config.title", "Telegram config"),
+    (
+        "telegram.schema.config.description",
+        "Telegram provider configuration",
+    ),
+    ("telegram.schema.config.enabled.title", "Enabled"),
+    (
+        "telegram.schema.config.enabled.description",
+        "Enable this provider",
+    ),
+    (
+        "telegram.schema.config.public_base_url.title",
+        "Public base URL",
+    ),
+    (
+        "telegram.schema.config.public_base_url.description",
+        "Public URL for webhook callbacks",
+    ),
+    (
+        "telegram.schema.config.default_chat_id.title",
+        "Default chat ID",
+    ),
+    (
+        "telegram.schema.config.default_chat_id.description",
+        "Chat ID used when destination is omitted",
+    ),
+    ("telegram.schema.config.api_base_url.title", "API base URL"),
+    (
+        "telegram.schema.config.api_base_url.description",
+        "Telegram Bot API base URL",
+    ),
+    ("telegram.schema.config.bot_token.title", "Bot token"),
+    (
+        "telegram.schema.config.bot_token.description",
+        "Bot token for Telegram API calls",
+    ),
+    ("telegram.qa.default.title", "Default"),
+    ("telegram.qa.setup.title", "Setup"),
+    ("telegram.qa.upgrade.title", "Upgrade"),
+    ("telegram.qa.remove.title", "Remove"),
+    ("telegram.qa.setup.enabled", "Enable provider"),
+    ("telegram.qa.setup.public_base_url", "Public base URL"),
+    ("telegram.qa.setup.default_chat_id", "Default chat ID"),
+    ("telegram.qa.setup.api_base_url", "API base URL"),
+    ("telegram.qa.setup.bot_token", "Bot token"),
 ];
 
 pub(crate) fn build_describe_payload() -> DescribePayload {
@@ -168,7 +220,9 @@ pub(crate) fn build_describe_payload() -> DescribePayload {
     }
 }
 
-pub(crate) fn build_qa_spec(mode: crate::bindings::exports::greentic::component::qa::Mode) -> QaSpec {
+pub(crate) fn build_qa_spec(
+    mode: crate::bindings::exports::greentic::component::qa::Mode,
+) -> QaSpec {
     use crate::bindings::exports::greentic::component::qa::Mode;
     let mode_str = match mode {
         Mode::Default => "default",
@@ -181,18 +235,41 @@ pub(crate) fn build_qa_spec(mode: crate::bindings::exports::greentic::component:
 
 fn input_schema() -> SchemaIr {
     schema_obj(
-        "telegram.schema.input.title", "telegram.schema.input.description",
-        vec![("message", true, schema_str("telegram.schema.input.message.title", "telegram.schema.input.message.description"))],
+        "telegram.schema.input.title",
+        "telegram.schema.input.description",
+        vec![(
+            "message",
+            true,
+            schema_str(
+                "telegram.schema.input.message.title",
+                "telegram.schema.input.message.description",
+            ),
+        )],
         true,
     )
 }
 
 fn output_schema() -> SchemaIr {
     schema_obj(
-        "telegram.schema.output.title", "telegram.schema.output.description",
+        "telegram.schema.output.title",
+        "telegram.schema.output.description",
         vec![
-            ("ok", true, schema_bool_ir("telegram.schema.output.ok.title", "telegram.schema.output.ok.description")),
-            ("message_id", false, schema_str("telegram.schema.output.message_id.title", "telegram.schema.output.message_id.description")),
+            (
+                "ok",
+                true,
+                schema_bool_ir(
+                    "telegram.schema.output.ok.title",
+                    "telegram.schema.output.ok.description",
+                ),
+            ),
+            (
+                "message_id",
+                false,
+                schema_str(
+                    "telegram.schema.output.message_id.title",
+                    "telegram.schema.output.message_id.description",
+                ),
+            ),
         ],
         true,
     )
@@ -200,13 +277,51 @@ fn output_schema() -> SchemaIr {
 
 fn config_schema() -> SchemaIr {
     schema_obj(
-        "telegram.schema.config.title", "telegram.schema.config.description",
+        "telegram.schema.config.title",
+        "telegram.schema.config.description",
         vec![
-            ("enabled", true, schema_bool_ir("telegram.schema.config.enabled.title", "telegram.schema.config.enabled.description")),
-            ("public_base_url", true, schema_str_fmt("telegram.schema.config.public_base_url.title", "telegram.schema.config.public_base_url.description", "uri")),
-            ("default_chat_id", false, schema_str("telegram.schema.config.default_chat_id.title", "telegram.schema.config.default_chat_id.description")),
-            ("api_base_url", true, schema_str_fmt("telegram.schema.config.api_base_url.title", "telegram.schema.config.api_base_url.description", "uri")),
-            ("bot_token", false, schema_secret("telegram.schema.config.bot_token.title", "telegram.schema.config.bot_token.description")),
+            (
+                "enabled",
+                true,
+                schema_bool_ir(
+                    "telegram.schema.config.enabled.title",
+                    "telegram.schema.config.enabled.description",
+                ),
+            ),
+            (
+                "public_base_url",
+                true,
+                schema_str_fmt(
+                    "telegram.schema.config.public_base_url.title",
+                    "telegram.schema.config.public_base_url.description",
+                    "uri",
+                ),
+            ),
+            (
+                "default_chat_id",
+                false,
+                schema_str(
+                    "telegram.schema.config.default_chat_id.title",
+                    "telegram.schema.config.default_chat_id.description",
+                ),
+            ),
+            (
+                "api_base_url",
+                true,
+                schema_str_fmt(
+                    "telegram.schema.config.api_base_url.title",
+                    "telegram.schema.config.api_base_url.description",
+                    "uri",
+                ),
+            ),
+            (
+                "bot_token",
+                false,
+                schema_secret(
+                    "telegram.schema.config.bot_token.title",
+                    "telegram.schema.config.bot_token.description",
+                ),
+            ),
         ],
         false,
     )

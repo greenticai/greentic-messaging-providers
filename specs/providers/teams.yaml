@@ -13,6 +13,9 @@ provider:
   - subscription_ensure
   - subscription_renew
   - subscription_delete
+  - qa-spec
+  - apply-answers
+  - i18n-keys
   capabilities:
     render_tiers:
     - tier-d

@@ -1,6 +1,8 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
 use greentic_types::messaging::universal_dto::{AuthUserRefV1, Header, HttpInV1, HttpOutV1};
-use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in_with_config};
+use provider_common::http_compat::{
+    http_out_error, http_out_v1_bytes, parse_operator_http_in_with_config,
+};
 use serde_json::Value;
 use urlencoding::decode as url_decode;
 
@@ -213,7 +215,10 @@ fn channel_message_envelope(
     let env = default_env();
     let tenant = default_tenant();
     let destinations = if !from_address.is_empty() {
-        vec![Destination { id: from_address.to_string(), kind: Some("email".into()) }]
+        vec![Destination {
+            id: from_address.to_string(),
+            kind: Some("email".into()),
+        }]
     } else {
         Vec::new()
     };

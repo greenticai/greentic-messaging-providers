@@ -64,7 +64,8 @@ All providers export both interface versions for backward compatibility:
 | `greentic:component@0.6.1` (runtime) | CBOR | Component runtime (v0.6+) |
 | `greentic:provider-schema-core/schema-core-api@1.0.0` | JSON | Operator v0.4.x ingress |
 
-The schema-core-api `invoke()` delegates to the same handlers as the v0.6 runtime.
+The schema-core-api `invoke()` delegates to the same handlers as the v0.6 runtime,
+including QA operations (`qa-spec`, `apply-answers`, `i18n-keys`) via a JSON↔CBOR bridge.
 
 ## Egress Pipeline (Sending Messages)
 
@@ -231,18 +232,100 @@ FlowOutcome { success, output: JSON }
 | `src/messaging_universal/egress.rs` | `build_render_plan_input`, `build_encode_input`, `build_send_payload` |
 | `src/cli.rs` | `demo send` / `demo start` CLI entry points |
 
-### greentic-qa
+### greentic-qa (Onboarding Questions)
 
-Each provider implements QA with four lifecycle modes:
+Each provider implements a QA (Question-Answer) contract for onboarding. When a user
+sets up a provider, the operator calls the provider to get a list of setup questions,
+collects answers, then sends them back for validation and config generation.
+
+#### QA Lifecycle Modes
 
 | Mode | Purpose |
 |------|---------|
 | **Default** | Returns current configuration state |
-| **Setup** | Initial provider configuration (QA spec with required questions) |
-| **Upgrade** | Reconfigure existing provider (current values as defaults) |
+| **Setup** | Initial provider configuration (all required questions) |
+| **Upgrade** | Reconfigure existing provider (only changed fields) |
 | **Remove** | Cleanup and deprovisioning |
 
-QA specs are defined in `qa-spec/*.yaml` per provider. The `apply-answers` function processes responses and writes configuration to the secrets store.
+#### How QA Questions Are Defined
+
+Questions are **defined inside each provider** in `describe.rs`, not in any external system:
+
+```rust
+// components/messaging-provider-slack/src/describe.rs
+pub const SETUP_QUESTIONS: &[QaQuestionDef] = &[
+    ("public_base_url", "t.qa.public_base_url", true),
+    ("bot_token",       "t.qa.bot_token",       false),
+    ("api_base_url",    "t.qa.api_base_url",    false),
+    ("default_channel", "t.qa.default_channel",  false),
+];
+```
+
+Each tuple is `(field_key, i18n_text_key, required)`. The `i18n_text_key` maps to a
+localized string returned by the `i18n-bundle` export.
+
+A legacy copy of the same questions exists in `packs/*/assets/setup.yaml` for the
+operator's interactive setup wizard. Both sources are kept in sync.
+
+#### QA Invoke Flow (Operator → Provider)
+
+The operator **always** calls QA ops through `schema-core-api invoke()` (JSON encoding),
+not the WIT-native `qa` interface (CBOR). The `qa_invoke_bridge` module in
+`provider-common` bridges the two:
+
+```
+Operator calls invoke("qa-spec", {"mode":"setup"})
+    ↓
+schema-core-api invoke() in provider lib.rs
+    ↓
+qa_invoke_bridge::dispatch_qa_ops()
+    ↓ matches "qa-spec"
+bridge_qa_spec() → qa_spec_for_mode() → returns JSON
+```
+
+```
+Operator calls invoke("apply-answers", {"mode":"setup", "answers":{...}, "current_config":{...}})
+    ↓
+qa_invoke_bridge::dispatch_qa_ops()
+    ↓ matches "apply-answers"
+bridge_apply_answers():
+    1. Extract answers + current_config from JSON
+    2. Insert current_config as "existing_config" in answers
+    3. Encode to CBOR
+    4. Call provider's apply_answers_impl(mode, cbor)
+    5. Decode CBOR result back to JSON
+    ↓
+Returns {"ok": true, "config": {...}}
+```
+
+The provider's `apply_answers_impl()` is a standalone function (not tied to WIT enums)
+that is shared by both the WIT `qa` export and the `schema-core-api` JSON path.
+
+#### Who Stores What
+
+| Component | Action |
+|-----------|--------|
+| **Provider** | Defines questions, validates answers, returns config (pure function, no side effects) |
+| **Operator** | Stores config to `config.envelope.cbor`, seeds secrets to secret store |
+| **Provider at runtime** | Reads secrets via `secrets_store::get("SLACK_BOT_TOKEN")` (read-only, operator-injected) |
+
+Providers never write to the secret store. The operator injects a secrets manager into
+the WASM linker, and the provider reads by hardcoded key name. Scope resolution
+(tenant, team, environment) is handled entirely by the operator.
+
+#### Pack Manifest QA Declaration
+
+For the operator to recognize that a provider supports QA, the pack's `manifest.cbor`
+(and `pack.manifest.json`) must declare the three QA ops:
+
+```json
+{
+  "ops": ["ingest_http", "render_plan", "encode", "send_payload", "qa-spec", "apply-answers", "i18n-keys"]
+}
+```
+
+The operator's `supports_component_qa_contract()` checks for all three ops before
+attempting the QA flow. If any are missing, it falls back to the legacy `setup.yaml` path.
 
 ### greentic-i18n
 
@@ -319,10 +402,11 @@ The `provider-common` crate provides shared utilities used by all providers:
 
 ```
 crates/provider-common/src/
-├── lib.rs          # Shared types (ProviderError, RenderTier, ProviderPayload, etc.)
-├── helpers.rs      # Utility functions, CBOR-JSON bridge, schema builders, QA/I18N helpers
-├── qa_helpers.rs   # Generic ApplyAnswersResult<C>, RemovePlan, result builders
-└── test_macros.rs  # standard_provider_tests! macro for shared test generation
+├── lib.rs              # Shared types (ProviderError, RenderTier, ProviderPayload, etc.)
+├── helpers.rs          # Utility functions, CBOR-JSON bridge, schema builders, QA/I18N helpers
+├── qa_helpers.rs       # Generic ApplyAnswersResult<C>, RemovePlan, result builders
+├── qa_invoke_bridge.rs # JSON bridge for QA ops via schema-core-api invoke()
+└── test_macros.rs      # standard_provider_tests! macro for shared test generation
 ```
 
 ## Building
@@ -356,7 +440,7 @@ cargo build --manifest-path components/messaging-provider-slack/Cargo.toml \
 ### Run Tests
 
 ```bash
-# All tests (unit + integration, 287+ tests)
+# All tests (unit + integration, 329+ tests)
 cargo test --workspace
 
 # Renderer tests only
@@ -595,7 +679,7 @@ Browser → Direct Line (port 8080) → WASM ingest_http → egress pipeline →
 ### Unit Tests
 
 ```bash
-# All tests (287+ pass)
+# All tests (329+ pass)
 cargo test --workspace
 
 # Single provider
@@ -618,12 +702,14 @@ cargo test -p greentic-messaging-renderer
 | `messaging-provider-whatsapp` | 11 | QA ops + send + ingress |
 | `messaging-provider-email` | 10 | QA ops + send + config |
 | `greentic-messaging-renderer` | 35 | 12 ac_extract + 14 planner + 5 downsample + 4 noop |
-| `provider-common` | misc | Shared utilities |
+| `provider-common` | 14 | QA bridge + helpers + shared utilities |
+| `provider-tests` (WASM) | 11 | 8 instantiation + 3 QA invoke integration |
 
 ### What Unit Tests Cover
 
 Each provider has tests for:
 - **QA operations** — `qa_spec` and `apply_answers` for all 4 modes (Default, Setup, Upgrade, Remove)
+- **QA invoke bridge** — `qa-spec`, `apply-answers`, `i18n-keys` via schema-core-api JSON path (WASM integration tests)
 - **Send pipeline** — `render_plan`, `encode`, `send_payload` with mock HTTP
 - **Ingress** — `ingest_http` webhook parsing and normalization
 

@@ -176,10 +176,7 @@ pub(crate) fn build_send_envelope_from_input(
     })
 }
 
-pub(crate) fn parse_send_destination(
-    parsed: &Value,
-    cfg: &ProviderConfig,
-) -> Option<Destination> {
+pub(crate) fn parse_send_destination(parsed: &Value, cfg: &ProviderConfig) -> Option<Destination> {
     if let Some(dest) = parsed_to_destination(parsed) {
         return Some(dest);
     }

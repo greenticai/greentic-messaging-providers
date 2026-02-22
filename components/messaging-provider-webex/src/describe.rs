@@ -1,8 +1,8 @@
 use crate::{PROVIDER_ID, WORLD_ID};
 use provider_common::component_v0_6::{DescribePayload, RedactionRule, SchemaIr, schema_hash};
 use provider_common::helpers::{
-    i18n_bundle_from_pairs, op, schema_bool_ir, schema_obj, schema_secret, schema_str,
-    schema_str_fmt, QaQuestionDef,
+    QaQuestionDef, i18n_bundle_from_pairs, op, schema_bool_ir, schema_obj, schema_secret,
+    schema_str, schema_str_fmt,
 };
 
 pub(crate) const I18N_KEYS: &[&str] = &[
@@ -132,107 +132,116 @@ pub(crate) fn build_qa_spec(
 }
 
 pub(crate) fn i18n_bundle(locale: String) -> Vec<u8> {
-    i18n_bundle_from_pairs(locale, &[
-        ("webex.op.run.title", "Run"),
-        ("webex.op.run.description", "Run Webex provider operation"),
-        ("webex.op.send.title", "Send"),
-        ("webex.op.send.description", "Send a Webex message"),
-        ("webex.op.reply.title", "Reply"),
-        ("webex.op.reply.description", "Reply in a Webex thread"),
-        ("webex.op.ingest_http.title", "Ingest HTTP"),
-        (
-            "webex.op.ingest_http.description",
-            "Normalize Webex webhook payload",
-        ),
-        ("webex.op.render_plan.title", "Render Plan"),
-        (
-            "webex.op.render_plan.description",
-            "Render universal message plan",
-        ),
-        ("webex.op.encode.title", "Encode"),
-        (
-            "webex.op.encode.description",
-            "Encode universal payload for Webex",
-        ),
-        ("webex.op.send_payload.title", "Send Payload"),
-        (
-            "webex.op.send_payload.description",
-            "Send encoded payload to Webex API",
-        ),
-        ("webex.schema.input.title", "Webex input"),
-        (
-            "webex.schema.input.description",
-            "Input for Webex run/send operations",
-        ),
-        ("webex.schema.input.message.title", "Message"),
-        ("webex.schema.input.message.description", "Message text"),
-        ("webex.schema.output.title", "Webex output"),
-        (
-            "webex.schema.output.description",
-            "Result of Webex operation",
-        ),
-        ("webex.schema.output.ok.title", "Success"),
-        (
-            "webex.schema.output.ok.description",
-            "Whether operation succeeded",
-        ),
-        ("webex.schema.output.message_id.title", "Message ID"),
-        (
-            "webex.schema.output.message_id.description",
-            "Webex message identifier",
-        ),
-        ("webex.schema.config.title", "Webex config"),
-        (
-            "webex.schema.config.description",
-            "Webex provider configuration",
-        ),
-        ("webex.schema.config.enabled.title", "Enabled"),
-        (
-            "webex.schema.config.enabled.description",
-            "Enable this provider",
-        ),
-        ("webex.schema.config.public_base_url.title", "Public base URL"),
-        (
-            "webex.schema.config.public_base_url.description",
-            "Public URL for callbacks",
-        ),
-        ("webex.schema.config.default_room_id.title", "Default room ID"),
-        (
-            "webex.schema.config.default_room_id.description",
-            "Room used when destination is omitted",
-        ),
-        (
-            "webex.schema.config.default_to_person_email.title",
-            "Default person email",
-        ),
-        (
-            "webex.schema.config.default_to_person_email.description",
-            "Email used when destination is omitted",
-        ),
-        ("webex.schema.config.api_base_url.title", "API base URL"),
-        (
-            "webex.schema.config.api_base_url.description",
-            "Webex API base URL",
-        ),
-        ("webex.schema.config.bot_token.title", "Bot token"),
-        (
-            "webex.schema.config.bot_token.description",
-            "Bot token for Webex API calls",
-        ),
-        ("webex.qa.default.title", "Default"),
-        ("webex.qa.setup.title", "Setup"),
-        ("webex.qa.upgrade.title", "Upgrade"),
-        ("webex.qa.remove.title", "Remove"),
-        ("webex.qa.setup.enabled", "Enable provider"),
-        ("webex.qa.setup.public_base_url", "Public base URL"),
-        ("webex.qa.setup.default_room_id", "Default room ID"),
-        (
-            "webex.qa.setup.default_to_person_email",
-            "Default person email",
-        ),
-        ("webex.qa.setup.api_base_url", "API base URL"),
-        ("webex.qa.setup.bot_token", "Bot token"),
-    ])
+    i18n_bundle_from_pairs(
+        locale,
+        &[
+            ("webex.op.run.title", "Run"),
+            ("webex.op.run.description", "Run Webex provider operation"),
+            ("webex.op.send.title", "Send"),
+            ("webex.op.send.description", "Send a Webex message"),
+            ("webex.op.reply.title", "Reply"),
+            ("webex.op.reply.description", "Reply in a Webex thread"),
+            ("webex.op.ingest_http.title", "Ingest HTTP"),
+            (
+                "webex.op.ingest_http.description",
+                "Normalize Webex webhook payload",
+            ),
+            ("webex.op.render_plan.title", "Render Plan"),
+            (
+                "webex.op.render_plan.description",
+                "Render universal message plan",
+            ),
+            ("webex.op.encode.title", "Encode"),
+            (
+                "webex.op.encode.description",
+                "Encode universal payload for Webex",
+            ),
+            ("webex.op.send_payload.title", "Send Payload"),
+            (
+                "webex.op.send_payload.description",
+                "Send encoded payload to Webex API",
+            ),
+            ("webex.schema.input.title", "Webex input"),
+            (
+                "webex.schema.input.description",
+                "Input for Webex run/send operations",
+            ),
+            ("webex.schema.input.message.title", "Message"),
+            ("webex.schema.input.message.description", "Message text"),
+            ("webex.schema.output.title", "Webex output"),
+            (
+                "webex.schema.output.description",
+                "Result of Webex operation",
+            ),
+            ("webex.schema.output.ok.title", "Success"),
+            (
+                "webex.schema.output.ok.description",
+                "Whether operation succeeded",
+            ),
+            ("webex.schema.output.message_id.title", "Message ID"),
+            (
+                "webex.schema.output.message_id.description",
+                "Webex message identifier",
+            ),
+            ("webex.schema.config.title", "Webex config"),
+            (
+                "webex.schema.config.description",
+                "Webex provider configuration",
+            ),
+            ("webex.schema.config.enabled.title", "Enabled"),
+            (
+                "webex.schema.config.enabled.description",
+                "Enable this provider",
+            ),
+            (
+                "webex.schema.config.public_base_url.title",
+                "Public base URL",
+            ),
+            (
+                "webex.schema.config.public_base_url.description",
+                "Public URL for callbacks",
+            ),
+            (
+                "webex.schema.config.default_room_id.title",
+                "Default room ID",
+            ),
+            (
+                "webex.schema.config.default_room_id.description",
+                "Room used when destination is omitted",
+            ),
+            (
+                "webex.schema.config.default_to_person_email.title",
+                "Default person email",
+            ),
+            (
+                "webex.schema.config.default_to_person_email.description",
+                "Email used when destination is omitted",
+            ),
+            ("webex.schema.config.api_base_url.title", "API base URL"),
+            (
+                "webex.schema.config.api_base_url.description",
+                "Webex API base URL",
+            ),
+            ("webex.schema.config.bot_token.title", "Bot token"),
+            (
+                "webex.schema.config.bot_token.description",
+                "Bot token for Webex API calls",
+            ),
+            ("webex.qa.default.title", "Default"),
+            ("webex.qa.setup.title", "Setup"),
+            ("webex.qa.upgrade.title", "Upgrade"),
+            ("webex.qa.remove.title", "Remove"),
+            ("webex.qa.setup.enabled", "Enable provider"),
+            ("webex.qa.setup.public_base_url", "Public base URL"),
+            ("webex.qa.setup.default_room_id", "Default room ID"),
+            (
+                "webex.qa.setup.default_to_person_email",
+                "Default person email",
+            ),
+            ("webex.qa.setup.api_base_url", "API base URL"),
+            ("webex.qa.setup.bot_token", "Bot token"),
+        ],
+    )
 }
 
 pub(crate) fn input_schema() -> SchemaIr {

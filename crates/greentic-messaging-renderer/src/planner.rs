@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// Describes what a target channel supports.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PlannerCapabilities {
     pub supports_adaptive_cards: bool,
     pub supports_markdown: bool,
@@ -17,20 +17,6 @@ pub struct PlannerCapabilities {
     pub supports_buttons: bool,
     pub max_text_len: Option<u32>,
     pub max_payload_bytes: Option<u32>,
-}
-
-impl Default for PlannerCapabilities {
-    fn default() -> Self {
-        Self {
-            supports_adaptive_cards: false,
-            supports_markdown: false,
-            supports_html: false,
-            supports_images: false,
-            supports_buttons: false,
-            max_text_len: None,
-            max_payload_bytes: None,
-        }
-    }
 }
 
 /// A button / link action extracted from an Adaptive Card.
@@ -69,14 +55,12 @@ pub fn plan_render(
             if let Some(ac) = ac_json {
                 items.push(RenderItem::AdaptiveCard(ac.clone()));
             }
-            if tier == RenderTier::TierB {
-                if has_unsupported_elements(card, caps) {
-                    warnings.push(RenderWarning {
-                        code: "unsupported_elements_removed".into(),
-                        message: Some("Some card elements were removed for this channel".into()),
-                        path: None,
-                    });
-                }
+            if tier == RenderTier::TierB && has_unsupported_elements(card, caps) {
+                warnings.push(RenderWarning {
+                    code: "unsupported_elements_removed".into(),
+                    message: Some("Some card elements were removed for this channel".into()),
+                    path: None,
+                });
             }
         }
         RenderTier::TierC | RenderTier::TierD => {

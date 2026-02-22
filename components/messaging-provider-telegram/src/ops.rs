@@ -6,8 +6,8 @@ use greentic_types::{
     Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
 };
 use provider_common::helpers::{
-    encode_error, json_bytes, render_plan_common, send_payload_error, send_payload_success,
-    RenderPlanConfig,
+    PlannerCapabilities, RenderPlanConfig, encode_error, json_bytes, render_plan_common,
+    send_payload_error, send_payload_success,
 };
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde_json::{Value, json};
@@ -278,20 +278,46 @@ fn render_plan_inner(input_json: &[u8]) -> Vec<u8> {
     render_plan_common(
         input_json,
         &RenderPlanConfig {
-            ac_tier: None,
-            default_tier: "TierD",
+            capabilities: PlannerCapabilities {
+                supports_adaptive_cards: false,
+                supports_markdown: true,
+                supports_html: true,
+                supports_images: true,
+                supports_buttons: false,
+                max_text_len: Some(4096),
+                max_payload_bytes: None,
+            },
             default_summary: "telegram message",
-            extract_ac_text: true,
         },
     )
 }
 
 pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
+    use provider_common::helpers::extract_ac_summary;
+
     let encode_in = match serde_json::from_slice::<EncodeInV1>(input_json) {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
     let mut envelope = encode_in.message;
+
+    // If the message carries an Adaptive Card, replace text with the
+    // downsampled summary (Telegram does not render AC natively).
+    if let Some(ac_raw) = envelope.metadata.get("adaptive_card") {
+        let caps = PlannerCapabilities {
+            supports_adaptive_cards: false,
+            supports_markdown: true,
+            supports_html: true,
+            supports_images: true,
+            supports_buttons: false,
+            max_text_len: Some(4096),
+            max_payload_bytes: None,
+        };
+        if let Some(summary) = extract_ac_summary(ac_raw, &caps) {
+            envelope.text = Some(summary);
+        }
+    }
+
     let has_text = envelope
         .text
         .as_ref()

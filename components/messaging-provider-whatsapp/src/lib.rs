@@ -19,9 +19,7 @@ mod describe;
 mod ops;
 
 use config::{ProviderConfigOut, default_config_out, validate_config_out};
-use describe::{
-    I18N_KEYS, I18N_PAIRS, build_describe_payload, build_qa_spec,
-};
+use describe::{I18N_KEYS, I18N_PAIRS, build_describe_payload, build_qa_spec};
 
 const PROVIDER_ID: &str = "messaging-provider-whatsapp";
 const PROVIDER_TYPE: &str = "messaging.whatsapp.cloud";
@@ -55,94 +53,14 @@ impl bindings::exports::greentic::component::qa::Guest for Component {
         mode: bindings::exports::greentic::component::qa::Mode,
         answers_cbor: Vec<u8>,
     ) -> Vec<u8> {
-        let answers: Value = match decode_cbor(&answers_cbor) {
-            Ok(value) => value,
-            Err(err) => {
-                return canonical_cbor_bytes(
-                    &ApplyAnswersResult::<ProviderConfigOut>::decode_error(format!(
-                        "invalid answers cbor: {err}"
-                    )),
-                );
-            }
+        use bindings::exports::greentic::component::qa::Mode;
+        let mode_str = match mode {
+            Mode::Default => "default",
+            Mode::Setup => "setup",
+            Mode::Upgrade => "upgrade",
+            Mode::Remove => "remove",
         };
-        if mode == bindings::exports::greentic::component::qa::Mode::Remove {
-            return canonical_cbor_bytes(
-                &ApplyAnswersResult::<ProviderConfigOut>::remove_default(),
-            );
-        }
-
-        let mut merged = existing_config_from_answers(&answers).unwrap_or_else(default_config_out);
-        let answer_obj = answers.as_object();
-        let has = |key: &str| answer_obj.is_some_and(|obj| obj.contains_key(key));
-
-        if mode == bindings::exports::greentic::component::qa::Mode::Setup
-            || mode == bindings::exports::greentic::component::qa::Mode::Default
-        {
-            merged.enabled = answers
-                .get("enabled")
-                .and_then(Value::as_bool)
-                .unwrap_or(merged.enabled);
-            merged.phone_number_id =
-                string_or_default(&answers, "phone_number_id", &merged.phone_number_id);
-            merged.public_base_url =
-                string_or_default(&answers, "public_base_url", &merged.public_base_url);
-            merged.business_account_id = optional_string_from(&answers, "business_account_id")
-                .or(merged.business_account_id.clone());
-            merged.api_base_url = string_or_default(&answers, "api_base_url", &merged.api_base_url);
-            if merged.api_base_url.trim().is_empty() {
-                merged.api_base_url = DEFAULT_API_BASE.to_string();
-            }
-            merged.api_version = string_or_default(&answers, "api_version", &merged.api_version);
-            if merged.api_version.trim().is_empty() {
-                merged.api_version = DEFAULT_API_VERSION.to_string();
-            }
-            merged.token = optional_string_from(&answers, "token").or(merged.token.clone());
-        }
-
-        if mode == bindings::exports::greentic::component::qa::Mode::Upgrade {
-            if has("enabled") {
-                merged.enabled = answers
-                    .get("enabled")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(merged.enabled);
-            }
-            if has("phone_number_id") {
-                merged.phone_number_id =
-                    string_or_default(&answers, "phone_number_id", &merged.phone_number_id);
-            }
-            if has("public_base_url") {
-                merged.public_base_url =
-                    string_or_default(&answers, "public_base_url", &merged.public_base_url);
-            }
-            if has("business_account_id") {
-                merged.business_account_id = optional_string_from(&answers, "business_account_id");
-            }
-            if has("api_base_url") {
-                merged.api_base_url =
-                    string_or_default(&answers, "api_base_url", &merged.api_base_url);
-            }
-            if has("api_version") {
-                merged.api_version =
-                    string_or_default(&answers, "api_version", &merged.api_version);
-            }
-            if has("token") {
-                merged.token = optional_string_from(&answers, "token");
-            }
-            if merged.api_base_url.trim().is_empty() {
-                merged.api_base_url = DEFAULT_API_BASE.to_string();
-            }
-            if merged.api_version.trim().is_empty() {
-                merged.api_version = DEFAULT_API_VERSION.to_string();
-            }
-        }
-
-        if let Err(error) = validate_config_out(&merged) {
-            return canonical_cbor_bytes(
-                &ApplyAnswersResult::<ProviderConfigOut>::validation_error(error),
-            );
-        }
-
-        canonical_cbor_bytes(&ApplyAnswersResult::success(merged))
+        apply_answers_impl(mode_str, answers_cbor)
     }
 }
 
@@ -171,12 +89,107 @@ impl bindings::exports::greentic::provider_schema_core::schema_core_api::Guest f
     }
 
     fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
+        if let Some(result) = provider_common::qa_invoke_bridge::dispatch_qa_ops(
+            &op,
+            &input_json,
+            "whatsapp",
+            describe::SETUP_QUESTIONS,
+            describe::DEFAULT_KEYS,
+            I18N_KEYS,
+            apply_answers_impl,
+        ) {
+            return result;
+        }
         let op = if op == "run" { "send".to_string() } else { op };
         dispatch_json_invoke(&op, &input_json)
     }
 }
 
 bindings::export!(Component with_types_in bindings);
+
+fn apply_answers_impl(mode: &str, answers_cbor: Vec<u8>) -> Vec<u8> {
+    let answers: Value = match decode_cbor(&answers_cbor) {
+        Ok(value) => value,
+        Err(err) => {
+            return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfigOut>::decode_error(
+                format!("invalid answers cbor: {err}"),
+            ));
+        }
+    };
+
+    if mode == "remove" {
+        return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfigOut>::remove_default());
+    }
+
+    let mut merged = existing_config_from_answers(&answers).unwrap_or_else(default_config_out);
+    let answer_obj = answers.as_object();
+    let has = |key: &str| answer_obj.is_some_and(|obj| obj.contains_key(key));
+
+    if mode == "setup" || mode == "default" {
+        merged.enabled = answers
+            .get("enabled")
+            .and_then(Value::as_bool)
+            .unwrap_or(merged.enabled);
+        merged.phone_number_id =
+            string_or_default(&answers, "phone_number_id", &merged.phone_number_id);
+        merged.public_base_url =
+            string_or_default(&answers, "public_base_url", &merged.public_base_url);
+        merged.business_account_id = optional_string_from(&answers, "business_account_id")
+            .or(merged.business_account_id.clone());
+        merged.api_base_url = string_or_default(&answers, "api_base_url", &merged.api_base_url);
+        if merged.api_base_url.trim().is_empty() {
+            merged.api_base_url = DEFAULT_API_BASE.to_string();
+        }
+        merged.api_version = string_or_default(&answers, "api_version", &merged.api_version);
+        if merged.api_version.trim().is_empty() {
+            merged.api_version = DEFAULT_API_VERSION.to_string();
+        }
+        merged.token = optional_string_from(&answers, "token").or(merged.token.clone());
+    }
+
+    if mode == "upgrade" {
+        if has("enabled") {
+            merged.enabled = answers
+                .get("enabled")
+                .and_then(Value::as_bool)
+                .unwrap_or(merged.enabled);
+        }
+        if has("phone_number_id") {
+            merged.phone_number_id =
+                string_or_default(&answers, "phone_number_id", &merged.phone_number_id);
+        }
+        if has("public_base_url") {
+            merged.public_base_url =
+                string_or_default(&answers, "public_base_url", &merged.public_base_url);
+        }
+        if has("business_account_id") {
+            merged.business_account_id = optional_string_from(&answers, "business_account_id");
+        }
+        if has("api_base_url") {
+            merged.api_base_url = string_or_default(&answers, "api_base_url", &merged.api_base_url);
+        }
+        if has("api_version") {
+            merged.api_version = string_or_default(&answers, "api_version", &merged.api_version);
+        }
+        if has("token") {
+            merged.token = optional_string_from(&answers, "token");
+        }
+        if merged.api_base_url.trim().is_empty() {
+            merged.api_base_url = DEFAULT_API_BASE.to_string();
+        }
+        if merged.api_version.trim().is_empty() {
+            merged.api_version = DEFAULT_API_VERSION.to_string();
+        }
+    }
+
+    if let Err(error) = validate_config_out(&merged) {
+        return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfigOut>::validation_error(
+            error,
+        ));
+    }
+
+    canonical_cbor_bytes(&ApplyAnswersResult::success(merged))
+}
 
 fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
     match op {
@@ -315,23 +328,41 @@ mod tests {
         let result_bytes = ops::ingest_http(&input);
         let result: Value = serde_json::from_slice(&result_bytes).unwrap();
         // Check events array
-        let events = result.get("events").and_then(Value::as_array).expect("events array");
+        let events = result
+            .get("events")
+            .and_then(Value::as_array)
+            .expect("events array");
         assert_eq!(events.len(), 1);
         let event = &events[0];
-        assert_eq!(event.get("text").and_then(Value::as_str), Some("Halo dari WhatsApp!"));
         assert_eq!(
-            event.get("metadata").and_then(|m| m.get("from")).and_then(Value::as_str),
+            event.get("text").and_then(Value::as_str),
+            Some("Halo dari WhatsApp!")
+        );
+        assert_eq!(
+            event
+                .get("metadata")
+                .and_then(|m| m.get("from"))
+                .and_then(Value::as_str),
             Some("6282371863566")
         );
         assert_eq!(
-            event.get("metadata").and_then(|m| m.get("phone_number_id")).and_then(Value::as_str),
+            event
+                .get("metadata")
+                .and_then(|m| m.get("phone_number_id"))
+                .and_then(Value::as_str),
             Some("100875836196955")
         );
         // Check body_b64 response contains the event
         let resp_body_b64 = result.get("body_b64").and_then(Value::as_str).unwrap();
         let resp_bytes = general_purpose::STANDARD.decode(resp_body_b64).unwrap();
         let resp: Value = serde_json::from_slice(&resp_bytes).unwrap();
-        assert_eq!(resp.get("text").and_then(Value::as_str), Some("Halo dari WhatsApp!"));
-        assert_eq!(resp.get("from").and_then(Value::as_str), Some("6282371863566"));
+        assert_eq!(
+            resp.get("text").and_then(Value::as_str),
+            Some("Halo dari WhatsApp!")
+        );
+        assert_eq!(
+            resp.get("from").and_then(Value::as_str),
+            Some("6282371863566")
+        );
     }
 }

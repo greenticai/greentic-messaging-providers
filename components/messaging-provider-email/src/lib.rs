@@ -1,8 +1,7 @@
 use provider_common::component_v0_6::{canonical_cbor_bytes, decode_cbor};
 use provider_common::helpers::{
-    cbor_json_invoke_bridge, existing_config_from_answers, json_bytes,
-    optional_string_from, schema_core_describe, schema_core_healthcheck,
-    schema_core_validate_config, string_or_default,
+    cbor_json_invoke_bridge, existing_config_from_answers, json_bytes, optional_string_from,
+    schema_core_describe, schema_core_healthcheck, schema_core_validate_config, string_or_default,
 };
 use provider_common::qa_helpers::ApplyAnswersResult;
 use serde_json::{Value, json};
@@ -59,96 +58,14 @@ impl bindings::exports::greentic::component::qa::Guest for Component {
         mode: bindings::exports::greentic::component::qa::Mode,
         answers_cbor: Vec<u8>,
     ) -> Vec<u8> {
-        let answers: Value = match decode_cbor(&answers_cbor) {
-            Ok(value) => value,
-            Err(err) => {
-                return canonical_cbor_bytes(
-                    &ApplyAnswersResult::<ProviderConfigOut>::decode_error(format!(
-                        "invalid answers cbor: {err}"
-                    )),
-                );
-            }
+        use bindings::exports::greentic::component::qa::Mode;
+        let mode_str = match mode {
+            Mode::Default => "default",
+            Mode::Setup => "setup",
+            Mode::Upgrade => "upgrade",
+            Mode::Remove => "remove",
         };
-        if mode == bindings::exports::greentic::component::qa::Mode::Remove {
-            return canonical_cbor_bytes(
-                &ApplyAnswersResult::<ProviderConfigOut>::remove_default(),
-            );
-        }
-
-        let mut merged = existing_config_from_answers(&answers).unwrap_or_else(default_config_out);
-        let answer_obj = answers.as_object();
-        let has = |key: &str| answer_obj.is_some_and(|obj| obj.contains_key(key));
-
-        if mode == bindings::exports::greentic::component::qa::Mode::Setup
-            || mode == bindings::exports::greentic::component::qa::Mode::Default
-        {
-            merged.enabled = answers
-                .get("enabled")
-                .and_then(Value::as_bool)
-                .unwrap_or(merged.enabled);
-            merged.public_base_url =
-                string_or_default(&answers, "public_base_url", &merged.public_base_url);
-            merged.host = string_or_default(&answers, "host", &merged.host);
-            merged.port = answers
-                .get("port")
-                .and_then(Value::as_u64)
-                .and_then(|value| u16::try_from(value).ok())
-                .unwrap_or(merged.port);
-            merged.username = string_or_default(&answers, "username", &merged.username);
-            merged.from_address = string_or_default(&answers, "from_address", &merged.from_address);
-            merged.tls_mode = string_or_default(&answers, "tls_mode", &merged.tls_mode);
-            merged.default_to_address = optional_string_from(&answers, "default_to_address")
-                .or(merged.default_to_address.clone());
-            merged.password =
-                optional_string_from(&answers, "password").or(merged.password.clone());
-        }
-
-        if mode == bindings::exports::greentic::component::qa::Mode::Upgrade {
-            if has("enabled") {
-                merged.enabled = answers
-                    .get("enabled")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(merged.enabled);
-            }
-            if has("public_base_url") {
-                merged.public_base_url =
-                    string_or_default(&answers, "public_base_url", &merged.public_base_url);
-            }
-            if has("host") {
-                merged.host = string_or_default(&answers, "host", &merged.host);
-            }
-            if has("port") {
-                merged.port = answers
-                    .get("port")
-                    .and_then(Value::as_u64)
-                    .and_then(|value| u16::try_from(value).ok())
-                    .unwrap_or(merged.port);
-            }
-            if has("username") {
-                merged.username = string_or_default(&answers, "username", &merged.username);
-            }
-            if has("from_address") {
-                merged.from_address =
-                    string_or_default(&answers, "from_address", &merged.from_address);
-            }
-            if has("tls_mode") {
-                merged.tls_mode = string_or_default(&answers, "tls_mode", &merged.tls_mode);
-            }
-            if has("default_to_address") {
-                merged.default_to_address = optional_string_from(&answers, "default_to_address");
-            }
-            if has("password") {
-                merged.password = optional_string_from(&answers, "password");
-            }
-        }
-
-        if let Err(error) = validate_config_out(&merged) {
-            return canonical_cbor_bytes(
-                &ApplyAnswersResult::<ProviderConfigOut>::validation_error(error),
-            );
-        }
-
-        canonical_cbor_bytes(&ApplyAnswersResult::success(merged))
+        apply_answers_impl(mode_str, answers_cbor)
     }
 }
 
@@ -177,12 +94,109 @@ impl bindings::exports::greentic::provider_schema_core::schema_core_api::Guest f
     }
 
     fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
+        if let Some(result) = provider_common::qa_invoke_bridge::dispatch_qa_ops(
+            &op,
+            &input_json,
+            "email",
+            describe::SETUP_QUESTIONS,
+            describe::DEFAULT_KEYS,
+            I18N_KEYS,
+            apply_answers_impl,
+        ) {
+            return result;
+        }
         let op = if op == "run" { "send".to_string() } else { op };
         dispatch_json_invoke(&op, &input_json)
     }
 }
 
 bindings::export!(Component with_types_in bindings);
+
+fn apply_answers_impl(mode: &str, answers_cbor: Vec<u8>) -> Vec<u8> {
+    let answers: Value = match decode_cbor(&answers_cbor) {
+        Ok(value) => value,
+        Err(err) => {
+            return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfigOut>::decode_error(
+                format!("invalid answers cbor: {err}"),
+            ));
+        }
+    };
+
+    if mode == "remove" {
+        return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfigOut>::remove_default());
+    }
+
+    let mut merged = existing_config_from_answers(&answers).unwrap_or_else(default_config_out);
+    let answer_obj = answers.as_object();
+    let has = |key: &str| answer_obj.is_some_and(|obj| obj.contains_key(key));
+
+    if mode == "setup" || mode == "default" {
+        merged.enabled = answers
+            .get("enabled")
+            .and_then(Value::as_bool)
+            .unwrap_or(merged.enabled);
+        merged.public_base_url =
+            string_or_default(&answers, "public_base_url", &merged.public_base_url);
+        merged.host = string_or_default(&answers, "host", &merged.host);
+        merged.port = answers
+            .get("port")
+            .and_then(Value::as_u64)
+            .and_then(|value| u16::try_from(value).ok())
+            .unwrap_or(merged.port);
+        merged.username = string_or_default(&answers, "username", &merged.username);
+        merged.from_address = string_or_default(&answers, "from_address", &merged.from_address);
+        merged.tls_mode = string_or_default(&answers, "tls_mode", &merged.tls_mode);
+        merged.default_to_address = optional_string_from(&answers, "default_to_address")
+            .or(merged.default_to_address.clone());
+        merged.password = optional_string_from(&answers, "password").or(merged.password.clone());
+    }
+
+    if mode == "upgrade" {
+        if has("enabled") {
+            merged.enabled = answers
+                .get("enabled")
+                .and_then(Value::as_bool)
+                .unwrap_or(merged.enabled);
+        }
+        if has("public_base_url") {
+            merged.public_base_url =
+                string_or_default(&answers, "public_base_url", &merged.public_base_url);
+        }
+        if has("host") {
+            merged.host = string_or_default(&answers, "host", &merged.host);
+        }
+        if has("port") {
+            merged.port = answers
+                .get("port")
+                .and_then(Value::as_u64)
+                .and_then(|value| u16::try_from(value).ok())
+                .unwrap_or(merged.port);
+        }
+        if has("username") {
+            merged.username = string_or_default(&answers, "username", &merged.username);
+        }
+        if has("from_address") {
+            merged.from_address = string_or_default(&answers, "from_address", &merged.from_address);
+        }
+        if has("tls_mode") {
+            merged.tls_mode = string_or_default(&answers, "tls_mode", &merged.tls_mode);
+        }
+        if has("default_to_address") {
+            merged.default_to_address = optional_string_from(&answers, "default_to_address");
+        }
+        if has("password") {
+            merged.password = optional_string_from(&answers, "password");
+        }
+    }
+
+    if let Err(error) = validate_config_out(&merged) {
+        return canonical_cbor_bytes(&ApplyAnswersResult::<ProviderConfigOut>::validation_error(
+            error,
+        ));
+    }
+
+    canonical_cbor_bytes(&ApplyAnswersResult::success(merged))
+}
 
 fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
     match op {
@@ -282,5 +296,4 @@ mod tests {
             Some(&Value::String("new@example.com".to_string()))
         );
     }
-
 }

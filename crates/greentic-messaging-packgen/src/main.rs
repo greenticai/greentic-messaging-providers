@@ -380,6 +380,9 @@ fn allowed_provider_ops() -> BTreeSet<&'static str> {
         "subscription_ensure",
         "subscription_renew",
         "subscription_delete",
+        "qa-spec",
+        "apply-answers",
+        "i18n-keys",
     ]
     .into_iter()
     .collect()

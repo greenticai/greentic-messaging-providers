@@ -1,20 +1,18 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
-use greentic_types::messaging::universal_dto::{
-    EncodeInV1, ProviderPayloadV1, SendPayloadInV1,
-};
+use greentic_types::messaging::universal_dto::{EncodeInV1, ProviderPayloadV1, SendPayloadInV1};
 use provider_common::helpers::{
-    encode_error, json_bytes, render_plan_common, send_payload_error,
-    send_payload_success, RenderPlanConfig,
+    PlannerCapabilities, RenderPlanConfig, encode_error, json_bytes, render_plan_common,
+    send_payload_error, send_payload_success,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use urlencoding::encode as url_encode;
 
+use crate::PROVIDER_TYPE;
 use crate::auth;
 use crate::config::{ProviderConfig, config_from_secrets, load_config, parse_config_value};
 use crate::graph::{graph_base_url, graph_post};
-use crate::PROVIDER_TYPE;
 use greentic_types::{
     ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
 };
@@ -182,24 +180,52 @@ pub(crate) fn render_plan(input_json: &[u8]) -> Vec<u8> {
     render_plan_common(
         input_json,
         &RenderPlanConfig {
-            ac_tier: None,
-            default_tier: "TierD",
+            capabilities: PlannerCapabilities {
+                supports_adaptive_cards: false,
+                supports_markdown: false,
+                supports_html: true,
+                supports_images: true,
+                supports_buttons: false,
+                max_text_len: None,
+                max_payload_bytes: None,
+            },
             default_summary: "email message",
-            extract_ac_text: true,
         },
     )
 }
 
 pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
+    use provider_common::helpers::extract_ac_summary;
+
     let encode_in = match serde_json::from_slice::<EncodeInV1>(input_json) {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
-    let text = encode_in
+    // If the message carries an Adaptive Card, use the downsampled summary.
+    let ac_summary = encode_in
         .message
-        .text
-        .clone()
-        .filter(|t| !t.trim().is_empty())
+        .metadata
+        .get("adaptive_card")
+        .and_then(|ac_raw| {
+            let caps = PlannerCapabilities {
+                supports_adaptive_cards: false,
+                supports_markdown: false,
+                supports_html: true,
+                supports_images: true,
+                supports_buttons: false,
+                max_text_len: None,
+                max_payload_bytes: None,
+            };
+            extract_ac_summary(ac_raw, &caps)
+        });
+    let text = ac_summary
+        .or_else(|| {
+            encode_in
+                .message
+                .text
+                .clone()
+                .filter(|t| !t.trim().is_empty())
+        })
         .unwrap_or_else(|| "universal email payload".to_string());
     // Extract destination email from envelope.to[0].id (preferred) or metadata
     let to = encode_in

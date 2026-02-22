@@ -6,8 +6,8 @@ use greentic_types::{
     Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
 };
 use provider_common::helpers::{
-    encode_error, json_bytes, render_plan_common, send_payload_error, send_payload_success,
-    RenderPlanConfig,
+    PlannerCapabilities, RenderPlanConfig, encode_error, json_bytes, render_plan_common,
+    send_payload_error, send_payload_success,
 };
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde_json::{Value, json};
@@ -222,15 +222,23 @@ pub(crate) fn render_plan(input_json: &[u8]) -> Vec<u8> {
     render_plan_common(
         input_json,
         &RenderPlanConfig {
-            ac_tier: None,
-            default_tier: "TierD",
+            capabilities: PlannerCapabilities {
+                supports_adaptive_cards: false,
+                supports_markdown: true,
+                supports_html: false,
+                supports_images: false,
+                supports_buttons: false,
+                max_text_len: Some(40_000),
+                max_payload_bytes: None,
+            },
             default_summary: "slack message",
-            extract_ac_text: true,
         },
     )
 }
 
 pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
+    use provider_common::helpers::extract_ac_summary;
+
     let encode_in = match serde_json::from_slice::<EncodeInV1>(input_json) {
         Ok(value) => value,
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
@@ -244,11 +252,31 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
     if channel.is_empty() {
         return encode_error("destination (to) required");
     }
-    let text = encode_in
+    // If the message carries an Adaptive Card, use the downsampled summary.
+    let ac_summary = encode_in
         .message
-        .text
-        .clone()
-        .filter(|t| !t.trim().is_empty())
+        .metadata
+        .get("adaptive_card")
+        .and_then(|ac_raw| {
+            let caps = PlannerCapabilities {
+                supports_adaptive_cards: false,
+                supports_markdown: true,
+                supports_html: false,
+                supports_images: false,
+                supports_buttons: false,
+                max_text_len: Some(40_000),
+                max_payload_bytes: None,
+            };
+            extract_ac_summary(ac_raw, &caps)
+        });
+    let text = ac_summary
+        .or_else(|| {
+            encode_in
+                .message
+                .text
+                .clone()
+                .filter(|t| !t.trim().is_empty())
+        })
         .unwrap_or_else(|| "slack universal payload".to_string());
     let url = format!("{}/chat.postMessage", DEFAULT_API_BASE);
     let body = json!({
