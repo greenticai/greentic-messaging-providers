@@ -146,6 +146,16 @@ pub(crate) fn handle_send(input_json: &[u8], is_reply: bool) -> Vec<u8> {
 
     let body = resp.body.unwrap_or_default();
     let body_json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+
+    // Slack returns HTTP 200 even on errors — check the JSON body.
+    if body_json.get("ok").and_then(Value::as_bool) == Some(false) {
+        let err = body_json
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown slack error");
+        return json_bytes(&json!({"ok": false, "error": format!("slack api error: {err}"), "response": body_json}));
+    }
+
     let ts = body_json
         .get("ts")
         .or_else(|| body_json.get("message").and_then(|m| m.get("ts")))
@@ -362,6 +372,16 @@ pub(crate) fn send_payload(input_json: &[u8]) -> Vec<u8> {
             &format!("slack returned status {}", resp.status),
             resp.status >= 500,
         );
+    }
+    // Slack returns HTTP 200 even on errors — check the JSON body.
+    let body = resp.body.unwrap_or_default();
+    let body_json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+    if body_json.get("ok").and_then(Value::as_bool) == Some(false) {
+        let err = body_json
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown slack error");
+        return send_payload_error(&format!("slack api error: {err}"), false);
     }
     send_payload_success()
 }
