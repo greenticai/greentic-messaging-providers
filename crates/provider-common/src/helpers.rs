@@ -10,6 +10,7 @@ use crate::component_v0_6::{
 // Re-export so providers can write `use provider_common::helpers::PlannerCapabilities`.
 use base64::Engine as _;
 pub use greentic_messaging_renderer::PlannerCapabilities;
+pub use greentic_messaging_renderer::PlannerAction;
 use greentic_messaging_renderer::{RenderItem, extract_planner_card, plan_render};
 use greentic_types::messaging::universal_dto::{
     RenderPlanInV1, RenderPlanOutV1, SendPayloadInV1, SendPayloadResultV1,
@@ -210,6 +211,36 @@ pub fn extract_ac_summary(ac_raw: &str, caps: &PlannerCapabilities) -> Option<St
     let card = extract_planner_card(&ac);
     let plan = plan_render(&card, caps, Some(&ac));
     plan.summary_text.filter(|s| !s.trim().is_empty())
+}
+
+/// Rich AC extraction result: title + body text + actions + images.
+pub struct AcPlan {
+    /// Bold/large title TextBlock (if any).
+    pub title: Option<String>,
+    /// Plain text summary of body elements.
+    pub summary: String,
+    /// Buttons/links from AC actions.
+    pub actions: Vec<PlannerAction>,
+    /// Image URLs from Image/ImageSet elements.
+    pub images: Vec<String>,
+}
+
+/// Extract text, actions, and images from an Adaptive Card JSON string.
+///
+/// Returns `Some(AcPlan)` with the downsampled summary, extracted actions
+/// (buttons/links), and image URLs. Used by providers that can render
+/// buttons natively (e.g. Telegram inline keyboard).
+pub fn extract_ac_plan(ac_raw: &str, caps: &PlannerCapabilities) -> Option<AcPlan> {
+    let ac: Value = serde_json::from_str(ac_raw).ok()?;
+    let card = extract_planner_card(&ac);
+    let plan = plan_render(&card, caps, Some(&ac));
+    let summary = plan.summary_text.filter(|s| !s.trim().is_empty())?;
+    Some(AcPlan {
+        title: card.title,
+        summary,
+        actions: card.actions,
+        images: card.images,
+    })
 }
 
 /// Build a render plan response using the full renderer pipeline.

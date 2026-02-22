@@ -89,29 +89,109 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         .api_base_url
         .clone()
         .unwrap_or_else(|| DEFAULT_API_BASE.to_string());
-    let url = format!("{api_base}/bot{token}/sendMessage");
-    let payload = json!({ "chat_id": dest_id.clone(), "text": text });
-    let request = client::Request {
-        method: "POST".to_string(),
-        url,
-        headers: vec![("Content-Type".into(), "application/json".into())],
-        body: Some(serde_json::to_vec(&payload).unwrap_or_else(|_| b"{}".to_vec())),
+
+    // Build inline keyboard from AC actions (multiple buttons supported).
+    let inline_keyboard = build_inline_keyboard_from_metadata(&envelope.metadata);
+    let reply_markup = if !inline_keyboard.is_empty() {
+        Some(json!({ "inline_keyboard": inline_keyboard }))
+    } else {
+        None
     };
 
-    let resp = match client::send(&request, None, None) {
-        Ok(resp) => resp,
-        Err(err) => {
-            return json_bytes(&json!({
-                "ok": false,
-                "error": format!("transport error: {}", err.message),
-            }));
+    // Read parse_mode from metadata (set by encode_op for AC content).
+    let parse_mode = envelope.metadata.get("parse_mode").cloned();
+
+    // Check for AC images — use sendPhoto if available, otherwise sendMessage.
+    let images: Vec<String> = envelope
+        .metadata
+        .get("ac_images")
+        .and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_default();
+
+    // Build sendMessage payload (always needed as fallback).
+    let text_payload = {
+        let mut p = json!({
+            "chat_id": dest_id.clone(),
+            "text": text,
+        });
+        if let Some(pm) = &parse_mode {
+            p.as_object_mut().unwrap().insert("parse_mode".into(), json!(pm));
+        }
+        if let Some(rm) = &reply_markup {
+            p.as_object_mut().unwrap().insert("reply_markup".into(), rm.clone());
+        }
+        p
+    };
+
+    // Try sendPhoto if AC has images, fall back to sendMessage on failure.
+    let resp = if let Some(photo_url) = images.first() {
+        let url = format!("{api_base}/bot{token}/sendPhoto");
+        let mut p = json!({
+            "chat_id": dest_id.clone(),
+            "photo": photo_url,
+            "caption": text,
+        });
+        if let Some(pm) = &parse_mode {
+            p.as_object_mut().unwrap().insert("parse_mode".into(), json!(pm));
+        }
+        if let Some(rm) = &reply_markup {
+            p.as_object_mut().unwrap().insert("reply_markup".into(), rm.clone());
+        }
+        let req = client::Request {
+            method: "POST".to_string(),
+            url,
+            headers: vec![("Content-Type".into(), "application/json".into())],
+            body: Some(serde_json::to_vec(&p).unwrap_or_else(|_| b"{}".to_vec())),
+        };
+        match client::send(&req, None, None) {
+            Ok(r) if r.status >= 200 && r.status < 300 => r,
+            _ => {
+                // sendPhoto failed (bad image URL, etc.) — fall back to sendMessage.
+                let url = format!("{api_base}/bot{token}/sendMessage");
+                let req = client::Request {
+                    method: "POST".to_string(),
+                    url,
+                    headers: vec![("Content-Type".into(), "application/json".into())],
+                    body: Some(
+                        serde_json::to_vec(&text_payload).unwrap_or_else(|_| b"{}".to_vec()),
+                    ),
+                };
+                match client::send(&req, None, None) {
+                    Ok(r) => r,
+                    Err(err) => {
+                        return json_bytes(&json!({
+                            "ok": false,
+                            "error": format!("transport error: {}", err.message),
+                        }));
+                    }
+                }
+            }
+        }
+    } else {
+        let url = format!("{api_base}/bot{token}/sendMessage");
+        let req = client::Request {
+            method: "POST".to_string(),
+            url,
+            headers: vec![("Content-Type".into(), "application/json".into())],
+            body: Some(serde_json::to_vec(&text_payload).unwrap_or_else(|_| b"{}".to_vec())),
+        };
+        match client::send(&req, None, None) {
+            Ok(r) => r,
+            Err(err) => {
+                return json_bytes(&json!({
+                    "ok": false,
+                    "error": format!("transport error: {}", err.message),
+                }));
+            }
         }
     };
 
     if resp.status < 200 || resp.status >= 300 {
+        let body = resp.body.unwrap_or_default();
+        let body_str = String::from_utf8_lossy(&body);
         return json_bytes(&json!({
             "ok": false,
-            "error": format!("telegram returned status {}", resp.status),
+            "error": format!("telegram returned status {}: {}", resp.status, body_str),
         }));
     }
 
@@ -293,7 +373,7 @@ fn render_plan_inner(input_json: &[u8]) -> Vec<u8> {
 }
 
 pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
-    use provider_common::helpers::extract_ac_summary;
+    use provider_common::helpers::extract_ac_plan;
 
     let encode_in = match serde_json::from_slice::<EncodeInV1>(input_json) {
         Ok(value) => value,
@@ -301,20 +381,39 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
     };
     let mut envelope = encode_in.message;
 
-    // If the message carries an Adaptive Card, replace text with the
-    // downsampled summary (Telegram does not render AC natively).
+    // If the message carries an Adaptive Card, build rich Telegram content:
+    // - HTML-formatted text (bold title, escaped body)
+    // - Inline keyboard buttons from AC actions
+    // - Image URL for sendPhoto
     if let Some(ac_raw) = envelope.metadata.get("adaptive_card") {
         let caps = PlannerCapabilities {
             supports_adaptive_cards: false,
-            supports_markdown: true,
+            supports_markdown: false,
             supports_html: true,
             supports_images: true,
-            supports_buttons: false,
+            supports_buttons: true,
             max_text_len: Some(4096),
             max_payload_bytes: None,
         };
-        if let Some(summary) = extract_ac_summary(ac_raw, &caps) {
-            envelope.text = Some(summary);
+        if let Some(plan) = extract_ac_plan(ac_raw, &caps) {
+            // Build HTML text: bold title + escaped body
+            let html = build_html_text(plan.title.as_deref(), &plan.summary);
+            envelope.text = Some(html);
+            envelope
+                .metadata
+                .insert("parse_mode".to_string(), "HTML".to_string());
+            if !plan.actions.is_empty() {
+                let actions_json = serde_json::to_string(&plan.actions).unwrap_or_default();
+                envelope
+                    .metadata
+                    .insert("ac_actions".to_string(), actions_json);
+            }
+            if !plan.images.is_empty() {
+                let images_json = serde_json::to_string(&plan.images).unwrap_or_default();
+                envelope
+                    .metadata
+                    .insert("ac_images".to_string(), images_json);
+            }
         }
     }
 
@@ -469,6 +568,92 @@ fn build_synthetic_envelope(
         attachments: Vec::new(),
         metadata,
     })
+}
+
+/// Build HTML-formatted text for Telegram from AC title + summary.
+///
+/// Title is rendered as `<b>title</b>`, body text is HTML-escaped.
+/// Telegram supports: `<b>`, `<i>`, `<u>`, `<s>`, `<code>`, `<pre>`,
+/// `<a href="url">text</a>`, `<blockquote>`.
+fn build_html_text(title: Option<&str>, summary: &str) -> String {
+    let mut parts = Vec::new();
+    if let Some(t) = title {
+        let t = t.trim();
+        if !t.is_empty() {
+            parts.push(format!("<b>{}</b>", html_escape(t)));
+        }
+    }
+    // The summary may already contain the title as first line, skip it.
+    let body = if let Some(t) = title {
+        summary
+            .strip_prefix(t.trim())
+            .map(|rest| rest.trim_start_matches('\n'))
+            .unwrap_or(summary)
+    } else {
+        summary
+    };
+    let body = body.trim();
+    if !body.is_empty() {
+        parts.push(html_escape(body));
+    }
+    parts.join("\n\n")
+}
+
+/// Escape HTML special characters for Telegram's HTML parse mode.
+fn html_escape(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+/// Build Telegram inline keyboard rows from AC actions stored in metadata.
+///
+/// Reads `metadata["ac_actions"]` (JSON array of `PlannerAction`), converts
+/// `Action.OpenUrl` entries to inline URL buttons, other actions to callback
+/// buttons. Supports multiple rows (max 8 rows, max 5 buttons per row).
+fn build_inline_keyboard_from_metadata(
+    metadata: &greentic_types::MessageMetadata,
+) -> Vec<Vec<Value>> {
+    let actions_json = match metadata.get("ac_actions") {
+        Some(s) => s,
+        None => return Vec::new(),
+    };
+    let actions: Vec<Value> = match serde_json::from_str(actions_json) {
+        Ok(v) => v,
+        Err(_) => return Vec::new(),
+    };
+    let max_rows = 8;
+    let max_per_row = 3;
+    let mut rows: Vec<Vec<Value>> = Vec::new();
+    let mut current_row: Vec<Value> = Vec::new();
+    for action in &actions {
+        let title = action
+            .get("title")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let url = action.get("url").and_then(Value::as_str);
+        if title.is_empty() {
+            continue;
+        }
+        if current_row.len() >= max_per_row {
+            rows.push(current_row);
+            current_row = Vec::new();
+        }
+        if rows.len() >= max_rows {
+            break;
+        }
+        if let Some(url) = url {
+            current_row.push(json!({"text": title, "url": url}));
+        } else {
+            // Callback button: callback_data max 64 bytes
+            let cb: String = title.chars().take(64).collect();
+            current_row.push(json!({"text": title, "callback_data": cb}));
+        }
+    }
+    if !current_row.is_empty() && rows.len() < max_rows {
+        rows.push(current_row);
+    }
+    rows
 }
 
 pub(crate) fn extract_message_text(value: &Value) -> String {
