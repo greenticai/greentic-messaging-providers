@@ -8,7 +8,7 @@ use greentic_types::{
 };
 use provider_common::helpers::{
     PlannerCapabilities, RenderPlanConfig, encode_error, json_bytes, render_plan_common,
-    send_payload_error, send_payload_success,
+    send_payload_error,
 };
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde_json::{Value, json};
@@ -94,12 +94,40 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         .as_deref()
         .unwrap_or_else(|| detect_destination_kind(&dest_id));
 
+    // Check for AC card in metadata — send as native Webex attachment.
+    let card_payload = envelope
+        .metadata
+        .get("adaptive_card")
+        .and_then(|ac_raw| serde_json::from_str::<Value>(ac_raw).ok());
+    let markdown_value = card_payload
+        .as_ref()
+        .and_then(summarize_card_text)
+        .unwrap_or_else(|| text.clone());
+    // Reply-in-thread: check for reply_to_id or parentId.
+    let parent_id = parsed
+        .get("reply_to_id")
+        .and_then(Value::as_str)
+        .or_else(|| parsed.get("parentId").and_then(Value::as_str))
+        .or_else(|| {
+            envelope
+                .metadata
+                .get("reply_to_id")
+                .map(|s| s.as_str())
+        })
+        .map(|s| s.trim_matches('"'))
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+
     let api_base = cfg
         .api_base_url
         .clone()
         .unwrap_or_else(|| DEFAULT_API_BASE.to_string());
     let url = format!("{}/messages", api_base);
-    let mut body = json!({ "text": text });
+    let mut body_map = build_webex_body(card_payload.as_ref(), Some(&text), &markdown_value);
+    if let Some(pid) = &parent_id {
+        body_map.insert("parentId".into(), Value::String(pid.clone()));
+    }
+    let mut body = Value::Object(body_map);
     let body_obj = body.as_object_mut().expect("body object");
     match kind {
         "room" => {
@@ -149,9 +177,9 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
     };
 
     if resp.status < 200 || resp.status >= 300 {
-        return json_bytes(
-            &json!({"ok": false, "error": format!("webex returned status {}", resp.status)}),
-        );
+        let err_body = resp.body.unwrap_or_default();
+        let detail = format_webex_error(resp.status, &err_body);
+        return json_bytes(&json!({"ok": false, "error": detail}));
     }
 
     let body_bytes = resp.body.unwrap_or_default();
@@ -419,9 +447,21 @@ pub(crate) fn send_payload(input_json: &[u8]) -> Vec<u8> {
     if dest_id.is_empty() {
         return send_payload_error("destination id required", false);
     }
+    // Reply-in-thread: check for reply_to_id / parentId in envelope metadata.
+    let parent_id = envelope
+        .metadata
+        .get("reply_to_id")
+        .or_else(|| envelope.metadata.get("parentId"))
+        .map(|s| s.trim_matches('"'))
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+
     let summary_text = text.clone().or(card_summary.clone());
     let markdown_value = summary_text.clone().unwrap_or_else(|| " ".to_string());
     let mut body_map = build_webex_body(card_payload.as_ref(), text.as_ref(), &markdown_value);
+    if let Some(pid) = &parent_id {
+        body_map.insert("parentId".into(), Value::String(pid.clone()));
+    }
     let kind = destination
         .kind
         .as_deref()
@@ -470,7 +510,18 @@ pub(crate) fn send_payload(input_json: &[u8]) -> Vec<u8> {
         let detail = format_webex_error(resp.status, &body);
         return send_payload_error(&detail, resp.status >= 500);
     }
-    send_payload_success()
+    // Forward message_id so callers can use it for replies/threading.
+    let resp_body = resp.body.unwrap_or_default();
+    let resp_json: Value = serde_json::from_slice(&resp_body).unwrap_or(Value::Null);
+    let msg_id = resp_json
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    json_bytes(&json!({
+        "ok": true,
+        "message": msg_id,
+        "retryable": false
+    }))
 }
 
 pub(crate) fn summarize_card_text(card: &Value) -> Option<String> {
@@ -508,6 +559,17 @@ pub(crate) fn build_webex_body(
 ) -> serde_json::Map<String, Value> {
     let mut map = serde_json::Map::new();
     if let Some(card) = card_payload {
+        // Webex supports AC up to v1.3 — cap the version.
+        let mut card = card.clone();
+        if let Some(obj) = card.as_object_mut() {
+            let ver = obj
+                .get("version")
+                .and_then(Value::as_str)
+                .unwrap_or("1.0");
+            if ver != "1.0" && ver != "1.1" && ver != "1.2" && ver != "1.3" {
+                obj.insert("version".into(), Value::String("1.3".to_string()));
+            }
+        }
         let attachment = json!({
             "contentType": "application/vnd.microsoft.card.adaptive",
             "content": card,
