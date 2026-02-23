@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 env:
   GREENTIC_ENV: dev
@@ -96,6 +97,9 @@ jobs:
 
       - name: Check generated flows
         run: ./ci/check_generated.sh
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Sync packs
         run: ./tools/sync_packs.sh
