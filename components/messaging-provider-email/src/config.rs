@@ -29,6 +29,15 @@ pub(crate) struct ProviderConfig {
     pub(crate) graph_scope: Option<String>,
     #[serde(default)]
     pub(crate) password: Option<String>,
+    /// Graph API client ID (read from secrets or config).
+    #[serde(default)]
+    pub(crate) graph_client_id: Option<String>,
+    /// Graph API client secret (optional; for client_credentials grant).
+    #[serde(default)]
+    pub(crate) graph_client_secret: Option<String>,
+    /// Graph API refresh token (optional; for refresh_token grant).
+    #[serde(default)]
+    pub(crate) graph_refresh_token: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,6 +98,9 @@ pub(crate) fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         "graph_base_url",
         "graph_token_endpoint",
         "graph_scope",
+        "graph_client_id",
+        "graph_client_secret",
+        "graph_refresh_token",
     ] {
         if let Some(v) = input.get(key) {
             partial.insert(key.to_string(), v.clone());
@@ -161,12 +173,24 @@ pub(crate) fn validate_provider_config(cfg: ProviderConfig) -> Result<ProviderCo
 
 /// Build a minimal ProviderConfig from secrets for the Graph API send path.
 /// This is used when the operator doesn't pass config via payload metadata.
+/// Reads ALL Graph credentials in a single pass so send_payload doesn't need
+/// to call the secrets store again during token acquisition.
 pub(crate) fn config_from_secrets() -> Result<ProviderConfig, String> {
     let from_address = auth::get_secret_any_case("from_address")
         .or_else(|_| auth::get_secret_any_case("FROM_ADDRESS"))
         .unwrap_or_default();
     let graph_tenant_id = auth::get_secret_any_case("graph_tenant_id")
         .or_else(|_| auth::get_secret_any_case("GRAPH_TENANT_ID"))
+        .or_else(|_| auth::get_secret_any_case("ms_graph_tenant_id"))
+        .ok();
+    let graph_client_id = auth::get_secret_any_case("ms_graph_client_id")
+        .or_else(|_| auth::get_secret_any_case("graph_client_id"))
+        .ok();
+    let graph_client_secret = auth::get_secret_any_case("ms_graph_client_secret")
+        .or_else(|_| auth::get_secret_any_case("graph_client_secret"))
+        .ok();
+    let graph_refresh_token = auth::get_secret_any_case("ms_graph_refresh_token")
+        .or_else(|_| auth::get_secret_any_case("graph_refresh_token"))
         .ok();
     if from_address.is_empty() {
         return Err("from_address not found in secrets (seed 'from_address' secret)".to_string());
@@ -186,5 +210,8 @@ pub(crate) fn config_from_secrets() -> Result<ProviderConfig, String> {
         graph_token_endpoint: None,
         graph_scope: None,
         password: None,
+        graph_client_id,
+        graph_client_secret,
+        graph_refresh_token,
     })
 }

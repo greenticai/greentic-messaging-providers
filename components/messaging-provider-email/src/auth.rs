@@ -32,11 +32,25 @@ pub(crate) fn acquire_graph_token(
     request_token(&endpoint, form.as_bytes())
 }
 
-/// Acquire token from secrets store directly (no auth_user binding required).
+/// Acquire token using config values (populated by config_from_secrets).
+/// Uses config fields first, falls back to secrets store.
 /// Tries refresh_token grant first, falls back to client_credentials.
 pub(crate) fn acquire_graph_token_from_store(cfg: &ProviderConfig) -> Result<String, String> {
-    let client_id = get_secret_any_case(MS_GRAPH_CLIENT_ID_KEY)?;
-    let client_secret = get_secret_any_case(MS_GRAPH_CLIENT_SECRET_KEY).ok();
+    let client_id = cfg
+        .graph_client_id
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| get_secret_any_case(MS_GRAPH_CLIENT_ID_KEY).ok())
+        .ok_or_else(|| {
+            "missing graph_client_id (seed 'ms_graph_client_id' secret)".to_string()
+        })?;
+    let client_secret = cfg
+        .graph_client_secret
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| get_secret_any_case(MS_GRAPH_CLIENT_SECRET_KEY).ok());
     let tenant_id = cfg
         .graph_tenant_id
         .as_deref()
@@ -52,8 +66,14 @@ pub(crate) fn acquire_graph_token_from_store(cfg: &ProviderConfig) -> Result<Str
     );
     let scope = cfg.graph_scope.as_deref().unwrap_or(DEFAULT_GRAPH_SCOPE);
 
-    // Try refresh_token grant first
-    if let Ok(refresh_token) = get_secret_any_case(MS_GRAPH_REFRESH_TOKEN_KEY) {
+    // Try refresh_token grant first (from config, then secrets store)
+    let refresh_token = cfg
+        .graph_refresh_token
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| get_secret_any_case(MS_GRAPH_REFRESH_TOKEN_KEY).ok());
+    if let Some(refresh_token) = refresh_token {
         let mut form = format!(
             "client_id={}&grant_type=refresh_token&refresh_token={}&scope={}",
             url_encode(&client_id),
