@@ -192,6 +192,12 @@ fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::Engine;
+    use greentic_types::messaging::universal_dto::{EncodeInV1, RenderPlanInV1};
+    use greentic_types::{
+        Attachment, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx,
+        TenantId,
+    };
     use provider_common::component_v0_6::{canonical_cbor_bytes, decode_cbor};
 
     #[test]
@@ -276,5 +282,345 @@ mod tests {
             config.get("default_chat_id"),
             Some(&Value::String("456".to_string()))
         );
+    }
+
+    // ── Media encode helpers & tests ──────────────────────────────────────
+
+    fn make_encode_input(
+        text: Option<&str>,
+        metadata: &[(&str, &str)],
+        attachments: Vec<Attachment>,
+    ) -> Vec<u8> {
+        let env = EnvId::try_from("test").unwrap();
+        let tenant = TenantId::try_from("test").unwrap();
+        let mut meta = MessageMetadata::new();
+        for (k, v) in metadata {
+            meta.insert(k.to_string(), v.to_string());
+        }
+        let envelope = ChannelMessageEnvelope {
+            id: "test-msg".to_string(),
+            tenant: TenantCtx::new(env, tenant),
+            channel: "telegram".to_string(),
+            session_id: "test-session".to_string(),
+            reply_scope: None,
+            from: None,
+            to: vec![Destination {
+                id: "123456".to_string(),
+                kind: Some("chat".into()),
+            }],
+            correlation_id: None,
+            text: text.map(String::from),
+            attachments,
+            metadata: meta,
+        };
+        let encode_in = EncodeInV1 {
+            message: envelope,
+            plan: RenderPlanInV1 {
+                message: ChannelMessageEnvelope {
+                    id: String::new(),
+                    tenant: TenantCtx::new(
+                        EnvId::try_from("test").unwrap(),
+                        TenantId::try_from("test").unwrap(),
+                    ),
+                    channel: String::new(),
+                    session_id: String::new(),
+                    reply_scope: None,
+                    from: None,
+                    to: vec![],
+                    correlation_id: None,
+                    text: None,
+                    attachments: vec![],
+                    metadata: MessageMetadata::new(),
+                },
+                metadata: std::collections::BTreeMap::new(),
+            },
+        };
+        serde_json::to_vec(&encode_in).unwrap()
+    }
+
+    fn decode_encode_envelope(result: &[u8]) -> ChannelMessageEnvelope {
+        let val: Value = serde_json::from_slice(result).expect("parse encode result");
+        assert_eq!(
+            val.get("ok"),
+            Some(&Value::Bool(true)),
+            "encode should succeed: {val}"
+        );
+        let payload = val.get("payload").expect("payload field");
+        let body_b64 = payload
+            .get("body_b64")
+            .and_then(Value::as_str)
+            .expect("body_b64");
+        let body_bytes = base64::engine::general_purpose::STANDARD
+            .decode(body_b64)
+            .expect("decode base64");
+        serde_json::from_slice(&body_bytes).expect("parse envelope from payload")
+    }
+
+    #[test]
+    fn encode_op_video_metadata() {
+        let input = make_encode_input(
+            Some("hello"),
+            &[("tg_video_url", "https://example.com/video.mp4")],
+            vec![],
+        );
+        let env = decode_encode_envelope(&encode_op(&input));
+        assert_eq!(
+            env.metadata.get("tg_video").map(String::as_str),
+            Some("https://example.com/video.mp4")
+        );
+    }
+
+    #[test]
+    fn encode_op_audio_metadata() {
+        let input = make_encode_input(
+            Some("hello"),
+            &[
+                ("tg_audio_url", "https://example.com/audio.mp3"),
+                ("tg_audio_caption", "My Song"),
+            ],
+            vec![],
+        );
+        let env = decode_encode_envelope(&encode_op(&input));
+        assert_eq!(
+            env.metadata.get("tg_audio").map(String::as_str),
+            Some("https://example.com/audio.mp3")
+        );
+        assert_eq!(
+            env.metadata.get("tg_audio_caption").map(String::as_str),
+            Some("My Song")
+        );
+    }
+
+    #[test]
+    fn encode_op_sticker_metadata() {
+        let input = make_encode_input(
+            Some("hello"),
+            &[("tg_sticker_url", "https://example.com/sticker.webp")],
+            vec![],
+        );
+        let env = decode_encode_envelope(&encode_op(&input));
+        assert_eq!(
+            env.metadata.get("tg_sticker").map(String::as_str),
+            Some("https://example.com/sticker.webp")
+        );
+    }
+
+    #[test]
+    fn encode_op_location_metadata() {
+        let input = make_encode_input(
+            Some("hello"),
+            &[
+                ("tg_location_latitude", "51.5074"),
+                ("tg_location_longitude", "-0.1278"),
+                ("tg_location_name", "London"),
+                ("tg_location_address", "Westminster"),
+            ],
+            vec![],
+        );
+        let env = decode_encode_envelope(&encode_op(&input));
+        let loc_str = env.metadata.get("tg_location").expect("tg_location");
+        let loc: Value = serde_json::from_str(loc_str).expect("parse location JSON");
+        assert_eq!(loc.get("latitude").and_then(Value::as_str), Some("51.5074"));
+        assert_eq!(
+            loc.get("longitude").and_then(Value::as_str),
+            Some("-0.1278")
+        );
+        assert_eq!(loc.get("name").and_then(Value::as_str), Some("London"));
+        assert_eq!(
+            loc.get("address").and_then(Value::as_str),
+            Some("Westminster")
+        );
+    }
+
+    #[test]
+    fn encode_op_attachment_video() {
+        let input = make_encode_input(
+            Some("hello"),
+            &[],
+            vec![Attachment {
+                mime_type: "video/mp4".to_string(),
+                url: "https://example.com/vid.mp4".to_string(),
+                name: None,
+                size_bytes: None,
+            }],
+        );
+        let env = decode_encode_envelope(&encode_op(&input));
+        assert_eq!(
+            env.metadata.get("tg_video").map(String::as_str),
+            Some("https://example.com/vid.mp4")
+        );
+    }
+
+    #[test]
+    fn encode_op_attachment_voice_ogg() {
+        let input = make_encode_input(
+            Some("hello"),
+            &[],
+            vec![Attachment {
+                mime_type: "audio/ogg".to_string(),
+                url: "https://example.com/voice.ogg".to_string(),
+                name: None,
+                size_bytes: None,
+            }],
+        );
+        let env = decode_encode_envelope(&encode_op(&input));
+        assert_eq!(
+            env.metadata.get("tg_voice").map(String::as_str),
+            Some("https://example.com/voice.ogg")
+        );
+    }
+
+    #[test]
+    fn encode_op_attachment_audio() {
+        let input = make_encode_input(
+            Some("hello"),
+            &[],
+            vec![Attachment {
+                mime_type: "audio/mpeg".to_string(),
+                url: "https://example.com/song.mp3".to_string(),
+                name: None,
+                size_bytes: None,
+            }],
+        );
+        let env = decode_encode_envelope(&encode_op(&input));
+        assert_eq!(
+            env.metadata.get("tg_audio").map(String::as_str),
+            Some("https://example.com/song.mp3")
+        );
+    }
+
+    #[test]
+    fn encode_op_attachment_sticker_webp() {
+        let input = make_encode_input(
+            Some("hello"),
+            &[],
+            vec![Attachment {
+                mime_type: "image/webp".to_string(),
+                url: "https://example.com/sticker.webp".to_string(),
+                name: None,
+                size_bytes: None,
+            }],
+        );
+        let env = decode_encode_envelope(&encode_op(&input));
+        assert_eq!(
+            env.metadata.get("tg_sticker").map(String::as_str),
+            Some("https://example.com/sticker.webp")
+        );
+    }
+
+    #[test]
+    fn encode_op_attachment_gif() {
+        let input = make_encode_input(
+            Some("hello"),
+            &[],
+            vec![Attachment {
+                mime_type: "image/gif".to_string(),
+                url: "https://example.com/anim.gif".to_string(),
+                name: None,
+                size_bytes: None,
+            }],
+        );
+        let env = decode_encode_envelope(&encode_op(&input));
+        assert_eq!(
+            env.metadata.get("tg_animation").map(String::as_str),
+            Some("https://example.com/anim.gif")
+        );
+    }
+
+    #[test]
+    fn encode_op_attachment_image() {
+        let input = make_encode_input(
+            Some("hello"),
+            &[],
+            vec![Attachment {
+                mime_type: "image/jpeg".to_string(),
+                url: "https://example.com/photo.jpg".to_string(),
+                name: None,
+                size_bytes: None,
+            }],
+        );
+        let env = decode_encode_envelope(&encode_op(&input));
+        assert_eq!(
+            env.metadata.get("tg_photo").map(String::as_str),
+            Some("https://example.com/photo.jpg")
+        );
+    }
+
+    #[test]
+    fn encode_op_attachment_document() {
+        let input = make_encode_input(
+            Some("hello"),
+            &[],
+            vec![Attachment {
+                mime_type: "application/pdf".to_string(),
+                url: "https://example.com/doc.pdf".to_string(),
+                name: Some("report.pdf".to_string()),
+                size_bytes: None,
+            }],
+        );
+        let env = decode_encode_envelope(&encode_op(&input));
+        assert_eq!(
+            env.metadata.get("tg_document").map(String::as_str),
+            Some("https://example.com/doc.pdf")
+        );
+    }
+
+    #[test]
+    fn encode_op_metadata_takes_precedence_over_attachments() {
+        let input = make_encode_input(
+            Some("hello"),
+            &[("tg_video_url", "https://meta.com/video.mp4")],
+            vec![Attachment {
+                mime_type: "video/mp4".to_string(),
+                url: "https://attach.com/video.mp4".to_string(),
+                name: None,
+                size_bytes: None,
+            }],
+        );
+        let env = decode_encode_envelope(&encode_op(&input));
+        assert_eq!(
+            env.metadata.get("tg_video").map(String::as_str),
+            Some("https://meta.com/video.mp4"),
+            "metadata should take precedence over attachment"
+        );
+    }
+
+    #[test]
+    fn encode_op_strips_operator_double_quotes() {
+        let input = make_encode_input(
+            Some("hello"),
+            &[("tg_video_url", "\"https://example.com/video.mp4\"")],
+            vec![],
+        );
+        let env = decode_encode_envelope(&encode_op(&input));
+        assert_eq!(
+            env.metadata.get("tg_video").map(String::as_str),
+            Some("https://example.com/video.mp4"),
+            "operator double-quotes should be stripped"
+        );
+    }
+
+    #[test]
+    fn encode_op_backward_compat_ac_with_images() {
+        let ac = json!({
+            "type": "AdaptiveCard",
+            "body": [
+                {"type": "TextBlock", "text": "Hello AC"},
+                {"type": "Image", "url": "https://example.com/img.png"}
+            ]
+        });
+        let input = make_encode_input(
+            Some("fallback text"),
+            &[("adaptive_card", &ac.to_string())],
+            vec![],
+        );
+        let env = decode_encode_envelope(&encode_op(&input));
+        assert!(
+            env.metadata.contains_key("ac_images"),
+            "AC images should still be extracted"
+        );
+        let images: Vec<String> =
+            serde_json::from_str(env.metadata.get("ac_images").unwrap()).unwrap();
+        assert_eq!(images, vec!["https://example.com/img.png"]);
     }
 }
