@@ -1,5 +1,5 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
-use greentic_types::messaging::universal_dto::{EncodeInV1, ProviderPayloadV1, SendPayloadInV1};
+use greentic_types::messaging::universal_dto::{EncodeInV1, SendPayloadInV1};
 use provider_common::helpers::{
     PlannerCapabilities, RenderPlanConfig, encode_error, json_bytes, render_plan_common,
     send_payload_error, send_payload_success,
@@ -11,7 +11,7 @@ use urlencoding::encode as url_encode;
 
 use crate::PROVIDER_TYPE;
 use crate::auth;
-use crate::config::{ProviderConfig, config_from_secrets, load_config, parse_config_value};
+use crate::config::{ProviderConfig, config_from_secrets, load_config};
 use crate::graph::{graph_base_url, graph_post};
 use greentic_types::{
     ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
@@ -296,12 +296,15 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
     metadata.insert("to".to_string(), Value::String(to));
     metadata.insert("subject".to_string(), Value::String(subject));
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
-    let payload = ProviderPayloadV1 {
-        content_type: "application/json".to_string(),
-        body_b64: STANDARD.encode(&body_bytes),
-        metadata,
-    };
-    json_bytes(&json!({"ok": true, "payload": payload}))
+    let metadata_json = serde_json::to_string(&metadata).unwrap_or_else(|_| "{}".to_string());
+    json_bytes(&json!({
+        "ok": true,
+        "payload": {
+            "content_type": "application/json",
+            "body_b64": STANDARD.encode(&body_bytes),
+            "metadata_json": metadata_json,
+        }
+    }))
 }
 
 pub(crate) fn send_payload(input_json: &[u8]) -> Vec<u8> {
@@ -344,38 +347,10 @@ pub(crate) fn send_payload(input_json: &[u8]) -> Vec<u8> {
     if subject.is_empty() {
         return send_payload_error("subject required", false);
     }
-    let mut config_value = serde_json::Map::new();
-    for key in [
-        "enabled",
-        "public_base_url",
-        "host",
-        "port",
-        "username",
-        "from_address",
-        "tls_mode",
-        "password",
-        "graph_tenant_id",
-        "graph_authority",
-        "graph_base_url",
-        "graph_token_endpoint",
-        "graph_scope",
-    ] {
-        if let Some(value) = send_in.payload.metadata.get(key) {
-            config_value.insert(key.to_string(), value.clone());
-        }
-    }
-    let cfg = if !config_value.is_empty() {
-        match parse_config_value(&Value::Object(config_value)) {
-            Ok(cfg) => cfg,
-            Err(err) => return send_payload_error(&err, false),
-        }
-    } else {
-        // Metadata unavailable (operator uses metadata_json, not metadata).
-        // Build a minimal config from secrets for Graph API send.
-        match config_from_secrets() {
-            Ok(cfg) => cfg,
-            Err(err) => return send_payload_error(&err, false),
-        }
+    // Build config from secrets store (reads all Graph credentials in one pass).
+    let cfg = match config_from_secrets() {
+        Ok(cfg) => cfg,
+        Err(err) => return send_payload_error(&err, false),
     };
     let token = if let Some(user) = &send_in.auth_user {
         auth::acquire_graph_token(&cfg, user)
@@ -400,8 +375,10 @@ pub(crate) fn send_payload(input_json: &[u8]) -> Vec<u8> {
         },
         "saveToSentItems": false
     });
-    // Use /me/sendMail for delegated tokens, /users/{from}/sendMail for app-only
-    let url = if send_in.auth_user.is_some() {
+    // Use /me/sendMail for delegated tokens (refresh_token grant),
+    // /users/{from}/sendMail for app-only tokens (client_credentials grant).
+    let has_refresh_token = cfg.graph_refresh_token.as_ref().is_some_and(|s| !s.is_empty());
+    let url = if send_in.auth_user.is_some() || has_refresh_token {
         format!("{}/me/sendMail", graph_base_url(&cfg))
     } else {
         format!(
