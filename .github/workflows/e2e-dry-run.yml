@@ -38,7 +38,10 @@ jobs:
           key: cargo-bin-tools-${{ runner.os }}-v1
 
       - name: Install cargo-binstall
-        run: cargo install cargo-binstall --locked
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
 
       - name: Install cargo-component
         run: cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
