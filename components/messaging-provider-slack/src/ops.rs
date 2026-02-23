@@ -153,7 +153,9 @@ pub(crate) fn handle_send(input_json: &[u8], is_reply: bool) -> Vec<u8> {
             .get("error")
             .and_then(Value::as_str)
             .unwrap_or("unknown slack error");
-        return json_bytes(&json!({"ok": false, "error": format!("slack api error: {err}"), "response": body_json}));
+        return json_bytes(
+            &json!({"ok": false, "error": format!("slack api error: {err}"), "response": body_json}),
+        );
     }
 
     let ts = body_json
@@ -536,11 +538,7 @@ fn ac_to_slack_blocks(ac_raw: &str) -> Option<Vec<Value>> {
 }
 
 /// Recursively convert an AC body element to Slack Block Kit blocks.
-fn ac_element_to_blocks(
-    element: &Value,
-    blocks: &mut Vec<Value>,
-    actions: &mut Vec<Value>,
-) {
+fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut Vec<Value>) {
     let etype = element
         .get("type")
         .and_then(Value::as_str)
@@ -732,7 +730,9 @@ fn ac_element_to_blocks(
                         let col_text: Vec<String> = items
                             .iter()
                             .filter_map(|item| {
-                                item.get("text").and_then(Value::as_str).map(|s| s.to_string())
+                                item.get("text")
+                                    .and_then(Value::as_str)
+                                    .map(|s| s.to_string())
                             })
                             .collect();
                         if !col_text.is_empty() {
@@ -805,9 +805,7 @@ fn ac_element_to_blocks(
                                     .map(|items| {
                                         items
                                             .iter()
-                                            .filter_map(|i| {
-                                                i.get("text").and_then(Value::as_str)
-                                            })
+                                            .filter_map(|i| i.get("text").and_then(Value::as_str))
                                             .collect::<Vec<_>>()
                                             .join(" ")
                                     })

@@ -9,8 +9,8 @@ use crate::component_v0_6::{
 };
 // Re-export so providers can write `use provider_common::helpers::PlannerCapabilities`.
 use base64::Engine as _;
-pub use greentic_messaging_renderer::PlannerCapabilities;
 pub use greentic_messaging_renderer::PlannerAction;
+pub use greentic_messaging_renderer::PlannerCapabilities;
 use greentic_messaging_renderer::{RenderItem, extract_planner_card, plan_render};
 use greentic_types::messaging::universal_dto::{
     RenderPlanInV1, RenderPlanOutV1, SendPayloadInV1, SendPayloadResultV1,

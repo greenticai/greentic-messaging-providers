@@ -71,7 +71,10 @@ pub(crate) const DEFAULT_KEYS: &[&str] = &["public_base_url"];
 
 pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
     ("webchat.op.run.title", "Run"),
-    ("webchat.op.run.description", "Run WebChat provider operation"),
+    (
+        "webchat.op.run.description",
+        "Run WebChat provider operation",
+    ),
     ("webchat.op.send.title", "Send"),
     ("webchat.op.send.description", "Send a WebChat message"),
     ("webchat.op.ingest.title", "Ingest"),

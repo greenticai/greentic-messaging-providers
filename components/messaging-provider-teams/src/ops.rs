@@ -120,7 +120,9 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
                 }
             };
             if let Some(ref msg_id) = reply_to_id {
-                format!("{graph_base}/teams/{team_id}/channels/{channel_id}/messages/{msg_id}/replies")
+                format!(
+                    "{graph_base}/teams/{team_id}/channels/{channel_id}/messages/{msg_id}/replies"
+                )
             } else {
                 format!("{graph_base}/teams/{team_id}/channels/{channel_id}/messages")
             }
@@ -402,11 +404,7 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return encode_error(&format!("invalid encode input: {err}")),
     };
     // Extract AC card from metadata if present — Teams renders it natively.
-    let ac_json = encode_in
-        .message
-        .metadata
-        .get("adaptive_card")
-        .cloned();
+    let ac_json = encode_in.message.metadata.get("adaptive_card").cloned();
 
     // Serialize the full envelope so send_payload -> handle_send can parse it.
     // Inject ac_json into the serialized form so handle_send can attach it.
