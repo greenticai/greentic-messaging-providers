@@ -721,6 +721,9 @@ extensions:
         - subscription_ensure
         - subscription_renew
         - subscription_delete
+        - qa-spec
+        - apply-answers
+        - i18n-keys
         config_schema_ref: schemas/messaging/teams/public.config.schema.json
         state_schema_ref: ''
         runtime:

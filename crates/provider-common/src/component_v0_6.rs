@@ -59,18 +59,48 @@ pub struct I18nText {
     pub key: String,
 }
 
+/// Question kind — matches `ComponentQaSpec.QuestionKind` in greentic-types.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct QaQuestionSpec {
-    pub key: String,
-    pub text: I18nText,
-    pub required: bool,
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum QuestionKind {
+    Text,
+    Choice { options: Vec<ChoiceOption> },
+    Number,
+    Bool,
 }
 
+/// Choice option for `QuestionKind::Choice`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ChoiceOption {
+    pub value: String,
+    pub label: I18nText,
+}
+
+/// QA question — matches `ComponentQaSpec.Question` in greentic-types.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct QaQuestionSpec {
+    pub id: String,
+    pub label: I18nText,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub help: Option<I18nText>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<I18nText>,
+    pub kind: QuestionKind,
+    pub required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default: Option<serde_json::Value>,
+}
+
+/// QA spec — matches `ComponentQaSpec` in greentic-types.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct QaSpec {
     pub mode: String,
     pub title: I18nText,
+    #[serde(default)]
+    pub description: Option<I18nText>,
     pub questions: Vec<QaQuestionSpec>,
+    #[serde(default)]
+    pub defaults: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 pub fn schema_hash(input: &SchemaIr, output: &SchemaIr, config: &SchemaIr) -> String {

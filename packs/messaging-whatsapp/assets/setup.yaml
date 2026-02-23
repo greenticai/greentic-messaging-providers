@@ -6,10 +6,6 @@ questions:
     title: Phone number ID
     kind: string
     required: true
-  - name: business_account_id
-    title: Business account ID
-    kind: string
-    required: false
   - name: public_base_url
     title: Public base URL
     kind: string
@@ -17,8 +13,24 @@ questions:
     help: "Example: https://xxxx.trycloudflare.com"
     validate:
       regex: "^https://"
-  - name: access_token
-    title: WhatsApp access token
+  - name: business_account_id
+    title: Business account ID
+    kind: string
+    required: false
+  - name: api_base_url
+    title: API base URL
     kind: string
     required: true
+    help: "WhatsApp Cloud API base URL (default: https://graph.facebook.com)"
+    validate:
+      regex: "^https?://"
+  - name: api_version
+    title: API version
+    kind: string
+    required: true
+    help: "WhatsApp Cloud API version (e.g. v17.0)"
+  - name: token
+    title: WhatsApp access token
+    kind: string
+    required: false
     secret: true

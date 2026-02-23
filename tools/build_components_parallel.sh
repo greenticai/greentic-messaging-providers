@@ -2,6 +2,16 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Pre-install wasm target once before spawning parallel jobs.
+# build_component_env.sh also checks, but rustup is not safe for concurrent
+# access so we must ensure the target exists before any parallel workers start.
+BUILD_TARGET="wasm32-wasip2"
+if ! rustup target list --installed | grep -q "${BUILD_TARGET}"; then
+  echo "Installing Rust target ${BUILD_TARGET}..."
+  rustup target add "${BUILD_TARGET}"
+fi
+
 JOBS="${BUILD_COMPONENTS_JOBS:-}"
 if [ -z "${JOBS}" ]; then
   if command -v nproc >/dev/null 2>&1; then

@@ -19,7 +19,12 @@ expression: value
       "tenant": "default",
       "tenant_id": "default"
     },
-    "text": "attachment message from webex"
+    "text": "attachment message from webex",
+    "to": [
+      {
+        "id": "<FIXED>"
+      }
+    ]
   },
   "ok": true
 }

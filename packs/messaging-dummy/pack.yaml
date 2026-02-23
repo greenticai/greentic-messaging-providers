@@ -362,6 +362,9 @@ extensions:
         - messaging
         ops:
         - send
+        - qa-spec
+        - apply-answers
+        - i18n-keys
         config_schema_ref: schemas/messaging/dummy/public.config.schema.json
         state_schema_ref: ''
         runtime:

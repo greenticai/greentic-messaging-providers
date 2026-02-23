@@ -279,6 +279,9 @@ jobs:
           path: target/components
           merge-multiple: true
 
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+
       - name: Step 07 - Sync packs
         run: ./ci/steps/07_sync_packs.sh
 

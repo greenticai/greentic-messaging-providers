@@ -25,10 +25,29 @@ questions:
     title: Channel ID
     kind: string
     required: false
+  - name: graph_base_url
+    title: Graph base URL
+    kind: string
+    required: true
+    help: "Microsoft Graph API base URL (default: https://graph.microsoft.com)"
+    validate:
+      regex: "^https?://"
+  - name: auth_base_url
+    title: Auth base URL
+    kind: string
+    required: true
+    help: "Azure AD auth endpoint base URL (default: https://login.microsoftonline.com)"
+    validate:
+      regex: "^https?://"
+  - name: token_scope
+    title: Token scope
+    kind: string
+    required: true
+    help: "OAuth2 token scope (e.g. https://graph.microsoft.com/.default)"
   - name: client_secret
     title: Client secret
     kind: string
-    required: true
+    required: false
     secret: true
   - name: refresh_token
     title: Refresh token

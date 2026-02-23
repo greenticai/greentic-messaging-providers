@@ -9,8 +9,23 @@ questions:
     help: "Example: https://xxxx.trycloudflare.com"
     validate:
       regex: "^https://"
+  - name: default_room_id
+    title: Default room ID
+    kind: string
+    required: false
+  - name: default_to_person_email
+    title: Default person email
+    kind: string
+    required: false
+  - name: api_base_url
+    title: API base URL
+    kind: string
+    required: true
+    help: "Webex API base URL (default: https://webexapis.com/v1)"
+    validate:
+      regex: "^https?://"
   - name: bot_token
     title: Webex bot token
     kind: string
-    required: true
+    required: false
     secret: true

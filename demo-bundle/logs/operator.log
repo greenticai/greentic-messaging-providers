@@ -1,0 +1,28 @@
+2026-02-21T06:32:54.009477066+00:00 [Info] greentic_operator::cli - demo start (bundle=demo-bundle targets=[demo]) log_dir=demo-bundle/logs
+2026-02-21T06:32:54.036479634+00:00 [Info] greentic_operator::cli - bundle discovery targets=[demo] messaging=false events=false providers=0
+2026-02-21T06:32:54.036563015+00:00 [Warn] greentic_operator::cli - failed to load demo-bundle/greentic.demo.yaml: No such file or directory (os error 2); using default values
+2026-02-21T06:32:54.045394803+00:00 [Info] greentic_operator::demo::runtime - demo running in embedded runner mode; gateway/egress disabled
+2026-02-21T06:32:54.045434972+00:00 [Info] greentic_operator::secrets_gate - secrets selection: kind=dev-store pack_path=<none> bundle_root=demo-bundle env_allow_env_secrets=false GREENTIC_DEV_SECRETS_PATH=<unset>
+2026-02-21T06:32:54.046184516+00:00 [Info] greentic_operator::secrets_gate - secrets runtime backend chosen: dev_store_path=demo-bundle/.greentic/dev/.dev.secrets.env using_env_fallback=false
+2026-02-21T06:32:54.046364757+00:00 [Info] greentic_operator::cli - demo start bundle demo-bundle completed for targets=[demo]
+2026-02-21T06:33:12.889803546+00:00 [Info] greentic_operator::cli - demo start (bundle=demo-bundle targets=[demo]) log_dir=demo-bundle/logs
+2026-02-21T06:33:12.915877396+00:00 [Info] greentic_operator::cli - bundle discovery targets=[demo] messaging=false events=false providers=0
+2026-02-21T06:33:12.915917622+00:00 [Warn] greentic_operator::cli - failed to load demo-bundle/greentic.demo.yaml: No such file or directory (os error 2); using default values
+2026-02-21T06:33:12.924209762+00:00 [Info] greentic_operator::demo::runtime - demo running in embedded runner mode; gateway/egress disabled
+2026-02-21T06:33:12.924249677+00:00 [Info] greentic_operator::secrets_gate - secrets selection: kind=dev-store pack_path=<none> bundle_root=demo-bundle env_allow_env_secrets=false GREENTIC_DEV_SECRETS_PATH=<unset>
+2026-02-21T06:33:12.924322337+00:00 [Info] greentic_operator::secrets_gate - secrets runtime backend chosen: dev_store_path=demo-bundle/.greentic/dev/.dev.secrets.env using_env_fallback=false
+2026-02-21T06:33:12.924484012+00:00 [Info] greentic_operator::cli - demo start bundle demo-bundle completed for targets=[demo]
+2026-02-21T06:34:06.705469709+00:00 [Info] greentic_operator::cli - demo start (bundle=demo-bundle targets=[demo]) log_dir=demo-bundle/logs
+2026-02-21T06:34:06.732366699+00:00 [Info] greentic_operator::cli - bundle discovery targets=[demo] messaging=false events=false providers=0
+2026-02-21T06:34:06.732424212+00:00 [Warn] greentic_operator::cli - failed to load demo-bundle/greentic.demo.yaml: No such file or directory (os error 2); using default values
+2026-02-21T06:34:06.740987066+00:00 [Info] greentic_operator::demo::runtime - demo running in embedded runner mode; gateway/egress disabled
+2026-02-21T06:34:06.741038672+00:00 [Info] greentic_operator::secrets_gate - secrets selection: kind=dev-store pack_path=<none> bundle_root=demo-bundle env_allow_env_secrets=false GREENTIC_DEV_SECRETS_PATH=<unset>
+2026-02-21T06:34:06.741111161+00:00 [Info] greentic_operator::secrets_gate - secrets runtime backend chosen: dev_store_path=demo-bundle/.greentic/dev/.dev.secrets.env using_env_fallback=false
+2026-02-21T06:34:06.741272124+00:00 [Info] greentic_operator::cli - demo start bundle demo-bundle completed for targets=[demo]
+2026-02-21T06:40:24.714140710+00:00 [Info] greentic_operator::cli - demo start (bundle=demo-bundle targets=[demo]) log_dir=demo-bundle/logs
+2026-02-21T06:40:24.735848874+00:00 [Info] greentic_operator::cli - bundle discovery targets=[demo] messaging=false events=false providers=0
+2026-02-21T06:40:24.735909868+00:00 [Warn] greentic_operator::cli - failed to load demo-bundle/greentic.demo.yaml: No such file or directory (os error 2); using default values
+2026-02-21T06:40:24.744817388+00:00 [Info] greentic_operator::demo::runtime - demo running in embedded runner mode; gateway/egress disabled
+2026-02-21T06:40:24.744864382+00:00 [Info] greentic_operator::secrets_gate - secrets selection: kind=dev-store pack_path=<none> bundle_root=demo-bundle env_allow_env_secrets=false GREENTIC_DEV_SECRETS_PATH=<unset>
+2026-02-21T06:40:24.744998100+00:00 [Info] greentic_operator::secrets_gate - secrets runtime backend chosen: dev_store_path=demo-bundle/.greentic/dev/.dev.secrets.env using_env_fallback=false
+2026-02-21T06:40:24.745213574+00:00 [Info] greentic_operator::cli - demo start bundle demo-bundle completed for targets=[demo]

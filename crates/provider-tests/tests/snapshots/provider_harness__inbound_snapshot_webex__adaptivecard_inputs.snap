@@ -19,7 +19,12 @@ expression: value
       "tenant": "default",
       "tenant_id": "default"
     },
-    "text": "adaptivecard inputs message from webex"
+    "text": "adaptivecard inputs message from webex",
+    "to": [
+      {
+        "id": "<FIXED>"
+      }
+    ]
   },
   "ok": true
 }

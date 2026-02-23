@@ -18,7 +18,12 @@ mkdir -p "${XDG_CACHE_HOME}"
 
 if ! rustup target list --installed | grep -q "${BUILD_TARGET}"; then
   echo "Installing Rust target ${BUILD_TARGET}..."
-  rustup target add "${BUILD_TARGET}"
+  rustup target add "${BUILD_TARGET}" || {
+    # Retry once — a parallel worker may have raced us.
+    sleep 1
+    rustup target list --installed | grep -q "${BUILD_TARGET}" \
+      || rustup target add "${BUILD_TARGET}"
+  }
 fi
 
 if ! command -v cargo-component >/dev/null 2>&1; then

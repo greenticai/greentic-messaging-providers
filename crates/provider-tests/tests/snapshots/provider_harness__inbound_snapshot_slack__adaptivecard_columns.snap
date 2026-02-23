@@ -16,7 +16,7 @@ expression: value
       "tenant": "default",
       "tenant_id": "default"
     },
-    "text": ""
+    "text": "adaptivecard columns message from slack"
   },
   "ok": true
 }

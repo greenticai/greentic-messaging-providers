@@ -16,7 +16,7 @@ expression: value
       "tenant": "default",
       "tenant_id": "default"
     },
-    "text": ""
+    "text": "adaptivecard inputs message from slack"
   },
   "ok": true
 }

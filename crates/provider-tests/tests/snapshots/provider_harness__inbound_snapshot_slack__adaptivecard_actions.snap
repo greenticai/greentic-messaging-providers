@@ -1,5 +1,6 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 359
 expression: value
 ---
 {
@@ -16,7 +17,7 @@ expression: value
       "tenant": "default",
       "tenant_id": "default"
     },
-    "text": ""
+    "text": "adaptivecard actions message from slack"
   },
   "ok": true
 }
