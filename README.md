@@ -719,7 +719,7 @@ Each provider has tests for:
 |-------|--------|------------|
 | `cargo component build` fails | WIT resolution bug | Use `cargo build` (build script already patched) |
 | `greentic-pack build` broken | state-store interface mismatch | Replace WASM inside existing `.gtpack` with `zip -u` |
-| WebChat needs state-store linker | Can't run in operator without it | Use operator Direct Line endpoints (built-in) |
+| WebChat needs state-store in manifest | Pack manifest must declare `capabilities.host.state` | Update manifest CBOR with `state: {read: true, write: true}` |
 | 5 clippy warnings in renderer | `collapsible_if` lint | Pre-existing in `greentic-messaging-renderer`, not from provider code |
 
 ### Troubleshooting
