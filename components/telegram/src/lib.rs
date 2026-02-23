@@ -302,11 +302,14 @@ fn build_qa_spec(mode: bindings::exports::greentic::component::qa::Mode) -> QaSp
         Mode::Default => QaSpec {
             mode: "default".to_string(),
             title: i18n("telegram.qa.default.title"),
+            description: None,
             questions: Vec::new(),
+            defaults: Default::default(),
         },
         Mode::Setup => QaSpec {
             mode: "setup".to_string(),
             title: i18n("telegram.qa.setup.title"),
+            description: None,
             questions: vec![
                 qa_q("enabled", "telegram.qa.setup.enabled", true),
                 qa_q("public_base_url", "telegram.qa.setup.public_base_url", true),
@@ -319,16 +322,21 @@ fn build_qa_spec(mode: bindings::exports::greentic::component::qa::Mode) -> QaSp
                 qa_q("bot_token", "telegram.qa.setup.bot_token", false),
                 qa_q("parse_mode", "telegram.qa.setup.parse_mode", true),
             ],
+            defaults: Default::default(),
         },
         Mode::Upgrade => QaSpec {
             mode: "upgrade".to_string(),
             title: i18n("telegram.qa.upgrade.title"),
+            description: None,
             questions: Vec::new(),
+            defaults: Default::default(),
         },
         Mode::Remove => QaSpec {
             mode: "remove".to_string(),
             title: i18n("telegram.qa.remove.title"),
+            description: None,
             questions: Vec::new(),
+            defaults: Default::default(),
         },
     }
 }
@@ -480,9 +488,13 @@ fn op(name: &str, title: &str, description: &str) -> OperationDescriptor {
 
 fn qa_q(key: &str, text: &str, required: bool) -> QaQuestionSpec {
     QaQuestionSpec {
-        key: key.to_string(),
-        text: i18n(text),
+        id: key.to_string(),
+        label: i18n(text),
+        help: None,
+        error: None,
+        kind: provider_common::component_v0_6::QuestionKind::Text,
         required,
+        default: None,
     }
 }
 
@@ -1053,7 +1065,7 @@ mod tests {
             let spec = build_qa_spec(mode);
             assert!(keyset.contains(&spec.title.key));
             for question in spec.questions {
-                assert!(keyset.contains(&question.text.key));
+                assert!(keyset.contains(&question.label.key));
             }
         }
     }

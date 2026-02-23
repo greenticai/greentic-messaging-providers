@@ -8,6 +8,7 @@ expression: value
     "id": "<FIXED>",
     "metadata": {
       "channel_id": "whatsapp",
+      "phone_number_id": "unknown",
       "universal": "true"
     },
     "session_id": "whatsapp",
@@ -17,7 +18,7 @@ expression: value
       "tenant": "default",
       "tenant_id": "default"
     },
-    "text": ""
+    "text": "adaptivecard inputs message from whatsapp"
   },
   "ok": true
 }

@@ -969,7 +969,10 @@
             ],
             "ops": [
               "send",
-              "reply"
+              "reply",
+              "qa-spec",
+              "apply-answers",
+              "i18n-keys"
             ],
             "config_schema_ref": "schemas/messaging/webex/public.config.schema.json",
             "state_schema_ref": "",

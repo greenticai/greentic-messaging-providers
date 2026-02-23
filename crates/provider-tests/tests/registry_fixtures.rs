@@ -241,7 +241,7 @@ fn sample_answer_for_key(key: &str) -> Value {
 fn setup_answers_from_spec(spec: &QaSpec) -> Value {
     let mut map = BTreeMap::new();
     for q in &spec.questions {
-        map.insert(q.key.clone(), sample_answer_for_key(&q.key));
+        map.insert(q.id.clone(), sample_answer_for_key(&q.id));
     }
     serde_json::to_value(map).unwrap_or_else(|_| json!({}))
 }
@@ -250,16 +250,16 @@ fn setup_answers_with_invalid_urls(spec: &QaSpec) -> Value {
     let mut map = BTreeMap::new();
     let mut mutated = false;
     for q in &spec.questions {
-        let mut value = sample_answer_for_key(&q.key);
+        let mut value = sample_answer_for_key(&q.id);
         if !mutated
-            && (q.key.contains("url") || q.key.contains("endpoint"))
+            && (q.id.contains("url") || q.id.contains("endpoint"))
             && q.required
             && value.is_string()
         {
             value = Value::String("not-a-url".to_string());
             mutated = true;
         }
-        map.insert(q.key.clone(), value);
+        map.insert(q.id.clone(), value);
     }
     serde_json::to_value(map).unwrap_or_else(|_| json!({}))
 }
@@ -586,11 +586,11 @@ fn validate_provider_fixtures(spec: ProviderSpec, fixtures: &ProviderFixtureByte
         .and_then(Value::as_object)
         .ok_or_else(|| anyhow!("{} i18n bundle missing messages object", spec.id))?;
     for question in &qa_setup.questions {
-        if !i18n_keys.contains(&question.text.key) {
+        if !i18n_keys.contains(&question.label.key) {
             return Err(anyhow!(
                 "{} missing i18n key referenced by QA setup: {}",
                 spec.id,
-                question.text.key
+                question.label.key
             ));
         }
     }
@@ -1043,7 +1043,7 @@ fn fixture_resolver_negative_validation_smoke() -> Result<()> {
         let has_url_question = qa_setup
             .questions
             .iter()
-            .any(|question| question.required && question.key.contains("url"));
+            .any(|question| question.required && question.id.contains("url"));
         if !has_url_question {
             continue;
         }
@@ -1077,9 +1077,9 @@ fn fixture_resolver_missing_secret_prompt_smoke() -> Result<()> {
         let qa_setup: QaSpec =
             decode_cbor(&qa_setup_bytes).map_err(|e| anyhow!("decode qa setup: {e}"))?;
         let has_secretish_prompt = qa_setup.questions.iter().any(|question| {
-            question.key.contains("token")
-                || question.key.contains("secret")
-                || question.key.contains("password")
+            question.id.contains("token")
+                || question.id.contains("secret")
+                || question.id.contains("password")
         });
         if !has_secretish_prompt {
             return Err(anyhow!(

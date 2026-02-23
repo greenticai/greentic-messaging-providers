@@ -9,7 +9,23 @@ questions:
     help: "Example: https://xxxx.trycloudflare.com"
     validate:
       regex: "^https://"
-  - name: ingress_path
-    title: Ingress path
+  - name: mode
+    title: Mode
+    kind: string
+    required: true
+    help: "WebChat mode (e.g. directline, embedded)"
+  - name: route
+    title: Route
     kind: string
     required: false
+  - name: tenant_channel_id
+    title: Tenant channel ID
+    kind: string
+    required: false
+  - name: base_url
+    title: Base URL
+    kind: string
+    required: false
+    help: "DirectLine or WebChat server base URL"
+    validate:
+      regex: "^https?://"

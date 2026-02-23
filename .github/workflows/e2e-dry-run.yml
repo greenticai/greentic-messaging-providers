@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 env:
   GREENTIC_ENV: dev
@@ -38,7 +39,10 @@ jobs:
           key: cargo-bin-tools-${{ runner.os }}-v1
 
       - name: Install cargo-binstall
-        run: cargo install cargo-binstall --locked
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
 
       - name: Install cargo-component
         run: cargo binstall cargo-component --force --no-confirm --locked || cargo install cargo-component --force --locked
@@ -66,6 +70,14 @@ jobs:
 
       - name: Check generated flows
         run: ./ci/check_generated.sh
+
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Sync packs
         run: ./tools/sync_packs.sh

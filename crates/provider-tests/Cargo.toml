@@ -10,13 +10,13 @@ provider-common = { path = "../provider-common" }
 anyhow = { workspace = true }
 base64.workspace = true
 greentic-interfaces-wasmtime = { workspace = true }
+greentic-types = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 wasmtime = { workspace = true }
 wasmtime-wasi.workspace = true
 
 [dev-dependencies]
-serde = { workspace = true }
-greentic-types = { workspace = true }
 insta = { workspace = true }
 hmac = { workspace = true }
 sha2 = { workspace = true }

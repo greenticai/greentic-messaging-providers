@@ -19,7 +19,12 @@ expression: value
       "tenant": "default",
       "tenant_id": "default"
     },
-    "text": "reply thread message from webex"
+    "text": "reply thread message from webex",
+    "to": [
+      {
+        "id": "<FIXED>"
+      }
+    ]
   },
   "ok": true
 }

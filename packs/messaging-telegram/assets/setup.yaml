@@ -13,8 +13,15 @@ questions:
     title: Default chat ID
     kind: string
     required: false
+  - name: api_base_url
+    title: API base URL
+    kind: string
+    required: true
+    help: "Telegram Bot API base URL (default: https://api.telegram.org)"
+    validate:
+      regex: "^https?://"
   - name: bot_token
     title: Telegram bot token
     kind: string
-    required: true
+    required: false
     secret: true
