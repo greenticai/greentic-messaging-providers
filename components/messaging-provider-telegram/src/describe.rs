@@ -71,11 +71,17 @@ pub(crate) const DEFAULT_KEYS: &[&str] = &["public_base_url"];
 
 pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
     ("telegram.op.run.title", "Run"),
-    ("telegram.op.run.description", "Run Telegram provider operation"),
+    (
+        "telegram.op.run.description",
+        "Run Telegram provider operation",
+    ),
     ("telegram.op.send.title", "Send"),
     ("telegram.op.send.description", "Send a Telegram message"),
     ("telegram.op.reply.title", "Reply"),
-    ("telegram.op.reply.description", "Reply to a Telegram message"),
+    (
+        "telegram.op.reply.description",
+        "Reply to a Telegram message",
+    ),
     ("telegram.op.ingest_http.title", "Ingest HTTP"),
     (
         "telegram.op.ingest_http.description",

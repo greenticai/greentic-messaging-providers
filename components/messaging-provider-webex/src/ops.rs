@@ -108,12 +108,7 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         .get("reply_to_id")
         .and_then(Value::as_str)
         .or_else(|| parsed.get("parentId").and_then(Value::as_str))
-        .or_else(|| {
-            envelope
-                .metadata
-                .get("reply_to_id")
-                .map(|s| s.as_str())
-        })
+        .or_else(|| envelope.metadata.get("reply_to_id").map(|s| s.as_str()))
         .map(|s| s.trim_matches('"'))
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string());
@@ -562,10 +557,7 @@ pub(crate) fn build_webex_body(
         // Webex supports AC up to v1.3 — cap the version.
         let mut card = card.clone();
         if let Some(obj) = card.as_object_mut() {
-            let ver = obj
-                .get("version")
-                .and_then(Value::as_str)
-                .unwrap_or("1.0");
+            let ver = obj.get("version").and_then(Value::as_str).unwrap_or("1.0");
             if ver != "1.0" && ver != "1.1" && ver != "1.2" && ver != "1.3" {
                 obj.insert("version".into(), Value::String("1.3".to_string()));
             }

@@ -115,10 +115,14 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
             "text": text,
         });
         if let Some(pm) = &parse_mode {
-            p.as_object_mut().unwrap().insert("parse_mode".into(), json!(pm));
+            p.as_object_mut()
+                .unwrap()
+                .insert("parse_mode".into(), json!(pm));
         }
         if let Some(rm) = &reply_markup {
-            p.as_object_mut().unwrap().insert("reply_markup".into(), rm.clone());
+            p.as_object_mut()
+                .unwrap()
+                .insert("reply_markup".into(), rm.clone());
         }
         p
     };
@@ -144,10 +148,14 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
                 "caption": caption,
             });
             if let Some(pm) = &parse_mode {
-                p.as_object_mut().unwrap().insert("parse_mode".into(), json!(pm));
+                p.as_object_mut()
+                    .unwrap()
+                    .insert("parse_mode".into(), json!(pm));
             }
             if let Some(rm) = &reply_markup {
-                p.as_object_mut().unwrap().insert("reply_markup".into(), rm.clone());
+                p.as_object_mut()
+                    .unwrap()
+                    .insert("reply_markup".into(), rm.clone());
             }
             let req = client::Request {
                 method: "POST".to_string(),
@@ -178,7 +186,9 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
                         let mut m = json!({"type": "photo", "media": url});
                         // Only short caption on album, full text in follow-up message
                         if let Some(pm) = &parse_mode {
-                            m.as_object_mut().unwrap().insert("parse_mode".into(), json!(pm));
+                            m.as_object_mut()
+                                .unwrap()
+                                .insert("parse_mode".into(), json!(pm));
                         }
                         m
                     } else {
@@ -194,9 +204,7 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
                 method: "POST".to_string(),
                 url: format!("{api_base}/bot{token}/sendMediaGroup"),
                 headers: vec![("Content-Type".into(), "application/json".into())],
-                body: Some(
-                    serde_json::to_vec(&album_payload).unwrap_or_else(|_| b"{}".to_vec()),
-                ),
+                body: Some(serde_json::to_vec(&album_payload).unwrap_or_else(|_| b"{}".to_vec())),
             };
             // Send album (ignore errors — text message below is the important one).
             let _ = client::send(&album_req, None, None);
@@ -403,20 +411,20 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
 
     // If the message carries an Adaptive Card, convert it to rich Telegram
     // content: HTML text, inline keyboard buttons, images for sendPhoto.
-    if let Some(ac_raw) = envelope.metadata.get("adaptive_card") {
-        if let Some(content) = ac_to_telegram(ac_raw) {
-            envelope.text = Some(content.html);
-            envelope
-                .metadata
-                .insert("parse_mode".to_string(), "HTML".to_string());
-            if !content.actions.is_empty() {
-                let aj = serde_json::to_string(&content.actions).unwrap_or_default();
-                envelope.metadata.insert("ac_actions".to_string(), aj);
-            }
-            if !content.images.is_empty() {
-                let ij = serde_json::to_string(&content.images).unwrap_or_default();
-                envelope.metadata.insert("ac_images".to_string(), ij);
-            }
+    if let Some(ac_raw) = envelope.metadata.get("adaptive_card")
+        && let Some(content) = ac_to_telegram(ac_raw)
+    {
+        envelope.text = Some(content.html);
+        envelope
+            .metadata
+            .insert("parse_mode".to_string(), "HTML".to_string());
+        if !content.actions.is_empty() {
+            let aj = serde_json::to_string(&content.actions).unwrap_or_default();
+            envelope.metadata.insert("ac_actions".to_string(), aj);
+        }
+        if !content.images.is_empty() {
+            let ij = serde_json::to_string(&content.images).unwrap_or_default();
+            envelope.metadata.insert("ac_images".to_string(), ij);
         }
     }
 
@@ -860,9 +868,7 @@ fn ac_element_to_html(
                                     .map(|items| {
                                         items
                                             .iter()
-                                            .filter_map(|i| {
-                                                i.get("text").and_then(Value::as_str)
-                                            })
+                                            .filter_map(|i| i.get("text").and_then(Value::as_str))
                                             .collect::<Vec<_>>()
                                             .join(" ")
                                     })

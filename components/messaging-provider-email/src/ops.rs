@@ -251,9 +251,13 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
                 .iter()
                 .find(|el| {
                     el.get("type").and_then(Value::as_str) == Some("TextBlock")
-                        && (el.get("weight").and_then(Value::as_str)
+                        && (el
+                            .get("weight")
+                            .and_then(Value::as_str)
                             .is_some_and(|w| w.eq_ignore_ascii_case("bolder"))
-                            || el.get("style").and_then(Value::as_str)
+                            || el
+                                .get("style")
+                                .and_then(Value::as_str)
                                 .is_some_and(|s| s.eq_ignore_ascii_case("heading")))
                 })
                 .and_then(|el| el.get("text").and_then(Value::as_str))
@@ -277,9 +281,7 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
         .get("subject")
         .cloned()
         .or(ac_title)
-        .unwrap_or_else(|| {
-            text.chars().take(78).collect::<String>()
-        });
+        .unwrap_or_else(|| text.chars().take(78).collect::<String>());
     let mut payload_body = json!({
         "to": to.clone(),
         "subject": subject.clone(),
@@ -377,7 +379,10 @@ pub(crate) fn send_payload(input_json: &[u8]) -> Vec<u8> {
     });
     // Use /me/sendMail for delegated tokens (refresh_token grant),
     // /users/{from}/sendMail for app-only tokens (client_credentials grant).
-    let has_refresh_token = cfg.graph_refresh_token.as_ref().is_some_and(|s| !s.is_empty());
+    let has_refresh_token = cfg
+        .graph_refresh_token
+        .as_ref()
+        .is_some_and(|s| !s.is_empty());
     let url = if send_in.auth_user.is_some() || has_refresh_token {
         format!("{}/me/sendMail", graph_base_url(&cfg))
     } else {
@@ -639,9 +644,7 @@ fn email_element_to_html(element: &Value, parts: &mut Vec<String>) {
                     html.push_str(&s);
                 }
                 if !html.is_empty() {
-                    parts.push(format!(
-                        "<p style=\"margin:4px 0;color:#333;\">{html}</p>"
-                    ));
+                    parts.push(format!("<p style=\"margin:4px 0;color:#333;\">{html}</p>"));
                 }
             }
         }

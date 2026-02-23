@@ -147,10 +147,7 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
             .take(3)
             .enumerate()
             .map(|(i, btn)| {
-                let title = btn
-                    .get("title")
-                    .and_then(Value::as_str)
-                    .unwrap_or("Button");
+                let title = btn.get("title").and_then(Value::as_str).unwrap_or("Button");
                 let truncated: String = title.chars().take(20).collect();
                 json!({
                     "type": "reply",
@@ -166,10 +163,10 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         });
         if let Some(header) = wa_header {
             let h: String = header.chars().take(60).collect();
-            interactive.as_object_mut().unwrap().insert(
-                "header".into(),
-                json!({ "type": "text", "text": h }),
-            );
+            interactive
+                .as_object_mut()
+                .unwrap()
+                .insert("header".into(), json!({ "type": "text", "text": h }));
         }
         json!({
             "messaging_product": "whatsapp",
@@ -604,10 +601,7 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
             obj.insert("wa_image".into(), json!(image_url));
         }
         if !content.buttons.is_empty() {
-            obj.insert(
-                "wa_buttons".into(),
-                json!(content.buttons),
-            );
+            obj.insert("wa_buttons".into(), json!(content.buttons));
         }
     }
     let body_bytes = serde_json::to_vec(&payload_body).unwrap_or_else(|_| b"{}".to_vec());
@@ -736,7 +730,13 @@ fn ac_to_whatsapp(ac_raw: &str) -> Option<WhatsAppAcContent> {
 
     if let Some(elements) = body_elements {
         for element in elements {
-            wa_extract_element(element, &mut header, &mut lines, &mut buttons, &mut image_url);
+            wa_extract_element(
+                element,
+                &mut header,
+                &mut lines,
+                &mut buttons,
+                &mut image_url,
+            );
         }
     }
     if let Some(actions) = top_actions {
@@ -801,7 +801,11 @@ fn wa_extract_element(
             {
                 *header = Some(text.to_string());
             } else {
-                let formatted = if is_bold { format!("*{text}*") } else { text.to_string() };
+                let formatted = if is_bold {
+                    format!("*{text}*")
+                } else {
+                    text.to_string()
+                };
                 lines.push(formatted);
             }
         }
@@ -855,20 +859,22 @@ fn wa_extract_element(
         }
 
         "Image" => {
-            if image_url.is_none() {
-                if let Some(url) = element.get("url").and_then(Value::as_str) {
-                    *image_url = Some(url.to_string());
-                }
+            if image_url.is_none()
+                && let Some(url) = element.get("url").and_then(Value::as_str)
+            {
+                *image_url = Some(url.to_string());
             }
         }
 
         "ImageSet" => {
-            if image_url.is_none() {
-                if let Some(imgs) = element.get("images").and_then(Value::as_array) {
-                    if let Some(url) = imgs.first().and_then(|i| i.get("url")).and_then(Value::as_str) {
-                        *image_url = Some(url.to_string());
-                    }
-                }
+            if image_url.is_none()
+                && let Some(imgs) = element.get("images").and_then(Value::as_array)
+                && let Some(url) = imgs
+                    .first()
+                    .and_then(|i| i.get("url"))
+                    .and_then(Value::as_str)
+            {
+                *image_url = Some(url.to_string());
             }
         }
 
@@ -897,7 +903,9 @@ fn wa_extract_element(
                     if let Some(items) = col.get("items").and_then(Value::as_array) {
                         let text: Vec<String> = items
                             .iter()
-                            .filter_map(|i| i.get("text").and_then(Value::as_str).map(|s| s.to_string()))
+                            .filter_map(|i| {
+                                i.get("text").and_then(Value::as_str).map(|s| s.to_string())
+                            })
                             .collect();
                         if !text.is_empty() {
                             col_texts.push(text.join(" "));

@@ -42,9 +42,7 @@ pub(crate) fn acquire_graph_token_from_store(cfg: &ProviderConfig) -> Result<Str
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string())
         .or_else(|| get_secret_any_case(MS_GRAPH_CLIENT_ID_KEY).ok())
-        .ok_or_else(|| {
-            "missing graph_client_id (seed 'ms_graph_client_id' secret)".to_string()
-        })?;
+        .ok_or_else(|| "missing graph_client_id (seed 'ms_graph_client_id' secret)".to_string())?;
     let client_secret = cfg
         .graph_client_secret
         .as_deref()
