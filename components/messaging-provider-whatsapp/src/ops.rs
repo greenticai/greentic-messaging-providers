@@ -51,10 +51,6 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         },
     };
 
-    if !envelope.attachments.is_empty() {
-        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
-    }
-
     let text = envelope
         .text
         .as_ref()
@@ -116,27 +112,77 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         .get("wa_header")
         .and_then(Value::as_str)
         .map(|s| s.to_string());
+    let wa_video = parsed.get("wa_video").and_then(Value::as_str);
+    let wa_video_caption = parsed.get("wa_video_caption").and_then(Value::as_str);
+    let wa_audio = parsed.get("wa_audio").and_then(Value::as_str);
+    let wa_document = parsed.get("wa_document").and_then(Value::as_str);
+    let wa_document_filename = parsed.get("wa_document_filename").and_then(Value::as_str);
+    let wa_document_caption = parsed.get("wa_document_caption").and_then(Value::as_str);
+    let wa_sticker = parsed.get("wa_sticker").and_then(Value::as_str);
+    let wa_location = parsed.get("wa_location");
 
-    // Send image first if present.
+    // Send media messages before the main text/interactive message.
+    // Each media type is sent as a separate API call (WhatsApp Cloud API pattern).
+    let mut media_results: Vec<Value> = Vec::new();
+
+    if let Some(video_url) = wa_video {
+        let mut video = json!({ "link": video_url });
+        if let Some(cap) = wa_video_caption {
+            let cap: String = cap.chars().take(1024).collect();
+            video.as_object_mut().unwrap().insert("caption".into(), json!(cap));
+        }
+        let r = send_media_message(&url, &token, dest_id, &json!({
+            "messaging_product": "whatsapp", "to": dest_id,
+            "type": "video", "video": video
+        }));
+        media_results.push(json!({"type": "video", "ok": r.is_ok(), "detail": format!("{r:?}")}));
+    }
+    if let Some(audio_url) = wa_audio {
+        let r = send_media_message(&url, &token, dest_id, &json!({
+            "messaging_product": "whatsapp", "to": dest_id,
+            "type": "audio", "audio": { "link": audio_url }
+        }));
+        media_results.push(json!({"type": "audio", "ok": r.is_ok(), "detail": format!("{r:?}")}));
+    }
+    if let Some(doc_url) = wa_document {
+        let mut doc = json!({ "link": doc_url });
+        if let Some(fname) = wa_document_filename {
+            doc.as_object_mut().unwrap().insert("filename".into(), json!(fname));
+        }
+        if let Some(cap) = wa_document_caption {
+            let cap: String = cap.chars().take(1024).collect();
+            doc.as_object_mut().unwrap().insert("caption".into(), json!(cap));
+        }
+        let r = send_media_message(&url, &token, dest_id, &json!({
+            "messaging_product": "whatsapp", "to": dest_id,
+            "type": "document", "document": doc
+        }));
+        media_results.push(json!({"type": "document", "ok": r.is_ok(), "detail": format!("{r:?}")}));
+    }
     if let Some(ref image_url) = wa_image {
         let caption: String = text.chars().take(1024).collect();
-        let image_payload = json!({
-            "messaging_product": "whatsapp",
-            "to": dest_id,
-            "type": "image",
-            "image": { "link": image_url, "caption": caption }
-        });
-        let image_req = client::Request {
-            method: "POST".into(),
-            url: url.clone(),
-            headers: vec![
-                ("Content-Type".into(), "application/json".into()),
-                ("Authorization".into(), format!("Bearer {token}")),
-            ],
-            body: Some(serde_json::to_vec(&image_payload).unwrap_or_else(|_| b"{}".to_vec())),
-        };
-        // Send image (ignore errors — text/interactive message below is the important one).
-        let _ = client::send(&image_req, None, None);
+        let r = send_media_message(&url, &token, dest_id, &json!({
+            "messaging_product": "whatsapp", "to": dest_id,
+            "type": "image", "image": { "link": image_url, "caption": caption }
+        }));
+        media_results.push(json!({"type": "image", "ok": r.is_ok(), "detail": format!("{r:?}")}));
+    }
+    if let Some(sticker_url) = wa_sticker {
+        let r = send_media_message(&url, &token, dest_id, &json!({
+            "messaging_product": "whatsapp", "to": dest_id,
+            "type": "sticker", "sticker": { "link": sticker_url }
+        }));
+        media_results.push(json!({"type": "sticker", "ok": r.is_ok(), "detail": format!("{r:?}")}));
+    }
+    if let Some(loc) = wa_location
+        && loc.get("latitude").is_some()
+        && loc.get("longitude").is_some()
+    {
+        let r = send_media_message(&url, &token, dest_id, &json!({
+            "messaging_product": "whatsapp", "to": dest_id,
+            "type": "location", "location": loc
+        }));
+        media_results.push(json!({"type": "location", "ok": r.is_ok(), "detail": format!("{r:?}")}));
     }
 
     // Build the main message payload.
@@ -230,7 +276,7 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         .to_string();
     let provider_message_id = format!("whatsapp:{msg_id}");
 
-    json_bytes(&json!({
+    let mut result = json!({
         "ok": true,
         "status": "sent",
         "provider_type": PROVIDER_TYPE,
@@ -238,7 +284,40 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         "message_id": msg_id,
         "provider_message_id": provider_message_id,
         "response": body_json
-    }))
+    });
+    if !media_results.is_empty() {
+        result.as_object_mut().unwrap().insert("media".into(), json!(media_results));
+    }
+    json_bytes(&result)
+}
+
+fn send_media_message(
+    api_url: &str,
+    token: &str,
+    _dest_id: &str,
+    payload: &Value,
+) -> Result<Value, String> {
+    let req = client::Request {
+        method: "POST".into(),
+        url: api_url.to_string(),
+        headers: vec![
+            ("Content-Type".into(), "application/json".into()),
+            ("Authorization".into(), format!("Bearer {token}")),
+        ],
+        body: Some(serde_json::to_vec(payload).unwrap_or_default()),
+    };
+    match client::send(&req, None, None) {
+        Ok(resp) => {
+            let body = resp.body.unwrap_or_default();
+            let body_json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+            if resp.status >= 200 && resp.status < 300 {
+                Ok(body_json)
+            } else {
+                Err(format!("media send status {}: {}", resp.status, body_json))
+            }
+        }
+        Err(err) => Err(format!("media transport error: {}", err.message)),
+    }
 }
 
 fn build_send_envelope_from_input(parsed: &Value) -> Result<ChannelMessageEnvelope, String> {
@@ -602,6 +681,81 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
         }
         if !content.buttons.is_empty() {
             obj.insert("wa_buttons".into(), json!(content.buttons));
+        }
+    }
+
+    // Enrich payload with wa_* media fields from message metadata.
+    // Note: operator may wrap metadata values with extra quotes — strip them.
+    {
+        let meta = &encode_in.message.metadata;
+        let obj = payload_body.as_object_mut().unwrap();
+        let strip_quotes = |s: &str| -> String {
+            s.strip_prefix('"')
+                .and_then(|s| s.strip_suffix('"'))
+                .unwrap_or(s)
+                .to_string()
+        };
+
+        if let Some(v) = meta.get("wa_video_url") {
+            obj.insert("wa_video".into(), json!(strip_quotes(v)));
+        }
+        if let Some(v) = meta.get("wa_video_caption") {
+            obj.insert("wa_video_caption".into(), json!(strip_quotes(v)));
+        }
+        if let Some(v) = meta.get("wa_audio_url") {
+            obj.insert("wa_audio".into(), json!(strip_quotes(v)));
+        }
+        if let Some(v) = meta.get("wa_document_url") {
+            obj.insert("wa_document".into(), json!(strip_quotes(v)));
+        }
+        if let Some(v) = meta.get("wa_document_filename") {
+            obj.insert("wa_document_filename".into(), json!(strip_quotes(v)));
+        }
+        if let Some(v) = meta.get("wa_document_caption") {
+            obj.insert("wa_document_caption".into(), json!(strip_quotes(v)));
+        }
+        if let Some(v) = meta.get("wa_sticker_url") {
+            obj.insert("wa_sticker".into(), json!(strip_quotes(v)));
+        }
+        if let Some(v) = meta.get("wa_image_url") {
+            obj.entry("wa_image").or_insert_with(|| json!(strip_quotes(v)));
+        }
+
+        // Location: build wa_location object from individual lat/lon/name/address metadata fields.
+        if let (Some(lat), Some(lon)) = (
+            meta.get("wa_location_latitude"),
+            meta.get("wa_location_longitude"),
+        ) {
+            let mut loc = json!({ "latitude": strip_quotes(lat), "longitude": strip_quotes(lon) });
+            if let Some(name) = meta.get("wa_location_name") {
+                loc.as_object_mut().unwrap().insert("name".into(), json!(strip_quotes(name)));
+            }
+            if let Some(addr) = meta.get("wa_location_address") {
+                loc.as_object_mut().unwrap().insert("address".into(), json!(strip_quotes(addr)));
+            }
+            obj.insert("wa_location".into(), loc);
+        }
+
+        // Map attachments by mime_type (only if corresponding wa_* not already set).
+        for att in &encode_in.message.attachments {
+            let mime = att.mime_type.as_str();
+            if mime.starts_with("video/") && !obj.contains_key("wa_video") {
+                obj.insert("wa_video".into(), json!(att.url));
+                if let Some(ref name) = att.name {
+                    obj.entry("wa_video_caption").or_insert_with(|| json!(name));
+                }
+            } else if mime.starts_with("audio/") && !obj.contains_key("wa_audio") {
+                obj.insert("wa_audio".into(), json!(att.url));
+            } else if mime == "image/webp" && !obj.contains_key("wa_sticker") {
+                obj.insert("wa_sticker".into(), json!(att.url));
+            } else if mime.starts_with("image/") && !obj.contains_key("wa_image") {
+                obj.insert("wa_image".into(), json!(att.url));
+            } else if !obj.contains_key("wa_document") {
+                obj.insert("wa_document".into(), json!(att.url));
+                if let Some(ref name) = att.name {
+                    obj.insert("wa_document_filename".into(), json!(name));
+                }
+            }
         }
     }
     let body_bytes = serde_json::to_vec(&payload_body).unwrap_or_else(|_| b"{}".to_vec());

@@ -287,6 +287,304 @@ mod tests {
         );
     }
 
+    /// Helper: build a minimal EncodeInV1 JSON with given metadata, text, and attachments.
+    fn make_encode_input(
+        text: &str,
+        metadata: serde_json::Map<String, Value>,
+        attachments: Vec<Value>,
+    ) -> Vec<u8> {
+        use greentic_types::messaging::universal_dto::{EncodeInV1, RenderPlanInV1};
+        use greentic_types::{
+            Attachment, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx,
+            TenantId,
+        };
+        use std::collections::BTreeMap;
+
+        let env = EnvId::try_from("dev").unwrap();
+        let tenant = TenantId::try_from("demo").unwrap();
+        let mut meta_map = MessageMetadata::new();
+        for (k, v) in &metadata {
+            if let Some(s) = v.as_str() {
+                meta_map.insert(k.clone(), s.to_string());
+            }
+        }
+        let atts: Vec<Attachment> = attachments
+            .iter()
+            .map(|a| Attachment {
+                mime_type: a
+                    .get("mime_type")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                url: a
+                    .get("url")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                name: a.get("name").and_then(Value::as_str).map(String::from),
+                size_bytes: None,
+            })
+            .collect();
+        let msg = ChannelMessageEnvelope {
+            id: "test-msg".to_string(),
+            tenant: TenantCtx::new(env.clone(), tenant.clone()),
+            channel: "whatsapp".to_string(),
+            session_id: "sess".to_string(),
+            reply_scope: None,
+            from: None,
+            to: vec![Destination {
+                id: "123456".to_string(),
+                kind: Some("phone".to_string()),
+            }],
+            correlation_id: None,
+            text: Some(text.to_string()),
+            attachments: atts,
+            metadata: meta_map,
+        };
+        let plan = RenderPlanInV1 {
+            message: msg.clone(),
+            metadata: BTreeMap::new(),
+        };
+        let input = EncodeInV1 {
+            message: msg,
+            plan,
+        };
+        serde_json::to_vec(&input).unwrap()
+    }
+
+    /// Helper: decode encode_op output and return the inner payload body JSON.
+    fn decode_encode_payload(result: &[u8]) -> Value {
+        let out: Value = serde_json::from_slice(result).unwrap();
+        if out.get("ok") != Some(&Value::Bool(true)) {
+            panic!(
+                "encode_op returned error: {}",
+                serde_json::to_string_pretty(&out).unwrap()
+            );
+        }
+        let body_b64 = out
+            .get("payload")
+            .and_then(|p| p.get("body_b64"))
+            .and_then(Value::as_str)
+            .unwrap();
+        let body_bytes = general_purpose::STANDARD.decode(body_b64).unwrap();
+        serde_json::from_slice(&body_bytes).unwrap()
+    }
+
+    #[test]
+    fn encode_op_video_metadata() {
+        let mut meta = serde_json::Map::new();
+        meta.insert("wa_video_url".into(), json!("https://example.com/vid.mp4"));
+        meta.insert("wa_video_caption".into(), json!("My video"));
+        let input = make_encode_input("hello", meta, vec![]);
+        let result = ops::encode_op(&input);
+        let payload = decode_encode_payload(&result);
+        assert_eq!(
+            payload.get("wa_video").and_then(Value::as_str),
+            Some("https://example.com/vid.mp4")
+        );
+        assert_eq!(
+            payload.get("wa_video_caption").and_then(Value::as_str),
+            Some("My video")
+        );
+    }
+
+    #[test]
+    fn encode_op_audio_metadata() {
+        let mut meta = serde_json::Map::new();
+        meta.insert("wa_audio_url".into(), json!("https://example.com/audio.mp3"));
+        let input = make_encode_input("hello", meta, vec![]);
+        let result = ops::encode_op(&input);
+        let payload = decode_encode_payload(&result);
+        assert_eq!(
+            payload.get("wa_audio").and_then(Value::as_str),
+            Some("https://example.com/audio.mp3")
+        );
+    }
+
+    #[test]
+    fn encode_op_document_metadata() {
+        let mut meta = serde_json::Map::new();
+        meta.insert("wa_document_url".into(), json!("https://example.com/doc.pdf"));
+        meta.insert("wa_document_filename".into(), json!("report.pdf"));
+        meta.insert("wa_document_caption".into(), json!("Q4 report"));
+        let input = make_encode_input("hello", meta, vec![]);
+        let result = ops::encode_op(&input);
+        let payload = decode_encode_payload(&result);
+        assert_eq!(
+            payload.get("wa_document").and_then(Value::as_str),
+            Some("https://example.com/doc.pdf")
+        );
+        assert_eq!(
+            payload.get("wa_document_filename").and_then(Value::as_str),
+            Some("report.pdf")
+        );
+        assert_eq!(
+            payload.get("wa_document_caption").and_then(Value::as_str),
+            Some("Q4 report")
+        );
+    }
+
+    #[test]
+    fn encode_op_sticker_metadata() {
+        let mut meta = serde_json::Map::new();
+        meta.insert("wa_sticker_url".into(), json!("https://example.com/sticker.webp"));
+        let input = make_encode_input("hello", meta, vec![]);
+        let result = ops::encode_op(&input);
+        let payload = decode_encode_payload(&result);
+        assert_eq!(
+            payload.get("wa_sticker").and_then(Value::as_str),
+            Some("https://example.com/sticker.webp")
+        );
+    }
+
+    #[test]
+    fn encode_op_location_metadata() {
+        let mut meta = serde_json::Map::new();
+        meta.insert("wa_location_latitude".into(), json!("51.5074"));
+        meta.insert("wa_location_longitude".into(), json!("-0.1278"));
+        meta.insert("wa_location_name".into(), json!("London"));
+        meta.insert("wa_location_address".into(), json!("Westminster, London"));
+        let input = make_encode_input("hello", meta, vec![]);
+        let result = ops::encode_op(&input);
+        let payload = decode_encode_payload(&result);
+        let loc = payload.get("wa_location").expect("wa_location present");
+        assert_eq!(loc.get("latitude").and_then(Value::as_str), Some("51.5074"));
+        assert_eq!(loc.get("longitude").and_then(Value::as_str), Some("-0.1278"));
+        assert_eq!(loc.get("name").and_then(Value::as_str), Some("London"));
+        assert_eq!(
+            loc.get("address").and_then(Value::as_str),
+            Some("Westminster, London")
+        );
+    }
+
+    #[test]
+    fn encode_op_attachment_video() {
+        let att = json!({
+            "mime_type": "video/mp4",
+            "url": "https://example.com/clip.mp4",
+            "name": "clip.mp4"
+        });
+        let input = make_encode_input("hello", serde_json::Map::new(), vec![att]);
+        let result = ops::encode_op(&input);
+        let payload = decode_encode_payload(&result);
+        assert_eq!(
+            payload.get("wa_video").and_then(Value::as_str),
+            Some("https://example.com/clip.mp4")
+        );
+    }
+
+    #[test]
+    fn encode_op_attachment_audio() {
+        let att = json!({
+            "mime_type": "audio/ogg",
+            "url": "https://example.com/voice.ogg"
+        });
+        let input = make_encode_input("hello", serde_json::Map::new(), vec![att]);
+        let result = ops::encode_op(&input);
+        let payload = decode_encode_payload(&result);
+        assert_eq!(
+            payload.get("wa_audio").and_then(Value::as_str),
+            Some("https://example.com/voice.ogg")
+        );
+    }
+
+    #[test]
+    fn encode_op_attachment_sticker_webp() {
+        let att = json!({
+            "mime_type": "image/webp",
+            "url": "https://example.com/sticker.webp"
+        });
+        let input = make_encode_input("hello", serde_json::Map::new(), vec![att]);
+        let result = ops::encode_op(&input);
+        let payload = decode_encode_payload(&result);
+        // image/webp → sticker, not image
+        assert_eq!(
+            payload.get("wa_sticker").and_then(Value::as_str),
+            Some("https://example.com/sticker.webp")
+        );
+        assert!(payload.get("wa_image").is_none());
+    }
+
+    #[test]
+    fn encode_op_attachment_image() {
+        let att = json!({
+            "mime_type": "image/png",
+            "url": "https://example.com/photo.png"
+        });
+        let input = make_encode_input("hello", serde_json::Map::new(), vec![att]);
+        let result = ops::encode_op(&input);
+        let payload = decode_encode_payload(&result);
+        assert_eq!(
+            payload.get("wa_image").and_then(Value::as_str),
+            Some("https://example.com/photo.png")
+        );
+    }
+
+    #[test]
+    fn encode_op_attachment_document() {
+        let att = json!({
+            "mime_type": "application/pdf",
+            "url": "https://example.com/doc.pdf",
+            "name": "report.pdf"
+        });
+        let input = make_encode_input("hello", serde_json::Map::new(), vec![att]);
+        let result = ops::encode_op(&input);
+        let payload = decode_encode_payload(&result);
+        assert_eq!(
+            payload.get("wa_document").and_then(Value::as_str),
+            Some("https://example.com/doc.pdf")
+        );
+        assert_eq!(
+            payload.get("wa_document_filename").and_then(Value::as_str),
+            Some("report.pdf")
+        );
+    }
+
+    #[test]
+    fn encode_op_metadata_takes_precedence_over_attachments() {
+        // Metadata wa_video_url should win over attachment video
+        let mut meta = serde_json::Map::new();
+        meta.insert("wa_video_url".into(), json!("https://meta.com/v.mp4"));
+        let att = json!({
+            "mime_type": "video/mp4",
+            "url": "https://attach.com/v.mp4"
+        });
+        let input = make_encode_input("hello", meta, vec![att]);
+        let result = ops::encode_op(&input);
+        let payload = decode_encode_payload(&result);
+        // Metadata wins
+        assert_eq!(
+            payload.get("wa_video").and_then(Value::as_str),
+            Some("https://meta.com/v.mp4")
+        );
+    }
+
+    #[test]
+    fn encode_op_backward_compat_ac_with_image() {
+        // Existing AC → image path should still work
+        let ac = json!({
+            "type": "AdaptiveCard",
+            "body": [
+                { "type": "TextBlock", "text": "Hello World", "weight": "Bolder", "size": "Large" },
+                { "type": "Image", "url": "https://example.com/img.png" },
+                { "type": "TextBlock", "text": "Description text" }
+            ]
+        });
+        let mut meta = serde_json::Map::new();
+        meta.insert("adaptive_card".into(), json!(ac.to_string()));
+        let input = make_encode_input("fallback", meta, vec![]);
+        let result = ops::encode_op(&input);
+        let payload = decode_encode_payload(&result);
+        assert_eq!(
+            payload.get("wa_image").and_then(Value::as_str),
+            Some("https://example.com/img.png")
+        );
+        assert_eq!(
+            payload.get("wa_header").and_then(Value::as_str),
+            Some("Hello World")
+        );
+    }
+
     #[test]
     fn ingest_http_cloud_api_webhook() {
         let webhook_body = json!({
