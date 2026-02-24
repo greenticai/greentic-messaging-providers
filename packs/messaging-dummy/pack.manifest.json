@@ -487,7 +487,10 @@
               "send",
               "qa-spec",
               "apply-answers",
-              "i18n-keys"
+              "i18n-keys",
+              "render_plan",
+              "encode",
+              "send_payload"
             ],
             "config_schema_ref": "schemas/messaging/dummy/public.config.schema.json",
             "state_schema_ref": "",
