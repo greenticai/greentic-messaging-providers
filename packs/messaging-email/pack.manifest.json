@@ -840,7 +840,11 @@
               "reply",
               "qa-spec",
               "apply-answers",
-              "i18n-keys"
+              "i18n-keys",
+              "render_plan",
+              "encode",
+              "send_payload",
+              "ingest_http"
             ],
             "config_schema_ref": "schemas/messaging/email/public.config.schema.json",
             "state_schema_ref": "",
