@@ -1,6 +1,6 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
 use greentic_types::messaging::universal_dto::{
-    EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, SendPayloadInV1,
+    EncodeInV1, HttpOutV1, ProviderPayloadV1, SendPayloadInV1,
 };
 use greentic_types::{
     Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
@@ -41,10 +41,6 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         },
     };
 
-    if !envelope.attachments.is_empty() {
-        return json_bytes(&json!({"ok": false, "error": "attachments not supported"}));
-    }
-
     let text = envelope
         .text
         .as_ref()
@@ -56,12 +52,28 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         None => return json_bytes(&json!({"ok": false, "error": "text required"})),
     };
 
-    let destination = envelope.to.first().cloned().or_else(|| {
-        cfg.default_chat_id.clone().map(|chat| Destination {
-            id: chat,
-            kind: Some("chat".into()),
+    let destination = envelope
+        .to
+        .first()
+        .cloned()
+        .or_else(|| {
+            // Fallback: recover destination from metadata.chat_id
+            // (preserved through operator round-trip).
+            envelope
+                .metadata
+                .get("chat_id")
+                .filter(|id| !id.is_empty())
+                .map(|id| Destination {
+                    id: id.clone(),
+                    kind: Some("chat".into()),
+                })
         })
-    });
+        .or_else(|| {
+            cfg.default_chat_id.clone().map(|chat| Destination {
+                id: chat,
+                kind: Some("chat".into()),
+            })
+        });
     let destination = match destination {
         Some(dest) => dest,
         None => return json_bytes(&json!({"ok": false, "error": "destination required"})),
@@ -100,6 +112,111 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
 
     // Read parse_mode from metadata (set by encode_op for AC content).
     let parse_mode = envelope.metadata.get("parse_mode").cloned();
+
+    // ── Pre-send media messages (video, audio, document, voice, animation, sticker, photo, location) ──
+    let mut media_results: Vec<Result<Value, String>> = Vec::new();
+
+    if let Some(url) = envelope.metadata.get("tg_video") {
+        let mut p = json!({"chat_id": &dest_id, "video": url});
+        if let Some(cap) = envelope.metadata.get("tg_video_caption") {
+            p["caption"] = json!(truncate_html(cap, 1024));
+        }
+        if let Some(pm) = &parse_mode {
+            p["parse_mode"] = json!(pm);
+        }
+        media_results.push(tg_send_media(&api_base, &token, "sendVideo", &p));
+    }
+
+    if let Some(url) = envelope.metadata.get("tg_audio") {
+        let mut p = json!({"chat_id": &dest_id, "audio": url});
+        if let Some(cap) = envelope.metadata.get("tg_audio_caption") {
+            p["caption"] = json!(truncate_html(cap, 1024));
+        }
+        if let Some(pm) = &parse_mode {
+            p["parse_mode"] = json!(pm);
+        }
+        media_results.push(tg_send_media(&api_base, &token, "sendAudio", &p));
+    }
+
+    if let Some(url) = envelope.metadata.get("tg_document") {
+        let mut p = json!({"chat_id": &dest_id, "document": url});
+        if let Some(cap) = envelope.metadata.get("tg_document_caption") {
+            p["caption"] = json!(truncate_html(cap, 1024));
+        }
+        if let Some(pm) = &parse_mode {
+            p["parse_mode"] = json!(pm);
+        }
+        media_results.push(tg_send_media(&api_base, &token, "sendDocument", &p));
+    }
+
+    if let Some(url) = envelope.metadata.get("tg_voice") {
+        let mut p = json!({"chat_id": &dest_id, "voice": url});
+        if let Some(cap) = envelope.metadata.get("tg_voice_caption") {
+            p["caption"] = json!(truncate_html(cap, 1024));
+        }
+        if let Some(pm) = &parse_mode {
+            p["parse_mode"] = json!(pm);
+        }
+        media_results.push(tg_send_media(&api_base, &token, "sendVoice", &p));
+    }
+
+    if let Some(url) = envelope.metadata.get("tg_animation") {
+        let mut p = json!({"chat_id": &dest_id, "animation": url});
+        if let Some(cap) = envelope.metadata.get("tg_animation_caption") {
+            p["caption"] = json!(truncate_html(cap, 1024));
+        }
+        if let Some(pm) = &parse_mode {
+            p["parse_mode"] = json!(pm);
+        }
+        media_results.push(tg_send_media(&api_base, &token, "sendAnimation", &p));
+    }
+
+    if let Some(url) = envelope.metadata.get("tg_sticker") {
+        let p = json!({"chat_id": &dest_id, "sticker": url});
+        media_results.push(tg_send_media(&api_base, &token, "sendSticker", &p));
+    }
+
+    if let Some(url) = envelope.metadata.get("tg_photo") {
+        let mut p = json!({"chat_id": &dest_id, "photo": url});
+        if let Some(pm) = &parse_mode {
+            p["parse_mode"] = json!(pm);
+        }
+        media_results.push(tg_send_media(&api_base, &token, "sendPhoto", &p));
+    }
+
+    if let Some(loc_json) = envelope.metadata.get("tg_location")
+        && let Ok(loc) = serde_json::from_str::<Value>(loc_json)
+    {
+        let lat = loc
+            .get("latitude")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<f64>().ok());
+        let lon = loc
+            .get("longitude")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<f64>().ok());
+        if let (Some(lat), Some(lon)) = (lat, lon) {
+            let name = loc.get("name").and_then(Value::as_str).unwrap_or("");
+            let address = loc.get("address").and_then(Value::as_str).unwrap_or("");
+            if !name.is_empty() && !address.is_empty() {
+                let p = json!({
+                    "chat_id": &dest_id,
+                    "latitude": lat,
+                    "longitude": lon,
+                    "title": name,
+                    "address": address,
+                });
+                media_results.push(tg_send_media(&api_base, &token, "sendVenue", &p));
+            } else {
+                let p = json!({
+                    "chat_id": &dest_id,
+                    "latitude": lat,
+                    "longitude": lon,
+                });
+                media_results.push(tg_send_media(&api_base, &token, "sendLocation", &p));
+            }
+        }
+    }
 
     // Check for AC images — use sendPhoto if available, otherwise sendMessage.
     let images: Vec<String> = envelope
@@ -229,7 +346,7 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
     let body_json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
     let (message_id, provider_message_id) = extract_ids(&body_json);
 
-    json_bytes(&json!({
+    let mut result = json!({
         "ok": true,
         "status": "sent",
         "provider_type": PROVIDER_TYPE,
@@ -237,7 +354,17 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         "message_id": message_id,
         "provider_message_id": provider_message_id,
         "response": body_json
-    }))
+    });
+    if !media_results.is_empty() {
+        result["media"] = json!(media_results
+            .iter()
+            .map(|r| match r {
+                Ok(v) => json!({"ok": true, "response": v}),
+                Err(e) => json!({"ok": false, "error": e}),
+            })
+            .collect::<Vec<_>>());
+    }
+    json_bytes(&result)
 }
 
 pub(crate) fn handle_reply(input_json: &[u8]) -> Vec<u8> {
@@ -339,13 +466,11 @@ pub(crate) fn handle_reply(input_json: &[u8]) -> Vec<u8> {
 }
 
 pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
-    // Try native greentic-types format first, fall back to operator format
-    let request = match serde_json::from_slice::<HttpInV1>(input_json) {
+    // Use operator-compat parser which handles both `body_b64` (string)
+    // and `body` (raw byte array from operator's IngressRequestV1).
+    let request = match parse_operator_http_in(input_json) {
         Ok(req) => req,
-        Err(_) => match parse_operator_http_in(input_json) {
-            Ok(req) => req,
-            Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
-        },
+        Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
     };
     let body_bytes = match STANDARD.decode(&request.body_b64) {
         Ok(bytes) => bytes,
@@ -426,6 +551,95 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
             let ij = serde_json::to_string(&content.images).unwrap_or_default();
             envelope.metadata.insert("ac_images".to_string(), ij);
         }
+    }
+
+    // ── Map tg_* metadata fields and attachments to internal keys ──
+
+    // 1. Strip operator double-quotes from all tg_* values
+    let tg_keys: Vec<String> = envelope
+        .metadata
+        .keys()
+        .filter(|k| k.starts_with("tg_"))
+        .cloned()
+        .collect();
+    for key in tg_keys {
+        if let Some(val) = envelope.metadata.get_mut(&key) {
+            let trimmed = val.trim_matches('"').to_string();
+            *val = trimmed;
+        }
+    }
+
+    // 2. Map URL-suffixed keys to internal keys
+    for (src, dst) in [
+        ("tg_video_url", "tg_video"),
+        ("tg_audio_url", "tg_audio"),
+        ("tg_document_url", "tg_document"),
+        ("tg_voice_url", "tg_voice"),
+        ("tg_animation_url", "tg_animation"),
+        ("tg_sticker_url", "tg_sticker"),
+        ("tg_photo_url", "tg_photo"),
+    ] {
+        if let Some(val) = envelope.metadata.get(src).cloned()
+            && !val.is_empty()
+        {
+            envelope.metadata.entry(dst.to_string()).or_insert(val);
+        }
+    }
+
+    // 3. Build location from lat/lon metadata
+    {
+        let lat = envelope.metadata.get("tg_location_latitude").cloned();
+        let lon = envelope.metadata.get("tg_location_longitude").cloned();
+        let loc_name = envelope.metadata.get("tg_location_name").cloned();
+        let loc_addr = envelope.metadata.get("tg_location_address").cloned();
+        if let (Some(lat), Some(lon)) = (lat, lon)
+            && !lat.is_empty()
+            && !lon.is_empty()
+            && !envelope.metadata.contains_key("tg_location")
+        {
+            let mut loc = json!({"latitude": lat, "longitude": lon});
+            if let Some(name) = loc_name
+                && !name.is_empty()
+            {
+                loc["name"] = json!(name);
+            }
+            if let Some(addr) = loc_addr
+                && !addr.is_empty()
+            {
+                loc["address"] = json!(addr);
+            }
+            envelope.metadata.insert(
+                "tg_location".to_string(),
+                serde_json::to_string(&loc).unwrap_or_default(),
+            );
+        }
+    }
+
+    // 4. Map attachments by mime_type (metadata takes precedence)
+    let att_fields: Vec<(String, String)> = envelope
+        .attachments
+        .iter()
+        .map(|att| {
+            let mt = att.mime_type.to_lowercase();
+            if mt.starts_with("video/") {
+                ("tg_video".to_string(), att.url.clone())
+            } else if mt == "audio/ogg" || mt.starts_with("audio/ogg;") || mt == "audio/opus" {
+                ("tg_voice".to_string(), att.url.clone())
+            } else if mt.starts_with("audio/") {
+                ("tg_audio".to_string(), att.url.clone())
+            } else if mt == "image/webp" {
+                ("tg_sticker".to_string(), att.url.clone())
+            } else if mt == "image/gif" {
+                ("tg_animation".to_string(), att.url.clone())
+            } else if mt.starts_with("image/") {
+                ("tg_photo".to_string(), att.url.clone())
+            } else {
+                ("tg_document".to_string(), att.url.clone())
+            }
+        })
+        .collect();
+    for (k, v) in att_fields {
+        envelope.metadata.entry(k).or_insert(v);
     }
 
     let has_text = envelope
@@ -1003,6 +1217,41 @@ fn tg_send_message(
         body: Some(body),
     };
     client::send(&req, None, None).map_err(|err| format!("transport error: {}", err.message))
+}
+
+/// Send a Telegram media message (video, audio, document, sticker, etc.).
+fn tg_send_media(
+    api_base: &str,
+    token: &str,
+    method: &str,
+    payload: &Value,
+) -> Result<Value, String> {
+    let url = format!("{api_base}/bot{token}/{method}");
+    let body = serde_json::to_vec(payload).unwrap_or_else(|_| b"{}".to_vec());
+    let req = client::Request {
+        method: "POST".to_string(),
+        url,
+        headers: vec![("Content-Type".into(), "application/json".into())],
+        body: Some(body),
+    };
+    match client::send(&req, None, None) {
+        Ok(resp) => {
+            let body_json: Value = resp
+                .body
+                .as_ref()
+                .and_then(|b| serde_json::from_slice(b).ok())
+                .unwrap_or(Value::Null);
+            if (200..300).contains(&resp.status) {
+                Ok(body_json)
+            } else {
+                Err(format!(
+                    "telegram {} status {}: {}",
+                    method, resp.status, body_json
+                ))
+            }
+        }
+        Err(err) => Err(format!("transport error: {}", err.message)),
+    }
 }
 
 pub(crate) fn extract_message_text(value: &Value) -> String {

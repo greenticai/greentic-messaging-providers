@@ -41,8 +41,21 @@ fn parse_operator_http_in_inner(
     let body_b64 = val
         .get("body_b64")
         .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| {
+            // Operator sends raw bytes as `body: [u8]` (JSON array of numbers);
+            // convert to base64 so downstream code can decode uniformly.
+            if let Some(Value::Array(arr)) = val.get("body") {
+                let bytes: Vec<u8> = arr
+                    .iter()
+                    .filter_map(|v| v.as_u64().map(|n| n as u8))
+                    .collect();
+                if !bytes.is_empty() {
+                    return STANDARD.encode(&bytes);
+                }
+            }
+            String::new()
+        });
     let query = match val.get("query") {
         Some(Value::String(s)) => Some(s.clone()),
         Some(Value::Array(arr)) => {
@@ -234,6 +247,28 @@ mod tests {
         assert_eq!(req.headers.len(), 1);
         assert_eq!(req.headers[0].name, "Authorization");
         assert_eq!(req.headers[0].value, "Bearer tok");
+    }
+
+    #[test]
+    fn parse_operator_body_as_byte_array() {
+        // The operator sends body as Vec<u8> (JSON array of numbers),
+        // not as body_b64 string. Verify our parser handles this.
+        let webhook = r#"{"update_id":123,"message":{"chat":{"id":999},"text":"hello"}}"#;
+        let body_bytes: Vec<u8> = webhook.bytes().collect();
+        let input = serde_json::to_vec(&json!({
+            "method": "POST",
+            "path": "/webhook",
+            "body": body_bytes,
+            "headers": [],
+            "query": [],
+        }))
+        .unwrap();
+        let req = parse_operator_http_in(&input).unwrap();
+        assert!(!req.body_b64.is_empty(), "body_b64 should be populated from body array");
+        let decoded = STANDARD.decode(&req.body_b64).unwrap();
+        let val: serde_json::Value = serde_json::from_slice(&decoded).unwrap();
+        assert_eq!(val["update_id"], 123);
+        assert_eq!(val["message"]["chat"]["id"], 999);
     }
 
     #[test]
