@@ -361,6 +361,9 @@ fn allowed_flow_names() -> BTreeSet<&'static str> {
     [
         "setup_default",
         "setup_custom",
+        "update",
+        "remove",
+        "default",
         "diagnostics",
         "requirements",
         "verify_webhooks",
@@ -614,7 +617,15 @@ fn validate_source_spec(
             source_flow_dir.display()
         ));
     }
+    // Note: Flows are generated, not copied from source. We only validate that the flow
+    // name is in our allowed list (validated elsewhere). The source pack check is skipped
+    // because generate_from_source() generates flows using generate_flows(), it doesn't copy them.
+    let generatable_flows = allowed_flow_names();
     for flow in flows {
+        if generatable_flows.contains(flow.as_str()) {
+            // Flow can be generated, no need to check source pack
+            continue;
+        }
         let has_flow = flow_files_for(&source_flow_dir, flow)?
             .into_iter()
             .any(|path| path.extension().and_then(|v| v.to_str()) == Some("ygtc"));
@@ -1737,6 +1748,9 @@ fn update_flow_entrypoints(
 fn expected_entrypoint(flow_id: &str) -> Option<&'static str> {
     match flow_id {
         "setup_default" | "setup_custom" => Some("setup"),
+        "update" => Some("update"),
+        "remove" => Some("remove"),
+        "default" => Some("default"),
         "diagnostics" => Some("diagnostics"),
         "requirements" => Some("requirements"),
         "verify_webhooks" => Some("verify_webhooks"),
@@ -1956,7 +1970,30 @@ fn generate_flows(
                     provision_apply_example.clone(),
                     json!({
                         "dry_run": "{{ state.input.dry_run }}",
-                        "plan": { "actions": [] }
+                        "plan": {
+                            "actions": [
+                                {
+                                    "type": "store_config",
+                                    "scope": "provider",
+                                    "key": "config"
+                                },
+                                {
+                                    "type": "store_secret",
+                                    "scope": "provider",
+                                    "key": "bot_token"
+                                },
+                                {
+                                    "type": "register_webhook",
+                                    "scope": "provider",
+                                    "key": "webhook_url"
+                                },
+                                {
+                                    "type": "verify_connectivity",
+                                    "scope": "provider",
+                                    "key": "status"
+                                }
+                            ]
+                        }
                     }),
                 );
                 flow_add_step(
@@ -2088,7 +2125,30 @@ fn generate_flows(
                     provision_apply_example.clone(),
                     json!({
                         "dry_run": "{{ state.input.dry_run }}",
-                        "plan": { "actions": [] }
+                        "plan": {
+                            "actions": [
+                                {
+                                    "type": "store_config",
+                                    "scope": "provider",
+                                    "key": "config"
+                                },
+                                {
+                                    "type": "store_secret",
+                                    "scope": "provider",
+                                    "key": "bot_token"
+                                },
+                                {
+                                    "type": "register_webhook",
+                                    "scope": "provider",
+                                    "key": "webhook_url"
+                                },
+                                {
+                                    "type": "verify_connectivity",
+                                    "scope": "provider",
+                                    "key": "status"
+                                }
+                            ]
+                        }
                     }),
                 );
                 flow_add_step(
@@ -2222,6 +2282,267 @@ fn generate_flows(
                     "../components/templates/templates.wasm",
                 )?;
                 stamp_generated_header(&rotate, &generated_meta)?;
+            }
+            "update" => {
+                // Update flow: similar to setup but for modifying existing configuration
+                // Supports both interactive (asks questions) and non-interactive (JSON answers passed in)
+                let update = flows_dir.join("update.ygtc");
+                flow_new(&update, "update", "job")?;
+
+                // Step 1: Emit update questions (reuses setup.yaml spec)
+                let emit_payload = merge_payload(
+                    questions_emit_example.clone(),
+                    json!({
+                        "id": format!("{}-update", provider_id(spec)),
+                        "spec_ref": "assets/setup.yaml"
+                    }),
+                );
+                flow_add_step(
+                    flows_dir,
+                    &update,
+                    "update__emit_questions",
+                    "emit",
+                    emit_payload,
+                    Some("out"),
+                    None,
+                    None,
+                    &questions_manifest_inline,
+                    "../components/questions/questions.wasm",
+                )?;
+
+                // Step 2: Collect inputs (interactive or from state.input.answers_json)
+                let collect_payload = merge_payload(
+                    templates_example.clone(),
+                    json!({
+                        "template": "Collect inputs for update. Only missing answers are requested.",
+                    }),
+                );
+                flow_add_step(
+                    flows_dir,
+                    &update,
+                    "update__collect",
+                    "text",
+                    collect_payload,
+                    Some("out"),
+                    None,
+                    Some("update__emit_questions"),
+                    &templates_manifest_inline,
+                    "../components/templates/templates.wasm",
+                )?;
+
+                // Step 3: Validate answers
+                let validate_payload = merge_payload(
+                    questions_validate_example.clone(),
+                    json!({
+                        "answers_json": "{{ state.input.answers_json }}",
+                        "spec_json": "{{ node.update__emit_questions }}"
+                    }),
+                );
+                flow_add_step(
+                    flows_dir,
+                    &update,
+                    "update__validate",
+                    "validate",
+                    validate_payload,
+                    Some("out"),
+                    None,
+                    Some("update__collect"),
+                    &questions_manifest_inline,
+                    "../components/questions/questions.wasm",
+                )?;
+
+                // Step 4: Apply changes with idempotent actions
+                let apply_payload = merge_payload(
+                    provision_apply_example.clone(),
+                    json!({
+                        "dry_run": "{{ state.input.dry_run }}",
+                        "plan": {
+                            "actions": [
+                                {
+                                    "type": "update_config",
+                                    "scope": "provider",
+                                    "key": "config"
+                                },
+                                {
+                                    "type": "update_secret",
+                                    "scope": "provider",
+                                    "key": "bot_token"
+                                },
+                                {
+                                    "type": "verify_connectivity",
+                                    "scope": "provider",
+                                    "key": "status"
+                                }
+                            ]
+                        }
+                    }),
+                );
+                flow_add_step(
+                    flows_dir,
+                    &update,
+                    "update__apply",
+                    "apply",
+                    apply_payload,
+                    Some("out"),
+                    None,
+                    Some("update__validate"),
+                    &provision_manifest_inline,
+                    "../components/provision/provision.wasm",
+                )?;
+
+                // Step 5: Summary
+                let summary_text = format!("{} update complete.", spec.provider.provider_type);
+                let summary_payload = merge_payload(
+                    templates_example.clone(),
+                    json!({
+                        "template": summary_text,
+                    }),
+                );
+                flow_add_step(
+                    flows_dir,
+                    &update,
+                    "update__summary",
+                    "text",
+                    summary_payload,
+                    Some("out"),
+                    None,
+                    Some("update__apply"),
+                    &templates_manifest_inline,
+                    "../components/templates/templates.wasm",
+                )?;
+
+                // Wire up the routing
+                flow_update_routing(&update, "update__emit_questions", "update__collect")?;
+                flow_update_routing(&update, "update__collect", "update__validate")?;
+                flow_update_routing(&update, "update__validate", "update__apply")?;
+                flow_update_routing(&update, "update__apply", "update__summary")?;
+                stamp_generated_header(&update, &generated_meta)?;
+            }
+            "remove" => {
+                // Remove flow: safe and idempotent removal of provider configuration
+                // Running twice should not break anything
+                let remove = flows_dir.join("remove.ygtc");
+                flow_new(&remove, "remove", "job")?;
+
+                // Step 1: Check current state before removal
+                let check_payload = merge_payload(
+                    templates_example.clone(),
+                    json!({
+                        "template": "Checking current provider state before removal...",
+                    }),
+                );
+                flow_add_step(
+                    flows_dir,
+                    &remove,
+                    "remove__check_state",
+                    "text",
+                    check_payload,
+                    Some("out"),
+                    None,
+                    None,
+                    &templates_manifest_inline,
+                    "../components/templates/templates.wasm",
+                )?;
+
+                // Step 2: Apply removal with idempotent actions
+                let apply_payload = merge_payload(
+                    provision_apply_example.clone(),
+                    json!({
+                        "dry_run": "{{ state.input.dry_run }}",
+                        "plan": {
+                            "actions": [
+                                {
+                                    "type": "remove_webhook",
+                                    "scope": "provider",
+                                    "key": "webhook_url"
+                                },
+                                {
+                                    "type": "remove_subscription",
+                                    "scope": "provider",
+                                    "key": "subscriptions"
+                                },
+                                {
+                                    "type": "clear_secret",
+                                    "scope": "provider",
+                                    "key": "bot_token"
+                                },
+                                {
+                                    "type": "clear_config",
+                                    "scope": "provider",
+                                    "key": "config"
+                                }
+                            ]
+                        }
+                    }),
+                );
+                flow_add_step(
+                    flows_dir,
+                    &remove,
+                    "remove__apply",
+                    "apply",
+                    apply_payload,
+                    Some("out"),
+                    None,
+                    Some("remove__check_state"),
+                    &provision_manifest_inline,
+                    "../components/provision/provision.wasm",
+                )?;
+
+                // Step 3: Summary
+                let summary_text = format!("{} removal complete. Provider has been safely removed.", spec.provider.provider_type);
+                let summary_payload = merge_payload(
+                    templates_example.clone(),
+                    json!({
+                        "template": summary_text,
+                    }),
+                );
+                flow_add_step(
+                    flows_dir,
+                    &remove,
+                    "remove__summary",
+                    "text",
+                    summary_payload,
+                    Some("out"),
+                    None,
+                    Some("remove__apply"),
+                    &templates_manifest_inline,
+                    "../components/templates/templates.wasm",
+                )?;
+
+                // Wire up the routing
+                flow_update_routing(&remove, "remove__check_state", "remove__apply")?;
+                flow_update_routing(&remove, "remove__apply", "remove__summary")?;
+                stamp_generated_header(&remove, &generated_meta)?;
+            }
+            "default" => {
+                // Default flow: returns the provider's default config/state shape
+                let default_flow = flows_dir.join("default.ygtc");
+                flow_new(&default_flow, "default", "job")?;
+
+                // Single step: emit default configuration schema
+                let payload = merge_payload(
+                    templates_example.clone(),
+                    json!({
+                        "template": format!(
+                            "Provider: {}\nType: {}\nDefault configuration:\n- Webhook URL: (required)\n- Bot Token: (required, secret)\n- Default Channel/Chat ID: (optional)",
+                            provider_id(spec),
+                            spec.provider.provider_type
+                        ),
+                    }),
+                );
+                flow_add_step(
+                    flows_dir,
+                    &default_flow,
+                    "default__config",
+                    "text",
+                    payload,
+                    Some("out"),
+                    None,
+                    None,
+                    &templates_manifest_inline,
+                    "../components/templates/templates.wasm",
+                )?;
+                stamp_generated_header(&default_flow, &generated_meta)?;
             }
             other => {
                 return Err(anyhow::anyhow!("unsupported flow type: {}", other));

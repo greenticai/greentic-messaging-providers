@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "component-qa invocation input",
+  "type": "object",
+  "properties": {
+    "form_id": {
+      "description": "Identifier of the target form",
+      "type": "string"
+    },
+    "config": {
+      "description": "Optional form specification payload",
+      "type": "object"
+    },
+    "ctx": {
+      "description": "Runtime context passed by the host",
+      "type": "object"
+    },
+    "answers": {
+      "description": "Current answers provided by the host",
+      "type": "object"
+    },
+    "question_id": {
+      "description": "Question currently being answered",
+      "type": "string"
+    },
+    "value": {
+      "description": "Payload sent to submit_patch or submit_all",
+      "type": ["object", "array", "string", "number", "boolean", "null"]
+    }
+  },
+  "additionalProperties": true
+}

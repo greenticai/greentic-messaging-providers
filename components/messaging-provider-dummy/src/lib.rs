@@ -45,6 +45,15 @@ const I18N_KEYS: &[&str] = &[
     "dummy.qa.setup.enabled",
     "dummy.qa.setup.api_token",
     "dummy.qa.setup.endpoint_url",
+    // Flow-related i18n keys
+    "dummy.flow.default.title",
+    "dummy.flow.default.config_summary",
+    "dummy.flow.update.title",
+    "dummy.flow.update.collect",
+    "dummy.flow.update.complete",
+    "dummy.flow.remove.title",
+    "dummy.flow.remove.check_state",
+    "dummy.flow.remove.complete",
 ];
 
 struct Component;
