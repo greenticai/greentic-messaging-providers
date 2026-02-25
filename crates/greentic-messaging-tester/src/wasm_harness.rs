@@ -2,10 +2,12 @@ use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
+    sync::{Mutex, OnceLock},
     time::SystemTime,
 };
 
 use anyhow::{Context, Result, anyhow};
+use greentic_interfaces_wasmtime::component_v0_5::exports::greentic::component::node as component_node_bindings_v05;
 use greentic_interfaces_wasmtime::host_helpers::v1::{
     HostFns, add_all_v1_to_linker, http_client, secrets_store, state_store,
 };
@@ -35,6 +37,11 @@ const NODE_WORLD_LEGACY: &str = "greentic:component/node@0.5.0";
 const COMPONENT_DESCRIPTOR_WORLD: &str = "greentic:component/descriptor@0.6.0";
 const COMPONENT_RUNTIME_WORLD: &str = "greentic:component/runtime@0.6.0";
 
+fn component_build_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum InvokeStrategy {
     Node,
@@ -50,6 +57,9 @@ pub struct WasmHarness {
 
 impl WasmHarness {
     pub fn new(provider: &str) -> Result<Self> {
+        let _guard = component_build_lock()
+            .lock()
+            .map_err(|_| anyhow!("component build lock poisoned"))?;
         let wasm_path = find_wasm_path(provider)?;
         let engine = new_engine();
         let component = Component::from_file(&engine, &wasm_path)
@@ -122,16 +132,42 @@ impl WasmHarness {
         let input_str = String::from_utf8(input).map_err(|err| anyhow!(err))?;
         let state = TesterHostState::new(secrets.clone(), http_mode, history, mock_responses);
         execute_with_state(&self.engine, &self.component, state, |store, instance| {
+            let node_world = node_world_version(&mut *store, instance)
+                .ok_or_else(|| anyhow!("missing node world export"))?;
             let invoke_index = node_function_index(&mut *store, instance, "invoke")?;
-            let invoke = instance.get_typed_func::<
-                (component_node_bindings::ExecCtx, String, String),
-                (component_node_bindings::InvokeResult,),
-            >(&mut *store, invoke_index)?;
-            let ctx = build_exec_ctx();
-            let (result,) = invoke.call(&mut *store, (ctx, op.to_string(), input_str.clone()))?;
-            match result {
-                component_node_bindings::InvokeResult::Ok(body) => Ok(body.into_bytes()),
-                component_node_bindings::InvokeResult::Err(err) => Err(anyhow!("{}", err.message)),
+            match node_world {
+                NodeWorldVersion::V06 => {
+                    let invoke = instance.get_typed_func::<
+                        (component_node_bindings::ExecCtx, String, String),
+                        (component_node_bindings::InvokeResult,),
+                    >(&mut *store, invoke_index)?;
+                    let ctx = build_exec_ctx_v06();
+                    let (result,) =
+                        invoke.call(&mut *store, (ctx, op.to_string(), input_str.clone()))?;
+                    match result {
+                        component_node_bindings::InvokeResult::Ok(body) => Ok(body.into_bytes()),
+                        component_node_bindings::InvokeResult::Err(err) => {
+                            Err(anyhow!("{}", err.message))
+                        }
+                    }
+                }
+                NodeWorldVersion::V05 => {
+                    let invoke = instance.get_typed_func::<
+                        (component_node_bindings_v05::ExecCtx, String, String),
+                        (component_node_bindings_v05::InvokeResult,),
+                    >(&mut *store, invoke_index)?;
+                    let ctx = build_exec_ctx_v05();
+                    let (result,) =
+                        invoke.call(&mut *store, (ctx, op.to_string(), input_str.clone()))?;
+                    match result {
+                        component_node_bindings_v05::InvokeResult::Ok(body) => {
+                            Ok(body.into_bytes())
+                        }
+                        component_node_bindings_v05::InvokeResult::Err(err) => {
+                            Err(anyhow!("{}", err.message))
+                        }
+                    }
+                }
             }
         })
     }
@@ -203,22 +239,48 @@ impl ComponentHarness {
         let input_json = String::from_utf8(input).map_err(|err| anyhow!(err))?;
         let state = TesterHostState::new(secrets.clone(), http_mode, history, None);
         execute_with_state(&self.engine, &self.component, state, |store, instance| {
+            let node_world = node_world_version(&mut *store, instance)
+                .ok_or_else(|| anyhow!("missing node world export"))?;
             let invoke_index = node_function_index(&mut *store, instance, "invoke")?;
-            let invoke = instance.get_typed_func::<
-                (component_node_bindings::ExecCtx, String, String),
-                (component_node_bindings::InvokeResult,),
-            >(&mut *store, invoke_index)?;
-            let ctx = build_exec_ctx();
-            let (result,) = invoke.call(&mut *store, (ctx, op.to_string(), input_json.clone()))?;
-            match result {
-                component_node_bindings::InvokeResult::Ok(body) => Ok(body.into_bytes()),
-                component_node_bindings::InvokeResult::Err(err) => Err(anyhow!(err.message)),
+            match node_world {
+                NodeWorldVersion::V06 => {
+                    let invoke = instance.get_typed_func::<
+                        (component_node_bindings::ExecCtx, String, String),
+                        (component_node_bindings::InvokeResult,),
+                    >(&mut *store, invoke_index)?;
+                    let ctx = build_exec_ctx_v06();
+                    let (result,) =
+                        invoke.call(&mut *store, (ctx, op.to_string(), input_json.clone()))?;
+                    match result {
+                        component_node_bindings::InvokeResult::Ok(body) => Ok(body.into_bytes()),
+                        component_node_bindings::InvokeResult::Err(err) => {
+                            Err(anyhow!(err.message))
+                        }
+                    }
+                }
+                NodeWorldVersion::V05 => {
+                    let invoke = instance.get_typed_func::<
+                        (component_node_bindings_v05::ExecCtx, String, String),
+                        (component_node_bindings_v05::InvokeResult,),
+                    >(&mut *store, invoke_index)?;
+                    let ctx = build_exec_ctx_v05();
+                    let (result,) =
+                        invoke.call(&mut *store, (ctx, op.to_string(), input_json.clone()))?;
+                    match result {
+                        component_node_bindings_v05::InvokeResult::Ok(body) => {
+                            Ok(body.into_bytes())
+                        }
+                        component_node_bindings_v05::InvokeResult::Err(err) => {
+                            Err(anyhow!(err.message))
+                        }
+                    }
+                }
             }
         })
     }
 }
 
-fn build_exec_ctx() -> component_node_bindings::ExecCtx {
+fn build_exec_ctx_v06() -> component_node_bindings::ExecCtx {
     component_node_bindings::ExecCtx {
         tenant: component_node_bindings::TenantCtx {
             env: "manual".into(),
@@ -240,6 +302,25 @@ fn build_exec_ctx() -> component_node_bindings::ExecCtx {
             attempt: 0,
             idempotency_key: None,
             impersonation: None,
+        },
+        i18n_id: None,
+        flow_id: "manual".into(),
+        node_id: None,
+    }
+}
+
+fn build_exec_ctx_v05() -> component_node_bindings_v05::ExecCtx {
+    component_node_bindings_v05::ExecCtx {
+        tenant: component_node_bindings_v05::TenantCtx {
+            tenant: "manual".into(),
+            team: None,
+            user: None,
+            trace_id: None,
+            i18n_id: None,
+            correlation_id: None,
+            deadline_unix_ms: None,
+            attempt: 0,
+            idempotency_key: None,
         },
         i18n_id: None,
         flow_id: "manual".into(),
@@ -556,6 +637,25 @@ fn node_world_export(
         return Some(index);
     }
     instance.get_export_index(&mut *store, None, NODE_WORLD_LEGACY)
+}
+
+fn node_world_version(
+    store: &mut Store<TesterHostState>,
+    instance: &Instance,
+) -> Option<NodeWorldVersion> {
+    if instance
+        .get_export_index(&mut *store, None, NODE_WORLD)
+        .is_some()
+    {
+        return Some(NodeWorldVersion::V06);
+    }
+    if instance
+        .get_export_index(&mut *store, None, NODE_WORLD_LEGACY)
+        .is_some()
+    {
+        return Some(NodeWorldVersion::V05);
+    }
+    None
 }
 
 fn node_function_index(
@@ -1055,12 +1155,17 @@ mod tests {
     }
 
     fn ensure_component_built(package: &str) -> PathBuf {
+        let _guard = component_build_lock()
+            .lock()
+            .expect("component build lock poisoned");
+        if let Ok(path) = find_component_wasm_path(package) {
+            return path;
+        }
         let root = workspace_root();
         let wasm_path = root
             .join("target/components")
             .join(format!("{package}.wasm"));
         if !wasm_path.exists() {
-            remove_stale_component_artifacts(&root, package);
             eprintln!(
                 "component build missing: package={} wasm_path={}",
                 package,
@@ -1107,48 +1212,6 @@ mod tests {
         find_component_wasm_path(package).expect("wasm component should exist after build")
     }
 
-    fn remove_stale_component_artifacts(root: &Path, package: &str) {
-        let component_dir = root.join("components").join(package);
-        let targets = ["wasm32-wasip1", "wasm32-wasip2"];
-        let suffixes = ["debug", "release"];
-        let mut paths = Vec::new();
-        for target in targets {
-            for suffix in suffixes {
-                for name in wasm_name_variants(package) {
-                    paths.push(
-                        root.join("target")
-                            .join(target)
-                            .join(suffix)
-                            .join(format!("{name}.wasm")),
-                    );
-                    paths.push(
-                        root.join("target")
-                            .join("components")
-                            .join(target)
-                            .join(suffix)
-                            .join(format!("{name}.wasm")),
-                    );
-                    paths.push(
-                        component_dir
-                            .join("target")
-                            .join(target)
-                            .join(suffix)
-                            .join(format!("{name}.wasm")),
-                    );
-                }
-            }
-        }
-        paths.push(
-            root.join("target/components")
-                .join(format!("{package}.wasm")),
-        );
-        for path in paths {
-            if path.exists() {
-                let _ = std::fs::remove_file(&path);
-            }
-        }
-    }
-
     fn build_test_envelope(channel: &str) -> ChannelMessageEnvelope {
         let env = EnvId::try_from("manual").expect("env id");
         let tenant = TenantId::try_from("manual").expect("tenant id");
@@ -1169,4 +1232,9 @@ mod tests {
             metadata,
         }
     }
+}
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum NodeWorldVersion {
+    V06,
+    V05,
 }

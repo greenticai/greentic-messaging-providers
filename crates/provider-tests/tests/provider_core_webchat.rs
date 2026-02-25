@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -95,7 +93,6 @@ fn new_engine() -> Engine {
 struct HostState {
     table: ResourceTable,
     wasi_ctx: WasiCtx,
-    writes: RefCell<HashMap<String, Vec<u8>>>,
 }
 
 impl WasiView for HostState {
@@ -112,49 +109,9 @@ impl HostState {
         Self {
             table: ResourceTable::new(),
             wasi_ctx: WasiCtxBuilder::new().inherit_stdio().build(),
-            writes: RefCell::new(HashMap::new()),
         }
     }
 }
-
-impl bindings::greentic::state::state_store::Host for HostState {
-    fn read(
-        &mut self,
-        _key: bindings::greentic::interfaces_types::types::StateKey,
-        _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
-    ) -> Result<Vec<u8>, bindings::greentic::state::state_store::HostError> {
-        Err(bindings::greentic::state::state_store::HostError {
-            code: "unimplemented".into(),
-            message: "read not supported".into(),
-        })
-    }
-
-    fn write(
-        &mut self,
-        key: bindings::greentic::interfaces_types::types::StateKey,
-        bytes: Vec<u8>,
-        _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
-    ) -> Result<
-        bindings::greentic::state::state_store::OpAck,
-        bindings::greentic::state::state_store::HostError,
-    > {
-        self.writes.borrow_mut().insert(key, bytes);
-        Ok(bindings::greentic::state::state_store::OpAck::Ok)
-    }
-
-    fn delete(
-        &mut self,
-        _key: bindings::greentic::interfaces_types::types::StateKey,
-        _ctx: Option<bindings::greentic::interfaces_types::types::TenantCtx>,
-    ) -> Result<
-        bindings::greentic::state::state_store::OpAck,
-        bindings::greentic::state::state_store::HostError,
-    > {
-        Ok(bindings::greentic::state::state_store::OpAck::Ok)
-    }
-}
-
-impl bindings::greentic::interfaces_types::types::Host for HostState {}
 
 impl bindings::greentic::secrets_store::secrets_store::Host for HostState {
     fn get(
@@ -249,21 +206,11 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
     let component = Component::from_file(&engine, &component_path).context("loading component")?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
-    bindings::greentic::state::state_store::add_to_linker::<HostState, HasSelf<HostState>>(
-        &mut linker,
-        |state: &mut HostState| state,
-    )
-    .expect("link state");
     bindings::greentic::secrets_store::secrets_store::add_to_linker::<HostState, HasSelf<HostState>>(
         &mut linker,
         |state: &mut HostState| state,
     )
     .expect("link secrets");
-    bindings::greentic::interfaces_types::types::add_to_linker::<HostState, HasSelf<HostState>>(
-        &mut linker,
-        |state: &mut HostState| state,
-    )
-    .expect("link interfaces types");
 
     let mut describe_store = Store::new(&engine, HostState::new());
     let instance = linker
@@ -327,11 +274,6 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
         resp_json.get("provider_type"),
         Some(&Value::String("messaging.webchat".into()))
     );
-
-    {
-        let writes = store.data().writes.borrow();
-        assert!(writes.contains_key("chat:abc"));
-    }
 
     let _ = invoke;
     let _ = instance;
