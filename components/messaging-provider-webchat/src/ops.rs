@@ -1,9 +1,11 @@
 use base64::{Engine as _, engine::general_purpose};
-use greentic_types::messaging::universal_dto::{HttpInV1, HttpOutV1, ProviderPayloadV1, SendPayloadInV1};
+use greentic_types::messaging::universal_dto::{
+    HttpInV1, HttpOutV1, ProviderPayloadV1, SendPayloadInV1,
+};
 use greentic_types::{Actor, ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
 use provider_common::helpers::{
-    PlannerCapabilities, RenderPlanConfig, decode_encode_message, encode_error, json_bytes, render_plan_common,
-    send_payload_error, send_payload_success,
+    PlannerCapabilities, RenderPlanConfig, decode_encode_message, encode_error, json_bytes,
+    render_plan_common, send_payload_error, send_payload_success,
 };
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde_json::{Value, json};
