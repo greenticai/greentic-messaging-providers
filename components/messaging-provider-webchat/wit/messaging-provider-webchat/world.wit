@@ -1,10 +1,8 @@
 package greentic:component@0.6.1;
 
-use greentic:state/state-store@1.0.0;
 use greentic:secrets-store/secrets-store@1.0.0;
 
 world component-v0-v6-v0 {
-  import state-store;
   import secrets-store;
   export descriptor;
   export runtime;

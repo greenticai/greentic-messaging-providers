@@ -1,10 +1,8 @@
 use base64::{Engine as _, engine::general_purpose};
-use greentic_types::messaging::universal_dto::{
-    EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, SendPayloadInV1,
-};
+use greentic_types::messaging::universal_dto::{HttpInV1, HttpOutV1, ProviderPayloadV1, SendPayloadInV1};
 use greentic_types::{Actor, ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
 use provider_common::helpers::{
-    PlannerCapabilities, RenderPlanConfig, encode_error, json_bytes, render_plan_common,
+    PlannerCapabilities, RenderPlanConfig, decode_encode_message, encode_error, json_bytes, render_plan_common,
     send_payload_error, send_payload_success,
 };
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
@@ -13,7 +11,6 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 use crate::PROVIDER_TYPE;
-use crate::bindings::greentic::state::state_store;
 use crate::config::load_config;
 use crate::directline::jwt::DirectLineContext;
 use crate::directline::state::{StoredActivity, conversation_key};
@@ -74,11 +71,10 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         .or(tenant_channel_id.clone())
         .unwrap_or_else(|| "webchat".to_string());
 
-    let write_result = state_store::write(&key, &payload_bytes, None);
+    let mut state_store = HostStateStore;
+    let write_result = state_store.write(&key, &payload_bytes);
     if let Err(err) = write_result {
-        return json_bytes(
-            &json!({"ok": false, "error": format!("state write error: {}", err.message)}),
-        );
+        return json_bytes(&json!({"ok": false, "error": err}));
     }
 
     let hash_hex = hex_sha256(&payload_bytes);
@@ -228,25 +224,24 @@ pub(crate) fn render_plan(input_json: &[u8]) -> Vec<u8> {
 }
 
 pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
-    let encode_in = match serde_json::from_slice::<EncodeInV1>(input_json) {
+    let encode_message = match decode_encode_message(input_json) {
         Ok(value) => value,
-        Err(err) => return encode_error(&format!("invalid encode input: {err}")),
+        Err(err) => return encode_error(&err),
     };
-    let text = encode_in
-        .message
+    let text = encode_message
         .text
         .clone()
         .filter(|t| !t.trim().is_empty())
         .unwrap_or_else(|| "webchat universal payload".to_string());
-    let metadata_route = encode_in.message.metadata.get("route").cloned();
+    let metadata_route = encode_message.metadata.get("route").cloned();
     let route = metadata_route
         .clone()
-        .or_else(|| Some(encode_in.message.session_id.clone()));
+        .or_else(|| Some(encode_message.session_id.clone()));
     let route_value = route.clone().unwrap_or_else(|| "webchat".to_string());
     let payload_body = json!({
         "text": text,
         "route": route_value.clone(),
-        "session_id": encode_in.message.session_id,
+        "session_id": encode_message.session_id,
     });
     let body_bytes = serde_json::to_vec(&payload_body).unwrap_or_else(|_| b"{}".to_vec());
     let mut metadata = BTreeMap::new();
@@ -310,8 +305,8 @@ fn persist_send_payload(payload: &Value) -> Result<(), String> {
         "base_url": value_as_trimmed_string(payload.get("base_url")),
         "text": text,
     });
-    state_store::write(&key, &json_bytes(&stored), None)
-        .map_err(|err| format!("state write error: {}", err.message))?;
+    let mut state_store = HostStateStore;
+    state_store.write(&key, &json_bytes(&stored))?;
     Ok(())
 }
 

@@ -89,7 +89,7 @@ DemoRunnerHost::new(bundle_path)
 |-----------|---------------|-------------|
 | HTTP Client | `greentic:http/http-client@1.1.0` | Provider makes outgoing HTTP calls (Telegram API, Slack API, etc.) |
 | Secrets Store | `greentic:secrets/store@1.0.0` | Provider reads bot tokens, API keys from encrypted store |
-| State Store | `greentic:state/state-store@1.0.0` | Provider stores per-conversation state (WebChat needs this) |
+| State Store | `greentic:state/state-store@1.0.0` | Optional host KV store for components that declare the import |
 | WASI | `wasi:http`, `wasi:clocks`, `wasi:random` | Standard WASI capabilities |
 
 ---
@@ -384,7 +384,7 @@ interface schema-core-api {
 | Operation | Input | Output | Purpose |
 |-----------|-------|--------|---------|
 | `render_plan` | RenderPlanInV1 | RenderPlanOutV1 | Determine rendering tier, downsample AC |
-| `encode` | EncodeInV1 | EncodeOutV1 (bytes) | Build provider-specific HTTP payload |
+| `encode` | EncodeInV1 | EncodeOutV1 (bytes) | Consume `render_plan` output payload and build provider-specific HTTP payload |
 | `send_payload` | SendPayloadInV1 | SendPayloadOutV1 | Make HTTP call to external API |
 | `ingest_http` | HttpInV1 | HttpOutV1 | Parse incoming webhook |
 | `send` | ChannelMessageV1 | SendResultV1 | Legacy direct send (deprecated) |

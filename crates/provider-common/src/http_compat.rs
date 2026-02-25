@@ -264,7 +264,10 @@ mod tests {
         }))
         .unwrap();
         let req = parse_operator_http_in(&input).unwrap();
-        assert!(!req.body_b64.is_empty(), "body_b64 should be populated from body array");
+        assert!(
+            !req.body_b64.is_empty(),
+            "body_b64 should be populated from body array"
+        );
         let decoded = STANDARD.decode(&req.body_b64).unwrap();
         let val: serde_json::Value = serde_json::from_slice(&decoded).unwrap();
         assert_eq!(val["update_id"], 123);

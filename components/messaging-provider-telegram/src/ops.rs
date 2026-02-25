@@ -1,12 +1,11 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
-use greentic_types::messaging::universal_dto::{
-    EncodeInV1, HttpOutV1, ProviderPayloadV1, SendPayloadInV1,
-};
+use greentic_types::messaging::universal_dto::{HttpOutV1, ProviderPayloadV1, SendPayloadInV1};
 use greentic_types::{
     Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
 };
 use provider_common::helpers::{
-    PlannerCapabilities, RenderPlanConfig, encode_error, json_bytes, render_plan_common,
+    PlannerCapabilities, RenderPlanConfig, decode_encode_message, encode_error, json_bytes,
+    render_plan_common,
     send_payload_error, send_payload_success,
 };
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
@@ -356,13 +355,15 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         "response": body_json
     });
     if !media_results.is_empty() {
-        result["media"] = json!(media_results
-            .iter()
-            .map(|r| match r {
-                Ok(v) => json!({"ok": true, "response": v}),
-                Err(e) => json!({"ok": false, "error": e}),
-            })
-            .collect::<Vec<_>>());
+        result["media"] = json!(
+            media_results
+                .iter()
+                .map(|r| match r {
+                    Ok(v) => json!({"ok": true, "response": v}),
+                    Err(e) => json!({"ok": false, "error": e}),
+                })
+                .collect::<Vec<_>>()
+        );
     }
     json_bytes(&result)
 }
@@ -528,11 +529,10 @@ fn render_plan_inner(input_json: &[u8]) -> Vec<u8> {
 }
 
 pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
-    let encode_in = match serde_json::from_slice::<EncodeInV1>(input_json) {
+    let mut envelope = match decode_encode_message(input_json) {
         Ok(value) => value,
-        Err(err) => return encode_error(&format!("invalid encode input: {err}")),
+        Err(err) => return encode_error(&err),
     };
-    let mut envelope = encode_in.message;
 
     // If the message carries an Adaptive Card, convert it to rich Telegram
     // content: HTML text, inline keyboard buttons, images for sendPhoto.
