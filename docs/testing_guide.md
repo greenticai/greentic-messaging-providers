@@ -422,7 +422,7 @@ render_plan → encode → send_payload
 | Step | Input | Output |
 |------|-------|--------|
 | `render_plan` | text + optional AC card | `RenderPlan` with body, metadata |
-| `encode` | `RenderPlan` | `EncodedPayload` (provider-specific HTTP body) |
+| `encode` | message + `render_plan` output payload | `EncodedPayload` (provider-specific HTTP body) |
 | `send_payload` | `EncodedPayload` | HTTP call to provider API |
 
 The pipeline runs through the `schema-core-api@1.0.0` `invoke()` export, which the
@@ -486,7 +486,7 @@ crate generates both formats during pack builds.
 |-------|--------|------------|
 | `cargo component build` can't find `provider-schema-core` | Build fails | Use `cargo build` (build script already updated) |
 | `demo setup` may need manifest.cbor update | QA ops not detected | Regenerate manifest.cbor in gtpack (see section 7b) |
-| `greentic-pack build` broken (state-store mismatch) | Can't rebuild packs from scratch | Replace WASM inside existing gtpack zips |
+| `greentic-pack build` may fail for packs importing `state-store` | Pack build can fail on local ABI mismatch | Rebuild affected component WIT/bindings or replace provider WASM inside existing gtpack zips |
 | WebChat needs full HTTP server for real demo | `demo send` only validates pipeline | Use `demo start` + frontend |
 | Teams Azure public client must not send `client_secret` | Auth fails with 400 | Only seed `refresh_token`, not `client_secret` |
 | Pre-existing clippy errors in `greentic-messaging-renderer` | 5 `collapsible_if` warnings | Not related to our changes |
