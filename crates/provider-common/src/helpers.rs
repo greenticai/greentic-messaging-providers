@@ -12,11 +12,12 @@ use base64::Engine as _;
 pub use greentic_messaging_renderer::PlannerAction;
 pub use greentic_messaging_renderer::PlannerCapabilities;
 use greentic_messaging_renderer::{RenderItem, extract_planner_card, plan_render};
+use greentic_types::ChannelMessageEnvelope;
 use greentic_types::messaging::universal_dto::{
     RenderPlanInV1, RenderPlanOutV1, SendPayloadInV1, SendPayloadResultV1,
 };
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
@@ -114,6 +115,28 @@ pub fn render_plan_error(message: &str) -> Vec<u8> {
 /// Return an encode error response.
 pub fn encode_error(message: &str) -> Vec<u8> {
     json_bytes(&json!({"ok": false, "error": message}))
+}
+
+#[derive(Deserialize)]
+struct EncodeMessageIn {
+    message: ChannelMessageEnvelope,
+}
+
+/// Decode encode input across both legacy and current operator shapes.
+///
+/// Supported payloads:
+/// - `{ "message": <ChannelMessageEnvelope>, ... }` (plan may be any JSON shape)
+/// - `<ChannelMessageEnvelope>` (direct envelope fallback)
+pub fn decode_encode_message(input_json: &[u8]) -> Result<ChannelMessageEnvelope, String> {
+    match serde_json::from_slice::<EncodeMessageIn>(input_json) {
+        Ok(value) => Ok(value.message),
+        Err(message_err) => match serde_json::from_slice::<ChannelMessageEnvelope>(input_json) {
+            Ok(envelope) => Ok(envelope),
+            Err(envelope_err) => Err(format!(
+                "invalid encode input: {message_err}; envelope fallback failed: {envelope_err}"
+            )),
+        },
+    }
 }
 
 /// Return a send_payload error response.

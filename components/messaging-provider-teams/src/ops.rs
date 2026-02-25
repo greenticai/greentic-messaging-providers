@@ -1,13 +1,13 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
 use greentic_types::messaging::universal_dto::{
-    EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, SendPayloadInV1,
+    HttpInV1, HttpOutV1, ProviderPayloadV1, SendPayloadInV1,
 };
 use greentic_types::{
     Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
 };
 use provider_common::helpers::{
-    PlannerCapabilities, RenderPlanConfig, encode_error, json_bytes, render_plan_common,
-    send_payload_error,
+    PlannerCapabilities, RenderPlanConfig, decode_encode_message, encode_error, json_bytes,
+    render_plan_common, send_payload_error,
 };
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde_json::{Value, json};
@@ -399,17 +399,17 @@ pub(crate) fn render_plan(input_json: &[u8]) -> Vec<u8> {
 }
 
 pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
-    let encode_in = match serde_json::from_slice::<EncodeInV1>(input_json) {
+    let encode_message = match decode_encode_message(input_json) {
         Ok(value) => value,
-        Err(err) => return encode_error(&format!("invalid encode input: {err}")),
+        Err(err) => return encode_error(&err),
     };
     // Extract AC card from metadata if present — Teams renders it natively.
-    let ac_json = encode_in.message.metadata.get("adaptive_card").cloned();
+    let ac_json = encode_message.metadata.get("adaptive_card").cloned();
 
     // Serialize the full envelope so send_payload -> handle_send can parse it.
     // Inject ac_json into the serialized form so handle_send can attach it.
     let mut envelope_val =
-        serde_json::to_value(&encode_in.message).unwrap_or(Value::Object(Default::default()));
+        serde_json::to_value(&encode_message).unwrap_or(Value::Object(Default::default()));
     if let Some(ac) = &ac_json {
         envelope_val
             .as_object_mut()
@@ -418,7 +418,7 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
     }
     // Forward reply_to_id from metadata so handle_send can thread replies.
     // Strip surrounding quotes — operator may double-quote args-json values.
-    if let Some(reply_id) = encode_in.message.metadata.get("reply_to_id") {
+    if let Some(reply_id) = encode_message.metadata.get("reply_to_id") {
         let clean = reply_id.trim_matches('"');
         if !clean.is_empty() {
             envelope_val

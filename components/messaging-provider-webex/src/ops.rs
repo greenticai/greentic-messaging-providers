@@ -1,14 +1,14 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
 use greentic_types::messaging::universal_dto::{
-    EncodeInV1, HttpInV1, HttpOutV1, ProviderPayloadV1, SendPayloadInV1,
+    HttpInV1, HttpOutV1, ProviderPayloadV1, SendPayloadInV1,
 };
 use greentic_types::{
     Actor, Attachment, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx,
     TenantId,
 };
 use provider_common::helpers::{
-    PlannerCapabilities, RenderPlanConfig, encode_error, json_bytes, render_plan_common,
-    send_payload_error,
+    PlannerCapabilities, RenderPlanConfig, decode_encode_message, encode_error, json_bytes,
+    render_plan_common, send_payload_error,
 };
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde_json::{Value, json};
@@ -344,11 +344,10 @@ pub(crate) fn render_plan(input_json: &[u8]) -> Vec<u8> {
 }
 
 pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
-    let encode_in = match serde_json::from_slice::<EncodeInV1>(input_json) {
+    let envelope = match decode_encode_message(input_json) {
         Ok(value) => value,
-        Err(err) => return encode_error(&format!("invalid encode input: {err}")),
+        Err(err) => return encode_error(&err),
     };
-    let envelope = encode_in.message;
     let body_bytes = serde_json::to_vec(&envelope).unwrap_or_else(|_| b"{}".to_vec());
     let payload = ProviderPayloadV1 {
         content_type: "application/json".to_string(),

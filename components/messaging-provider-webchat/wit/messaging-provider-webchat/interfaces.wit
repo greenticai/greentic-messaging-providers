@@ -2,7 +2,6 @@
 
 package greentic:component@0.6.1;
 
-use greentic:state/state-store@1.0.0;
 use greentic:secrets-store/secrets-store@1.0.0;
 
 interface descriptor {
@@ -29,4 +28,3 @@ interface component-i18n {
   i18n-keys: func() -> list<string>;
   i18n-bundle: func(locale: string) -> list<u8>;
 }
-
