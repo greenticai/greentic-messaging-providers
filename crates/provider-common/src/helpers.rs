@@ -12,12 +12,12 @@ use base64::Engine as _;
 pub use greentic_messaging_renderer::PlannerAction;
 pub use greentic_messaging_renderer::PlannerCapabilities;
 use greentic_messaging_renderer::{RenderItem, extract_planner_card, plan_render};
+use greentic_types::ChannelMessageEnvelope;
 use greentic_types::messaging::universal_dto::{
     RenderPlanInV1, RenderPlanOutV1, SendPayloadInV1, SendPayloadResultV1,
 };
-use greentic_types::ChannelMessageEnvelope;
-use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 

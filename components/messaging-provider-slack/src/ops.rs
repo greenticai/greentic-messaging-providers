@@ -7,8 +7,7 @@ use greentic_types::{
 };
 use provider_common::helpers::{
     PlannerCapabilities, RenderPlanConfig, decode_encode_message, encode_error, json_bytes,
-    render_plan_common,
-    send_payload_error, send_payload_success,
+    render_plan_common, send_payload_error, send_payload_success,
 };
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use serde_json::{Value, json};
@@ -289,7 +288,10 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
             .or_else(|| encode_message.text.clone().filter(|t| !t.trim().is_empty()))
             .unwrap_or_else(|| "slack universal payload".to_string())
     } else {
-        encode_message.text.clone().filter(|t| !t.trim().is_empty())
+        encode_message
+            .text
+            .clone()
+            .filter(|t| !t.trim().is_empty())
             .unwrap_or_else(|| "slack universal payload".to_string())
     };
 
