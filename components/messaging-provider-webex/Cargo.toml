@@ -27,3 +27,4 @@ world = "component-v0-v6-v0"
 "greentic:http" = { path = "wit/messaging-provider-webex/deps/http" }
 "greentic:secrets-store" = { path = "wit/messaging-provider-webex/deps/secrets-store" }
 "greentic:interfaces-types" = { path = "wit/messaging-provider-webex/deps/interfaces-types" }
+"greentic:provider-schema-core" = { path = "wit/messaging-provider-webex/deps/provider-schema-core" }

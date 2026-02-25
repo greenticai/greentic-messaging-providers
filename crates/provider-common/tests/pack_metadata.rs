@@ -381,7 +381,8 @@ fn gtpack_templates_nodes_require_config() -> Result<()> {
                 let has_legacy_config = mapping
                     .map(|map| map.contains_key("output_path") && map.contains_key("wrap"))
                     .unwrap_or(false);
-                if !has_config && !has_legacy_config {
+                let has_text_mapping = mapping.and_then(|map| map.get("text")).is_some();
+                if !has_config && !has_legacy_config && !has_text_mapping {
                     missing.push(format!("{flow_entry}:{node_id}"));
                 }
             }

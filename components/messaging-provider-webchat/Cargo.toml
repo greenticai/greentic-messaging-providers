@@ -32,3 +32,4 @@ world = "component-v0-v6-v0"
 "greentic:state" = { path = "wit/messaging-provider-webchat/deps/state" }
 "greentic:interfaces-types" = { path = "wit/messaging-provider-webchat/deps/interfaces-types" }
 "greentic:secrets-store" = { path = "wit/messaging-provider-webchat/deps/secrets-store" }
+"greentic:provider-schema-core" = { path = "wit/messaging-provider-webchat/deps/provider-schema-core" }

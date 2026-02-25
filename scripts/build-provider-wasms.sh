@@ -22,28 +22,18 @@ if ! rustup target list --installed | grep -q "${BUILD_TARGET}"; then
   rustup target add "${BUILD_TARGET}"
 fi
 
-if ! command -v cargo-component >/dev/null 2>&1; then
-  echo "cargo-component not found; installing..."
-  cargo install cargo-component --locked
-fi
-
 mkdir -p "${TARGET_DIR}"
 mkdir -p "${DIST_DIR}"
 
 for PACKAGE_NAME in "${PACKAGES[@]}"; do
   ARTIFACT_NAME="${PACKAGE_NAME//-/_}.wasm"
-  ARTIFACT_PATH="${TARGET_DIR}/release/${ARTIFACT_NAME}"
-  NESTED_ARTIFACT_PATH="${TARGET_DIR}/${BUILD_TARGET}/release/${ARTIFACT_NAME}"
+  ARTIFACT_PATH="${TARGET_DIR}/${BUILD_TARGET}/release/${ARTIFACT_NAME}"
 
-  cargo component build \
+  cargo build \
     --release \
     --package "${PACKAGE_NAME}" \
     --target "${BUILD_TARGET}" \
     --target-dir "${TARGET_DIR}"
-
-  if [ ! -f "${ARTIFACT_PATH}" ] && [ -f "${NESTED_ARTIFACT_PATH}" ]; then
-    ARTIFACT_PATH="${NESTED_ARTIFACT_PATH}"
-  fi
 
   if [ ! -f "${ARTIFACT_PATH}" ]; then
     echo "Expected artifact not found: ${ARTIFACT_PATH}" >&2

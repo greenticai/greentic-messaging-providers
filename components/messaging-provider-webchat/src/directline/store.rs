@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
 
 use crate::bindings::greentic::secrets_store::secrets_store;
-use crate::bindings::greentic::state::state_store;
 
 /// Driver for namespaced state operations used by the Direct Line contract.
 pub trait StateStore {
@@ -17,25 +18,25 @@ pub trait SecretStore {
 /// Host-backed state store implementation.
 pub struct HostStateStore;
 
+fn state_map() -> &'static Mutex<HashMap<String, Vec<u8>>> {
+    static STATE: OnceLock<Mutex<HashMap<String, Vec<u8>>>> = OnceLock::new();
+    STATE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 impl StateStore for HostStateStore {
     fn read(&mut self, key: &str) -> Result<Option<Vec<u8>>, String> {
-        match state_store::read(key, None) {
-            Ok(bytes) => Ok(Some(bytes)),
-            Err(err) => {
-                let code = err.code.to_ascii_lowercase().replace('-', "_");
-                if code == "not_found" {
-                    Ok(None)
-                } else {
-                    Err(format!("state read error: {} - {}", err.code, err.message))
-                }
-            }
-        }
+        let guard = state_map()
+            .lock()
+            .map_err(|_| "state read error: lock poisoned".to_string())?;
+        Ok(guard.get(key).cloned())
     }
 
     fn write(&mut self, key: &str, value: &[u8]) -> Result<(), String> {
-        state_store::write(key, value, None)
-            .map(|_| ())
-            .map_err(|err| format!("state write error: {} - {}", err.code, err.message))
+        let mut guard = state_map()
+            .lock()
+            .map_err(|_| "state write error: lock poisoned".to_string())?;
+        guard.insert(key.to_string(), value.to_vec());
+        Ok(())
     }
 }
 

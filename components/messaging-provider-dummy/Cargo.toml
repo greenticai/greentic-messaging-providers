@@ -20,3 +20,6 @@ provider-common.workspace = true
 [package.metadata.component.target]
 path = "wit/messaging-provider-dummy"
 world = "component-v0-v6-v0"
+
+[package.metadata.component.target.dependencies]
+"greentic:provider-schema-core" = { path = "wit/messaging-provider-dummy/deps/provider-schema-core" }
