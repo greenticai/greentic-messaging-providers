@@ -1,7 +1,8 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
-use greentic_types::messaging::universal_dto::{EncodeInV1, SendPayloadInV1};
+use greentic_types::messaging::universal_dto::SendPayloadInV1;
 use provider_common::helpers::{
-    PlannerCapabilities, RenderPlanConfig, encode_error, json_bytes, render_plan_common,
+    PlannerCapabilities, RenderPlanConfig, decode_encode_message, encode_error, json_bytes,
+    render_plan_common,
     send_payload_error, send_payload_success,
 };
 use serde_json::{Value, json};
@@ -197,14 +198,13 @@ pub(crate) fn render_plan(input_json: &[u8]) -> Vec<u8> {
 pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
     use provider_common::helpers::extract_ac_summary;
 
-    let encode_in = match serde_json::from_slice::<EncodeInV1>(input_json) {
+    let encode_message = match decode_encode_message(input_json) {
         Ok(value) => value,
-        Err(err) => return encode_error(&format!("invalid encode input: {err}")),
+        Err(err) => return encode_error(&err),
     };
 
     // If the message carries an Adaptive Card, convert to styled HTML email.
-    let ac_html = encode_in
-        .message
+    let ac_html = encode_message
         .metadata
         .get("adaptive_card")
         .and_then(|ac_raw| ac_to_email_html(ac_raw));
@@ -212,8 +212,7 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
     let (text, is_html) = if let Some(html) = ac_html {
         (html, true)
     } else {
-        let fallback = encode_in
-            .message
+        let fallback = encode_message
             .metadata
             .get("adaptive_card")
             .and_then(|ac_raw| {
@@ -228,20 +227,13 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
                 };
                 extract_ac_summary(ac_raw, &caps)
             })
-            .or_else(|| {
-                encode_in
-                    .message
-                    .text
-                    .clone()
-                    .filter(|t| !t.trim().is_empty())
-            })
+            .or_else(|| encode_message.text.clone().filter(|t| !t.trim().is_empty()))
             .unwrap_or_else(|| "universal email payload".to_string());
         (fallback, false)
     };
 
     // Extract AC title for subject line if available.
-    let ac_title = encode_in
-        .message
+    let ac_title = encode_message
         .metadata
         .get("adaptive_card")
         .and_then(|ac_raw| {
@@ -265,18 +257,16 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
         });
 
     // Extract destination email from envelope.to[0].id (preferred) or metadata
-    let to = encode_in
-        .message
+    let to = encode_message
         .to
         .first()
         .map(|d| d.id.clone())
-        .or_else(|| encode_in.message.metadata.get("to").cloned())
+        .or_else(|| encode_message.metadata.get("to").cloned())
         .unwrap_or_default();
     if to.is_empty() {
         return encode_error("missing email target");
     }
-    let subject = encode_in
-        .message
+    let subject = encode_message
         .metadata
         .get("subject")
         .cloned()

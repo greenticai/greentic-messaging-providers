@@ -10,7 +10,7 @@ WASM-based messaging provider components for the Greentic platform. Each provide
 | **Teams** | Microsoft Teams | TierA (native AC) | MS Graph API | `MS_GRAPH_CLIENT_SECRET`, `MS_GRAPH_REFRESH_TOKEN` |
 | **Telegram** | Telegram | TierD (plain text) | Telegram Bot API | `TELEGRAM_BOT_TOKEN` |
 | **Webex** | Cisco Webex | TierB (AC attachment) | Webex REST API | `WEBEX_BOT_TOKEN` |
-| **WebChat** | BotFramework WebChat | TierA (native AC) | Direct Line / state-store | None (uses state-store) |
+| **WebChat** | BotFramework WebChat | TierA (native AC) | Direct Line / local in-process state | None |
 | **WhatsApp** | WhatsApp Business | TierD (plain text) | WhatsApp Cloud API | `WHATSAPP_TOKEN` |
 | **Email** | Email (Graph API) | TierD (HTML) | MS Graph `/me/sendMail` | `MS_GRAPH_CLIENT_ID`, `MS_GRAPH_REFRESH_TOKEN`, `FROM_ADDRESS`, `GRAPH_TENANT_ID` |
 | **Dummy** | Test only | N/A | None | None |
@@ -26,7 +26,7 @@ Operator (Rust / Wasmtime)
   │
   ├── loads .gtpack (ZIP containing WASM + flows + metadata)
   ├── instantiates WASM component in sandbox
-  ├── links host imports (http-client, secrets-store, state-store)
+  ├── links host imports (provider-dependent; e.g. http-client, secrets-store)
   └── calls invoke(op, input_cbor) → output_cbor
         │
         ├── "ingest_http"   → ingress (webhook → normalized message)
@@ -53,7 +53,7 @@ world component-v0-v6-v0 {
 
 **Import variants by provider:**
 - Most providers: `http-client` + `secrets-store`
-- WebChat: `state-store` + `secrets-store` (no http-client — uses state-store for conversation management)
+- WebChat: `secrets-store` (Direct Line state is handled in-process)
 
 ### Dual Export
 
@@ -161,7 +161,7 @@ When an operation is dispatched, the operator:
 |------------|-------------------|
 | `greentic:secrets/secrets-store@1.0.0` | `SecretsManagerHandle` → dev secrets file / AWS / Azure KV / Vault |
 | `greentic:http/http-client@1.1.0` | Outbound HTTP (provider API calls to Slack, Telegram, etc.) |
-| `greentic:state/state-store@1.0.0` | In-memory JSON store (shared across invocations) |
+| `greentic:state/state-store@1.0.0` | Optional host key-value store (only for components that declare it) |
 | `wasi:io/*`, `wasi:random/*` | Standard WASI Preview 2 |
 
 3. Resolves provider binding via `pack_runtime.resolve_provider()`
@@ -178,7 +178,7 @@ ChannelMessageEnvelope
     │       decides AC tier, extracts text if TierD
     │
     ├─ invoke("encode", EncodeInV1)           → EncodeOutV1
-    │       serializes to ProviderPayloadV1 (base64 body)
+    │       consumes render_plan output payload and serializes ProviderPayloadV1
     │
     └─ invoke("send_payload", SendPayloadInV1) → SendPayloadResultV1
             resolves secrets, HTTP POST to external API
@@ -718,8 +718,7 @@ Each provider has tests for:
 | Issue | Impact | Workaround |
 |-------|--------|------------|
 | `cargo component build` fails | WIT resolution bug | Use `cargo build` (build script already patched) |
-| `greentic-pack build` broken | state-store interface mismatch | Replace WASM inside existing `.gtpack` with `zip -u` |
-| WebChat needs state-store in manifest | Pack manifest must declare `capabilities.host.state` | Update manifest CBOR with `state: {read: true, write: true}` |
+| `greentic-pack build` may fail for packs importing `state-store` | ABI mismatch on some local toolchain combinations | Rebuild affected component WIT/bindings or replace WASM in `.gtpack` as temporary workaround |
 | 5 clippy warnings in renderer | `collapsible_if` lint | Pre-existing in `greentic-messaging-renderer`, not from provider code |
 
 ### Troubleshooting
@@ -814,10 +813,9 @@ Workspace tests ensure each provider:
 ### WebChat
 
 - **API**: Direct Line (operator-embedded or Microsoft hosted)
-- **Imports**: `state-store` + `secrets-store` (no http-client)
+- **Imports**: `secrets-store` (state is stored in-process)
 - **AC**: TierA — native rendering in BotFramework-WebChat
 - **Modes**: `local_queue` (operator in-memory) or `directline` (Microsoft service)
-- **Note**: Requires state-store linker support in operator
 
 ### WhatsApp
 

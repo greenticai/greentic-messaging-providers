@@ -25,7 +25,12 @@
           "random": false,
           "clocks": false
         },
-        "host": {}
+        "host": {
+          "state": {
+            "read": true,
+            "write": true
+          }
+        }
       },
       "wasm": "components/provision.wasm"
     },

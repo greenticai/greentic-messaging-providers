@@ -345,10 +345,7 @@ mod tests {
             message: msg.clone(),
             metadata: BTreeMap::new(),
         };
-        let input = EncodeInV1 {
-            message: msg,
-            plan,
-        };
+        let input = EncodeInV1 { message: msg, plan };
         serde_json::to_vec(&input).unwrap()
     }
 
@@ -391,7 +388,10 @@ mod tests {
     #[test]
     fn encode_op_audio_metadata() {
         let mut meta = serde_json::Map::new();
-        meta.insert("wa_audio_url".into(), json!("https://example.com/audio.mp3"));
+        meta.insert(
+            "wa_audio_url".into(),
+            json!("https://example.com/audio.mp3"),
+        );
         let input = make_encode_input("hello", meta, vec![]);
         let result = ops::encode_op(&input);
         let payload = decode_encode_payload(&result);
@@ -404,7 +404,10 @@ mod tests {
     #[test]
     fn encode_op_document_metadata() {
         let mut meta = serde_json::Map::new();
-        meta.insert("wa_document_url".into(), json!("https://example.com/doc.pdf"));
+        meta.insert(
+            "wa_document_url".into(),
+            json!("https://example.com/doc.pdf"),
+        );
         meta.insert("wa_document_filename".into(), json!("report.pdf"));
         meta.insert("wa_document_caption".into(), json!("Q4 report"));
         let input = make_encode_input("hello", meta, vec![]);
@@ -427,7 +430,10 @@ mod tests {
     #[test]
     fn encode_op_sticker_metadata() {
         let mut meta = serde_json::Map::new();
-        meta.insert("wa_sticker_url".into(), json!("https://example.com/sticker.webp"));
+        meta.insert(
+            "wa_sticker_url".into(),
+            json!("https://example.com/sticker.webp"),
+        );
         let input = make_encode_input("hello", meta, vec![]);
         let result = ops::encode_op(&input);
         let payload = decode_encode_payload(&result);
@@ -449,7 +455,10 @@ mod tests {
         let payload = decode_encode_payload(&result);
         let loc = payload.get("wa_location").expect("wa_location present");
         assert_eq!(loc.get("latitude").and_then(Value::as_str), Some("51.5074"));
-        assert_eq!(loc.get("longitude").and_then(Value::as_str), Some("-0.1278"));
+        assert_eq!(
+            loc.get("longitude").and_then(Value::as_str),
+            Some("-0.1278")
+        );
         assert_eq!(loc.get("name").and_then(Value::as_str), Some("London"));
         assert_eq!(
             loc.get("address").and_then(Value::as_str),
