@@ -5,14 +5,14 @@
 //! so this module bridges the two encodings.
 
 use crate::component_v0_6::{canonical_cbor_bytes, decode_cbor};
-use crate::helpers::{QaQuestionDef, i18n_keys_from, json_bytes, qa_spec_for_mode};
+use crate::helpers::{QaQuestionDef, i18n_bundle_from_pairs, i18n_keys_from, json_bytes, qa_spec_for_mode};
 use serde_json::{Value, json};
 
 /// Try to dispatch a QA op through the JSON invoke path.
 ///
 /// Returns `Some(json_bytes)` if `op` is a QA op (`qa-spec`, `apply-answers`,
-/// or `i18n-keys`), `None` otherwise so the caller can fall through to its
-/// normal dispatch.
+/// `i18n-keys`, or `i18n-bundle`), `None` otherwise so the caller can fall
+/// through to its normal dispatch.
 ///
 /// `apply_fn(mode_str, answers_cbor) -> result_cbor` is the provider-specific
 /// apply-answers implementation that works with CBOR in/out.
@@ -25,6 +25,30 @@ pub fn dispatch_qa_ops(
     i18n_keys_list: &[&str],
     apply_fn: impl FnOnce(&str, Vec<u8>) -> Vec<u8>,
 ) -> Option<Vec<u8>> {
+    dispatch_qa_ops_with_i18n(
+        op,
+        input_json,
+        provider_name,
+        setup_questions,
+        default_keys,
+        i18n_keys_list,
+        &[],
+        apply_fn,
+    )
+}
+
+/// Extended version of [`dispatch_qa_ops`] that also accepts `i18n_pairs`
+/// for the `i18n-bundle` operation.
+pub fn dispatch_qa_ops_with_i18n(
+    op: &str,
+    input_json: &[u8],
+    provider_name: &str,
+    setup_questions: &[QaQuestionDef],
+    default_keys: &[&str],
+    i18n_keys_list: &[&str],
+    i18n_pairs: &[(&str, &str)],
+    apply_fn: impl FnOnce(&str, Vec<u8>) -> Vec<u8>,
+) -> Option<Vec<u8>> {
     match op {
         "qa-spec" => Some(bridge_qa_spec(
             input_json,
@@ -34,6 +58,7 @@ pub fn dispatch_qa_ops(
         )),
         "apply-answers" => Some(bridge_apply_answers(input_json, apply_fn)),
         "i18n-keys" => Some(bridge_i18n_keys(i18n_keys_list)),
+        "i18n-bundle" => Some(bridge_i18n_bundle(input_json, i18n_pairs)),
         _ => None,
     }
 }
@@ -91,6 +116,23 @@ fn bridge_apply_answers(
 fn bridge_i18n_keys(i18n_keys_list: &[&str]) -> Vec<u8> {
     let keys = i18n_keys_from(i18n_keys_list);
     json_bytes(&keys)
+}
+
+/// `i18n-bundle`: returns JSON `{"locale":"…","messages":{key:value}}`.
+///
+/// The input is a JSON string with the locale (e.g. `"en"`).
+/// Uses the provider's custom `I18N_PAIRS` for translations.
+fn bridge_i18n_bundle(input_json: &[u8], i18n_pairs: &[(&str, &str)]) -> Vec<u8> {
+    let locale: String = serde_json::from_slice(input_json)
+        .ok()
+        .and_then(|v: Value| v.as_str().map(String::from))
+        .unwrap_or_else(|| "en".to_string());
+    let cbor = i18n_bundle_from_pairs(locale, i18n_pairs);
+    // Decode CBOR to JSON for the operator
+    match decode_cbor::<Value>(&cbor) {
+        Ok(val) => json_bytes(&val),
+        Err(e) => json_bytes(&json!({"error": format!("cbor decode error: {e}")})),
+    }
 }
 
 /// Extract the mode string from JSON input, defaulting to `"setup"`.
