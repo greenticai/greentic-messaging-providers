@@ -43,17 +43,19 @@ def main() -> int:
         raise SystemExit(f"dist dir not found: {dist_dir}")
 
     lock = load_lock(lock_path)
-    packs = {p["name"]: p for p in lock.get("packs", []) if "name" in p}
-
-    for gtpack in dist_dir.glob("*.gtpack"):
+    existing = {p["name"]: p for p in lock.get("packs", []) if "name" in p}
+    gtpack_files = sorted(dist_dir.glob("*.gtpack"), key=lambda p: p.name)
+    packs = []
+    for gtpack in gtpack_files:
         name = gtpack.stem
         digest = sha256_file(gtpack)
-        entry = packs.get(name, {"name": name})
+        entry = dict(existing.get(name, {}))
+        entry["name"] = name
         entry["file"] = str(gtpack)
         entry["digest"] = f"sha256:{digest}"
-        packs[name] = entry
+        packs.append(entry)
 
-    lock["packs"] = list(packs.values())
+    lock["packs"] = packs
     lock["generated_at"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     try:
         lock["git_sha"] = (

@@ -24,3 +24,4 @@ DRY_RUN="${DRY_RUN:-1}"
 
 cd "${ROOT_DIR}"
 DRY_RUN="${DRY_RUN}" PACK_VERSION="${PACK_VERSION}" PACKC_BUILD_FLAGS="${PACKC_BUILD_FLAGS}" ./tools/publish_packs_oci.sh
+python3 ./tools/update_packs_lock.py --dist "${OUT_DIR:-dist/packs}" --lock packs.lock.json
