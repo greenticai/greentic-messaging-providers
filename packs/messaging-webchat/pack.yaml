@@ -34,7 +34,7 @@ components:
     host: {}
   wasm: components/questions.wasm
 - id: ai.greentic.component-templates
-  version: 0.4.34
+  version: 0.1.0
   world: root:component/root
   supports:
   - messaging
@@ -797,6 +797,7 @@ extensions:
         ops:
         - send
         - ingest
+        - ingest_http
         - qa-spec
         - apply-answers
         - i18n-keys
@@ -819,3 +820,14 @@ extensions:
         setup_default: setup_default
         update: update
         verify_webhooks: verify_webhooks
+  messaging.provider_ingress.v1:
+    kind: messaging.provider_ingress.v1
+    version: 0.4.34
+    inline:
+      capabilities:
+        content_types:
+        - application/json
+        supports_webhook_validation: false
+      component_ref: messaging-provider-webchat
+      export: ingest-http
+      world: greentic:provider/schema-core@1.0.0

@@ -21,9 +21,9 @@ mod bindings {
         generate_all
     });
 }
+mod describe;
 mod directline;
 
-use bindings::greentic::state::state_store;
 use directline::jwt::DirectLineContext;
 use directline::state::{StoredActivity, conversation_key};
 use directline::store::StateStore as _;
@@ -370,55 +370,7 @@ fn build_describe_payload() -> DescribePayload {
 }
 
 fn build_qa_spec(mode: bindings::exports::greentic::component::qa::Mode) -> QaSpec {
-    use bindings::exports::greentic::component::qa::Mode;
-    match mode {
-        Mode::Default => QaSpec {
-            mode: "default".to_string(),
-            title: i18n("webchat.qa.default.title"),
-            questions: vec![qa_q(
-                "public_base_url",
-                "webchat.qa.setup.public_base_url",
-                true,
-            )],
-        },
-        Mode::Setup => QaSpec {
-            mode: "setup".to_string(),
-            title: i18n("webchat.qa.setup.title"),
-            questions: vec![
-                qa_q("enabled", "webchat.qa.setup.enabled", true),
-                qa_q("public_base_url", "webchat.qa.setup.public_base_url", true),
-                qa_q("mode", "webchat.qa.setup.mode", true),
-                qa_q("route", "webchat.qa.setup.route", false),
-                qa_q(
-                    "tenant_channel_id",
-                    "webchat.qa.setup.tenant_channel_id",
-                    false,
-                ),
-                qa_q("base_url", "webchat.qa.setup.base_url", false),
-            ],
-        },
-        Mode::Upgrade => QaSpec {
-            mode: "upgrade".to_string(),
-            title: i18n("webchat.qa.upgrade.title"),
-            questions: vec![
-                qa_q("enabled", "webchat.qa.setup.enabled", false),
-                qa_q("public_base_url", "webchat.qa.setup.public_base_url", false),
-                qa_q("mode", "webchat.qa.setup.mode", false),
-                qa_q("route", "webchat.qa.setup.route", false),
-                qa_q(
-                    "tenant_channel_id",
-                    "webchat.qa.setup.tenant_channel_id",
-                    false,
-                ),
-                qa_q("base_url", "webchat.qa.setup.base_url", false),
-            ],
-        },
-        Mode::Remove => QaSpec {
-            mode: "remove".to_string(),
-            title: i18n("webchat.qa.remove.title"),
-            questions: Vec::new(),
-        },
-    }
+    describe::build_qa_spec(mode)
 }
 
 fn input_schema() -> SchemaIr {
@@ -553,13 +505,7 @@ fn op(name: &str, title: &str, description: &str) -> OperationDescriptor {
         description: i18n(description),
     }
 }
-fn qa_q(key: &str, text: &str, required: bool) -> QaQuestionSpec {
-    QaQuestionSpec {
-        key: key.to_string(),
-        text: i18n(text),
-        required,
-    }
-}
+
 fn i18n(key: &str) -> I18nText {
     I18nText {
         key: key.to_string(),
@@ -620,11 +566,9 @@ fn handle_send(input_json: &[u8]) -> Vec<u8> {
         .or(tenant_channel_id.clone())
         .unwrap_or_else(|| "webchat".to_string());
 
-    let write_result = state_store::write(&key, &payload_bytes, None);
-    if let Err(err) = write_result {
-        return json_bytes(
-            &json!({"ok": false, "error": format!("state write error: {}", err.message)}),
-        );
+    let mut store = HostStateStore;
+    if let Err(err) = store.write(&key, &payload_bytes) {
+        return json_bytes(&json!({"ok": false, "error": err}));
     }
 
     let hash_hex = hex_sha256(&payload_bytes);
@@ -872,8 +816,8 @@ fn persist_send_payload(payload: &Value) -> Result<(), String> {
         "base_url": value_as_trimmed_string(payload.get("base_url")),
         "text": text,
     });
-    state_store::write(&key, &json_bytes(&stored), None)
-        .map_err(|err| format!("state write error: {}", err.message))?;
+    let mut store = HostStateStore;
+    store.write(&key, &json_bytes(&stored))?;
     Ok(())
 }
 
