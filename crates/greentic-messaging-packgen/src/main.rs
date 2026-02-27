@@ -998,7 +998,7 @@ fn write_default_spec_file(path: &Path) -> Result<()> {
         }),
         validators: Some(vec![ValidatorSpec {
             id: "greentic.validators.messaging".to_string(),
-            component_ref: "oci://ghcr.io/greentic-ai/validators/messaging:latest".to_string(),
+            component_ref: "oci://ghcr.io/greenticai/validators/messaging:latest".to_string(),
         }]),
         source: None,
         contract: None,
@@ -3113,3 +3113,4 @@ mod tests {
         );
     }
 }
+

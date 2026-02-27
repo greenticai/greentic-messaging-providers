@@ -50,4 +50,5 @@ requirements:
   notes: For egress-only tests, chat_id must be supplied.
 validators:
   - id: greentic.validators.messaging
-    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest
+    component_ref: oci://ghcr.io/greenticai/validators/messaging:latest
+

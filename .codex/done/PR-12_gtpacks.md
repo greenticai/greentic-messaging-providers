@@ -70,13 +70,13 @@ Lockfile format (example shape; keep stable):
   "generated_at": "2025-12-16T00:00:00Z",
   "git_sha": "abc123...",
   "registry": "ghcr.io",
-  "org": "greentic-ai",
+  "org": "greenticai",
   "repo": "greentic-packs",
   "packs": [
     {
       "name": "messaging-provider-bundle",
       "file": "dist/packs/messaging-provider-bundle.gtpack",
-      "oci_ref": "ghcr.io/greentic-ai/greentic-packs/messaging-provider-bundle:1.2.3",
+      "oci_ref": "ghcr.io/greenticai/greentic-packs/messaging-provider-bundle:1.2.3",
       "digest": "sha256:...."
     }
   ]

@@ -1,6 +1,6 @@
 # MP-PR-09 — Dummy provider pack: gold-standard offline conformance
 
-REPO: greentic-ai/greentic-messaging-providers
+REPO: greenticai/greentic-messaging-providers
 
 GOAL
 Make messaging-dummy the canonical pack used by all CI harnesses for offline E2E.
@@ -19,3 +19,4 @@ ACCEPTANCE
 - doctor passes
 - conformance dry-run passes
 - used as first pack in CI matrices
+

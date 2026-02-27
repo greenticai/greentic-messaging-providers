@@ -4,7 +4,7 @@ set -euo pipefail
 # Publish questions component to GHCR.
 
 OCI_REGISTRY="${OCI_REGISTRY:-ghcr.io}"
-OCI_NAMESPACE="${OCI_NAMESPACE:-greentic-ai/components}"
+OCI_NAMESPACE="${OCI_NAMESPACE:-greenticai/components}"
 VERSION="${VERSION:-}"
 
 if [ -z "${VERSION}" ]; then
@@ -53,3 +53,4 @@ fi
 rm -f "${ARTIFACT_DIR}/README.md"
 rm -f "${ARTIFACT_DIR}/component.manifest.json"
 echo "Published ${ref}"
+

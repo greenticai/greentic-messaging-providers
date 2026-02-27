@@ -702,7 +702,7 @@ extensions:
     version: 0.4.34
     inline:
       validators:
-      - component_ref: oci://ghcr.io/greentic-ai/validators/messaging:0.4.19
+      - component_ref: oci://ghcr.io/greenticai/validators/messaging:0.4.19
         id: greentic.validators.messaging
         world: greentic:pack-validate/pack-validator@0.1.0
   greentic.provider-extension.v1:
@@ -746,3 +746,4 @@ extensions:
       component_ref: messaging-ingress-whatsapp
       export: handle-webhook
       world: greentic:messaging-ingress-whatsapp/messaging-ingress-whatsapp@0.0.1
+

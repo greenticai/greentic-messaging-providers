@@ -59,4 +59,5 @@ requirements:
   notes: Channel is required unless configured via default_channel.
 validators:
   - id: greentic.validators.messaging
-    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest
+    component_ref: oci://ghcr.io/greenticai/validators/messaging:latest
+

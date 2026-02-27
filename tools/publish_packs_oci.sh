@@ -47,7 +47,7 @@ git_sha="$(cd "${ROOT_DIR}" && git rev-parse --short HEAD 2>/dev/null || echo "u
 
 # Default OCI location for the shared templates component used by many packs.
 TEMPLATES_REGISTRY="${TEMPLATES_REGISTRY:-${OCI_REGISTRY:-ghcr.io}}"
-TEMPLATES_NAMESPACE="${TEMPLATES_NAMESPACE:-${GHCR_NAMESPACE:-${OCI_ORG:-greentic-ai-org}}}"
+TEMPLATES_NAMESPACE="${TEMPLATES_NAMESPACE:-${GHCR_NAMESPACE:-${OCI_ORG:-greenticai-org}}}"
 DEFAULT_TEMPLATES_IMAGE="${TEMPLATES_IMAGE:-${TEMPLATES_REGISTRY}/${TEMPLATES_NAMESPACE}/components/templates:latest}"
 DEFAULT_TEMPLATES_DIGEST=""
 DEFAULT_TEMPLATES_ARTIFACT="component_templates.wasm"
@@ -504,7 +504,7 @@ if [ -f "${bundle_pack}" ]; then
 fi
 
 if compgen -G "${ROOT_DIR}/${OUT_DIR}/messaging-*.gtpack" >/dev/null; then
-  validator_pack_ref="${VALIDATOR_PACK_REF:-oci://ghcr.io/greentic-ai/validators/messaging:latest}"
+  validator_pack_ref="${VALIDATOR_PACK_REF:-oci://ghcr.io/greenticai/validators/messaging:latest}"
   if "${PACKC_BIN}" doctor --help 2>&1 | rg -q -- '--validate'; then
     doctor_supports_validate=1
   else
@@ -539,3 +539,4 @@ fi
 
 echo "${packs_json}" | jq '{ packs: . }' > "${ROOT_DIR}/packs.lock.json"
 echo "Wrote packs.lock.json"
+

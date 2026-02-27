@@ -43,4 +43,5 @@ requirements:
   notes: Dummy provider requires a destination for egress-only tests.
 validators:
   - id: greentic.validators.messaging
-    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest
+    component_ref: oci://ghcr.io/greenticai/validators/messaging:latest
+

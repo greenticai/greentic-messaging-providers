@@ -1,6 +1,6 @@
 # MP-PR-01 — Pack bundling correctness: include all referenced schemas/assets, enforce via doctor
 
-REPO: greentic-ai/greentic-messaging-providers
+REPO: greenticai/greentic-messaging-providers
 
 GOAL
 Unblock publishing and runtime execution by ensuring every provider pack bundles **all referenced schemas and assets** inside the `.gtpack` archive.
@@ -72,3 +72,4 @@ ACCEPTANCE CRITERIA
 - `publish_packs_oci.sh` no longer fails with “provider config schema missing from the pack archive”.
 - `greentic-pack doctor --validate` passes for all `dist/packs/messaging-*.gtpack`.
 - Provider declarations reference `schemas/...` paths only.
+

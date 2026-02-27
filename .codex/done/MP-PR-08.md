@@ -1,6 +1,6 @@
 # MP-PR-08 — Email provider pack: make one concrete mode runnable + fixtures
 
-REPO: greentic-ai/greentic-messaging-providers
+REPO: greenticai/greentic-messaging-providers
 
 GOAL
 Make Email provider pack functional and testable (dry-run) in at least one concrete mode.
@@ -35,3 +35,4 @@ DELIVERABLES
 ACCEPTANCE
 - doctor passes
 - conformance dry-run passes for Email pack
+

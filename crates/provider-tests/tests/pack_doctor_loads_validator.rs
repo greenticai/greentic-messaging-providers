@@ -233,7 +233,7 @@ fn pack_doctor_loads_validator() -> Result<()> {
         .arg("--validator-policy")
         .arg("required")
         .arg("--validator-allow")
-        .arg("oci://ghcr.io/greentic-ai/validators/")
+        .arg("oci://ghcr.io/greenticai/validators/")
         .output()
         .context("failed to run greentic-pack doctor")?;
 
@@ -308,7 +308,7 @@ fn pack_doctor_skips_validator_without_extension() -> Result<()> {
         .arg("--pack")
         .arg(&gtpack_path)
         .arg("--validator-allow")
-        .arg("oci://ghcr.io/greentic-ai/validators/")
+        .arg("oci://ghcr.io/greenticai/validators/")
         .output()
         .context("failed to run greentic-pack doctor")?;
 
@@ -344,3 +344,4 @@ fn pack_doctor_skips_validator_without_extension() -> Result<()> {
 
     Ok(())
 }
+

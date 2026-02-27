@@ -80,4 +80,5 @@ requirements:
   notes: team_id/channel_id are required unless configured in provider config.
 validators:
   - id: greentic.validators.messaging
-    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest
+    component_ref: oci://ghcr.io/greenticai/validators/messaging:latest
+
