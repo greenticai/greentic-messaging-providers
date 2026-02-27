@@ -192,6 +192,116 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
     let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
+
+    // Slack interactive payloads (button clicks) come as URL-encoded `payload=<json>`
+    // or directly as JSON with `type: "block_actions"`.
+    // Also check for URL-encoded form body.
+    let interactive_payload = if body_val.get("type").and_then(Value::as_str) == Some("block_actions")
+    {
+        Some(body_val.clone())
+    } else {
+        // Try URL-encoded: body may be "payload=%7B..." raw text.
+        let body_str = String::from_utf8(body_bytes.clone()).unwrap_or_default();
+        if body_str.starts_with("payload=") {
+            let decoded = urldecode(&body_str[8..]);
+            serde_json::from_str::<Value>(&decoded)
+                .ok()
+                .filter(|v| v.get("type").and_then(Value::as_str) == Some("block_actions"))
+        } else {
+            None
+        }
+    };
+
+    if let Some(interactive) = interactive_payload {
+        // Handle block_actions — Slack button click (AC Action.Submit mapped to Slack button).
+        let actions = interactive
+            .get("actions")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        let channel = interactive
+            .get("channel")
+            .and_then(|v| v.get("id"))
+            .and_then(Value::as_str)
+            .map(|s| s.to_string());
+        let sender = interactive
+            .get("user")
+            .and_then(|v| v.get("id"))
+            .and_then(Value::as_str)
+            .map(|s| s.to_string());
+
+        // Extract routing info from first action's value.
+        let first_action = actions.first().cloned().unwrap_or(Value::Null);
+        let action_value_str = first_action
+            .get("value")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let action_id = first_action
+            .get("action_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+
+        // Try to parse action value as JSON for routeToCardId.
+        let (route_to_card, card_id, action_text) =
+            if let Ok(val) = serde_json::from_str::<Value>(action_value_str) {
+                let rtc = val
+                    .get("routeToCardId")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string();
+                let cid = val
+                    .get("cardId")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string();
+                let text = if !rtc.is_empty() {
+                    format!("[card:{rtc}]")
+                } else if !cid.is_empty() {
+                    format!("[action:{cid}]")
+                } else {
+                    format!("[action:{action_id}]")
+                };
+                (rtc, cid, text)
+            } else {
+                (
+                    String::new(),
+                    String::new(),
+                    format!("[action:{action_id}]"),
+                )
+            };
+
+        let mut envelope = build_slack_envelope(action_text, channel.clone(), sender);
+        if !route_to_card.is_empty() {
+            envelope
+                .metadata
+                .insert("routeToCardId".into(), route_to_card);
+        }
+        if !card_id.is_empty() {
+            envelope.metadata.insert("cardId".into(), card_id);
+        }
+        envelope
+            .metadata
+            .insert("slack.action_id".into(), action_id.to_string());
+        envelope
+            .metadata
+            .insert("slack.action_value".into(), action_value_str.to_string());
+
+        let normalized = json!({
+            "ok": true,
+            "event": interactive,
+            "channel": channel,
+        });
+        let normalized_bytes =
+            serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
+        let out = HttpOutV1 {
+            status: 200,
+            headers: Vec::new(),
+            body_b64: STANDARD.encode(&normalized_bytes),
+            events: vec![envelope],
+        };
+        return http_out_v1_bytes(&out);
+    }
+
     // Slack Events API: {"type":"event_callback","event":{...}}
     // Legacy/generic:   {"body":{...}}
     // Flat:             {"text":"...","channel":"..."}
@@ -849,12 +959,41 @@ fn collect_slack_actions(action_list: &[Value], actions: &mut Vec<Value>) {
             }
             _ => {
                 // Action.Submit, Action.Execute, etc. → callback button.
-                actions.push(json!({
+                // Include AC action data (routeToCardId, cardId, etc.) in button value.
+                let mut btn = json!({
                     "type": "button",
                     "text": { "type": "plain_text", "text": btn_text },
                     "action_id": format!("ac_action_{}", actions.len())
-                }));
+                });
+                if let Some(data) = action.get("data") {
+                    btn.as_object_mut()
+                        .unwrap()
+                        .insert("value".into(), Value::String(data.to_string()));
+                }
+                actions.push(btn);
             }
         }
     }
+}
+
+/// Simple percent-decode for URL-encoded strings.
+fn urldecode(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    let mut chars = input.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '%' {
+            let hex: String = chars.by_ref().take(2).collect();
+            if let Ok(byte) = u8::from_str_radix(&hex, 16) {
+                result.push(byte as char);
+            } else {
+                result.push('%');
+                result.push_str(&hex);
+            }
+        } else if ch == '+' {
+            result.push(' ');
+        } else {
+            result.push(ch);
+        }
+    }
+    result
 }

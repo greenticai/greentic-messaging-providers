@@ -387,10 +387,11 @@ fn activity_to_value(activity: &StoredActivity) -> Value {
     };
     map.insert("id".to_string(), Value::String(activity.id.clone()));
     map.insert("type".to_string(), Value::String(activity.type_.clone()));
-    map.insert(
-        "timestamp".to_string(),
-        Value::String(activity.timestamp.to_string()),
-    );
+    // Format timestamp as ISO 8601 (WebChat SDK expects this, not raw millis).
+    let ts_iso = chrono::DateTime::from_timestamp_millis(activity.timestamp)
+        .map(|dt| dt.to_rfc3339())
+        .unwrap_or_else(|| activity.timestamp.to_string());
+    map.insert("timestamp".to_string(), Value::String(ts_iso));
     map.insert(
         "watermark".to_string(),
         Value::String(activity.watermark.to_string()),
@@ -437,6 +438,9 @@ fn validate_attachments(body: &Value) -> Result<(), HttpOutV1> {
 fn parse_watermark(query: Option<&str>) -> Result<Option<u64>, HttpOutV1> {
     let params = parse_query(query);
     if let Some(value) = params.get("watermark") {
+        if value.is_empty() {
+            return Ok(None);
+        }
         value
             .parse::<u64>()
             .map(Some)
