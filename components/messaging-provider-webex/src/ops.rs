@@ -624,6 +624,105 @@ pub(crate) fn handle_webhook_event(body: &Value, cfg: &ProviderConfig) -> Ingest
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
 
+    // Handle Adaptive Card button clicks (Action.Submit).
+    if resource == "attachmentActions" && event == "created" {
+        let action_id = data
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
+        if action_id.is_empty() {
+            let metadata = build_webhook_metadata(
+                resource, event, None, None, None, None, None, None, Some(400),
+            );
+            let envelope = build_webhook_envelope(
+                String::new(), "webex".into(), None, metadata, Vec::new(), None,
+            );
+            return IngestOutcome {
+                envelope,
+                status: 400,
+                error: Some("attachmentActions missing action id".into()),
+            };
+        }
+        let api_base = cfg
+            .api_base_url
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or(DEFAULT_API_BASE)
+            .trim_end_matches('/')
+            .to_string();
+        let session_id = webhook_room
+            .clone()
+            .unwrap_or_else(|| action_id.to_string());
+        let sender = pick_sender(&webhook_person_email, &webhook_person_id);
+
+        // Fetch action details to get user inputs.
+        let inputs = match get_secret_string(DEFAULT_TOKEN_KEY) {
+            Ok(token) => {
+                match fetch_action_details(action_id, &api_base, &token) {
+                    Ok(details) => details,
+                    Err(err) => {
+                        eprintln!("webex fetch action details failed: {err}");
+                        json!({})
+                    }
+                }
+            }
+            Err(_) => json!({}),
+        };
+
+        let action_id_str = action_id.to_string();
+        let route_to_card = inputs
+            .get("routeToCardId")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let card_id = inputs
+            .get("cardId")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let action_text = if !route_to_card.is_empty() {
+            format!("[card:{route_to_card}]")
+        } else {
+            format!("[action:{card_id}]")
+        };
+
+        let mut metadata = build_webhook_metadata(
+            resource,
+            event,
+            Some(&action_id_str),
+            webhook_room.as_ref(),
+            webhook_person_email.as_ref(),
+            webhook_person_id.as_ref(),
+            None,
+            None,
+            Some(200),
+        );
+        if !route_to_card.is_empty() {
+            metadata.insert("routeToCardId".into(), route_to_card);
+        }
+        if !card_id.is_empty() {
+            metadata.insert("cardId".into(), card_id);
+        }
+        metadata.insert(
+            "webex.actionInputs".into(),
+            serde_json::to_string(&inputs).unwrap_or_default(),
+        );
+
+        let envelope = build_webhook_envelope(
+            action_text,
+            session_id,
+            sender,
+            metadata,
+            Vec::new(),
+            Some(&action_id_str),
+        );
+        return IngestOutcome {
+            envelope,
+            status: 200,
+            error: None,
+        };
+    }
+
     if resource == "messages"
         && event == "created"
         && let Some(message_id) = message_id.clone()
@@ -787,6 +886,33 @@ pub(crate) fn handle_webhook_event(body: &Value, cfg: &ProviderConfig) -> Ingest
         status: 200,
         error: None,
     }
+}
+
+/// Fetch Webex attachment action details to retrieve user inputs.
+fn fetch_action_details(
+    action_id: &str,
+    api_base: &str,
+    token: &str,
+) -> Result<Value, String> {
+    let url = format!("{api_base}/attachment/actions/{action_id}");
+    println!("webex ingest fetching action {action_id} from {url}");
+    let request = client::Request {
+        method: "GET".to_string(),
+        url: url.clone(),
+        headers: vec![("Authorization".into(), format!("Bearer {token}"))],
+        body: None,
+    };
+    let resp = client::send(&request, None, None)
+        .map_err(|err| format!("transport error: {}", err.message))?;
+    println!("webex ingest fetch action {action_id} status={}", resp.status);
+    if resp.status < 200 || resp.status >= 300 {
+        let body = resp.body.unwrap_or_default();
+        return Err(format_webex_error(resp.status, &body));
+    }
+    let body = resp.body.unwrap_or_default();
+    let parsed: Value =
+        serde_json::from_slice(&body).map_err(|err| format!("json parse error: {err}"))?;
+    Ok(parsed.get("inputs").cloned().unwrap_or(json!({})))
 }
 
 fn fetch_message_details(

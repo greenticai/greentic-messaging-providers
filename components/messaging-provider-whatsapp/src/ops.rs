@@ -686,6 +686,14 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
         .metadata
         .get("phone_number_id")
         .cloned()
+        .or_else(|| {
+            // Fallback: read from secrets store so `demo send` works without --arg.
+            use crate::bindings::greentic::secrets_store::secrets_store;
+            match secrets_store::get("PHONE_NUMBER_ID") {
+                Ok(Some(bytes)) => String::from_utf8(bytes).ok().filter(|s| !s.trim().is_empty()),
+                _ => None,
+            }
+        })
         .unwrap_or_else(|| "phone-universal".to_string());
     let to = json!({
         "kind": to_kind,

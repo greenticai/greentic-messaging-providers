@@ -477,6 +477,92 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
     let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
+
+    // Handle callback_query (inline keyboard button clicks — e.g. AC Action.Submit).
+    let has_callback = body_val.get("callback_query").is_some();
+    let has_message = body_val.get("message").is_some();
+    eprintln!(
+        "telegram ingest_http: has_callback={} has_message={} keys={:?}",
+        has_callback,
+        has_message,
+        body_val.as_object().map(|o| o.keys().collect::<Vec<_>>()).unwrap_or_default()
+    );
+    if let Some(callback) = body_val.get("callback_query") {
+        let callback_id = callback
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let cb_message = callback.get("message").unwrap_or(&Value::Null);
+        let chat_id = extract_chat_id(cb_message);
+        let from = extract_from_user(callback);
+        let data_str = callback
+            .get("data")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
+        eprintln!("telegram callback_query: id={} data_str={}", callback_id, data_str);
+
+        // Try to parse callback data as JSON (AC Action.Submit serializes data as JSON).
+        let (route_to_card, card_id, action_text) =
+            if let Ok(data_val) = serde_json::from_str::<Value>(data_str) {
+                // Support both full keys (routeToCardId) and abbreviated keys (r/c)
+                // used by compact_callback_data to fit Telegram's 64-byte limit.
+                let rtc = data_val
+                    .get("routeToCardId")
+                    .or_else(|| data_val.get("r"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string();
+                let cid = data_val
+                    .get("cardId")
+                    .or_else(|| data_val.get("c"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string();
+                let text = if !rtc.is_empty() {
+                    format!("[card:{rtc}]")
+                } else if !cid.is_empty() {
+                    format!("[action:{cid}]")
+                } else {
+                    format!("[callback:{data_str}]")
+                };
+                (rtc, cid, text)
+            } else {
+                (String::new(), String::new(), format!("[callback:{data_str}]"))
+            };
+
+        let mut envelope = build_telegram_envelope(action_text, chat_id.clone(), from.clone());
+        if !route_to_card.is_empty() {
+            envelope.metadata.insert("routeToCardId".into(), route_to_card);
+        }
+        if !card_id.is_empty() {
+            envelope.metadata.insert("cardId".into(), card_id);
+        }
+        envelope
+            .metadata
+            .insert("callback_query_id".into(), callback_id.clone());
+        envelope
+            .metadata
+            .insert("callback_data".into(), data_str.to_string());
+
+        let normalized = json!({
+            "ok": true,
+            "event": body_val,
+            "callback_query": callback,
+            "chat_id": chat_id,
+            "from": from,
+        });
+        let normalized_bytes =
+            serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
+        let out = HttpOutV1 {
+            status: 200,
+            headers: Vec::new(),
+            body_b64: STANDARD.encode(&normalized_bytes),
+            events: vec![envelope],
+        };
+        return http_out_v1_bytes(&out);
+    }
+
     let message = body_val.get("message").cloned().unwrap_or(Value::Null);
     let text = extract_message_text(&message);
     let chat_id = extract_chat_id(&message);
@@ -544,6 +630,7 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
             .insert("parse_mode".to_string(), "HTML".to_string());
         if !content.actions.is_empty() {
             let aj = serde_json::to_string(&content.actions).unwrap_or_default();
+            eprintln!("tg encode_op: ac_actions={aj}");
             envelope.metadata.insert("ac_actions".to_string(), aj);
         }
         if !content.images.is_empty() {
@@ -1126,7 +1213,13 @@ fn collect_actions(action_list: &[Value], actions: &mut Vec<Value>) {
                 actions.push(json!({"title": title, "url": url}));
             }
             "Action.Submit" | "Action.Execute" => {
-                actions.push(json!({"title": title}));
+                let mut btn = json!({"title": title});
+                if let Some(data) = action.get("data") {
+                    btn.as_object_mut()
+                        .unwrap()
+                        .insert("data".into(), data.clone());
+                }
+                actions.push(btn);
             }
             _ => {
                 // Action.ShowCard, Action.ToggleVisibility — no Telegram equivalent.
@@ -1134,6 +1227,25 @@ fn collect_actions(action_list: &[Value], actions: &mut Vec<Value>) {
                 actions.push(json!({"title": title}));
             }
         }
+    }
+}
+
+/// Compress AC action data to fit Telegram's 64-byte callback_data limit.
+/// Uses abbreviated keys: "r" for routeToCardId, "c" for cardId.
+/// The ingest_http callback_query handler recognises both full and abbreviated keys.
+fn compact_callback_data(data: &Value) -> Value {
+    let mut compact = serde_json::Map::new();
+    if let Some(rtc) = data.get("routeToCardId").and_then(Value::as_str) {
+        compact.insert("r".into(), Value::String(rtc.to_string()));
+    }
+    if let Some(cid) = data.get("cardId").and_then(Value::as_str) {
+        compact.insert("c".into(), Value::String(cid.to_string()));
+    }
+    if compact.is_empty() {
+        // No routing fields — fall back to full data.
+        data.clone()
+    } else {
+        Value::Object(compact)
     }
 }
 
@@ -1191,7 +1303,30 @@ fn build_inline_keyboard_from_metadata(
         if let Some(url) = url {
             current_row.push(json!({"text": title, "url": url}));
         } else {
-            let cb: String = title.chars().take(64).collect();
+            // Use AC action data as callback_data if available (carries routeToCardId, etc.).
+            // Telegram callback_data max 64 bytes — compress if needed.
+            let has_data = action.get("data").is_some();
+            let cb = if let Some(data) = action.get("data") {
+                let serialized = data.to_string();
+                eprintln!("tg build_keyboard: title={title} data_len={} data={serialized}", serialized.len());
+                if serialized.len() <= 64 {
+                    serialized
+                } else {
+                    // Too large — extract only routeToCardId for compact callback_data.
+                    let compact = compact_callback_data(data);
+                    let compact_str = compact.to_string();
+                    eprintln!("tg build_keyboard: compact_len={} compact={compact_str}", compact_str.len());
+                    if compact_str.len() <= 64 {
+                        compact_str
+                    } else {
+                        title.chars().take(64).collect()
+                    }
+                }
+            } else {
+                eprintln!("tg build_keyboard: title={title} NO data field");
+                title.chars().take(64).collect()
+            };
+            eprintln!("tg build_keyboard: final cb={cb} has_data={has_data}");
             current_row.push(json!({"text": title, "callback_data": cb}));
         }
     }
