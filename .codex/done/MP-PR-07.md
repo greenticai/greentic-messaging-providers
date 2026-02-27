@@ -1,6 +1,6 @@
 # MP-PR-07 — WebChat (Bot Framework) pack: standardize ingress op + fixtures
 
-REPO: greentic-ai/greentic-messaging-providers
+REPO: greenticai/greentic-messaging-providers
 
 GOAL
 Make WebChat pack consistent and testable:
@@ -32,3 +32,4 @@ DELIVERABLES
 ACCEPTANCE
 - doctor passes
 - conformance dry-run passes for WebChat pack
+

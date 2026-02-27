@@ -65,4 +65,5 @@ requirements:
   notes: to.kind=user with to.id is required for sends.
 validators:
   - id: greentic.validators.messaging
-    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest
+    component_ref: oci://ghcr.io/greenticai/validators/messaging:latest
+

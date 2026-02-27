@@ -1,6 +1,6 @@
 # MP-PR-04 — WhatsApp provider pack: webhook setup + ingress/egress fixtures (dry-run functional)
 
-REPO: greentic-ai/greentic-messaging-providers
+REPO: greenticai/greentic-messaging-providers
 
 GOAL
 Make WhatsApp pack functional and testable (dry-run) for:
@@ -37,3 +37,4 @@ DELIVERABLES
 ACCEPTANCE
 - doctor passes
 - conformance dry-run passes for WhatsApp pack
+

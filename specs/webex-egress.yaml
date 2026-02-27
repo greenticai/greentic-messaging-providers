@@ -59,4 +59,5 @@ requirements:
   notes: Destination required when no default_room_id is configured.
 validators:
   - id: greentic.validators.messaging
-    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest
+    component_ref: oci://ghcr.io/greenticai/validators/messaging:latest
+
