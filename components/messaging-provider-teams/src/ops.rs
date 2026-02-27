@@ -360,7 +360,7 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
     };
     let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
 
-    // Detect Bot Framework activity (Adaptive Card Action.Submit / Action.Execute).
+    // Bot Framework activity: detect type and handle accordingly.
     let activity_type = body_val
         .get("type")
         .and_then(Value::as_str)
@@ -453,7 +453,7 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         return http_out_v1_bytes(&out);
     }
 
-    // Graph change notification (standard message events).
+    // Bot Framework message activity (regular text messages).
     let text = extract_team_text(&body_val);
     let team_id = extract_team_id(&body_val);
     let channel_id = extract_channel_id(&body_val);
@@ -749,3 +749,4 @@ pub(crate) fn extract_sender(value: &Value) -> Option<String> {
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
 }
+
