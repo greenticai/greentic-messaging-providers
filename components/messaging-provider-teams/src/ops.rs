@@ -359,6 +359,101 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
     let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
+
+    // Detect Bot Framework activity (Adaptive Card Action.Submit / Action.Execute).
+    let activity_type = body_val
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let is_bot_framework = activity_type == "invoke" || activity_type == "message";
+    let is_card_action = is_bot_framework
+        && (body_val.get("value").is_some()
+            || body_val
+                .get("name")
+                .and_then(Value::as_str)
+                .is_some_and(|n| n.starts_with("adaptiveCard/")));
+
+    if is_card_action {
+        // Bot Framework invoke/message with Action.Submit data.
+        let sender = body_val
+            .get("from")
+            .and_then(|f| f.get("id"))
+            .and_then(Value::as_str)
+            .map(|s| s.to_string());
+        let team_id = body_val
+            .get("channelData")
+            .and_then(|cd| cd.get("team"))
+            .and_then(|t| t.get("id"))
+            .and_then(Value::as_str)
+            .map(|s| s.to_string());
+        let channel_id = body_val
+            .get("channelData")
+            .and_then(|cd| cd.get("channel"))
+            .and_then(|c| c.get("id"))
+            .and_then(Value::as_str)
+            .map(|s| s.to_string());
+
+        // For Action.Execute: value.action.data
+        // For Action.Submit: value directly
+        let action_data = body_val
+            .get("value")
+            .and_then(|v| v.get("action"))
+            .and_then(|a| a.get("data"))
+            .cloned()
+            .or_else(|| body_val.get("value").cloned())
+            .unwrap_or(Value::Null);
+
+        let route_to_card = action_data
+            .get("routeToCardId")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let card_id = action_data
+            .get("cardId")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let action_text = if !route_to_card.is_empty() {
+            format!("[card:{route_to_card}]")
+        } else if !card_id.is_empty() {
+            format!("[action:{card_id}]")
+        } else {
+            "[card-action]".to_string()
+        };
+
+        let mut envelope =
+            build_team_envelope(action_text, sender, team_id.clone(), channel_id.clone());
+        if !route_to_card.is_empty() {
+            envelope
+                .metadata
+                .insert("routeToCardId".into(), route_to_card);
+        }
+        if !card_id.is_empty() {
+            envelope.metadata.insert("cardId".into(), card_id);
+        }
+        envelope.metadata.insert(
+            "teams.actionData".into(),
+            serde_json::to_string(&action_data).unwrap_or_default(),
+        );
+
+        let normalized = json!({
+            "ok": true,
+            "event": body_val,
+            "team_id": team_id,
+            "channel_id": channel_id,
+        });
+        let normalized_bytes =
+            serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
+        let out = HttpOutV1 {
+            status: 200,
+            headers: Vec::new(),
+            body_b64: STANDARD.encode(&normalized_bytes),
+            events: vec![envelope],
+        };
+        return http_out_v1_bytes(&out);
+    }
+
+    // Graph change notification (standard message events).
     let text = extract_team_text(&body_val);
     let team_id = extract_team_id(&body_val);
     let channel_id = extract_channel_id(&body_val);
