@@ -192,6 +192,132 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
     let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
+
+    // Slack URL verification challenge — must respond with the challenge value.
+    // Sent when setting Event Subscriptions or Interactivity Request URL.
+    if body_val.get("type").and_then(Value::as_str) == Some("url_verification") {
+        let challenge = body_val
+            .get("challenge")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let out = HttpOutV1 {
+            status: 200,
+            headers: vec![],
+            body_b64: STANDARD.encode(challenge.as_bytes()),
+            events: vec![],
+        };
+        return http_out_v1_bytes(&out);
+    }
+
+    // Slack interactive payloads (button clicks) come as URL-encoded `payload=<json>`
+    // or directly as JSON with `type: "block_actions"`.
+    // Also check for URL-encoded form body.
+    let interactive_payload = if body_val.get("type").and_then(Value::as_str) == Some("block_actions")
+    {
+        Some(body_val.clone())
+    } else {
+        // Try URL-encoded: body may be "payload=%7B..." raw text.
+        let body_str = String::from_utf8(body_bytes.clone()).unwrap_or_default();
+        if body_str.starts_with("payload=") {
+            let decoded = urldecode(&body_str[8..]);
+            serde_json::from_str::<Value>(&decoded)
+                .ok()
+                .filter(|v| v.get("type").and_then(Value::as_str) == Some("block_actions"))
+        } else {
+            None
+        }
+    };
+
+    if let Some(interactive) = interactive_payload {
+        // Handle block_actions — Slack button click (AC Action.Submit mapped to Slack button).
+        let actions = interactive
+            .get("actions")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        let channel = interactive
+            .get("channel")
+            .and_then(|v| v.get("id"))
+            .and_then(Value::as_str)
+            .map(|s| s.to_string());
+        let sender = interactive
+            .get("user")
+            .and_then(|v| v.get("id"))
+            .and_then(Value::as_str)
+            .map(|s| s.to_string());
+
+        // Extract routing info from first action's value.
+        let first_action = actions.first().cloned().unwrap_or(Value::Null);
+        let action_value_str = first_action
+            .get("value")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let action_id = first_action
+            .get("action_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+
+        // Try to parse action value as JSON for routeToCardId.
+        let (route_to_card, card_id, action_text) =
+            if let Ok(val) = serde_json::from_str::<Value>(action_value_str) {
+                let rtc = val
+                    .get("routeToCardId")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string();
+                let cid = val
+                    .get("cardId")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string();
+                let text = if !rtc.is_empty() {
+                    format!("[card:{rtc}]")
+                } else if !cid.is_empty() {
+                    format!("[action:{cid}]")
+                } else {
+                    format!("[action:{action_id}]")
+                };
+                (rtc, cid, text)
+            } else {
+                (
+                    String::new(),
+                    String::new(),
+                    format!("[action:{action_id}]"),
+                )
+            };
+
+        let mut envelope = build_slack_envelope(action_text, channel.clone(), sender);
+        if !route_to_card.is_empty() {
+            envelope
+                .metadata
+                .insert("routeToCardId".into(), route_to_card);
+        }
+        if !card_id.is_empty() {
+            envelope.metadata.insert("cardId".into(), card_id);
+        }
+        envelope
+            .metadata
+            .insert("slack.action_id".into(), action_id.to_string());
+        envelope
+            .metadata
+            .insert("slack.action_value".into(), action_value_str.to_string());
+
+        let normalized = json!({
+            "ok": true,
+            "event": interactive,
+            "channel": channel,
+        });
+        let normalized_bytes =
+            serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
+        let out = HttpOutV1 {
+            status: 200,
+            headers: Vec::new(),
+            body_b64: STANDARD.encode(&normalized_bytes),
+            events: vec![envelope],
+        };
+        return http_out_v1_bytes(&out);
+    }
+
     // Slack Events API: {"type":"event_callback","event":{...}}
     // Legacy/generic:   {"body":{...}}
     // Flat:             {"text":"...","channel":"..."}
@@ -527,6 +653,91 @@ fn ac_to_slack_blocks(ac_raw: &str) -> Option<Vec<Value>> {
     Some(blocks)
 }
 
+/// Convert AC markdown to Slack mrkdwn: `**bold**` → `*bold*`, `[text](url)` → `<url|text>`.
+fn ac_markdown_to_slack(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let chars: Vec<char> = text.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        // **bold** → *bold*
+        if i + 1 < chars.len() && chars[i] == '*' && chars[i + 1] == '*' {
+            if let Some(end) = chars[i + 2..]
+                .windows(2)
+                .position(|w| w[0] == '*' && w[1] == '*')
+            {
+                let inner: String = chars[i + 2..i + 2 + end].iter().collect();
+                out.push('*');
+                out.push_str(&inner);
+                out.push('*');
+                i += 4 + end;
+                continue;
+            }
+        }
+        // [text](url) → <url|text>
+        if chars[i] == '[' {
+            if let Some(close_bracket) = chars[i + 1..].iter().position(|&c| c == ']') {
+                let cb = i + 1 + close_bracket;
+                if cb + 1 < chars.len() && chars[cb + 1] == '(' {
+                    if let Some(close_paren) = chars[cb + 2..].iter().position(|&c| c == ')') {
+                        let link_text: String = chars[i + 1..cb].iter().collect();
+                        let url: String = chars[cb + 2..cb + 2 + close_paren].iter().collect();
+                        out.push('<');
+                        out.push_str(&url);
+                        out.push('|');
+                        out.push_str(&link_text);
+                        out.push('>');
+                        i = cb + 3 + close_paren;
+                        continue;
+                    }
+                }
+            }
+        }
+        out.push(chars[i]);
+        i += 1;
+    }
+    out
+}
+
+/// Extract all text from an AC element tree (for ColumnSet merging).
+fn extract_texts_from_items(items: &[Value]) -> Vec<String> {
+    let mut texts = Vec::new();
+    for item in items {
+        let etype = item.get("type").and_then(Value::as_str).unwrap_or_default();
+        match etype {
+            "TextBlock" => {
+                if let Some(t) = item.get("text").and_then(Value::as_str) {
+                    let t = t.trim();
+                    if !t.is_empty() {
+                        let is_bold = item
+                            .get("weight")
+                            .and_then(Value::as_str)
+                            .is_some_and(|w| w.eq_ignore_ascii_case("bolder"));
+                        let converted = ac_markdown_to_slack(t);
+                        if is_bold && !converted.starts_with('*') {
+                            texts.push(format!("*{converted}*"));
+                        } else {
+                            texts.push(converted);
+                        }
+                    }
+                }
+            }
+            "Container" => {
+                if let Some(sub) = item.get("items").and_then(Value::as_array) {
+                    texts.extend(extract_texts_from_items(sub));
+                }
+            }
+            _ => {
+                if let Some(t) = item.get("text").and_then(Value::as_str) {
+                    if !t.trim().is_empty() {
+                        texts.push(ac_markdown_to_slack(t.trim()));
+                    }
+                }
+            }
+        }
+    }
+    texts
+}
+
 /// Recursively convert an AC body element to Slack Block Kit blocks.
 fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut Vec<Value>) {
     let etype = element
@@ -557,28 +768,42 @@ fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut 
                 .get("style")
                 .and_then(Value::as_str)
                 .is_some_and(|s| s.eq_ignore_ascii_case("heading"));
+            let is_subtle = element
+                .get("isSubtle")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
 
-            if is_bold || is_heading || size == "large" || size == "extralarge" {
+            let converted = ac_markdown_to_slack(text);
+
+            if is_heading || size == "extralarge" {
                 // Slack header block: plain_text, max 150 chars.
-                let truncated: String = text.chars().take(150).collect();
+                // Strip mrkdwn chars for plain_text header.
+                let plain: String = converted.replace('*', "").chars().take(150).collect();
                 blocks.push(json!({
                     "type": "header",
-                    "text": { "type": "plain_text", "text": truncated }
+                    "text": { "type": "plain_text", "text": plain, "emoji": true }
                 }));
-            } else {
-                let mrkdwn = if element
-                    .get("isSubtle")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false)
-                    || size == "small"
-                {
-                    format!("_{text}_")
+            } else if is_subtle || size == "small" {
+                // Context block for subtle/small text — appears smaller and grayed.
+                blocks.push(json!({
+                    "type": "context",
+                    "elements": [{ "type": "mrkdwn", "text": converted }]
+                }));
+            } else if is_bold || size == "large" {
+                // Bold section.
+                let bold = if converted.starts_with('*') {
+                    converted
                 } else {
-                    text.to_string()
+                    format!("*{converted}*")
                 };
                 blocks.push(json!({
                     "type": "section",
-                    "text": { "type": "mrkdwn", "text": mrkdwn }
+                    "text": { "type": "mrkdwn", "text": bold }
+                }));
+            } else {
+                blocks.push(json!({
+                    "type": "section",
+                    "text": { "type": "mrkdwn", "text": converted }
                 }));
             }
         }
@@ -698,7 +923,7 @@ fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut 
                         }
                         Some(json!({
                             "type": "mrkdwn",
-                            "text": format!("*{title}:* {value}")
+                            "text": format!("*{title}*\n{value}")
                         }))
                     })
                     .collect();
@@ -713,38 +938,72 @@ fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut 
 
         "ColumnSet" => {
             if let Some(columns) = element.get("columns").and_then(Value::as_array) {
-                // Map columns to section fields.
-                let mut fields: Vec<Value> = Vec::new();
-                for col in columns {
-                    if let Some(items) = col.get("items").and_then(Value::as_array) {
-                        let col_text: Vec<String> = items
-                            .iter()
-                            .filter_map(|item| {
-                                item.get("text")
-                                    .and_then(Value::as_str)
-                                    .map(|s| s.to_string())
-                            })
-                            .collect();
-                        if !col_text.is_empty() {
+                // Try to merge icon+text columns into a single mrkdwn line.
+                // Pattern: [auto-width emoji col] [stretch text col] → "emoji *title*\ndesc"
+                let col_texts: Vec<Vec<String>> = columns
+                    .iter()
+                    .map(|col| {
+                        col.get("items")
+                            .and_then(Value::as_array)
+                            .map(|items| extract_texts_from_items(items))
+                            .unwrap_or_default()
+                    })
+                    .collect();
+
+                if col_texts.len() == 2
+                    && col_texts[0].len() == 1
+                    && col_texts[0][0].chars().count() <= 3
+                {
+                    // Icon + text pattern — merge into single section.
+                    let icon = &col_texts[0][0];
+                    let text_parts = col_texts[1].join("\n");
+                    let merged = format!("{icon}  {text_parts}");
+                    blocks.push(json!({
+                        "type": "section",
+                        "text": { "type": "mrkdwn", "text": merged }
+                    }));
+                } else {
+                    // General columns → section fields.
+                    let mut fields: Vec<Value> = Vec::new();
+                    for texts in &col_texts {
+                        if !texts.is_empty() {
                             fields.push(json!({
                                 "type": "mrkdwn",
-                                "text": col_text.join("\n")
+                                "text": texts.join("\n")
                             }));
                         }
                     }
-                }
-                if !fields.is_empty() {
-                    // Slack max 10 fields per section.
-                    fields.truncate(10);
-                    blocks.push(json!({
-                        "type": "section",
-                        "fields": fields
-                    }));
+                    if !fields.is_empty() {
+                        fields.truncate(10);
+                        blocks.push(json!({
+                            "type": "section",
+                            "fields": fields
+                        }));
+                    }
                 }
             }
         }
 
         "Container" => {
+            // Skip hidden containers (AC isVisible: false).
+            if element
+                .get("isVisible")
+                .and_then(Value::as_bool)
+                .is_some_and(|v| !v)
+            {
+                return;
+            }
+
+            let has_style = element
+                .get("style")
+                .and_then(Value::as_str)
+                .is_some_and(|s| s == "accent" || s == "emphasis" || s == "good" || s == "attention" || s == "warning");
+
+            // Add divider before styled containers for visual separation.
+            if has_style && !blocks.is_empty() {
+                blocks.push(json!({"type": "divider"}));
+            }
+
             if let Some(items) = element.get("items").and_then(Value::as_array) {
                 for item in items {
                     ac_element_to_blocks(item, blocks, actions);
@@ -755,6 +1014,41 @@ fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut 
         "ActionSet" => {
             if let Some(action_list) = element.get("actions").and_then(Value::as_array) {
                 collect_slack_actions(action_list, actions);
+            }
+        }
+
+        "Input.Text" => {
+            // Show input placeholder as context hint.
+            let label = element.get("label").and_then(Value::as_str)
+                .or_else(|| element.get("placeholder").and_then(Value::as_str));
+            if let Some(label) = label {
+                blocks.push(json!({
+                    "type": "context",
+                    "elements": [{ "type": "mrkdwn", "text": format!("_\u{270f}\u{fe0f} {label}_") }]
+                }));
+            }
+        }
+
+        "Input.ChoiceSet" => {
+            // Show choices as a compact list.
+            if let Some(choices) = element.get("choices").and_then(Value::as_array) {
+                let choice_texts: Vec<String> = choices
+                    .iter()
+                    .take(5)
+                    .filter_map(|c| c.get("title").and_then(Value::as_str))
+                    .map(|t| format!("\u{2022} {t}"))
+                    .collect();
+                if !choice_texts.is_empty() {
+                    let placeholder = element.get("placeholder").and_then(Value::as_str).unwrap_or("Select");
+                    blocks.push(json!({
+                        "type": "context",
+                        "elements": [{ "type": "mrkdwn", "text": format!("_{placeholder}:_") }]
+                    }));
+                    blocks.push(json!({
+                        "type": "section",
+                        "text": { "type": "mrkdwn", "text": choice_texts.join("\n") }
+                    }));
+                }
             }
         }
 
@@ -775,13 +1069,12 @@ fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut 
                         })
                         .collect();
                     if headers.iter().any(|h| !h.is_empty()) {
-                        lines.push(headers.join(" | "));
                         lines.push(
                             headers
                                 .iter()
-                                .map(|h| "-".repeat(h.len().max(3)))
+                                .map(|h| format!("*{h}*"))
                                 .collect::<Vec<_>>()
-                                .join("-+-"),
+                                .join(" | "),
                         );
                     }
                 }
@@ -849,12 +1142,41 @@ fn collect_slack_actions(action_list: &[Value], actions: &mut Vec<Value>) {
             }
             _ => {
                 // Action.Submit, Action.Execute, etc. → callback button.
-                actions.push(json!({
+                // Include AC action data (routeToCardId, cardId, etc.) in button value.
+                let mut btn = json!({
                     "type": "button",
                     "text": { "type": "plain_text", "text": btn_text },
                     "action_id": format!("ac_action_{}", actions.len())
-                }));
+                });
+                if let Some(data) = action.get("data") {
+                    btn.as_object_mut()
+                        .unwrap()
+                        .insert("value".into(), Value::String(data.to_string()));
+                }
+                actions.push(btn);
             }
         }
     }
+}
+
+/// Simple percent-decode for URL-encoded strings.
+fn urldecode(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    let mut chars = input.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '%' {
+            let hex: String = chars.by_ref().take(2).collect();
+            if let Ok(byte) = u8::from_str_radix(&hex, 16) {
+                result.push(byte as char);
+            } else {
+                result.push('%');
+                result.push_str(&hex);
+            }
+        } else if ch == '+' {
+            result.push(' ');
+        } else {
+            result.push(ch);
+        }
+    }
+    result
 }

@@ -157,18 +157,38 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             && let Ok(body) = serde_json::from_slice::<Value>(&body_bytes)
         {
             let text = extract_text(&body);
+            let action_value = body.get("value"); // Action.Submit data from AC buttons
             let user = body
                 .get("from")
                 .and_then(|f| f.get("id"))
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
-            // Extract conversation_id from the path
             let conv_id = dl_path
                 .strip_prefix("/v3/directline/conversations/")
                 .and_then(|rest| rest.split('/').next())
                 .map(|s| s.to_string());
-            if !text.is_empty() {
-                let envelope = build_webchat_envelope(text, user, conv_id.clone(), None);
+            let has_content = !text.is_empty() || action_value.is_some();
+            if has_content {
+                // For Action.Submit, derive a text label from the action data.
+                let effective_text = if text.is_empty() {
+                    action_value
+                        .and_then(|v| v.get("step").or(v.get("routeToCardId")).or(v.get("toCardId")))
+                        .and_then(|s| s.as_str())
+                        .unwrap_or("action")
+                        .to_string()
+                } else {
+                    text
+                };
+                let mut envelope = build_webchat_envelope(effective_text, user, conv_id.clone(), None);
+                // Store AC action routing hints in metadata for card navigation.
+                if let Some(val) = action_value {
+                    if let Some(route_card) = val.get("routeToCardId").and_then(|s| s.as_str()) {
+                        envelope.metadata.insert("routeToCardId".to_string(), route_card.to_string());
+                    }
+                    if let Some(to_card) = val.get("toCardId").and_then(|s| s.as_str()) {
+                        envelope.metadata.insert("toCardId".to_string(), to_card.to_string());
+                    }
+                }
                 out.events.push(envelope);
             }
         }
@@ -240,11 +260,16 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
         .clone()
         .or_else(|| Some(encode_message.session_id.clone()));
     let route_value = route.clone().unwrap_or_else(|| "webchat".to_string());
-    let payload_body = json!({
+    // Pass through adaptive_card from envelope metadata (set by app flow for AC output).
+    let adaptive_card = encode_message.metadata.get("adaptive_card").cloned();
+    let mut payload_body = json!({
         "text": text,
         "route": route_value.clone(),
         "session_id": encode_message.session_id,
     });
+    if let Some(ac) = &adaptive_card {
+        payload_body["adaptive_card"] = Value::String(ac.clone());
+    }
     let body_bytes = serde_json::to_vec(&payload_body).unwrap_or_else(|_| b"{}".to_vec());
     let mut metadata = BTreeMap::new();
     metadata.insert("route".to_string(), Value::String(route_value.clone()));
@@ -288,14 +313,18 @@ fn persist_send_payload(payload: &Value) -> Result<(), String> {
         .or(tenant_channel_id.clone())
         .ok_or_else(|| "route or tenant_channel_id required".to_string())?;
     let text = extract_text(payload);
-    if text.is_empty() {
-        return Err("text required".into());
+    let adaptive_card_json = payload
+        .get("adaptive_card")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    if text.is_empty() && adaptive_card_json.is_none() {
+        return Err("text or adaptive_card required".into());
     }
 
     // If session_id is present, try to append the bot response as a Direct Line
     // activity so that GET /activities polling returns it to the frontend.
     if let Some(session_id) = value_as_trimmed_string(payload.get("session_id")) {
-        let _ = append_bot_activity_to_conversation(&session_id, &text);
+        let _ = append_bot_activity_to_conversation(&session_id, &text, adaptive_card_json.as_deref());
     }
 
     let public_base_url = public_base_url_from_value(payload);
@@ -315,7 +344,11 @@ fn persist_send_payload(payload: &Value) -> Result<(), String> {
 /// Append a bot-originated activity to the Direct Line conversation state.
 /// Uses default context (env=default, tenant=default, team=_) matching the demo setup.
 /// Best-effort: silently ignores errors (conversation may not exist).
-fn append_bot_activity_to_conversation(conversation_id: &str, text: &str) -> Result<(), String> {
+fn append_bot_activity_to_conversation(
+    conversation_id: &str,
+    text: &str,
+    adaptive_card_json: Option<&str>,
+) -> Result<(), String> {
     let ctx = DirectLineContext {
         env: "default".into(),
         tenant: "default".into(),
@@ -333,18 +366,30 @@ fn append_bot_activity_to_conversation(conversation_id: &str, text: &str) -> Res
         serde_json::from_slice(&conv_bytes).map_err(|e| e.to_string())?;
 
     let watermark = conversation.bump_watermark();
+    let mut raw = json!({
+        "type": "message",
+        "from": {"id": "bot", "name": "Bot"},
+    });
+    if !text.is_empty() {
+        raw["text"] = Value::String(text.to_string());
+    }
+    // Include Adaptive Card as a Direct Line attachment if present.
+    if let Some(ac_json) = adaptive_card_json {
+        if let Ok(ac_value) = serde_json::from_str::<Value>(ac_json) {
+            raw["attachments"] = json!([{
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "content": ac_value,
+            }]);
+        }
+    }
     let activity = StoredActivity {
         id: format!("bot-{watermark}"),
         type_: "message".to_string(),
-        text: Some(text.to_string()),
+        text: if text.is_empty() { None } else { Some(text.to_string()) },
         from: Some("bot".to_string()),
         timestamp: chrono::Utc::now().timestamp_millis(),
         watermark,
-        raw: json!({
-            "type": "message",
-            "text": text,
-            "from": {"id": "bot", "name": "Bot"},
-        }),
+        raw,
     };
     conversation.activities.push(activity);
 
