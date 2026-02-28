@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
 
 use crate::bindings::greentic::secrets_store::secrets_store;
+use crate::bindings::greentic::state::state_store;
 
 /// Driver for namespaced state operations used by the Direct Line contract.
 pub trait StateStore {
@@ -15,28 +14,35 @@ pub trait SecretStore {
     fn get(&self, key: &str) -> Result<Option<Vec<u8>>, String>;
 }
 
-/// Host-backed state store implementation.
+/// Host-backed state store implementation using the WIT state-store interface.
 pub struct HostStateStore;
-
-fn state_map() -> &'static Mutex<HashMap<String, Vec<u8>>> {
-    static STATE: OnceLock<Mutex<HashMap<String, Vec<u8>>>> = OnceLock::new();
-    STATE.get_or_init(|| Mutex::new(HashMap::new()))
-}
 
 impl StateStore for HostStateStore {
     fn read(&mut self, key: &str) -> Result<Option<Vec<u8>>, String> {
-        let guard = state_map()
-            .lock()
-            .map_err(|_| "state read error: lock poisoned".to_string())?;
-        Ok(guard.get(key).cloned())
+        match state_store::read(key, None) {
+            Ok(bytes) => {
+                if bytes.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(bytes))
+                }
+            }
+            Err(err) => {
+                // Not-found is signalled by an empty result, but some hosts
+                // return an error with code "not_found" — treat as None.
+                if err.code == "not_found" {
+                    Ok(None)
+                } else {
+                    Err(format!("state read error: {} - {}", err.code, err.message))
+                }
+            }
+        }
     }
 
     fn write(&mut self, key: &str, value: &[u8]) -> Result<(), String> {
-        let mut guard = state_map()
-            .lock()
-            .map_err(|_| "state write error: lock poisoned".to_string())?;
-        guard.insert(key.to_string(), value.to_vec());
-        Ok(())
+        state_store::write(key, value, None)
+            .map(|_ack| ())
+            .map_err(|err| format!("state write error: {} - {}", err.code, err.message))
     }
 }
 

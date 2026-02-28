@@ -43,63 +43,40 @@ impl fmt::Display for GraphRequestError {
 impl std::error::Error for GraphRequestError {}
 
 pub(crate) fn subscription_ensure(input_json: &[u8]) -> Vec<u8> {
-    let parsed: Value = match serde_json::from_slice(input_json) {
-        Ok(value) => value,
-        Err(err) => {
-            return json_bytes(&json!({"ok": false, "error": format!("invalid json: {err}")}));
-        }
-    };
-
-    let dto = match serde_json::from_slice::<SubscriptionEnsureInV1>(input_json) {
-        Ok(value) => value,
-        Err(err) => {
-            return json_bytes(
-                &json!({"ok": false, "error": format!("invalid subscription ensure input: {err}")}),
-            );
-        }
-    };
-
-    if let Err(err) = ensure_provider(&dto.provider) {
-        return json_bytes(&json!({"ok": false, "error": err}));
+    match subscription_ensure_inner(input_json) {
+        Ok(bytes) => bytes,
+        Err(err) => json_bytes(&json!({"ok": false, "error": err})),
     }
+}
 
-    let mut config_value = parsed.clone();
-    if let Some(map) = config_value.as_object_mut() {
-        if let Some(tenant) = dto.tenant_hint.clone() {
-            map.insert("tenant_id".into(), Value::String(tenant));
-        }
-        if let Some(team) = dto.team_hint.clone() {
-            map.insert("team_id".into(), Value::String(team));
-        }
-    }
+fn subscription_ensure_inner(input_json: &[u8]) -> Result<Vec<u8>, String> {
+    let parsed: Value = serde_json::from_slice(input_json)
+        .map_err(|e| format!("invalid json: {e}"))?;
 
-    let cfg = match load_config(&config_value) {
-        Ok(cfg) => cfg,
-        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
-    };
+    let dto: SubscriptionEnsureInV1 = serde_json::from_slice(input_json)
+        .map_err(|e| format!("invalid subscription ensure input: {e}"))?;
 
-    let token = match acquire_token(&cfg) {
-        Ok(token) => token,
-        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
-    };
+    ensure_provider(&dto.provider)?;
+
+    // Load config from secrets store (don't inject tenant_hint/team_hint
+    // into config_value as that triggers partial-config path which misses secrets).
+    let cfg = load_config(&parsed)?;
+
+    let token = acquire_token(&cfg)
+        .map_err(|e| format!("acquire_token: {e}"))?;
 
     if dto.change_types.is_empty() {
-        return json_bytes(&json!({"ok": false, "error": "change_types required"}));
+        return Err("change_types required".into());
     }
 
     let change_type = dto.change_types.join(",");
-    let expiration_target_ms = match dto.expiration_target_unix_ms {
-        Some(ms) => ms,
-        None => {
-            return json_bytes(
-                &json!({"ok": false, "error": "expiration_target_unix_ms required"}),
-            );
-        }
-    };
-    let expiration_iso = match expiration_ms_to_iso(expiration_target_ms) {
-        Ok(text) => text,
-        Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
-    };
+    // Default expiration: now + 55 minutes (Teams max is 60 min for channel messages).
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let expiration_target_ms = dto.expiration_target_unix_ms.unwrap_or(now_ms + 55 * 60 * 1000);
+    let expiration_iso = expiration_ms_to_iso(expiration_target_ms)?;
 
     let client_state = dto.client_state.clone().or_else(|| dto.binding_id.clone());
 
@@ -115,10 +92,8 @@ pub(crate) fn subscription_ensure(input_json: &[u8]) -> Vec<u8> {
         Ok(sub) => sub,
         Err(err) => {
             if matches!(err, GraphRequestError::Status(409)) {
-                let existing = match list_subscriptions(&cfg, &token) {
-                    Ok(subs) => subs,
-                    Err(err) => return json_bytes(&json!({"ok": false, "error": err.to_string()})),
-                };
+                let existing = list_subscriptions(&cfg, &token)
+                    .map_err(|e| format!("list_subscriptions: {e}"))?;
                 if let Some(found) = existing.into_iter().find(|sub| {
                     sub.resource == dto.resource
                         && sub.change_type == change_type
@@ -128,19 +103,16 @@ pub(crate) fn subscription_ensure(input_json: &[u8]) -> Vec<u8> {
                             .map(|url| url == dto.notification_url)
                             .unwrap_or(false)
                 }) {
-                    if let Err(err) = renew_subscription(&cfg, &token, &found.id, &expiration_iso) {
-                        return json_bytes(&json!({"ok": false, "error": err.to_string()}));
-                    }
+                    renew_subscription(&cfg, &token, &found.id, &expiration_iso)
+                        .map_err(|e| format!("renew_subscription: {e}"))?;
                     let mut updated = found.clone();
                     updated.expiration_datetime = Some(expiration_iso.clone());
                     updated
                 } else {
-                    return json_bytes(
-                        &json!({"ok": false, "error": "subscription conflict: existing subscription not found"}),
-                    );
+                    return Err("subscription conflict: existing subscription not found".into());
                 }
             } else {
-                return json_bytes(&json!({"ok": false, "error": err.to_string()}));
+                return Err(format!("create_subscription: {err}"));
             }
         }
     };
@@ -161,7 +133,7 @@ pub(crate) fn subscription_ensure(input_json: &[u8]) -> Vec<u8> {
         binding_id: dto.binding_id.clone(),
         user: dto.user.clone(),
     };
-    json_bytes(&json!({"ok": true, "subscription": out}))
+    Ok(json_bytes(&json!({"ok": true, "subscription": out})))
 }
 
 pub(crate) fn subscription_renew(input_json: &[u8]) -> Vec<u8> {
@@ -268,7 +240,7 @@ pub(crate) fn subscription_delete(input_json: &[u8]) -> Vec<u8> {
 
 pub(crate) fn ensure_provider(provider: &str) -> Result<(), String> {
     match provider {
-        "teams" | "msgraph" => Ok(()),
+        "teams" | "msgraph" | "messaging-teams" => Ok(()),
         other => Err(format!("unsupported provider: {other}")),
     }
 }
@@ -378,7 +350,19 @@ pub(crate) fn create_subscription(
     let resp = client::send(&request, None, None)
         .map_err(|e| GraphRequestError::Transport(format!("transport error: {}", e.message)))?;
     if resp.status < 200 || resp.status >= 300 {
-        return Err(GraphRequestError::Status(resp.status));
+        let err_body = resp
+            .body
+            .as_ref()
+            .and_then(|b| String::from_utf8(b.clone()).ok())
+            .unwrap_or_default();
+        eprintln!(
+            "teams create_subscription failed: status={} body={}",
+            resp.status, err_body
+        );
+        return Err(GraphRequestError::Transport(format!(
+            "create subscription failed: status={} body={}",
+            resp.status, err_body
+        )));
     }
     let body = resp.body.unwrap_or_default();
     let json: Value = serde_json::from_slice(&body)

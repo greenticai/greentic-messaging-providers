@@ -1,0 +1,36 @@
+# QA-based setup flow template for Telegram provider.
+#
+# This flow demonstrates how to wire the QA process node into a provider
+# setup pipeline. The operator intercepts `qa.process` nodes and runs the
+# FormSpec-driven wizard inline.
+#
+# Nodes:
+#   qa_collect  — runs the QA wizard (collect + validate)
+#   qa_apply    — calls apply-answers with collected answers
+#
+# The operator handles both nodes via qa_flow_handler when it detects
+# the `component-qa` component type.
+
+schema_version: "1.0"
+flow_id: setup_qa
+display_name: "Telegram QA Setup"
+description: "Interactive QA-driven setup wizard for Telegram provider"
+
+nodes:
+  - id: qa_collect
+    component: component-qa
+    operation: qa-spec
+    config:
+      mode: setup
+      provider_id: messaging-telegram
+    next: qa_apply
+
+  - id: qa_apply
+    component: component-qa
+    operation: apply-answers
+    config:
+      mode: setup
+      provider_id: messaging-telegram
+    next: null
+
+entry: qa_collect
