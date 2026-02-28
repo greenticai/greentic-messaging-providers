@@ -835,15 +835,16 @@ extensions:
     version: 0.4.34
     inline:
       providers:
-      - provider_type: messaging.teams.graph
+      - provider_type: messaging.teams.bot
         capabilities:
         - messaging
         ops:
         - send
         - reply
-        - subscription_ensure
-        - subscription_renew
-        - subscription_delete
+        - ingest_http
+        - render_plan
+        - encode
+        - send_payload
         - qa-spec
         - apply-answers
         - i18n-keys
@@ -854,24 +855,11 @@ extensions:
           export: schema-core-api
           world: greentic:provider/schema-core@1.0.0
         docs_ref: ''
-  messaging.oauth.v1:
-    kind: messaging.oauth.v1
-    version: 0.4.34
-    inline:
-      auth_type: oauth2
-      authorize_url: https://login.microsoftonline.com/common/oauth2/v2.0/authorize
-      provider_id: teams
-      redirect_path: /oauth/callback/teams
-      scopes:
-      - https://graph.microsoft.com/.default
-      secret_keys:
-      - MS_GRAPH_REFRESH_TOKEN
-      token_url: https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token
   messaging.provider_flow_hints:
     kind: messaging.provider_flow_hints
     version: 0.4.34
     inline:
-      messaging.teams.graph:
+      messaging.teams.bot:
         default: default
         diagnostics: diagnostics
         remove: remove
@@ -889,16 +877,4 @@ extensions:
         supports_webhook_validation: false
       component_ref: messaging-ingress-teams
       export: handle-webhook
-      world: greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1
-  messaging.subscriptions.v1:
-    kind: messaging.subscriptions.v1
-    version: 0.4.34
-    inline:
-      component_ref: messaging-ingress-teams
-      export: sync-subscriptions
-      pattern: sync
-      renewal_window_hours: 24
-      resources:
-      - message
-      - reaction
       world: greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1
