@@ -1,5 +1,8 @@
-use provider_common::component_v0_6::{DescribePayload, QaSpec, SchemaIr, schema_hash};
+use provider_common::component_v0_6::{
+    DescribePayload, QaSpec, SchemaIr, canonical_cbor_bytes, schema_hash,
+};
 use provider_common::helpers::{op, schema_bool_ir, schema_obj, schema_str, schema_str_fmt};
+use serde_json::{Value, json};
 
 use crate::{PROVIDER_ID, WORLD_ID};
 
@@ -338,4 +341,17 @@ fn config_schema() -> SchemaIr {
         ],
         false,
     )
+}
+
+pub(crate) fn i18n_bundle(locale: String) -> Vec<u8> {
+    let locale = if locale.trim().is_empty() {
+        "en".to_string()
+    } else {
+        locale
+    };
+    let messages: serde_json::Map<String, Value> = I18N_PAIRS
+        .iter()
+        .map(|(key, value)| ((*key).to_string(), Value::String((*value).to_string())))
+        .collect();
+    canonical_cbor_bytes(&json!({"locale": locale, "messages": Value::Object(messages)}))
 }
