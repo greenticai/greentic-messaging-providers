@@ -78,4 +78,5 @@ requirements:
   notes: SMTP sends require at least to + body; subject is optional.
 validators:
   - id: greentic.validators.messaging
-    component_ref: oci://ghcr.io/greentic-ai/validators/messaging:latest
+    component_ref: oci://ghcr.io/greenticai/validators/messaging:latest
+

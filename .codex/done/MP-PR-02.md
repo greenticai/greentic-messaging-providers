@@ -1,6 +1,6 @@
 # MP-PR-02 — Provisioning contract alignment: make setup flows functional (collect/validate/apply/summary) across ALL providers
 
-REPO: greentic-ai/greentic-messaging-providers
+REPO: greenticai/greentic-messaging-providers
 
 GOAL
 Make setup/provisioning flows **functional and standardized** for all messaging providers so `greentic-provision` and `greentic-messaging dev setup` can run them reliably.
@@ -67,3 +67,4 @@ ACCEPTANCE CRITERIA
 - Every provider pack with setup can run dry-run setup deterministically and produce a plan.
 - Webhook-based providers declare `public_base_url` requirement.
 - No external network calls occur in dry-run.
+

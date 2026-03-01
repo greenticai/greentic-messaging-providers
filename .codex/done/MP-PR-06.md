@@ -1,6 +1,6 @@
 # MP-PR-06 — WebEx provider pack: webhook setup + ingress/egress fixtures (dry-run functional)
 
-REPO: greentic-ai/greentic-messaging-providers
+REPO: greenticai/greentic-messaging-providers
 
 GOAL
 Make WebEx pack functional and testable (dry-run) with:
@@ -20,3 +20,4 @@ DELIVERABLES
 ACCEPTANCE
 - doctor passes
 - conformance dry-run passes for WebEx pack
+

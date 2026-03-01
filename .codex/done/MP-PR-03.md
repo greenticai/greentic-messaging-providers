@@ -1,6 +1,6 @@
 # MP-PR-03 — Slack provider pack: functional OAuth setup + ingress/egress fixtures + conformance metadata
 
-REPO: greentic-ai/greentic-messaging-providers
+REPO: greenticai/greentic-messaging-providers
 
 GOAL
 Make Slack provider pack fully functional and testable end-to-end (dry-run), covering:
@@ -60,3 +60,4 @@ DELIVERABLES
 ACCEPTANCE
 - Slack pack passes doctor validation.
 - Slack pack passes messaging conformance runner in dry-run when fixtures are used.
+

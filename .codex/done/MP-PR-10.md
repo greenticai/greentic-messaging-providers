@@ -1,6 +1,6 @@
 # MP-PR-10 — Bundle pack: include all providers cleanly, consistent paths, no legacy
 
-REPO: greentic-ai/greentic-messaging-providers
+REPO: greenticai/greentic-messaging-providers
 
 GOAL
 Ensure the “bundle” pack includes all provider packs/components consistently and does not reintroduce legacy conventions.
@@ -14,3 +14,4 @@ DELIVERABLES
 ACCEPTANCE
 - doctor passes for bundle pack
 - conformance dry-run can enumerate included providers without ambiguity
+

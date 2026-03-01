@@ -1,6 +1,6 @@
 # MP-PR-05 — Teams/Graph provider pack: OAuth + subscriptions sync + ingress/egress fixtures (dry-run functional)
 
-REPO: greentic-ai/greentic-messaging-providers
+REPO: greenticai/greentic-messaging-providers
 
 GOAL
 Make Teams (Microsoft Graph) pack fully functional and testable (dry-run) for:
@@ -51,3 +51,4 @@ DELIVERABLES
 ACCEPTANCE
 - doctor passes
 - conformance dry-run passes including subscriptions stage
+

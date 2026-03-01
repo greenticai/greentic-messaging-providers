@@ -1,6 +1,6 @@
 # MP-PR-11 — Conformance fixtures & CI: enforce functional packs before publish
 
-REPO: greentic-ai/greentic-messaging-providers
+REPO: greenticai/greentic-messaging-providers
 
 GOAL
 Make “functional provider packs” non-negotiable by adding:
@@ -40,3 +40,4 @@ On CI failure:
 ACCEPTANCE
 - No pack can be published unless it has fixtures and passes doctor.
 - This prevents “half functional” provider packs from shipping.
+
