@@ -34,7 +34,22 @@ components:
     host: {}
   wasm: components/questions.wasm
 - id: ai.greentic.component-templates
-  version: 0.4.34
+  version: 0.1.0
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/templates/templates.wasm
+- id: ai.greentic.component-templates
+  version: 0.1.0
   world: root:component/root
   supports:
   - messaging
@@ -138,6 +153,21 @@ components:
       clocks: false
     host: {}
   wasm: components/diagnostics__summary.wasm
+- id: ingress_default___ingress_default__summary
+  version: 0.1.0
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/ingress_default___ingress_default__summary.wasm
 - id: messaging-provider-webchat
   version: 0.4.34
   world: greentic:provider/schema-core@1.0.0
@@ -156,6 +186,36 @@ components:
         read: true
         write: true
   wasm: components/messaging-provider-webchat.wasm
+- id: provision
+  version: 0.1.0
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/provision/provision.wasm
+- id: questions
+  version: 0.1.0
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/questions/questions.wasm
 - id: requirements___summary
   version: 0.4.34
   world: root:component/root
@@ -561,6 +621,36 @@ components:
       clocks: false
     host: {}
   wasm: components/setup_default__validate.wasm
+- id: sync_subscriptions___summary
+  version: 0.1.0
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/sync_subscriptions___summary.wasm
+- id: sync_subscriptions___sync_subscriptions__summary
+  version: 0.1.0
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/sync_subscriptions___sync_subscriptions__summary.wasm
 - id: text
   version: 0.4.34
   world: greentic:component/component@0.5.0
@@ -591,6 +681,21 @@ components:
       clocks: false
     host: {}
   wasm: components/verify_webhooks___steps.wasm
+- id: verify_webhooks___summary
+  version: 0.1.0
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/verify_webhooks___summary.wasm
 - id: verify_webhooks__steps
   version: 0.4.34
   world: root:component/root
