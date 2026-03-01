@@ -986,16 +986,13 @@
       "inline": {
         "providers": [
           {
-            "provider_type": "messaging.teams.graph",
+            "provider_type": "messaging.teams.bot",
             "capabilities": [
               "messaging"
             ],
             "ops": [
               "send",
               "reply",
-              "subscription_ensure",
-              "subscription_renew",
-              "subscription_delete",
               "qa-spec",
               "apply-answers",
               "i18n-keys",
@@ -1016,28 +1013,11 @@
         ]
       }
     },
-    "messaging.oauth.v1": {
-      "kind": "messaging.oauth.v1",
-      "version": "0.4.34",
-      "inline": {
-        "auth_type": "oauth2",
-        "authorize_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-        "provider_id": "teams",
-        "redirect_path": "/oauth/callback/teams",
-        "scopes": [
-          "https://graph.microsoft.com/.default"
-        ],
-        "secret_keys": [
-          "MS_GRAPH_REFRESH_TOKEN"
-        ],
-        "token_url": "https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
-      }
-    },
     "messaging.provider_flow_hints": {
       "kind": "messaging.provider_flow_hints",
       "version": "0.4.34",
       "inline": {
-        "messaging.teams.graph": {
+        "messaging.teams.bot": {
           "diagnostics": "diagnostics",
           "setup_custom": "setup_custom",
           "setup_default": "setup_default",
@@ -1060,21 +1040,6 @@
         "world": "greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1"
       }
     },
-    "messaging.subscriptions.v1": {
-      "kind": "messaging.subscriptions.v1",
-      "version": "0.4.34",
-      "inline": {
-        "component_ref": "messaging-ingress-teams",
-        "export": "sync-subscriptions",
-        "pattern": "sync",
-        "renewal_window_hours": 24,
-        "resources": [
-          "message",
-          "reaction"
-        ],
-        "world": "greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1"
-      }
-    }
   },
   "flows": [
     {
@@ -1149,23 +1114,12 @@
       {
         "component": "messaging-provider-teams",
         "kind": "egress",
-        "name": "messaging.teams.graph"
+        "name": "messaging.teams.bot"
       }
     ]
   },
   "name": "messaging-teams",
   "publisher": "Greentic",
-  "secret_requirements": [
-    {
-      "name": "MS_GRAPH_CLIENT_SECRET",
-      "scope": "tenant",
-      "description": "Client secret used for Graph token acquisition."
-    },
-    {
-      "name": "MS_GRAPH_REFRESH_TOKEN",
-      "scope": "tenant",
-      "description": "Refresh token used for Graph token acquisition when configured."
-    }
-  ],
+  "secret_requirements": [],
   "version": "0.4.34"
 }

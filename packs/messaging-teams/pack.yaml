@@ -34,7 +34,7 @@ components:
     host: {}
   wasm: components/questions.wasm
 - id: ai.greentic.component-templates
-  version: 0.4.34
+  version: 0.1.0
   world: root:component/root
   supports:
   - messaging

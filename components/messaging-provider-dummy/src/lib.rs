@@ -56,6 +56,36 @@ const I18N_KEYS: &[&str] = &[
     "dummy.flow.remove.complete",
 ];
 
+const I18N_PAIRS: &[(&str, &str)] = &[
+    ("dummy.op.run.title", "Run"),
+    ("dummy.op.run.description", "Run dummy provider operation"),
+    ("dummy.schema.input.title", "Dummy input"),
+    ("dummy.schema.input.description", "Input for dummy provider run"),
+    ("dummy.schema.input.message.title", "Message"),
+    ("dummy.schema.input.message.description", "Message text to hash"),
+    ("dummy.schema.output.title", "Dummy output"),
+    ("dummy.schema.output.description", "Result of dummy provider run"),
+    ("dummy.schema.output.ok.title", "Success"),
+    ("dummy.schema.output.ok.description", "Whether provider run succeeded"),
+    ("dummy.schema.output.message_id.title", "Message ID"),
+    ("dummy.schema.output.message_id.description", "Deterministic message identifier"),
+    ("dummy.schema.config.title", "Dummy config"),
+    ("dummy.schema.config.description", "Dummy provider configuration"),
+    ("dummy.schema.config.enabled.title", "Enabled"),
+    ("dummy.schema.config.enabled.description", "Enable this provider"),
+    ("dummy.schema.config.api_token.title", "API token"),
+    ("dummy.schema.config.api_token.description", "Tenant token for dummy provider"),
+    ("dummy.schema.config.endpoint_url.title", "Endpoint URL"),
+    ("dummy.schema.config.endpoint_url.description", "Dummy endpoint URL"),
+    ("dummy.qa.default.title", "Default"),
+    ("dummy.qa.setup.title", "Setup"),
+    ("dummy.qa.upgrade.title", "Upgrade"),
+    ("dummy.qa.remove.title", "Remove"),
+    ("dummy.qa.setup.enabled", "Enable provider"),
+    ("dummy.qa.setup.api_token", "API token"),
+    ("dummy.qa.setup.endpoint_url", "Endpoint URL"),
+];
+
 struct Component;
 
 impl bindings::exports::greentic::component::descriptor::Guest for Component {
@@ -124,65 +154,7 @@ impl bindings::exports::greentic::component::component_i18n::Guest for Component
     }
 
     fn i18n_bundle(locale: String) -> Vec<u8> {
-        provider_common::helpers::i18n_bundle_from_pairs(
-            locale,
-            &[
-                ("dummy.op.run.title", "Run"),
-                ("dummy.op.run.description", "Run dummy provider operation"),
-                ("dummy.schema.input.title", "Dummy input"),
-                (
-                    "dummy.schema.input.description",
-                    "Input for dummy provider run",
-                ),
-                ("dummy.schema.input.message.title", "Message"),
-                (
-                    "dummy.schema.input.message.description",
-                    "Message text to hash",
-                ),
-                ("dummy.schema.output.title", "Dummy output"),
-                (
-                    "dummy.schema.output.description",
-                    "Result of dummy provider run",
-                ),
-                ("dummy.schema.output.ok.title", "Success"),
-                (
-                    "dummy.schema.output.ok.description",
-                    "Whether provider run succeeded",
-                ),
-                ("dummy.schema.output.message_id.title", "Message ID"),
-                (
-                    "dummy.schema.output.message_id.description",
-                    "Deterministic message identifier",
-                ),
-                ("dummy.schema.config.title", "Dummy config"),
-                (
-                    "dummy.schema.config.description",
-                    "Dummy provider configuration",
-                ),
-                ("dummy.schema.config.enabled.title", "Enabled"),
-                (
-                    "dummy.schema.config.enabled.description",
-                    "Enable this provider",
-                ),
-                ("dummy.schema.config.api_token.title", "API token"),
-                (
-                    "dummy.schema.config.api_token.description",
-                    "Tenant token for dummy provider",
-                ),
-                ("dummy.schema.config.endpoint_url.title", "Endpoint URL"),
-                (
-                    "dummy.schema.config.endpoint_url.description",
-                    "Dummy endpoint URL",
-                ),
-                ("dummy.qa.default.title", "Default"),
-                ("dummy.qa.setup.title", "Setup"),
-                ("dummy.qa.upgrade.title", "Upgrade"),
-                ("dummy.qa.remove.title", "Remove"),
-                ("dummy.qa.setup.enabled", "Enable provider"),
-                ("dummy.qa.setup.api_token", "API token"),
-                ("dummy.qa.setup.endpoint_url", "Endpoint URL"),
-            ],
-        )
+        provider_common::helpers::i18n_bundle_from_pairs(locale, I18N_PAIRS)
     }
 }
 
@@ -201,13 +173,14 @@ impl bindings::exports::greentic::provider_schema_core::schema_core_api::Guest f
     }
 
     fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
-        if let Some(result) = provider_common::qa_invoke_bridge::dispatch_qa_ops(
+        if let Some(result) = provider_common::qa_invoke_bridge::dispatch_qa_ops_with_i18n(
             &op,
             &input_json,
             "dummy",
             SETUP_QUESTIONS,
             DEFAULT_KEYS,
             I18N_KEYS,
+            I18N_PAIRS,
             apply_answers_impl,
         ) {
             return result;

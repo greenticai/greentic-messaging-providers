@@ -29,8 +29,12 @@ pub(crate) const DEFAULT_API_BASE: &str = "https://api.telegram.org";
 pub(crate) const TOKEN_SECRET: &str = "TELEGRAM_BOT_TOKEN";
 
 use config::{ProviderConfigOut, default_config_out, validate_config_out};
-use describe::{I18N_KEYS, build_describe_payload, build_qa_spec};
-use ops::{encode_op, handle_reply, handle_send, ingest_http, render_plan, send_payload};
+use describe::{
+    DEFAULT_KEYS, I18N_KEYS, I18N_PAIRS, SETUP_QUESTIONS, build_describe_payload, build_qa_spec,
+};
+use ops::{
+    encode_op, handle_reply, handle_send, ingest_http, render_plan, send_payload, setup_webhook,
+};
 
 // ============================================================================
 // Component trait implementations
@@ -99,6 +103,18 @@ impl bindings::exports::greentic::provider_schema_core::schema_core_api::Guest f
     }
 
     fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
+        if let Some(result) = provider_common::qa_invoke_bridge::dispatch_qa_ops_with_i18n(
+            &op,
+            &input_json,
+            "telegram",
+            SETUP_QUESTIONS,
+            DEFAULT_KEYS,
+            I18N_KEYS,
+            I18N_PAIRS,
+            apply_answers_bridge,
+        ) {
+            return result;
+        }
         dispatch_json_invoke(&op, &input_json)
     }
 }
@@ -109,6 +125,17 @@ bindings::export!(Component with_types_in bindings);
 // Dispatch
 // ============================================================================
 
+fn apply_answers_bridge(mode: &str, answers_cbor: Vec<u8>) -> Vec<u8> {
+    use bindings::exports::greentic::component::qa::Mode;
+    let mode = match mode {
+        "setup" => Mode::Setup,
+        "upgrade" => Mode::Upgrade,
+        "remove" => Mode::Remove,
+        _ => Mode::Default,
+    };
+    apply_answers_impl(mode, answers_cbor)
+}
+
 fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
     match op {
         "run" | "send" => handle_send(input_json),
@@ -117,6 +144,7 @@ fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
         "render_plan" => render_plan(input_json),
         "encode" => encode_op(input_json),
         "send_payload" => send_payload(input_json),
+        "setup_webhook" => setup_webhook(input_json),
         other => json_bytes(&json!({"ok": false, "error": format!("unsupported op: {other}")})),
     }
 }

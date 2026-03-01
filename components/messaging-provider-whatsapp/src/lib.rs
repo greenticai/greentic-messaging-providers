@@ -89,13 +89,14 @@ impl bindings::exports::greentic::provider_schema_core::schema_core_api::Guest f
     }
 
     fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
-        if let Some(result) = provider_common::qa_invoke_bridge::dispatch_qa_ops(
+        if let Some(result) = provider_common::qa_invoke_bridge::dispatch_qa_ops_with_i18n(
             &op,
             &input_json,
             "whatsapp",
             describe::SETUP_QUESTIONS,
             describe::DEFAULT_KEYS,
             I18N_KEYS,
+            I18N_PAIRS,
             apply_answers_impl,
         ) {
             return result;

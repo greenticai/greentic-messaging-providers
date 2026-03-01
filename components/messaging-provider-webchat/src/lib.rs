@@ -29,7 +29,9 @@ pub(crate) const PROVIDER_TYPE: &str = "messaging.webchat";
 pub(crate) const WORLD_ID: &str = "component-v0-v6-v0";
 
 use config::{ProviderConfigOut, default_config_out, default_mode, validate_config_out};
-use describe::{I18N_KEYS, build_describe_payload, build_qa_spec};
+use describe::{
+    DEFAULT_KEYS, I18N_KEYS, I18N_PAIRS, SETUP_QUESTIONS, build_describe_payload, build_qa_spec,
+};
 use ops::{encode_op, handle_ingest, handle_send, ingest_http, render_plan, send_payload};
 
 // ============================================================================
@@ -99,6 +101,18 @@ impl bindings::exports::greentic::provider_schema_core::schema_core_api::Guest f
     }
 
     fn invoke(op: String, input_json: Vec<u8>) -> Vec<u8> {
+        if let Some(result) = provider_common::qa_invoke_bridge::dispatch_qa_ops_with_i18n(
+            &op,
+            &input_json,
+            "webchat",
+            SETUP_QUESTIONS,
+            DEFAULT_KEYS,
+            I18N_KEYS,
+            I18N_PAIRS,
+            apply_answers_bridge,
+        ) {
+            return result;
+        }
         dispatch_json_invoke(&op, &input_json)
     }
 }
@@ -108,6 +122,17 @@ bindings::export!(Component with_types_in bindings);
 // ============================================================================
 // Dispatch
 // ============================================================================
+
+fn apply_answers_bridge(mode: &str, answers_cbor: Vec<u8>) -> Vec<u8> {
+    use bindings::exports::greentic::component::qa::Mode;
+    let mode = match mode {
+        "setup" => Mode::Setup,
+        "upgrade" => Mode::Upgrade,
+        "remove" => Mode::Remove,
+        _ => Mode::Default,
+    };
+    apply_answers_impl(mode, answers_cbor)
+}
 
 fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
     match op {
