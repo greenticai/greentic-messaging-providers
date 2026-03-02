@@ -1,3 +1,7 @@
+//! Core operations for Teams Bot Service provider.
+//!
+//! Uses Bot Connector API instead of Microsoft Graph API.
+
 use base64::{Engine, engine::general_purpose::STANDARD};
 use greentic_types::messaging::universal_dto::{
     HttpInV1, HttpOutV1, ProviderPayloadV1, SendPayloadInV1,
@@ -13,11 +17,17 @@ use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_oper
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
+use crate::auth::{acquire_bot_token, extract_bearer_token, validate_jwt};
 use crate::bindings::greentic::http::http_client as client;
-use crate::config::{ProviderConfig, default_channel_destination, load_config};
-use crate::token::acquire_token;
-use crate::{DEFAULT_GRAPH_BASE, PROVIDER_TYPE};
+use crate::config::{
+    ProviderConfig, default_channel_destination, get_activity_id, get_conversation_id,
+    get_service_url, load_config,
+};
+use crate::PROVIDER_TYPE;
 
+/// Handles the "send" operation - sends a message via Bot Connector API.
+///
+/// Endpoint: `{serviceUrl}/v3/conversations/{conversationId}/activities`
 pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
     let parsed: Value = match serde_json::from_slice(input_json) {
         Ok(val) => val,
@@ -61,29 +71,50 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         None => return json_bytes(&json!({"ok": false, "error": "text required"})),
     };
 
-    let destination = envelope
-        .to
-        .first()
-        .cloned()
-        .or_else(|| default_channel_destination(&cfg));
-    let destination = match destination {
-        Some(dest) => dest,
-        None => return json_bytes(&json!({"ok": false, "error": "destination required"})),
+    // Get service URL from metadata or config
+    let service_url = parsed
+        .get("metadata")
+        .and_then(|m| m.get("serviceUrl"))
+        .and_then(Value::as_str)
+        .map(|s| s.to_string())
+        .or_else(|| get_service_url(&parsed, &cfg))
+        .or_else(|| cfg.default_service_url.clone());
+
+    let service_url = match service_url {
+        Some(url) if !url.is_empty() => url.trim_end_matches('/').to_string(),
+        _ => {
+            return json_bytes(&json!({
+                "ok": false,
+                "error": "service_url required (from metadata.serviceUrl, config.default_service_url, or Activity)"
+            }));
+        }
     };
 
-    let dest_id = destination.id.trim();
-    if dest_id.is_empty() {
-        return json_bytes(&json!({"ok": false, "error": "destination id required"}));
-    }
-    let dest_id = dest_id.to_string();
-    let kind = destination.kind.as_deref().unwrap_or("channel");
-    let graph_base = cfg
-        .graph_base_url
-        .clone()
-        .unwrap_or_else(|| DEFAULT_GRAPH_BASE.to_string());
+    // Get conversation ID from metadata or destination
+    let conversation_id = parsed
+        .get("metadata")
+        .and_then(|m| m.get("conversationId"))
+        .and_then(Value::as_str)
+        .map(|s| s.to_string())
+        .or_else(|| {
+            envelope
+                .to
+                .first()
+                .map(|d| d.id.clone())
+                .or_else(|| default_channel_destination(&cfg).map(|d| d.id))
+        });
 
-    // Reply-in-thread: check for reply_to_id in envelope or metadata.
-    // Strip surrounding quotes — operator may double-quote args-json values.
+    let conversation_id = match conversation_id {
+        Some(id) if !id.is_empty() => id,
+        _ => {
+            return json_bytes(&json!({
+                "ok": false,
+                "error": "conversation_id required (from metadata.conversationId or destination)"
+            }));
+        }
+    };
+
+    // Reply-in-thread: check for reply_to_id in envelope or metadata
     let reply_to_id = parsed
         .get("reply_to_id")
         .and_then(Value::as_str)
@@ -98,83 +129,43 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string());
 
-    let url = match kind {
-        "channel" => {
-            let (team_id, channel_id) = match dest_id.split_once(':') {
-                Some((team, channel)) => {
-                    let team = team.trim();
-                    let channel = channel.trim();
-                    if team.is_empty() || channel.is_empty() {
-                        return json_bytes(&json!({
-                            "ok": false,
-                            "error": "channel destination must include team_id and channel_id",
-                        }));
-                    }
-                    (team.to_string(), channel.to_string())
-                }
-                None => {
-                    return json_bytes(&json!({
-                        "ok": false,
-                        "error": "channel destination must be team_id:channel_id",
-                    }));
-                }
-            };
-            if let Some(ref msg_id) = reply_to_id {
-                format!(
-                    "{graph_base}/teams/{team_id}/channels/{channel_id}/messages/{msg_id}/replies"
-                )
-            } else {
-                format!("{graph_base}/teams/{team_id}/channels/{channel_id}/messages")
-            }
-        }
-        "chat" => {
-            if dest_id.is_empty() {
-                return json_bytes(&json!({"ok": false, "error": "destination id required"}));
-            }
-            format!("{graph_base}/chats/{dest_id}/messages")
-        }
-        other => {
-            return json_bytes(&json!({
-                "ok": false,
-                "error": format!("unsupported destination kind: {other}"),
-            }));
-        }
-    };
-
-    let token = match acquire_token(&cfg) {
+    // Acquire bot token
+    let token = match acquire_bot_token(&cfg) {
         Ok(tok) => tok,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    // Check if an Adaptive Card was injected by encode_op.
+    // Build Bot Framework Activity payload
     let ac_json_str = parsed
         .get("_ac_json")
         .and_then(Value::as_str)
         .and_then(|s| serde_json::from_str::<Value>(s).ok());
 
     let body = if let Some(ac_card) = ac_json_str {
-        // Send as native AC attachment — Teams renders it in full fidelity.
+        // Send as native Adaptive Card attachment
         json!({
-            "body": {
-                "content": "<attachment id=\"ac-card-1\"></attachment>",
-                "contentType": "html"
-            },
+            "type": "message",
+            "text": "",
             "attachments": [{
-                "id": "ac-card-1",
                 "contentType": "application/vnd.microsoft.card.adaptive",
-                "contentUrl": null,
-                "content": serde_json::to_string(&ac_card).unwrap_or_default(),
-                "name": null,
-                "thumbnailUrl": null
+                "content": ac_card
             }]
         })
     } else {
         json!({
-            "body": {
-                "content": text,
-                "contentType": "html"
-            }
+            "type": "message",
+            "text": text
         })
+    };
+
+    // Build URL for Bot Connector API
+    let url = if let Some(ref activity_id) = reply_to_id {
+        format!(
+            "{}/v3/conversations/{}/activities/{}",
+            service_url, conversation_id, activity_id
+        )
+    } else {
+        format!("{}/v3/conversations/{}/activities", service_url, conversation_id)
     };
 
     let request = client::Request {
@@ -204,13 +195,13 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
             .and_then(|b| serde_json::from_slice::<Value>(b).ok())
             .unwrap_or(Value::Null);
         let err_msg = err_body
-            .get("error")
-            .and_then(|e| e.get("message"))
+            .get("message")
+            .or_else(|| err_body.get("error").and_then(|e| e.get("message")))
             .and_then(Value::as_str)
             .unwrap_or("");
         return json_bytes(&json!({
             "ok": false,
-            "error": format!("graph returned status {}: {}", resp.status, err_msg),
+            "error": format!("bot connector returned status {}: {}", resp.status, err_msg),
             "response": err_body,
         }));
     }
@@ -221,7 +212,7 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
         .get("id")
         .and_then(Value::as_str)
         .map(|s| s.to_string())
-        .unwrap_or_else(|| "graph-message".to_string());
+        .unwrap_or_else(|| "bot-message".to_string());
     let provider_message_id = format!("teams:{message_id}");
 
     json_bytes(&json!({
@@ -235,6 +226,9 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
     }))
 }
 
+/// Handles the "reply" operation - replies in a thread via Bot Connector API.
+///
+/// Endpoint: `{serviceUrl}/v3/conversations/{conversationId}/activities/{replyToId}`
 pub(crate) fn handle_reply(input_json: &[u8]) -> Vec<u8> {
     let parsed: Value = match serde_json::from_slice(input_json) {
         Ok(val) => val,
@@ -250,14 +244,16 @@ pub(crate) fn handle_reply(input_json: &[u8]) -> Vec<u8> {
     if !cfg.enabled {
         return json_bytes(&json!({"ok": false, "error": "provider disabled by config"}));
     }
-    let thread_id = parsed
+
+    let reply_to_id = parsed
         .get("reply_to_id")
         .or_else(|| parsed.get("thread_id"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    if thread_id.is_empty() {
+    if reply_to_id.is_empty() {
         return json_bytes(&json!({"ok": false, "error": "reply_to_id or thread_id required"}));
     }
+
     let text = parsed
         .get("text")
         .and_then(|v| v.as_str())
@@ -267,39 +263,56 @@ pub(crate) fn handle_reply(input_json: &[u8]) -> Vec<u8> {
         return json_bytes(&json!({"ok": false, "error": "text required"}));
     }
 
-    let token = match acquire_token(&cfg) {
+    // Get service URL
+    let service_url = parsed
+        .get("service_url")
+        .or_else(|| parsed.get("serviceUrl"))
+        .and_then(Value::as_str)
+        .map(|s| s.to_string())
+        .or_else(|| cfg.default_service_url.clone());
+
+    let service_url = match service_url {
+        Some(url) if !url.is_empty() => url.trim_end_matches('/').to_string(),
+        _ => {
+            return json_bytes(&json!({
+                "ok": false,
+                "error": "service_url required"
+            }));
+        }
+    };
+
+    // Get conversation ID
+    let conversation_id = parsed
+        .get("conversation_id")
+        .or_else(|| parsed.get("conversationId"))
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
+
+    let conversation_id = match conversation_id {
+        Some(id) if !id.is_empty() => id,
+        _ => {
+            return json_bytes(&json!({
+                "ok": false,
+                "error": "conversation_id required"
+            }));
+        }
+    };
+
+    let token = match acquire_bot_token(&cfg) {
         Ok(tok) => tok,
         Err(err) => return json_bytes(&json!({"ok": false, "error": err})),
     };
 
-    let graph_base = cfg
-        .graph_base_url
-        .clone()
-        .unwrap_or_else(|| DEFAULT_GRAPH_BASE.to_string());
-    let team_id = parsed
-        .get("team_id")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| cfg.team_id.clone());
-    let channel_id = parsed
-        .get("channel_id")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .or_else(|| cfg.channel_id.clone());
-    let (Some(team_id), Some(channel_id)) = (team_id, channel_id) else {
-        return json_bytes(&json!({"ok": false, "error": "team_id and channel_id required"}));
-    };
-
     let url = format!(
-        "{}/teams/{}/channels/{}/messages/{}/replies",
-        graph_base, team_id, channel_id, thread_id
+        "{}/v3/conversations/{}/activities/{}",
+        service_url, conversation_id, reply_to_id
     );
+
     let body = json!({
-        "body": {
-            "content": text,
-            "contentType": "html"
-        }
+        "type": "message",
+        "text": text
     });
+
     let request = client::Request {
         method: "POST".into(),
         url,
@@ -319,19 +332,21 @@ pub(crate) fn handle_reply(input_json: &[u8]) -> Vec<u8> {
             }));
         }
     };
+
     if resp.status < 200 || resp.status >= 300 {
         return json_bytes(&json!({
             "ok": false,
-            "error": format!("graph returned status {}", resp.status),
+            "error": format!("bot connector returned status {}", resp.status),
         }));
     }
+
     let body_bytes = resp.body.unwrap_or_default();
     let body_json: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
     let message_id = body_json
         .get("id")
         .and_then(Value::as_str)
         .map(|s| s.to_string())
-        .unwrap_or_else(|| "graph-reply".to_string());
+        .unwrap_or_else(|| "bot-reply".to_string());
     let provider_message_id = format!("teams:{message_id}");
 
     json_bytes(&json!({
@@ -345,6 +360,11 @@ pub(crate) fn handle_reply(input_json: &[u8]) -> Vec<u8> {
     }))
 }
 
+/// Handles incoming HTTP webhook from Bot Framework.
+///
+/// - Validates JWT from Authorization header
+/// - Parses Bot Framework Activity
+/// - Extracts serviceUrl, conversation.id, activity.id for downstream replies
 pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
     // Try native greentic-types format first, fall back to operator format
     let request = match serde_json::from_slice::<HttpInV1>(input_json) {
@@ -354,17 +374,48 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             Err(err) => return http_out_error(400, &format!("invalid http input: {err}")),
         },
     };
+
+    // Extract and validate JWT from Authorization header (Phase 1: decode-only)
+    let auth_header = request
+        .headers
+        .iter()
+        .find(|h| h.name.eq_ignore_ascii_case("authorization"))
+        .map(|h| h.value.as_str());
+
+    // Load config to get Bot App ID for JWT validation
+    let parsed_input: Value = serde_json::from_slice(input_json).unwrap_or(Value::Null);
+    let cfg = load_config(&parsed_input).ok();
+
+    if let (Some(auth), Some(config)) = (auth_header, &cfg) {
+        if let Some(token) = extract_bearer_token(auth) {
+            // Validate JWT (Phase 1: decode-only, no signature verification)
+            if let Err(err) = validate_jwt(&token, &config.ms_bot_app_id) {
+                // Log warning but don't fail - allow dev/testing without full validation
+                eprintln!("JWT validation warning: {}", err);
+            }
+        }
+    }
+
     let body_bytes = match STANDARD.decode(&request.body_b64) {
         Ok(bytes) => bytes,
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
     let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
 
-    // Bot Framework activity: detect type and handle accordingly.
+    // Bot Framework activity: detect type and handle accordingly
     let activity_type = body_val
         .get("type")
         .and_then(Value::as_str)
         .unwrap_or_default();
+
+    // Extract critical fields for downstream operations
+    let service_url = body_val
+        .get("serviceUrl")
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
+    let conversation_id = get_conversation_id(&body_val);
+    let activity_id = get_activity_id(&body_val);
+
     let is_bot_framework = activity_type == "invoke" || activity_type == "message";
     let is_card_action = is_bot_framework
         && (body_val.get("value").is_some()
@@ -374,7 +425,7 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
                 .is_some_and(|n| n.starts_with("adaptiveCard/")));
 
     if is_card_action {
-        // Bot Framework invoke/message with Action.Submit data.
+        // Bot Framework invoke/message with Action.Submit data
         let sender = body_val
             .get("from")
             .and_then(|f| f.get("id"))
@@ -423,6 +474,23 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
 
         let mut envelope =
             build_team_envelope(action_text, sender, team_id.clone(), channel_id.clone());
+
+        // Store critical fields for downstream replies
+        if let Some(ref url) = service_url {
+            envelope.metadata.insert("serviceUrl".into(), url.clone());
+        }
+        if let Some(ref conv_id) = conversation_id {
+            envelope
+                .metadata
+                .insert("conversationId".into(), conv_id.clone());
+        }
+        if let Some(ref act_id) = activity_id {
+            envelope.metadata.insert("activityId".into(), act_id.clone());
+            envelope
+                .metadata
+                .insert("reply_to_id".into(), act_id.clone());
+        }
+
         if !route_to_card.is_empty() {
             envelope
                 .metadata
@@ -441,6 +509,9 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             "event": body_val,
             "team_id": team_id,
             "channel_id": channel_id,
+            "service_url": service_url,
+            "conversation_id": conversation_id,
+            "activity_id": activity_id,
         });
         let normalized_bytes =
             serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
@@ -453,17 +524,38 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         return http_out_v1_bytes(&out);
     }
 
-    // Bot Framework message activity (regular text messages).
-    let text = extract_team_text(&body_val);
+    // Bot Framework message activity (regular text messages)
+    let text = extract_bot_text(&body_val);
     let team_id = extract_team_id(&body_val);
     let channel_id = extract_channel_id(&body_val);
     let user = extract_sender(&body_val);
-    let envelope = build_team_envelope(text.clone(), user, team_id.clone(), channel_id.clone());
+
+    let mut envelope = build_team_envelope(text.clone(), user, team_id.clone(), channel_id.clone());
+
+    // Store critical fields for downstream replies
+    if let Some(ref url) = service_url {
+        envelope.metadata.insert("serviceUrl".into(), url.clone());
+    }
+    if let Some(ref conv_id) = conversation_id {
+        envelope
+            .metadata
+            .insert("conversationId".into(), conv_id.clone());
+    }
+    if let Some(ref act_id) = activity_id {
+        envelope.metadata.insert("activityId".into(), act_id.clone());
+        envelope
+            .metadata
+            .insert("reply_to_id".into(), act_id.clone());
+    }
+
     let normalized = json!({
         "ok": true,
         "event": body_val,
         "team_id": team_id,
         "channel_id": channel_id,
+        "service_url": service_url,
+        "conversation_id": conversation_id,
+        "activity_id": activity_id,
     });
     let normalized_bytes = serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
     let out = HttpOutV1 {
@@ -498,21 +590,22 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
         Ok(value) => value,
         Err(err) => return encode_error(&err),
     };
-    // Extract AC card from metadata if present — Teams renders it natively.
+
+    // Extract AC card from metadata if present
     let ac_json = encode_message.metadata.get("adaptive_card").cloned();
 
-    // Serialize the full envelope so send_payload -> handle_send can parse it.
-    // Inject ac_json into the serialized form so handle_send can attach it.
+    // Serialize the full envelope so send_payload -> handle_send can parse it
     let mut envelope_val =
         serde_json::to_value(&encode_message).unwrap_or(Value::Object(Default::default()));
+
     if let Some(ac) = &ac_json {
         envelope_val
             .as_object_mut()
             .unwrap()
             .insert("_ac_json".to_string(), Value::String(ac.clone()));
     }
-    // Forward reply_to_id from metadata so handle_send can thread replies.
-    // Strip surrounding quotes — operator may double-quote args-json values.
+
+    // Forward reply_to_id from metadata
     if let Some(reply_id) = encode_message.metadata.get("reply_to_id") {
         let clean = reply_id.trim_matches('"');
         if !clean.is_empty() {
@@ -522,9 +615,22 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
                 .insert("reply_to_id".to_string(), Value::String(clean.to_string()));
         }
     }
+
+    // Forward serviceUrl and conversationId from metadata
+    if let Some(service_url) = encode_message.metadata.get("serviceUrl") {
+        envelope_val
+            .as_object_mut()
+            .unwrap()
+            .insert("metadata".to_string(), json!({
+                "serviceUrl": service_url,
+                "conversationId": encode_message.metadata.get("conversationId").cloned().unwrap_or_default()
+            }));
+    }
+
     let body_bytes = serde_json::to_vec(&envelope_val).unwrap_or_else(|_| b"{}".to_vec());
     let mut metadata = BTreeMap::new();
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
+
     let payload = ProviderPayloadV1 {
         content_type: "application/json".to_string(),
         body_b64: STANDARD.encode(&body_bytes),
@@ -558,7 +664,6 @@ pub(crate) fn send_payload(input_json: &[u8]) -> Vec<u8> {
         .and_then(Value::as_bool)
         .unwrap_or(false);
     if ok {
-        // Forward message_id so callers can use it for replies/threading.
         let msg_id = result_value
             .get("message_id")
             .and_then(Value::as_str)
@@ -671,6 +776,7 @@ pub(crate) fn channel_destination(
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .unwrap_or("channel");
+
     match kind {
         "channel" => {
             let team = parsed
@@ -707,46 +813,62 @@ pub(crate) fn channel_destination(
                 kind: Some("chat".into()),
             })
         }
+        "conversation" => {
+            // Bot Framework conversation - use conversation_id directly
+            let conversation_id = parsed
+                .get("conversation_id")
+                .or_else(|| parsed.get("conversationId"))
+                .and_then(Value::as_str)
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .ok_or_else(|| "conversation_id required for conversation destination".to_string())?;
+            Ok(Destination {
+                id: conversation_id,
+                kind: Some("conversation".into()),
+            })
+        }
         other => Err(format!(
             "unsupported destination kind for envelope fallback: {other}"
         )),
     }
 }
 
-pub(crate) fn extract_team_text(value: &Value) -> String {
+/// Extracts message text from Bot Framework Activity.
+pub(crate) fn extract_bot_text(value: &Value) -> String {
+    // Bot Framework Activity: text is at top level
     value
-        .get("resourceData")
-        .and_then(|rd| rd.get("body"))
-        .and_then(|body| body.get("content"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string()
+        .get("text")
+        .and_then(Value::as_str)
+        .map(|s| s.to_string())
+        .unwrap_or_default()
 }
 
 pub(crate) fn extract_team_id(value: &Value) -> Option<String> {
+    // Bot Framework: channelData.team.id
     value
-        .get("resourceData")
-        .and_then(|rd| rd.get("channelIdentity"))
-        .and_then(|ci| ci.get("teamId"))
-        .and_then(|v| v.as_str())
+        .get("channelData")
+        .and_then(|cd| cd.get("team"))
+        .and_then(|t| t.get("id"))
+        .and_then(Value::as_str)
         .map(|s| s.to_string())
 }
 
 pub(crate) fn extract_channel_id(value: &Value) -> Option<String> {
+    // Bot Framework: channelData.channel.id
     value
-        .get("resourceData")
-        .and_then(|rd| rd.get("channelIdentity"))
-        .and_then(|ci| ci.get("channelId"))
-        .and_then(|v| v.as_str())
+        .get("channelData")
+        .and_then(|cd| cd.get("channel"))
+        .and_then(|c| c.get("id"))
+        .and_then(Value::as_str)
         .map(|s| s.to_string())
 }
 
 pub(crate) fn extract_sender(value: &Value) -> Option<String> {
+    // Bot Framework: from.id
     value
-        .get("resourceData")
-        .and_then(|rd| rd.get("from"))
-        .and_then(|from| from.get("user"))
-        .and_then(|v| v.as_str())
+        .get("from")
+        .and_then(|f| f.get("id"))
+        .and_then(Value::as_str)
         .map(|s| s.to_string())
 }
-

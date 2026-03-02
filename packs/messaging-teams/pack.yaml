@@ -34,7 +34,22 @@ components:
     host: {}
   wasm: components/questions.wasm
 - id: ai.greentic.component-templates
-  version: 0.4.34
+  version: 0.1.0
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/templates/templates.wasm
+- id: ai.greentic.component-templates
+  version: 0.1.0
   world: root:component/root
   supports:
   - messaging
@@ -168,6 +183,21 @@ components:
       clocks: false
     host: {}
   wasm: components/diagnostics__token_check.wasm
+- id: ingress_default___ingress_default__summary
+  version: 0.1.0
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/ingress_default___ingress_default__summary.wasm
 - id: messaging-ingress-teams
   version: 0.4.34
   world: greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1
@@ -198,6 +228,36 @@ components:
       clocks: false
     host: {}
   wasm: components/messaging-provider-teams.wasm
+- id: provision
+  version: 0.1.0
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/provision/provision.wasm
+- id: questions
+  version: 0.1.0
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/questions/questions.wasm
 - id: requirements___summary
   version: 0.4.34
   world: root:component/root
@@ -603,6 +663,36 @@ components:
       clocks: false
     host: {}
   wasm: components/setup_default__validate.wasm
+- id: sync_subscriptions___summary
+  version: 0.1.0
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/sync_subscriptions___summary.wasm
+- id: sync_subscriptions___sync_subscriptions__summary
+  version: 0.1.0
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/sync_subscriptions___sync_subscriptions__summary.wasm
 - id: text
   version: 0.4.34
   world: greentic:component/component@0.5.0
@@ -618,6 +708,21 @@ components:
       clocks: false
     host: {}
   wasm: components/templates.wasm
+- id: verify_webhooks___summary
+  version: 0.1.0
+  world: root:component/root
+  supports:
+  - messaging
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/verify_webhooks___summary.wasm
 - id: verify_webhooks___verify
   version: 0.4.34
   world: root:component/root
@@ -650,12 +755,24 @@ components:
   wasm: components/verify_webhooks__verify.wasm
 dependencies: []
 flows:
+- id: default
+  file: flows/default.ygtc
+  tags:
+  - default
+  entrypoints:
+  - default
 - id: diagnostics
   file: flows/diagnostics.ygtc
   tags:
   - default
   entrypoints:
   - diagnostics
+- id: remove
+  file: flows/remove.ygtc
+  tags:
+  - default
+  entrypoints:
+  - remove
 - id: requirements
   file: flows/requirements.ygtc
   tags:
@@ -680,6 +797,12 @@ flows:
   - default
   entrypoints:
   - subscriptions
+- id: update
+  file: flows/update.ygtc
+  tags:
+  - default
+  entrypoints:
+  - update
 - id: verify_webhooks
   file: flows/verify_webhooks.ygtc
   tags:
@@ -712,15 +835,16 @@ extensions:
     version: 0.4.34
     inline:
       providers:
-      - provider_type: messaging.teams.graph
+      - provider_type: messaging.teams.bot
         capabilities:
         - messaging
         ops:
         - send
         - reply
-        - subscription_ensure
-        - subscription_renew
-        - subscription_delete
+        - ingest_http
+        - render_plan
+        - encode
+        - send_payload
         - qa-spec
         - apply-answers
         - i18n-keys
@@ -731,27 +855,17 @@ extensions:
           export: schema-core-api
           world: greentic:provider/schema-core@1.0.0
         docs_ref: ''
-  messaging.oauth.v1:
-    kind: messaging.oauth.v1
-    version: 0.4.34
-    inline:
-      auth_type: oauth2
-      authorize_url: https://login.microsoftonline.com/common/oauth2/v2.0/authorize
-      provider_id: teams
-      redirect_path: /oauth/callback/teams
-      scopes:
-      - https://graph.microsoft.com/.default
-      secret_keys:
-      - MS_GRAPH_REFRESH_TOKEN
-      token_url: https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token
   messaging.provider_flow_hints:
     kind: messaging.provider_flow_hints
     version: 0.4.34
     inline:
-      messaging.teams.graph:
+      messaging.teams.bot:
+        default: default
         diagnostics: diagnostics
+        remove: remove
         setup_custom: setup_custom
         setup_default: setup_default
+        update: update
         verify_webhooks: verify_webhooks
   messaging.provider_ingress.v1:
     kind: messaging.provider_ingress.v1
@@ -763,16 +877,4 @@ extensions:
         supports_webhook_validation: false
       component_ref: messaging-ingress-teams
       export: handle-webhook
-      world: greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1
-  messaging.subscriptions.v1:
-    kind: messaging.subscriptions.v1
-    version: 0.4.34
-    inline:
-      component_ref: messaging-ingress-teams
-      export: sync-subscriptions
-      pattern: sync
-      renewal_window_hours: 24
-      resources:
-      - message
-      - reaction
       world: greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1

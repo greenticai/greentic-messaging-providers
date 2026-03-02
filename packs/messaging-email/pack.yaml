@@ -620,12 +620,24 @@ components:
   wasm: components/templates.wasm
 dependencies: []
 flows:
+- id: default
+  file: flows/default.ygtc
+  tags:
+  - default
+  entrypoints:
+  - default
 - id: diagnostics
   file: flows/diagnostics.ygtc
   tags:
   - default
   entrypoints:
   - diagnostics
+- id: remove
+  file: flows/remove.ygtc
+  tags:
+  - default
+  entrypoints:
+  - remove
 - id: requirements
   file: flows/requirements.ygtc
   tags:
@@ -650,6 +662,12 @@ flows:
   - default
   entrypoints:
   - subscriptions
+- id: update
+  file: flows/update.ygtc
+  tags:
+  - default
+  entrypoints:
+  - update
 assets:
 - path: setup.yaml
 - path: schemas/messaging/email/public.config.schema.json
@@ -693,6 +711,9 @@ extensions:
     version: 0.4.34
     inline:
       messaging.email.smtp:
+        default: default
         diagnostics: diagnostics
+        remove: remove
         setup_custom: setup_custom
         setup_default: setup_default
+        update: update

@@ -1,9 +1,10 @@
 use provider_common::component_v0_6::{
-    DescribePayload, QaSpec, RedactionRule, SchemaIr, schema_hash,
+    DescribePayload, QaSpec, RedactionRule, SchemaIr, canonical_cbor_bytes, schema_hash,
 };
 use provider_common::helpers::{
     op, schema_bool_ir, schema_obj, schema_secret, schema_str, schema_str_fmt,
 };
+use serde_json::{Value, json};
 
 use crate::{PROVIDER_ID, WORLD_ID};
 
@@ -22,6 +23,8 @@ pub(crate) const I18N_KEYS: &[&str] = &[
     "telegram.op.encode.description",
     "telegram.op.send_payload.title",
     "telegram.op.send_payload.description",
+    "telegram.op.setup_webhook.title",
+    "telegram.op.setup_webhook.description",
     "telegram.schema.input.title",
     "telegram.schema.input.description",
     "telegram.schema.input.message.title",
@@ -63,7 +66,7 @@ pub(crate) const SETUP_QUESTIONS: &[provider_common::helpers::QaQuestionDef] = &
         "telegram.qa.setup.default_chat_id",
         false,
     ),
-    ("api_base_url", "telegram.qa.setup.api_base_url", true),
+    ("api_base_url", "telegram.qa.setup.api_base_url", false),
     ("bot_token", "telegram.qa.setup.bot_token", false),
 ];
 
@@ -101,6 +104,11 @@ pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
     (
         "telegram.op.send_payload.description",
         "Send encoded payload to Telegram API",
+    ),
+    ("telegram.op.setup_webhook.title", "Setup Webhook"),
+    (
+        "telegram.op.setup_webhook.description",
+        "Register webhook URL with Telegram Bot API",
     ),
     ("telegram.schema.input.title", "Telegram input"),
     (
@@ -214,6 +222,11 @@ pub(crate) fn build_describe_payload() -> DescribePayload {
                 "telegram.op.send_payload.title",
                 "telegram.op.send_payload.description",
             ),
+            op(
+                "setup_webhook",
+                "telegram.op.setup_webhook.title",
+                "telegram.op.setup_webhook.description",
+            ),
         ],
         input_schema: input_schema.clone(),
         output_schema: output_schema.clone(),
@@ -236,7 +249,18 @@ pub(crate) fn build_qa_spec(
         Mode::Upgrade => "upgrade",
         Mode::Remove => "remove",
     };
-    provider_common::helpers::qa_spec_for_mode(mode_str, "telegram", SETUP_QUESTIONS, DEFAULT_KEYS)
+    let mut spec =
+        provider_common::helpers::qa_spec_for_mode(mode_str, "telegram", SETUP_QUESTIONS, DEFAULT_KEYS);
+
+    // api_base_url has a sensible default — inject it into the question
+    for q in &mut spec.questions {
+        if q.id == "api_base_url" && q.default.is_none() {
+            q.default = Some(serde_json::Value::String(
+                "https://api.telegram.org".to_string(),
+            ));
+        }
+    }
+    spec
 }
 
 fn input_schema() -> SchemaIr {
@@ -313,7 +337,7 @@ fn config_schema() -> SchemaIr {
             ),
             (
                 "api_base_url",
-                true,
+                false,
                 schema_str_fmt(
                     "telegram.schema.config.api_base_url.title",
                     "telegram.schema.config.api_base_url.description",
@@ -331,4 +355,17 @@ fn config_schema() -> SchemaIr {
         ],
         false,
     )
+}
+
+pub(crate) fn i18n_bundle(locale: String) -> Vec<u8> {
+    let locale = if locale.trim().is_empty() {
+        "en".to_string()
+    } else {
+        locale
+    };
+    let messages: serde_json::Map<String, Value> = I18N_PAIRS
+        .iter()
+        .map(|(key, value)| ((*key).to_string(), Value::String((*value).to_string())))
+        .collect();
+    canonical_cbor_bytes(&json!({"locale": locale, "messages": Value::Object(messages)}))
 }

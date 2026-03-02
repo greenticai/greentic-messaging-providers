@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "spec_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "spec_json": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "anyOf": [
+    {
+      "required": [
+        "spec_ref"
+      ]
+    },
+    {
+      "required": [
+        "spec_json"
+      ]
+    }
+  ]
+}

@@ -26,6 +26,9 @@ flows:
   include:
   - setup_default
   - setup_custom
+  - update
+  - remove
+  - default
   - diagnostics
   - requirements
   - verify_webhooks

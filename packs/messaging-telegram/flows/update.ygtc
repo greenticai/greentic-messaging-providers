@@ -1,0 +1,78 @@
+id: update
+type: job
+start: update__emit_questions
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
+nodes:
+  update__emit_questions:
+    routing:
+    - to: update__collect
+    emit:
+      id: telegram-update
+      spec_ref: assets/setup.yaml
+  update__collect:
+    routing:
+    - to: update__validate
+    text:
+      msg:
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
+        message:
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.telegram.bot
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: Collect inputs for update. Only missing answers are requested.
+      wrap: true
+  update__validate:
+    routing:
+    - to: update__apply
+    validate:
+      answers_json: '{{ state.input.answers_json }}'
+      spec_json: '{{ node.update__emit_questions }}'
+  update__apply:
+    routing:
+    - to: update__summary
+    apply:
+      dry_run: '{{ state.input.dry_run }}'
+      plan:
+        actions:
+        - key: config
+          scope: provider
+          type: update_config
+        - key: bot_token
+          scope: provider
+          type: update_secret
+        - key: status
+          scope: provider
+          type: verify_connectivity
+  update__summary:
+    routing: out
+    text:
+      msg:
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
+        message:
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.telegram.bot
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: messaging.telegram.bot update complete.
+      wrap: true
+x-generated-by: greentic-messaging-packgen

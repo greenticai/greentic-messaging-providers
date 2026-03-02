@@ -1,37 +1,38 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Teams Provider-Core Config",
+  "title": "Teams Bot Service Provider Config",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "enabled",
-    "tenant_id",
-    "client_id",
-    "public_base_url",
-    "graph_base_url",
-    "auth_base_url",
-    "token_scope"
+    "ms_bot_app_id",
+    "public_base_url"
   ],
   "properties": {
     "enabled": {
       "type": "boolean",
       "description": "Enable the Teams provider."
     },
-    "tenant_id": {
+    "ms_bot_app_id": {
       "type": "string",
       "minLength": 1,
-      "description": "Azure AD tenant ID for Graph auth."
-    },
-    "client_id": {
-      "type": "string",
-      "minLength": 1,
-      "description": "App registration client ID."
+      "description": "Microsoft Bot App ID from Azure Bot registration."
     },
     "public_base_url": {
       "type": "string",
       "format": "uri",
       "minLength": 1,
-      "description": "Public base URL for inbound webhook callbacks."
+      "description": "Public base URL for Bot Framework messaging endpoint."
+    },
+    "ms_bot_app_password": {
+      "type": "string",
+      "description": "Microsoft Bot App Password (client secret). Falls back to secrets store if omitted.",
+      "x-redact": true
+    },
+    "default_service_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Default Bot Connector service URL for proactive messages."
     },
     "team_id": {
       "type": "string",
@@ -40,34 +41,6 @@
     "channel_id": {
       "type": "string",
       "description": "Default channel ID if not provided in invocation."
-    },
-    "graph_base_url": {
-      "type": "string",
-      "format": "uri",
-      "description": "Graph API base URL.",
-      "default": "https://graph.microsoft.com/v1.0"
-    },
-    "auth_base_url": {
-      "type": "string",
-      "format": "uri",
-      "description": "AAD authority base URL.",
-      "default": "https://login.microsoftonline.com"
-    },
-    "token_scope": {
-      "type": "string",
-      "minLength": 1,
-      "description": "OAuth scope for access tokens.",
-      "default": "https://graph.microsoft.com/.default"
-    },
-    "client_secret": {
-      "type": "string",
-      "description": "Optional client secret. Falls back to secrets store if omitted.",
-      "x-redact": true
-    },
-    "refresh_token": {
-      "type": "string",
-      "description": "Optional refresh token. Falls back to secrets store if omitted.",
-      "x-redact": true
     }
   }
 }

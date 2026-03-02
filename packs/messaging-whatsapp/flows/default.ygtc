@@ -1,0 +1,33 @@
+id: default
+type: job
+start: default__config
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
+nodes:
+  default__config:
+    routing: out
+    text:
+      msg:
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
+        message:
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.whatsapp.cloud
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: |-
+        Provider: whatsapp
+        Type: messaging.whatsapp.cloud
+        Default configuration:
+        - See setup.yaml for required fields
+      wrap: true
+x-generated-by: greentic-messaging-packgen
