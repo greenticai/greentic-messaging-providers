@@ -198,6 +198,24 @@ components:
       clocks: false
     host: {}
   wasm: components/messaging-provider-webex.wasm
+- id: webex-webhook
+  version: 0.1.0
+  world: greentic:component/node@0.5.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host:
+      messaging:
+        inbound: false
+        outbound: false
+  wasm: components/webex-webhook.wasm
 - id: provision
   version: 0.1.0
   world: root:component/root
