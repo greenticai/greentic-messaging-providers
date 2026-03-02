@@ -318,6 +318,17 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         return http_out_v1_bytes(&out);
     }
 
+    // Drop Slack retries — only process the first delivery.
+    if is_slack_retry(&request) {
+        let out = HttpOutV1 {
+            status: 200,
+            headers: Vec::new(),
+            body_b64: STANDARD.encode(b"ok"),
+            events: vec![],
+        };
+        return http_out_v1_bytes(&out);
+    }
+
     // Slack Events API: {"type":"event_callback","event":{...}}
     // Legacy/generic:   {"body":{...}}
     // Flat:             {"text":"...","channel":"..."}
@@ -326,6 +337,18 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         .or_else(|| body_val.get("body"))
         .cloned()
         .unwrap_or_else(|| body_val.clone());
+
+    // Skip bot messages to prevent echo loops.
+    if is_bot_message(&payload) {
+        let out = HttpOutV1 {
+            status: 200,
+            headers: Vec::new(),
+            body_b64: STANDARD.encode(b"ok"),
+            events: vec![],
+        };
+        return http_out_v1_bytes(&out);
+    }
+
     let text = payload
         .get("text")
         .and_then(Value::as_str)
@@ -354,6 +377,27 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         events: vec![envelope],
     };
     http_out_v1_bytes(&out)
+}
+
+/// Check if the request is a Slack retry (X-Slack-Retry-Num header present).
+fn is_slack_retry(request: &HttpInV1) -> bool {
+    request.headers.iter().any(|h| {
+        h.name.eq_ignore_ascii_case("x-slack-retry-num")
+            || h.name.eq_ignore_ascii_case("X-Slack-Retry-Num")
+    })
+}
+
+/// Check if the event payload is from a bot (prevents echo loops).
+fn is_bot_message(payload: &Value) -> bool {
+    // bot_id field present on bot-authored messages
+    if payload.get("bot_id").is_some_and(|v| !v.is_null()) {
+        return true;
+    }
+    // subtype "bot_message" is another indicator
+    if payload.get("subtype").and_then(Value::as_str) == Some("bot_message") {
+        return true;
+    }
+    false
 }
 
 pub(crate) fn render_plan(input_json: &[u8]) -> Vec<u8> {
@@ -981,18 +1025,29 @@ fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut 
                         }));
                     }
                 }
+
+                // Convert Column selectAction / nested Container selectAction to Slack buttons.
+                for col in columns {
+                    collect_select_action(col, actions);
+                    // Also check Container items inside each Column.
+                    if let Some(items) = col.get("items").and_then(Value::as_array) {
+                        for item in items {
+                            if item.get("type").and_then(Value::as_str) == Some("Container") {
+                                collect_select_action(item, actions);
+                            }
+                        }
+                    }
+                }
             }
+
+            // ColumnSet-level selectAction.
+            collect_select_action(element, actions);
         }
 
         "Container" => {
-            // Skip hidden containers (AC isVisible: false).
-            if element
-                .get("isVisible")
-                .and_then(Value::as_bool)
-                .is_some_and(|v| !v)
-            {
-                return;
-            }
+            // In AC, isVisible:false containers are toggled by Action.ToggleVisibility.
+            // Slack has no toggle concept, so render hidden containers anyway — the user
+            // needs to see the content that would normally be revealed by a toggle.
 
             let has_style = element
                 .get("style")
@@ -1009,6 +1064,9 @@ fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut 
                     ac_element_to_blocks(item, blocks, actions);
                 }
             }
+
+            // Convert Container selectAction to Slack button.
+            collect_select_action(element, actions);
         }
 
         "ActionSet" => {
@@ -1030,23 +1088,58 @@ fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut 
         }
 
         "Input.ChoiceSet" => {
-            // Show choices as a compact list.
+            // Convert AC ChoiceSet to Slack static_select (interactive dropdown).
             if let Some(choices) = element.get("choices").and_then(Value::as_array) {
-                let choice_texts: Vec<String> = choices
+                let options: Vec<Value> = choices
                     .iter()
-                    .take(5)
-                    .filter_map(|c| c.get("title").and_then(Value::as_str))
-                    .map(|t| format!("\u{2022} {t}"))
+                    .take(100) // Slack max 100 options
+                    .filter_map(|c| {
+                        let title = c.get("title").and_then(Value::as_str)?;
+                        let value = c
+                            .get("value")
+                            .and_then(Value::as_str)
+                            .unwrap_or(title);
+                        Some(json!({
+                            "text": { "type": "plain_text", "text": title.chars().take(75).collect::<String>() },
+                            "value": value.chars().take(75).collect::<String>()
+                        }))
+                    })
                     .collect();
-                if !choice_texts.is_empty() {
-                    let placeholder = element.get("placeholder").and_then(Value::as_str).unwrap_or("Select");
-                    blocks.push(json!({
-                        "type": "context",
-                        "elements": [{ "type": "mrkdwn", "text": format!("_{placeholder}:_") }]
-                    }));
+                if !options.is_empty() {
+                    let input_id = element
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .unwrap_or("choice");
+                    let placeholder = element
+                        .get("placeholder")
+                        .and_then(Value::as_str)
+                        .unwrap_or("Select");
+                    let mut select = json!({
+                        "type": "static_select",
+                        "action_id": format!("ac_input_{input_id}"),
+                        "placeholder": { "type": "plain_text", "text": placeholder.chars().take(150).collect::<String>() },
+                        "options": options
+                    });
+                    // For multi-select style
+                    let is_multi = element
+                        .get("isMultiSelect")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false);
+                    if is_multi {
+                        select.as_object_mut().unwrap().insert(
+                            "type".into(),
+                            Value::String("multi_static_select".into()),
+                        );
+                    }
+                    // Wrap in a section block with accessory
+                    let label = element
+                        .get("label")
+                        .and_then(Value::as_str)
+                        .unwrap_or(placeholder);
                     blocks.push(json!({
                         "type": "section",
-                        "text": { "type": "mrkdwn", "text": choice_texts.join("\n") }
+                        "text": { "type": "mrkdwn", "text": format!("*{label}*") },
+                        "accessory": select
                     }));
                 }
             }
@@ -1112,6 +1205,78 @@ fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut 
 
         _ => {}
     }
+}
+
+/// Extract a human-readable label from a Container/Column's child items.
+fn label_from_items(items: &[Value]) -> String {
+    // First try: bold TextBlock
+    for item in items {
+        if item.get("type").and_then(Value::as_str) == Some("TextBlock") {
+            if item
+                .get("weight")
+                .and_then(Value::as_str)
+                .is_some_and(|w| w.eq_ignore_ascii_case("bolder"))
+            {
+                if let Some(text) = item.get("text").and_then(Value::as_str) {
+                    let t = text.trim();
+                    if !t.is_empty() {
+                        return t.chars().take(75).collect();
+                    }
+                }
+            }
+        }
+    }
+    // Fallback: first non-empty TextBlock
+    for item in items {
+        if item.get("type").and_then(Value::as_str) == Some("TextBlock") {
+            if let Some(text) = item.get("text").and_then(Value::as_str) {
+                let t = text.trim();
+                if !t.is_empty() {
+                    return t.chars().take(75).collect();
+                }
+            }
+        }
+    }
+    String::new()
+}
+
+/// If an AC element has a `selectAction`, convert it to a Slack button.
+fn collect_select_action(element: &Value, actions: &mut Vec<Value>) {
+    let sa = match element.get("selectAction") {
+        Some(sa) => sa,
+        None => return,
+    };
+    let atype = sa
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if atype != "Action.Submit" && atype != "Action.Execute" {
+        return;
+    }
+
+    // Derive button label from the element's child items.
+    let items = element
+        .get("items")
+        .and_then(Value::as_array)
+        .map(|a| a.as_slice())
+        .unwrap_or(&[]);
+    let label = label_from_items(items);
+    if label.is_empty() {
+        return;
+    }
+
+    let btn_text: String = label.chars().take(75).collect();
+    let mut btn = json!({
+        "type": "button",
+        "text": { "type": "plain_text", "text": btn_text },
+        "action_id": format!("ac_action_{}", actions.len())
+    });
+    if let Some(data) = sa.get("data") {
+        btn.as_object_mut()
+            .unwrap()
+            .insert("value".into(), Value::String(data.to_string()));
+    }
+    actions.push(btn);
 }
 
 /// Collect AC actions into Slack button elements.

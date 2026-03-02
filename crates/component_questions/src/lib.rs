@@ -99,7 +99,8 @@ fn invoke_operation(result: Result<String, String>) -> InvokeResult {
 }
 
 fn emit(input_json: String) -> Result<String, String> {
-    let input: EmitInput = serde_json::from_str(&input_json).map_err(err_string)?;
+    let unwrapped = unwrap_envelope(&input_json);
+    let input: EmitInput = serde_json::from_str(&unwrapped).map_err(err_string)?;
     touch_context(&input.context);
     let spec = load_spec(&input.spec_ref).map_err(err_string)?;
     let title = spec
@@ -121,7 +122,8 @@ fn emit(input_json: String) -> Result<String, String> {
 }
 
 fn validate(input_json: String) -> Result<String, String> {
-    let input: ValidateInput = serde_json::from_str(&input_json).map_err(err_string)?;
+    let unwrapped = unwrap_envelope(&input_json);
+    let input: ValidateInput = serde_json::from_str(&unwrapped).map_err(err_string)?;
     let spec: QuestionsSpec = serde_json::from_str(&input.spec_json).map_err(err_string)?;
     let answers: Value = serde_json::from_str(&input.answers_json).map_err(err_string)?;
     let answer_map = answers.as_object().cloned().unwrap_or_else(Map::new);
@@ -134,7 +136,8 @@ fn validate(input_json: String) -> Result<String, String> {
 }
 
 fn example_answers(input_json: String) -> Result<String, String> {
-    let input: ExampleInput = serde_json::from_str(&input_json).map_err(err_string)?;
+    let unwrapped = unwrap_envelope(&input_json);
+    let input: ExampleInput = serde_json::from_str(&unwrapped).map_err(err_string)?;
     let spec: QuestionsSpec = serde_json::from_str(&input.spec_json).map_err(err_string)?;
     let value = example_answers_for_spec(&spec.questions);
     serde_json::to_string(&value).map_err(err_string)
@@ -142,6 +145,33 @@ fn example_answers(input_json: String) -> Result<String, String> {
 
 fn err_string(err: impl std::fmt::Display) -> String {
     format!("{err}")
+}
+
+/// Unwrap an `InvocationEnvelope` if the input is envelope-wrapped.
+///
+/// The runner wraps node inputs in `InvocationEnvelope { ctx, flow_id, node_id, op, payload, metadata }`.
+/// `payload` is a `Vec<u8>` (JSON byte array) containing the actual input JSON.
+/// If the input is already a plain payload (no envelope), it is returned unchanged.
+fn unwrap_envelope(input: &str) -> String {
+    let Ok(v) = serde_json::from_str::<Value>(input) else {
+        return input.to_string();
+    };
+    // Detect envelope: must have both "ctx" and "payload" fields
+    if v.get("ctx").is_some() {
+        if let Some(payload) = v.get("payload") {
+            if let Some(arr) = payload.as_array() {
+                // payload is a byte array — decode to UTF-8 string
+                let bytes: Vec<u8> = arr
+                    .iter()
+                    .filter_map(|v| v.as_u64().map(|n| n as u8))
+                    .collect();
+                if let Ok(s) = String::from_utf8(bytes) {
+                    return s;
+                }
+            }
+        }
+    }
+    input.to_string()
 }
 
 fn touch_context(context: &Option<Context>) {

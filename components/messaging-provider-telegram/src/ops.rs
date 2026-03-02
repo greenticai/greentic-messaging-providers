@@ -1108,10 +1108,22 @@ fn ac_element_to_html(
                             col_texts.push(col_parts.join("\n"));
                         }
                     }
+                    // Column-level selectAction → inline keyboard button.
+                    collect_select_action(col, actions);
+                    // Nested Container selectAction inside column.
+                    if let Some(items) = col.get("items").and_then(Value::as_array) {
+                        for item in items {
+                            if item.get("type").and_then(Value::as_str) == Some("Container") {
+                                collect_select_action(item, actions);
+                            }
+                        }
+                    }
                 }
                 if !col_texts.is_empty() {
                     parts.push(col_texts.join(" │ "));
                 }
+                // ColumnSet-level selectAction.
+                collect_select_action(element, actions);
             }
         }
 
@@ -1121,6 +1133,8 @@ fn ac_element_to_html(
                     ac_element_to_html(item, parts, actions, images);
                 }
             }
+            // Container-level selectAction → inline keyboard button.
+            collect_select_action(element, actions);
         }
 
         "ActionSet" => {
@@ -1228,6 +1242,67 @@ fn collect_actions(action_list: &[Value], actions: &mut Vec<Value>) {
             }
         }
     }
+}
+
+/// Extract a human-readable label from a Container/Column's child items.
+fn label_from_items(items: &[Value]) -> String {
+    // First try: bold TextBlock.
+    for item in items {
+        if item.get("type").and_then(Value::as_str) == Some("TextBlock")
+            && item
+                .get("weight")
+                .and_then(Value::as_str)
+                .is_some_and(|w| w.eq_ignore_ascii_case("bolder"))
+        {
+            if let Some(text) = item.get("text").and_then(Value::as_str) {
+                let t = text.trim();
+                if !t.is_empty() {
+                    return t.chars().take(64).collect();
+                }
+            }
+        }
+    }
+    // Fallback: first non-empty TextBlock.
+    for item in items {
+        if item.get("type").and_then(Value::as_str) == Some("TextBlock") {
+            if let Some(text) = item.get("text").and_then(Value::as_str) {
+                let t = text.trim();
+                if !t.is_empty() {
+                    return t.chars().take(64).collect();
+                }
+            }
+        }
+    }
+    String::new()
+}
+
+/// If an AC element has a `selectAction` (Action.Submit/Execute), convert it
+/// to an inline keyboard button entry using the element's child text as label.
+fn collect_select_action(element: &Value, actions: &mut Vec<Value>) {
+    let sa = match element.get("selectAction") {
+        Some(sa) => sa,
+        None => return,
+    };
+    let atype = sa.get("type").and_then(Value::as_str).unwrap_or_default();
+    if atype != "Action.Submit" && atype != "Action.Execute" {
+        return;
+    }
+    let items = element
+        .get("items")
+        .and_then(Value::as_array)
+        .map(|a| a.as_slice())
+        .unwrap_or(&[]);
+    let label = label_from_items(items);
+    if label.is_empty() {
+        return;
+    }
+    let mut btn = json!({ "title": label });
+    if let Some(data) = sa.get("data") {
+        btn.as_object_mut()
+            .unwrap()
+            .insert("data".into(), data.clone());
+    }
+    actions.push(btn);
 }
 
 /// Compress AC action data to fit Telegram's 64-byte callback_data limit.

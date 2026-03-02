@@ -54,6 +54,12 @@ pub(crate) const I18N_KEYS: &[&str] = &[
     "slack.qa.setup.api_base_url",
     "slack.qa.setup.bot_token",
     "slack.qa.setup.default_channel",
+    "slack.qa.setup.slack_app_id",
+    "slack.qa.setup.slack_configuration_token",
+    "slack.schema.config.slack_app_id.title",
+    "slack.schema.config.slack_app_id.description",
+    "slack.schema.config.slack_configuration_token.title",
+    "slack.schema.config.slack_configuration_token.description",
 ];
 
 pub(crate) const SETUP_QUESTIONS: &[provider_common::helpers::QaQuestionDef] = &[
@@ -62,6 +68,8 @@ pub(crate) const SETUP_QUESTIONS: &[provider_common::helpers::QaQuestionDef] = &
     ("api_base_url", "slack.qa.setup.api_base_url", true),
     ("bot_token", "slack.qa.setup.bot_token", true),
     ("default_channel", "slack.qa.setup.default_channel", false),
+    ("slack_app_id", "slack.qa.setup.slack_app_id", false),
+    ("slack_configuration_token", "slack.qa.setup.slack_configuration_token", false),
 ];
 
 pub(crate) const DEFAULT_KEYS: &[&str] = &["public_base_url", "bot_token"];
@@ -106,10 +114,16 @@ pub(crate) fn build_describe_payload() -> DescribePayload {
         input_schema: input_schema.clone(),
         output_schema: output_schema.clone(),
         config_schema: config_schema.clone(),
-        redactions: vec![RedactionRule {
-            path: "$.bot_token".to_string(),
-            strategy: "replace".to_string(),
-        }],
+        redactions: vec![
+            RedactionRule {
+                path: "$.bot_token".to_string(),
+                strategy: "replace".to_string(),
+            },
+            RedactionRule {
+                path: "$.slack_configuration_token".to_string(),
+                strategy: "replace".to_string(),
+            },
+        ],
         schema_hash: schema_hash(&input_schema, &output_schema, &config_schema),
     }
 }
@@ -173,6 +187,12 @@ pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
     ("slack.qa.setup.api_base_url", "API base URL"),
     ("slack.qa.setup.bot_token", "Bot token"),
     ("slack.qa.setup.default_channel", "Default channel"),
+    ("slack.qa.setup.slack_app_id", "Slack App ID"),
+    ("slack.qa.setup.slack_configuration_token", "Configuration token"),
+    ("slack.schema.config.slack_app_id.title", "Slack App ID"),
+    ("slack.schema.config.slack_app_id.description", "App ID from api.slack.com/apps (e.g. A07XXXXXX). Required for auto-configuring event subscriptions."),
+    ("slack.schema.config.slack_configuration_token.title", "Configuration token"),
+    ("slack.schema.config.slack_configuration_token.description", "Short-lived configuration token from api.slack.com/apps settings. Used to update your app manifest automatically."),
 ];
 
 pub(crate) fn i18n_bundle(locale: String) -> Vec<u8> {
@@ -266,6 +286,22 @@ fn config_schema() -> SchemaIr {
                 schema_secret(
                     "slack.schema.config.bot_token.title",
                     "slack.schema.config.bot_token.description",
+                ),
+            ),
+            (
+                "slack_app_id",
+                false,
+                schema_str(
+                    "slack.schema.config.slack_app_id.title",
+                    "slack.schema.config.slack_app_id.description",
+                ),
+            ),
+            (
+                "slack_configuration_token",
+                false,
+                schema_secret(
+                    "slack.schema.config.slack_configuration_token.title",
+                    "slack.schema.config.slack_configuration_token.description",
                 ),
             ),
         ],

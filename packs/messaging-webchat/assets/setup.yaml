@@ -22,6 +22,12 @@ questions:
     title: Tenant channel ID
     kind: string
     required: false
+  - name: jwt_signing_key
+    title: JWT signing key
+    kind: string
+    required: true
+    secret: true
+    help: "Secret key used to sign Direct Line tokens. Use any random string (e.g. openssl rand -hex 32)."
   - name: base_url
     title: Base URL
     kind: string
