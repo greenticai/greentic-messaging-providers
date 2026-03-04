@@ -1039,7 +1039,7 @@
         "export": "handle-webhook",
         "world": "greentic:messaging-ingress-teams/messaging-ingress-teams@0.0.1"
       }
-    },
+    }
   },
   "flows": [
     {

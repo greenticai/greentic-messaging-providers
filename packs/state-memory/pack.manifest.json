@@ -1,0 +1,69 @@
+{
+  "name": "state-memory",
+  "version": "0.4.0",
+  "kind": "capability",
+  "publisher": "Greentic",
+  "description": "Ephemeral in-memory key-value state provider for development and testing.",
+  "components": [
+    "state-provider-memory"
+  ],
+  "component_sources": [
+    {
+      "id": "state-provider-memory",
+      "version": "0.4.0",
+      "world": "greentic:component/component-v0-v6-v0",
+      "supports": ["component_config"],
+      "profiles": {
+        "default": "default",
+        "supported": ["default"]
+      },
+      "capabilities": {
+        "wasi": { "random": false, "clocks": false },
+        "host": {}
+      },
+      "wasm": "components/state-provider-memory.wasm"
+    }
+  ],
+  "flows": [
+    {
+      "id": "setup_default",
+      "file": "flows/setup_default.ygtc",
+      "tags": ["default"],
+      "entrypoints": ["default"]
+    }
+  ],
+  "extensions": {
+    "greentic.ext.capabilities.v1": {
+      "kind": "greentic.ext.capabilities.v1",
+      "version": "1.0.0",
+      "inline": {
+        "schema_version": 1,
+        "offers": [
+          {
+            "offer_id": "state.memory.kv.01",
+            "cap_id": "greentic.cap.state.kv.v1",
+            "version": "v1",
+            "provider": {
+              "component_ref": "state-provider-memory",
+              "op": "state.dispatch"
+            },
+            "priority": 100,
+            "requires_setup": false,
+            "metadata": {
+              "backend": "memory",
+              "ephemeral": true
+            }
+          }
+        ]
+      }
+    },
+    "greentic.provider-extension.v1": {
+      "kind": "greentic.provider-extension.v1",
+      "version": "0.4.0",
+      "inline": {
+        "providers": []
+      }
+    }
+  },
+  "secret_requirements": []
+}
