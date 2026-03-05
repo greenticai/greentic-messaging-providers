@@ -279,7 +279,7 @@ greentic-messaging-packgen generate-all --spec-dir specs/providers --out packs
 ```
 
 **Validation enforces:**
-- Allowed flow names: `setup_default`, `setup_custom`, `diagnostics`, `requirements`, `verify_webhooks`, `sync_subscriptions`, `rotate_credentials`
+- Allowed flow names: `setup_default`, `diagnostics`, `requirements`, `verify_webhooks`, `sync_subscriptions`, `rotate_credentials`
 - Allowed ops: `send`, `reply`, `ingest`, `subscription_ensure`, `subscription_renew`, `subscription_delete`
 - `setup_default` and `requirements` are mandatory
 - `write_to` fields must be `config:` or `secrets:` prefixed

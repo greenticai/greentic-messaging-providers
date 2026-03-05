@@ -200,7 +200,6 @@ For a provider to work fully in the operator:
 ### Optional (flows)
 | Flow | When called |
 |------|------------|
-| `setup_custom` | Alternative setup |
 | `verify_webhooks` | demo setup --verify-webhooks |
 | `diagnostics` | demo diagnostics |
 | `sync_subscriptions` | Subscription management (Teams only) |

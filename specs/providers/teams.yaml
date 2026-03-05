@@ -33,7 +33,6 @@ components:
 flows:
   include:
   - setup_default
-  - setup_custom
   - update
   - remove
   - default

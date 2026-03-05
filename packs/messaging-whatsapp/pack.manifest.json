@@ -30,50 +30,6 @@
       "wasm": "components/provision.wasm"
     },
     {
-      "id": "ai.greentic.component-questions",
-      "version": "0.4.34",
-      "world": "greentic:questions/questions@0.1.0",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "stateless",
-        "supported": [
-          "stateless"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/questions.wasm"
-    },
-    {
-      "id": "ai.greentic.component-templates",
-      "version": "0.4.34",
-      "world": "root:component/root",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/ai.greentic.component-templates.wasm"
-    },
-    {
       "id": "diagnostics___optional_send",
       "version": "0.4.34",
       "world": "root:component/root",
@@ -314,204 +270,6 @@
         "host": {}
       },
       "wasm": "components/requirements___summary.wasm"
-    },
-    {
-      "id": "setup_custom___apply",
-      "version": "0.4.34",
-      "world": "root:component/root",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/setup_custom___apply.wasm"
-    },
-    {
-      "id": "setup_custom___collect",
-      "version": "0.4.34",
-      "world": "root:component/root",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/setup_custom___collect.wasm"
-    },
-    {
-      "id": "setup_custom___setup_custom__apply",
-      "version": "0.4.34",
-      "world": "root:component/root",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/setup_custom___setup_custom__apply.wasm"
-    },
-    {
-      "id": "setup_custom___setup_custom__collect",
-      "version": "0.4.34",
-      "world": "root:component/root",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/setup_custom___setup_custom__collect.wasm"
-    },
-    {
-      "id": "setup_custom___setup_custom__emit_questions",
-      "version": "0.4.34",
-      "world": "root:component/root",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/setup_custom___setup_custom__emit_questions.wasm"
-    },
-    {
-      "id": "setup_custom___setup_custom__summary",
-      "version": "0.4.34",
-      "world": "root:component/root",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/setup_custom___setup_custom__summary.wasm"
-    },
-    {
-      "id": "setup_custom___setup_custom__validate",
-      "version": "0.4.34",
-      "world": "root:component/root",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/setup_custom___setup_custom__validate.wasm"
-    },
-    {
-      "id": "setup_custom___summary",
-      "version": "0.4.34",
-      "world": "root:component/root",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/setup_custom___summary.wasm"
-    },
-    {
-      "id": "setup_custom___validate",
-      "version": "0.4.34",
-      "world": "root:component/root",
-      "supports": [
-        "messaging"
-      ],
-      "profiles": {
-        "default": "default",
-        "supported": [
-          "default"
-        ]
-      },
-      "capabilities": {
-        "wasi": {
-          "random": false,
-          "clocks": false
-        },
-        "host": {}
-      },
-      "wasm": "components/setup_custom___validate.wasm"
     },
     {
       "id": "setup_custom__apply",
@@ -955,7 +713,6 @@
     }
   ],
   "components": [
-    "ai.greentic.component-templates",
     "messaging-ingress-whatsapp",
     "messaging-provider-whatsapp"
   ],
@@ -973,7 +730,7 @@
       "inline": {
         "validators": [
           {
-            "component_ref": "oci://ghcr.io/greentic-ai/validators/messaging:0.4.19",
+            "component_ref": "oci://ghcr.io/greenticai/validators/messaging:0.4.19",
             "id": "greentic.validators.messaging",
             "world": "greentic:pack-validate/pack-validator@0.1.0"
           }
@@ -1060,16 +817,6 @@
       ],
       "entrypoints": [
         "requirements"
-      ]
-    },
-    {
-      "id": "setup_custom",
-      "file": "flows/setup_custom.ygtc",
-      "tags": [
-        "default"
-      ],
-      "entrypoints": [
-        "setup"
       ]
     },
     {

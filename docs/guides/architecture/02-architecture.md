@@ -58,7 +58,6 @@ Provider Pack (.gtpack)
     │   └── <ingress>.wasm   (webhook handler - only for custom ingress mode)
     ├── flows/
     │   ├── setup_default.ygtc
-    │   ├── setup_custom.ygtc
     │   ├── diagnostics.ygtc
     │   ├── requirements.ygtc
     │   ├── verify_webhooks.ygtc

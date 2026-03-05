@@ -12,13 +12,20 @@
       "id": "state-provider-memory",
       "version": "0.4.0",
       "world": "greentic:component/component-v0-v6-v0",
-      "supports": ["component_config"],
+      "supports": [
+        "component_config"
+      ],
       "profiles": {
         "default": "default",
-        "supported": ["default"]
+        "supported": [
+          "default"
+        ]
       },
       "capabilities": {
-        "wasi": { "random": false, "clocks": false },
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
         "host": {}
       },
       "wasm": "components/state-provider-memory.wasm"
@@ -28,8 +35,12 @@
     {
       "id": "setup_default",
       "file": "flows/setup_default.ygtc",
-      "tags": ["default"],
-      "entrypoints": ["default"]
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "default"
+      ]
     }
   ],
   "extensions": {

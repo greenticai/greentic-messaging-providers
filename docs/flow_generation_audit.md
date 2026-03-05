@@ -25,7 +25,7 @@ The following flow generation infrastructure is no longer used for messaging pac
 
 - `ci/gen_flows.sh` — generated flows via `greentic-messaging-packgen`
 - `crates/greentic-messaging-packgen/` — flow generator using `greentic-flow` CLI
-- Generated `*.ygtc` files: setup_default (multi-node), setup_custom, diagnostics,
+- Generated `*.ygtc` files: setup_default (multi-node), diagnostics,
   verify_webhooks, rotate_credentials, sync_subscriptions, default, remove, update
 
 The packgen crate still exists in the workspace but is not invoked for the simplified packs.

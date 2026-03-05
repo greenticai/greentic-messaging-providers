@@ -415,7 +415,7 @@ messaging-telegram.gtpack (ZIP) — Capability-Driven Pattern
 
 `manifest.cbor` punya `meta.entry_flows` yang menentukan ops mana yang jalan lewat flow engine. Saat ini:
 - `meta.entry_flows` = **not set** di semua pack
-- Fallback ke flow IDs: `[diagnostics, requirements, setup_custom, setup_default, sync_subscriptions, verify_webhooks]`
+- Fallback ke flow IDs: `[diagnostics, requirements, setup_default, sync_subscriptions, verify_webhooks]`
 - `render_plan`, `encode`, `send_payload` **TIDAK** ada di sini → langsung panggil WASM
 
 ---

@@ -11,9 +11,6 @@ default-members = [
     "crates/greentic-messaging-tester",
 ]
 exclude = [
-    "components/ai.greentic.component-templates",
-    "components/templates",
-    "components/questions",
     "components/qa",
 ]
 resolver = "2"
