@@ -1,42 +1,31 @@
 # Messaging Email Pack
 
-Provider-core SMTP email sender pack (simulated send).
+Email messaging provider — Microsoft Graph API with SMTP fallback.
 
 ## Pack ID
 - `messaging-email`
 
 ## Providers
-- `messaging.email.smtp` (capabilities: messaging; ops: send, reply)
+- `messaging.email.smtp` (capabilities: messaging; ops: send, reply, qa-spec, apply-answers, i18n-keys)
 
 ## Components
-- `ai.greentic.component-templates`
-- `messaging-provider-email`
-- `templates`
+- `messaging-provider-email` — core provider WASM (secrets-store + http-client)
 
 ## Secrets
-- `EMAIL_PASSWORD` (tenant): SMTP password secret key
+- `FROM_ADDRESS` — sender email address
+- `GRAPH_TENANT_ID` — Azure AD tenant ID
+- `MS_GRAPH_CLIENT_ID` — Azure AD app client ID
+- `MS_GRAPH_REFRESH_TOKEN` — OAuth refresh token (delegated permissions)
 
 ## Flows
-- `diagnostics`
-- `setup_custom`
-- `setup_default`
+- `setup_default` — configures provider via `messaging.configure` op
+- `requirements` — validates provider configuration
 
 ## Setup
 Inputs:
-- Config required: host, username, from_address
-- Config optional: port, use_tls
-- Secrets required: EMAIL_PASSWORD
-- Secrets optional: none
+- Config required: from_address, graph_tenant_id, ms_graph_client_id
+- Secrets required: MS_GRAPH_REFRESH_TOKEN
 
-Writes:
-- Config keys: host, username, from_address, port, use_tls
-- Secrets: EMAIL_PASSWORD
-
-Webhooks:
-- none
-
-Subscriptions:
-- none
-
-OAuth:
-- not required
+## Extensions
+- `greentic.ext.capabilities.v1` — capability offer `messaging-email-v1`
+- `greentic.provider-extension.v1` — provider type, ops, runtime binding

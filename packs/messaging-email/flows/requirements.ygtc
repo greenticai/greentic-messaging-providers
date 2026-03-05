@@ -1,34 +1,16 @@
+---
+# Requirements check flow for messaging-email provider.
+# Validates that required configuration is in place.
 id: requirements
-type: job
-start: summary
-parameters: {}
-tags: []
-schema_version: 2
-entrypoints: {}
+title: Email Requirements Check
+description: Validates Email messaging provider configuration
+version: "1"
+
 nodes:
-  summary:
-    routing: out
-    text:
-      msg:
-        channel: '{{ state.input.msg.channel }}'
-        correlation_id: '{{ state.input.msg.correlation_id }}'
-        id: '{{ state.input.msg.id }}'
-        message:
-          id: '{{ state.input.msg.message.id }}'
-          text: '{{ state.input.msg.message.text }}'
-        metadata: '{{ state.input.msg.metadata }}'
-        provider: messaging.email.smtp
-        reply_scope: '{{ state.input.msg.reply_scope }}'
-        session_id: '{{ state.input.msg.session_id }}'
-        tenant_id: '{{ state.input.msg.tenant_id }}'
-        text: '{{ state.input.msg.text }}'
-        user_id: '{{ state.input.msg.user_id }}'
-      output_path: text
-      template: '{"examples":[{"args":{},"text":""}],"notes":"","optional_args":[],"required_args":[]}'
-      wrap: true
-x-generated-by: greentic-messaging-packgen
-x-generated-from:
-  spec: specs/providers/email.yaml
-  spec-hash: sha256:65dfbbe5097c63b2dc15573c74715bb9859f94d97ef9cd0faf13d0faee0d14f3
-  manifest-hash: sha256:95560aa0889fea8d9aaf5dd6a5b598af4d03d128d9f283909c14ae94d7fcef5e
-  schemas-hash: sha256:da4d8cbca7825fa82528cd6da9606519fcc0196a1e99a149d778f312bd0fd13d
+  - id: check_config
+    type: component
+    component: messaging-provider-email
+    op: messaging.configure
+    input: {}
+
+edges: []

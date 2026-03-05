@@ -2,34 +2,10 @@
   "schema_version": 1,
   "flow": "setup_default.ygtc",
   "nodes": {
-    "setup_default__apply": {
+    "configure": {
       "source": {
         "kind": "local",
-        "path": "file://../components/provision/provision.wasm"
-      }
-    },
-    "setup_default__collect": {
-      "source": {
-        "kind": "local",
-        "path": "file://../components/templates/templates.wasm"
-      }
-    },
-    "setup_default__emit_questions": {
-      "source": {
-        "kind": "local",
-        "path": "file://../components/questions/questions.wasm"
-      }
-    },
-    "setup_default__summary": {
-      "source": {
-        "kind": "local",
-        "path": "file://../components/templates/templates.wasm"
-      }
-    },
-    "setup_default__validate": {
-      "source": {
-        "kind": "local",
-        "path": "file://../components/questions/questions.wasm"
+        "path": "file://../components/messaging-provider-dummy.wasm"
       }
     }
   }

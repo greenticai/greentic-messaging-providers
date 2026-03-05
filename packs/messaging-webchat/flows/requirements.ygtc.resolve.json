@@ -2,10 +2,10 @@
   "schema_version": 1,
   "flow": "requirements.ygtc",
   "nodes": {
-    "summary": {
+    "check_config": {
       "source": {
         "kind": "local",
-        "path": "file://../components/templates/templates.wasm"
+        "path": "file://../components/messaging-provider-webchat.wasm"
       }
     }
   }

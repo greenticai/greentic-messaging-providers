@@ -729,11 +729,32 @@ Each provider has tests for:
 
 **WASM build errors** — set `SKIP_WASM_TOOLS_VALIDATION=1`. If WIT deps missing, check `wit/<provider>/deps/provider-schema-core/package.wit` exists.
 
-## Generated Flows
+## Pack Structure (Capability-Driven)
 
-`packs/*/flows/*.ygtc` are generated artifacts — do not edit by hand.
+Each provider pack follows the simplified capability-driven pattern (matching `packs/telemetry-otlp/`):
 
-To regenerate: update component manifests under `components/` or provider specs, then run `./ci/gen_flows.sh`.
+```
+packs/messaging-{name}/
+├── pack.yaml                    # 1-2 components, 2 flows, capability extension
+├── components/
+│   ├── messaging-provider-{name}.wasm    # Core provider
+│   └── messaging-ingress-{name}.wasm     # Ingress (where applicable)
+├── flows/
+│   ├── setup_default.ygtc               # Single-node setup flow
+│   ├── setup_default.ygtc.resolve.json
+│   ├── requirements.ygtc                # Single-node requirements flow
+│   └── requirements.ygtc.resolve.json
+├── schemas/messaging/{name}/            # JSON schemas
+├── fixtures/                            # Test fixtures
+└── setup.yaml                           # QA wizard definition
+```
+
+**Key extension**: `greentic.ext.capabilities.v1` declares a messaging capability offer.
+The operator reads this extension and invokes `messaging.configure` on the provider component directly — no legacy flow-node WASMs needed.
+
+Legacy flows (diagnostics, setup_custom, verify_webhooks, rotate_credentials, etc.) and
+their generated component WASMs have been removed. All QA operations (qa-spec, apply-answers,
+i18n-keys) are handled natively by the provider WASM component.
 
 ## Publishing
 
