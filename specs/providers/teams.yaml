@@ -5,7 +5,7 @@ pack:
   publisher: Greentic
   kind: application
 provider:
-  provider_type: messaging.teams.bot
+  provider_type: messaging.teams.graph
   provider_id: teams
   ops:
   - send
@@ -33,6 +33,7 @@ components:
 flows:
   include:
   - setup_default
+  - setup_custom
   - update
   - remove
   - default
