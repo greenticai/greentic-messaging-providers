@@ -75,8 +75,16 @@ pub(crate) const SETUP_QUESTIONS: &[provider_common::helpers::QaQuestionDef] = &
     ("enabled", "teams.qa.setup.enabled", true),
     ("public_base_url", "teams.qa.setup.public_base_url", true),
     ("ms_bot_app_id", "teams.qa.setup.ms_bot_app_id", true),
-    ("ms_bot_app_password", "teams.qa.setup.ms_bot_app_password", false),
-    ("default_service_url", "teams.qa.setup.default_service_url", false),
+    (
+        "ms_bot_app_password",
+        "teams.qa.setup.ms_bot_app_password",
+        false,
+    ),
+    (
+        "default_service_url",
+        "teams.qa.setup.default_service_url",
+        false,
+    ),
     ("team_id", "teams.qa.setup.team_id", false),
     ("channel_id", "teams.qa.setup.channel_id", false),
 ];
@@ -125,12 +133,10 @@ pub(crate) fn build_describe_payload() -> DescribePayload {
         input_schema: input_schema.clone(),
         output_schema: output_schema.clone(),
         config_schema: config_schema.clone(),
-        redactions: vec![
-            RedactionRule {
-                path: "$.ms_bot_app_password".to_string(),
-                strategy: "replace".to_string(),
-            },
-        ],
+        redactions: vec![RedactionRule {
+            path: "$.ms_bot_app_password".to_string(),
+            strategy: "replace".to_string(),
+        }],
         schema_hash: schema_hash(&input_schema, &output_schema, &config_schema),
     }
 }
@@ -153,46 +159,109 @@ pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
     ("teams.op.run.title", "Run"),
     ("teams.op.run.description", "Run Teams provider operation"),
     ("teams.op.send.title", "Send"),
-    ("teams.op.send.description", "Send a Teams message via Bot Connector API"),
+    (
+        "teams.op.send.description",
+        "Send a Teams message via Bot Connector API",
+    ),
     ("teams.op.reply.title", "Reply"),
-    ("teams.op.reply.description", "Reply in a Teams thread via Bot Connector API"),
+    (
+        "teams.op.reply.description",
+        "Reply in a Teams thread via Bot Connector API",
+    ),
     ("teams.op.ingest_http.title", "Ingest HTTP"),
-    ("teams.op.ingest_http.description", "Normalize Bot Framework Activity payload"),
+    (
+        "teams.op.ingest_http.description",
+        "Normalize Bot Framework Activity payload",
+    ),
     ("teams.op.render_plan.title", "Render Plan"),
-    ("teams.op.render_plan.description", "Render universal message plan"),
+    (
+        "teams.op.render_plan.description",
+        "Render universal message plan",
+    ),
     ("teams.op.encode.title", "Encode"),
-    ("teams.op.encode.description", "Encode universal payload for Teams Bot Connector API"),
+    (
+        "teams.op.encode.description",
+        "Encode universal payload for Teams Bot Connector API",
+    ),
     ("teams.op.send_payload.title", "Send Payload"),
-    ("teams.op.send_payload.description", "Send encoded payload to Bot Connector API"),
+    (
+        "teams.op.send_payload.description",
+        "Send encoded payload to Bot Connector API",
+    ),
     // Input schema
     ("teams.schema.input.title", "Teams input"),
-    ("teams.schema.input.description", "Input for Teams run/send operations"),
+    (
+        "teams.schema.input.description",
+        "Input for Teams run/send operations",
+    ),
     ("teams.schema.input.message.title", "Message"),
     ("teams.schema.input.message.description", "Message text"),
     // Output schema
     ("teams.schema.output.title", "Teams output"),
-    ("teams.schema.output.description", "Result of Teams operation"),
+    (
+        "teams.schema.output.description",
+        "Result of Teams operation",
+    ),
     ("teams.schema.output.ok.title", "Success"),
-    ("teams.schema.output.ok.description", "Whether operation succeeded"),
+    (
+        "teams.schema.output.ok.description",
+        "Whether operation succeeded",
+    ),
     ("teams.schema.output.message_id.title", "Message ID"),
-    ("teams.schema.output.message_id.description", "Bot Framework activity identifier"),
+    (
+        "teams.schema.output.message_id.description",
+        "Bot Framework activity identifier",
+    ),
     // Config schema - Bot Service
     ("teams.schema.config.title", "Teams config"),
-    ("teams.schema.config.description", "Teams Bot Service provider configuration"),
+    (
+        "teams.schema.config.description",
+        "Teams Bot Service provider configuration",
+    ),
     ("teams.schema.config.enabled.title", "Enabled"),
-    ("teams.schema.config.enabled.description", "Enable this provider"),
-    ("teams.schema.config.public_base_url.title", "Public base URL"),
-    ("teams.schema.config.public_base_url.description", "Public URL for Bot Framework messaging endpoint"),
+    (
+        "teams.schema.config.enabled.description",
+        "Enable this provider",
+    ),
+    (
+        "teams.schema.config.public_base_url.title",
+        "Public base URL",
+    ),
+    (
+        "teams.schema.config.public_base_url.description",
+        "Public URL for Bot Framework messaging endpoint",
+    ),
     ("teams.schema.config.ms_bot_app_id.title", "Bot App ID"),
-    ("teams.schema.config.ms_bot_app_id.description", "Microsoft Bot App ID from Azure Bot registration"),
-    ("teams.schema.config.ms_bot_app_password.title", "Bot App Password"),
-    ("teams.schema.config.ms_bot_app_password.description", "Microsoft Bot App Password (client secret)"),
-    ("teams.schema.config.default_service_url.title", "Default Service URL"),
-    ("teams.schema.config.default_service_url.description", "Default Bot Connector service URL for proactive messages"),
+    (
+        "teams.schema.config.ms_bot_app_id.description",
+        "Microsoft Bot App ID from Azure Bot registration",
+    ),
+    (
+        "teams.schema.config.ms_bot_app_password.title",
+        "Bot App Password",
+    ),
+    (
+        "teams.schema.config.ms_bot_app_password.description",
+        "Microsoft Bot App Password (client secret)",
+    ),
+    (
+        "teams.schema.config.default_service_url.title",
+        "Default Service URL",
+    ),
+    (
+        "teams.schema.config.default_service_url.description",
+        "Default Bot Connector service URL for proactive messages",
+    ),
     ("teams.schema.config.team_id.title", "Team ID"),
-    ("teams.schema.config.team_id.description", "Default Team identifier"),
+    (
+        "teams.schema.config.team_id.description",
+        "Default Team identifier",
+    ),
     ("teams.schema.config.channel_id.title", "Channel ID"),
-    ("teams.schema.config.channel_id.description", "Default Channel identifier"),
+    (
+        "teams.schema.config.channel_id.description",
+        "Default Channel identifier",
+    ),
     // QA titles
     ("teams.qa.default.title", "Default"),
     ("teams.qa.setup.title", "Setup"),
@@ -203,7 +272,10 @@ pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
     ("teams.qa.setup.public_base_url", "Public base URL"),
     ("teams.qa.setup.ms_bot_app_id", "Microsoft Bot App ID"),
     ("teams.qa.setup.ms_bot_app_password", "Bot App Password"),
-    ("teams.qa.setup.default_service_url", "Default service URL (optional)"),
+    (
+        "teams.qa.setup.default_service_url",
+        "Default service URL (optional)",
+    ),
     ("teams.qa.setup.team_id", "Default Team ID (optional)"),
     ("teams.qa.setup.channel_id", "Default Channel ID (optional)"),
 ];

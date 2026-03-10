@@ -5,7 +5,9 @@
 //! so this module bridges the two encodings.
 
 use crate::component_v0_6::{canonical_cbor_bytes, decode_cbor};
-use crate::helpers::{QaQuestionDef, i18n_bundle_from_pairs, i18n_keys_from, json_bytes, qa_spec_for_mode};
+use crate::helpers::{
+    QaQuestionDef, i18n_bundle_from_pairs, i18n_keys_from, json_bytes, qa_spec_for_mode,
+};
 use serde_json::{Value, json};
 
 /// Try to dispatch a QA op through the JSON invoke path.

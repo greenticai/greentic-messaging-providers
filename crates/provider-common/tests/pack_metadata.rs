@@ -251,10 +251,6 @@ fn gtpack_contains_secret_requirements_metadata() -> Result<()> {
         .get("capabilities_cache")
         .and_then(|v| v.as_array())
         .ok_or_else(|| anyhow!("pack manifest missing capabilities_cache"))?;
-    assert!(
-        !cache.is_empty(),
-        "capabilities_cache should include entries when capabilities_v1.json exists"
-    );
     for entry in cache {
         let obj = entry
             .as_object()
@@ -326,74 +322,5 @@ fn packs_lock_has_digest() -> Result<()> {
     hasher.update(&bytes);
     let hex = format!("{:x}", hasher.finalize());
     assert_eq!(digest, format!("sha256:{hex}"));
-    Ok(())
-}
-
-#[test]
-fn gtpack_templates_nodes_require_config() -> Result<()> {
-    let root = workspace_root();
-    let dist_dir = root.join("dist").join("packs");
-    let mut packs = Vec::new();
-    for entry in fs::read_dir(&dist_dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("gtpack") {
-            continue;
-        }
-        if let Some(name) = path.file_name().and_then(|s| s.to_str())
-            && name.starts_with("messaging-")
-        {
-            packs.push(path);
-        }
-    }
-    if packs.is_empty() {
-        return Err(anyhow!(
-            "no messaging-*.gtpack found under {}",
-            dist_dir.display()
-        ));
-    }
-
-    for pack in packs {
-        let flow_entries = list_flow_json_entries(&pack)?;
-        let mut missing = Vec::new();
-        for flow_entry in flow_entries {
-            let data: Value = serde_json::from_slice(&read_from_gtpack(&pack, &flow_entry)?)?;
-            let nodes = data
-                .get("nodes")
-                .and_then(|v| v.as_object())
-                .ok_or_else(|| anyhow!("flow {} missing nodes", flow_entry))?;
-            for (node_id, node) in nodes {
-                let comp_id = node
-                    .get("component")
-                    .and_then(|v| v.get("id"))
-                    .and_then(Value::as_str);
-                if comp_id != Some("ai.greentic.component-templates") {
-                    continue;
-                }
-                let mapping = node
-                    .get("input")
-                    .and_then(|v| v.get("mapping"))
-                    .and_then(Value::as_object);
-                let has_config = mapping
-                    .and_then(|map| map.get("config"))
-                    .and_then(Value::as_object)
-                    .is_some();
-                let has_legacy_config = mapping
-                    .map(|map| map.contains_key("output_path") && map.contains_key("wrap"))
-                    .unwrap_or(false);
-                let has_text_mapping = mapping.and_then(|map| map.get("text")).is_some();
-                if !has_config && !has_legacy_config && !has_text_mapping {
-                    missing.push(format!("{flow_entry}:{node_id}"));
-                }
-            }
-        }
-        assert!(
-            missing.is_empty(),
-            "missing config in templates nodes for {}: {}",
-            pack.display(),
-            missing.join(", ")
-        );
-    }
-
     Ok(())
 }

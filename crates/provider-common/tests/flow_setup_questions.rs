@@ -38,11 +38,10 @@ fn setup_flows_use_questions_emit_and_validate() -> Result<()> {
         let nodes = map_get(flow_root, "nodes")?;
         let nodes = get_mapping(nodes, "nodes")?;
 
-        let prefix = if path.file_name().and_then(|v| v.to_str()) == Some("setup_default.ygtc") {
-            "setup_default"
-        } else {
-            "setup_custom"
-        };
+        let prefix = path
+            .file_stem()
+            .and_then(|v| v.to_str())
+            .unwrap_or("setup_default");
         let emit_id = format!("{prefix}__emit_questions");
         let validate_id = format!("{prefix}__validate");
 

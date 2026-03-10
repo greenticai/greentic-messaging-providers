@@ -688,10 +688,19 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
         .cloned()
         .or_else(|| {
             // Fallback: read from secrets store so `demo send` works without --arg.
-            use crate::bindings::greentic::secrets_store::secrets_store;
-            match secrets_store::get("PHONE_NUMBER_ID") {
-                Ok(Some(bytes)) => String::from_utf8(bytes).ok().filter(|s| !s.trim().is_empty()),
-                _ => None,
+            #[cfg(target_arch = "wasm32")]
+            {
+                use crate::bindings::greentic::secrets_store::secrets_store;
+                match secrets_store::get("PHONE_NUMBER_ID") {
+                    Ok(Some(bytes)) => String::from_utf8(bytes)
+                        .ok()
+                        .filter(|s| !s.trim().is_empty()),
+                    _ => None,
+                }
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                None
             }
         })
         .unwrap_or_else(|| "phone-universal".to_string());
