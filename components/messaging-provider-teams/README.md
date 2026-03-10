@@ -64,7 +64,7 @@ The provider auto-detects the kind based on whether the ID contains a `:` separa
 ### Send a text message to a channel
 
 ```bash
-GREENTIC_ENV=dev greentic-operator demo send \
+GREENTIC_ENV=dev gtc op demo send \
   --bundle demo-bundle \
   --provider messaging-teams \
   --to "{team_id}:{channel_id}" \
@@ -75,7 +75,7 @@ GREENTIC_ENV=dev greentic-operator demo send \
 ### Test ingress (CLI)
 
 ```bash
-GREENTIC_ENV=dev greentic-operator demo ingress \
+GREENTIC_ENV=dev gtc op demo ingress \
   --bundle demo-bundle \
   --provider messaging-teams \
   --tenant demo \
@@ -86,7 +86,7 @@ GREENTIC_ENV=dev greentic-operator demo ingress \
 
 ```bash
 # Start operator
-GREENTIC_ENV=dev greentic-operator demo start \
+GREENTIC_ENV=dev gtc op demo start \
   --bundle demo-bundle --cloudflared off --nats off \
   --skip-setup --skip-secrets-init --domains messaging
 

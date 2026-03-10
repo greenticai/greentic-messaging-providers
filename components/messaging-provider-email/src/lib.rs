@@ -267,8 +267,7 @@ fn apply_answers_impl(
             merged.username = string_or_default(&answers, "username", &merged.username);
         }
         if has("from_address") {
-            merged.from_address =
-                string_or_default(&answers, "from_address", &merged.from_address);
+            merged.from_address = string_or_default(&answers, "from_address", &merged.from_address);
         }
         if has("tls_mode") {
             merged.tls_mode = string_or_default(&answers, "tls_mode", &merged.tls_mode);

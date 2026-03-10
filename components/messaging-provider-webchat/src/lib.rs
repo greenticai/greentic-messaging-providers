@@ -217,8 +217,8 @@ fn apply_answers_impl(
             merged.mode = default_mode();
         }
         merged.route = optional_string_from(&answers, "route").or(merged.route.clone());
-        merged.tenant_channel_id =
-            optional_string_from(&answers, "tenant_channel_id").or(merged.tenant_channel_id.clone());
+        merged.tenant_channel_id = optional_string_from(&answers, "tenant_channel_id")
+            .or(merged.tenant_channel_id.clone());
         merged.base_url = optional_string_from(&answers, "base_url").or(merged.base_url.clone());
     }
 

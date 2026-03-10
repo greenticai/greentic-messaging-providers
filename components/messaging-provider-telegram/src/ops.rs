@@ -102,7 +102,18 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
 
     // Build inline keyboard from AC actions (multiple buttons supported).
     let inline_keyboard = build_inline_keyboard_from_metadata(&envelope.metadata);
-    let reply_markup = if !inline_keyboard.is_empty() {
+    let has_text_inputs = has_pending_text_inputs(&envelope.metadata);
+    let reply_markup = if has_text_inputs {
+        // Card has text input fields — use ForceReply so user's next message
+        // is captured as the input value. Suppress inline keyboard buttons
+        // because Telegram can't show both ForceReply and inline buttons;
+        // the operator will auto-submit when the user types text.
+        Some(json!({
+            "force_reply": true,
+            "selective": true,
+            "input_field_placeholder": first_input_placeholder(&envelope.metadata),
+        }))
+    } else if !inline_keyboard.is_empty() {
         Some(json!({ "inline_keyboard": inline_keyboard }))
     } else {
         None
@@ -485,7 +496,10 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         "telegram ingest_http: has_callback={} has_message={} keys={:?}",
         has_callback,
         has_message,
-        body_val.as_object().map(|o| o.keys().collect::<Vec<_>>()).unwrap_or_default()
+        body_val
+            .as_object()
+            .map(|o| o.keys().collect::<Vec<_>>())
+            .unwrap_or_default()
     );
     if let Some(callback) = body_val.get("callback_query") {
         let callback_id = callback
@@ -500,7 +514,10 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             .get("data")
             .and_then(|v| v.as_str())
             .unwrap_or_default();
-        eprintln!("telegram callback_query: id={} data_str={}", callback_id, data_str);
+        eprintln!(
+            "telegram callback_query: id={} data_str={}",
+            callback_id, data_str
+        );
 
         // Try to parse callback data as JSON (AC Action.Submit serializes data as JSON).
         let (route_to_card, card_id, action_text) =
@@ -528,12 +545,18 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
                 };
                 (rtc, cid, text)
             } else {
-                (String::new(), String::new(), format!("[callback:{data_str}]"))
+                (
+                    String::new(),
+                    String::new(),
+                    format!("[callback:{data_str}]"),
+                )
             };
 
         let mut envelope = build_telegram_envelope(action_text, chat_id.clone(), from.clone());
         if !route_to_card.is_empty() {
-            envelope.metadata.insert("routeToCardId".into(), route_to_card);
+            envelope
+                .metadata
+                .insert("routeToCardId".into(), route_to_card);
         }
         if !card_id.is_empty() {
             envelope.metadata.insert("cardId".into(), card_id);
@@ -552,8 +575,7 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             "chat_id": chat_id,
             "from": from,
         });
-        let normalized_bytes =
-            serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
+        let normalized_bytes = serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
         let out = HttpOutV1 {
             status: 200,
             headers: Vec::new(),
@@ -567,7 +589,29 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
     let text = extract_message_text(&message);
     let chat_id = extract_chat_id(&message);
     let from = extract_from_user(&message);
-    let envelope = build_telegram_envelope(text.clone(), chat_id.clone(), from.clone());
+    let mut envelope = build_telegram_envelope(text.clone(), chat_id.clone(), from.clone());
+
+    // Detect reply-to-bot messages (form input responses from ForceReply).
+    // When user replies to a bot message that had a form prompt, mark the
+    // envelope so the flow engine can treat it as form input.
+    if let Some(reply_msg) = message.get("reply_to_message") {
+        let is_from_bot = reply_msg
+            .get("from")
+            .and_then(|f| f.get("is_bot"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        if is_from_bot {
+            envelope
+                .metadata
+                .insert("is_form_reply".to_string(), "true".to_string());
+            // Pass the original bot message_id for context.
+            if let Some(mid) = reply_msg.get("message_id").and_then(Value::as_i64) {
+                envelope
+                    .metadata
+                    .insert("reply_to_bot_message_id".to_string(), mid.to_string());
+            }
+        }
+    }
     let normalized = json!({
         "ok": true,
         "event": body_val,
@@ -630,12 +674,26 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
             .insert("parse_mode".to_string(), "HTML".to_string());
         if !content.actions.is_empty() {
             let aj = serde_json::to_string(&content.actions).unwrap_or_default();
-            eprintln!("tg encode_op: ac_actions={aj}");
             envelope.metadata.insert("ac_actions".to_string(), aj);
         }
         if !content.images.is_empty() {
             let ij = serde_json::to_string(&content.images).unwrap_or_default();
             envelope.metadata.insert("ac_images".to_string(), ij);
+        }
+        if !content.inputs.is_empty() {
+            let ij = serde_json::to_string(&content.inputs).unwrap_or_default();
+            envelope
+                .metadata
+                .insert("ac_pending_inputs".to_string(), ij);
+            // Store the submit action data so ingest_http can auto-submit
+            // after all text inputs are collected.
+            if let Some(submit_action) = content.actions.iter().find(|a| a.get("data").is_some()) {
+                if let Some(data) = submit_action.get("data") {
+                    envelope
+                        .metadata
+                        .insert("ac_submit_data".to_string(), data.to_string());
+                }
+            }
         }
     }
 
@@ -888,6 +946,34 @@ struct TelegramAcContent {
     html: String,
     actions: Vec<Value>,
     images: Vec<String>,
+    /// Input fields (Input.Text, Input.ChoiceSet, Input.Toggle) for conversational prompting.
+    inputs: Vec<AcInput>,
+}
+
+/// A single AC input field mapped for Telegram conversational flow.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct AcInput {
+    id: String,
+    label: String,
+    placeholder: String,
+    kind: AcInputKind,
+    /// For ChoiceSet: the available choices.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    choices: Vec<AcChoice>,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum AcInputKind {
+    Text,
+    Choice,
+    Toggle,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct AcChoice {
+    title: String,
+    value: String,
 }
 
 /// Convert an Adaptive Card JSON string into rich Telegram HTML + actions + images.
@@ -909,10 +995,17 @@ fn ac_to_telegram(ac_raw: &str) -> Option<TelegramAcContent> {
     let mut html_parts: Vec<String> = Vec::new();
     let mut actions: Vec<Value> = Vec::new();
     let mut images: Vec<String> = Vec::new();
+    let mut inputs: Vec<AcInput> = Vec::new();
 
     if let Some(body) = body {
         for element in body {
-            ac_element_to_html(element, &mut html_parts, &mut actions, &mut images);
+            ac_element_to_html(
+                element,
+                &mut html_parts,
+                &mut actions,
+                &mut images,
+                &mut inputs,
+            );
         }
     }
     if let Some(top_actions) = top_actions {
@@ -932,6 +1025,7 @@ fn ac_to_telegram(ac_raw: &str) -> Option<TelegramAcContent> {
         html,
         actions,
         images,
+        inputs,
     })
 }
 
@@ -941,6 +1035,7 @@ fn ac_element_to_html(
     parts: &mut Vec<String>,
     actions: &mut Vec<Value>,
     images: &mut Vec<String>,
+    inputs: &mut Vec<AcInput>,
 ) {
     let etype = element
         .get("type")
@@ -1102,7 +1197,7 @@ fn ac_element_to_html(
                     if let Some(items) = col.get("items").and_then(Value::as_array) {
                         let mut col_parts: Vec<String> = Vec::new();
                         for item in items {
-                            ac_element_to_html(item, &mut col_parts, actions, images);
+                            ac_element_to_html(item, &mut col_parts, actions, images, inputs);
                         }
                         if !col_parts.is_empty() {
                             col_texts.push(col_parts.join("\n"));
@@ -1130,7 +1225,7 @@ fn ac_element_to_html(
         "Container" => {
             if let Some(items) = element.get("items").and_then(Value::as_array) {
                 for item in items {
-                    ac_element_to_html(item, parts, actions, images);
+                    ac_element_to_html(item, parts, actions, images, inputs);
                 }
             }
             // Container-level selectAction → inline keyboard button.
@@ -1201,6 +1296,169 @@ fn ac_element_to_html(
             }
         }
 
+        // ── Input elements → conversational prompts ──────────────────
+        "Input.Text" => {
+            let id = element
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let label = element
+                .get("label")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let placeholder = element
+                .get("placeholder")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let display_label = if !label.is_empty() {
+                label
+            } else if !id.is_empty() {
+                id
+            } else {
+                "Input"
+            };
+            let hint = if !placeholder.is_empty() {
+                format!(" <i>({})</i>", html_escape(placeholder))
+            } else {
+                String::new()
+            };
+            parts.push(format!(
+                "\u{270f}\u{fe0f} <b>{}</b>{}",
+                html_escape(display_label),
+                hint
+            ));
+            if !id.is_empty() {
+                inputs.push(AcInput {
+                    id: id.to_string(),
+                    label: display_label.to_string(),
+                    placeholder: placeholder.to_string(),
+                    kind: AcInputKind::Text,
+                    choices: vec![],
+                });
+            }
+        }
+
+        "Input.ChoiceSet" => {
+            let id = element
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let label = element
+                .get("label")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let display_label = if !label.is_empty() { label } else { id };
+            if !display_label.is_empty() {
+                parts.push(format!("<b>{}</b>", html_escape(display_label)));
+            }
+            let choices: Vec<AcChoice> = element
+                .get("choices")
+                .and_then(Value::as_array)
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|c| {
+                            let title = c.get("title").and_then(Value::as_str)?;
+                            let value = c.get("value").and_then(Value::as_str)?;
+                            Some(AcChoice {
+                                title: title.to_string(),
+                                value: value.to_string(),
+                            })
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            // Render choices as inline keyboard buttons.
+            for choice in &choices {
+                let mut btn = json!({"title": &choice.title});
+                btn.as_object_mut().unwrap().insert(
+                    "data".into(),
+                    json!({"input_id": id, "input_value": &choice.value}),
+                );
+                actions.push(btn);
+            }
+            if !id.is_empty() {
+                inputs.push(AcInput {
+                    id: id.to_string(),
+                    label: display_label.to_string(),
+                    placeholder: String::new(),
+                    kind: AcInputKind::Choice,
+                    choices,
+                });
+            }
+        }
+
+        "Input.Toggle" => {
+            let id = element
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let title = element.get("title").and_then(Value::as_str).unwrap_or(id);
+            let value_on = element
+                .get("valueOn")
+                .and_then(Value::as_str)
+                .unwrap_or("true");
+            let value_off = element
+                .get("valueOff")
+                .and_then(Value::as_str)
+                .unwrap_or("false");
+            if !id.is_empty() {
+                // Render as two inline keyboard buttons.
+                let mut btn_yes = json!({"title": format!("\u{2705} {title}")});
+                btn_yes.as_object_mut().unwrap().insert(
+                    "data".into(),
+                    json!({"input_id": id, "input_value": value_on}),
+                );
+                let mut btn_no = json!({"title": format!("\u{274c} {title}")});
+                btn_no.as_object_mut().unwrap().insert(
+                    "data".into(),
+                    json!({"input_id": id, "input_value": value_off}),
+                );
+                actions.push(btn_yes);
+                actions.push(btn_no);
+                inputs.push(AcInput {
+                    id: id.to_string(),
+                    label: title.to_string(),
+                    placeholder: String::new(),
+                    kind: AcInputKind::Toggle,
+                    choices: vec![],
+                });
+            }
+        }
+
+        "Input.Number" | "Input.Date" | "Input.Time" => {
+            // Treat like Input.Text — prompt user to type value.
+            let id = element
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let label = element.get("label").and_then(Value::as_str).unwrap_or(id);
+            let placeholder = element
+                .get("placeholder")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let hint = if !placeholder.is_empty() {
+                format!(" <i>({})</i>", html_escape(placeholder))
+            } else {
+                String::new()
+            };
+            if !label.is_empty() {
+                parts.push(format!(
+                    "\u{270f}\u{fe0f} <b>{}</b>{}",
+                    html_escape(label),
+                    hint
+                ));
+            }
+            if !id.is_empty() {
+                inputs.push(AcInput {
+                    id: id.to_string(),
+                    label: label.to_string(),
+                    placeholder: placeholder.to_string(),
+                    kind: AcInputKind::Text,
+                    choices: vec![],
+                });
+            }
+        }
+
         _ => {
             // Unknown element type — ignore gracefully.
         }
@@ -1244,17 +1502,52 @@ fn collect_actions(action_list: &[Value], actions: &mut Vec<Value>) {
     }
 }
 
+/// Check if metadata has pending text inputs (Input.Text that needs user reply).
+fn has_pending_text_inputs(metadata: &greentic_types::MessageMetadata) -> bool {
+    metadata
+        .get("ac_pending_inputs")
+        .and_then(|s| serde_json::from_str::<Vec<AcInput>>(s).ok())
+        .is_some_and(|inputs| inputs.iter().any(|i| matches!(i.kind, AcInputKind::Text)))
+}
+
+/// Get placeholder text for first pending text input.
+fn first_input_placeholder(metadata: &greentic_types::MessageMetadata) -> String {
+    metadata
+        .get("ac_pending_inputs")
+        .and_then(|s| serde_json::from_str::<Vec<AcInput>>(s).ok())
+        .and_then(|inputs| {
+            inputs
+                .iter()
+                .find(|i| matches!(i.kind, AcInputKind::Text))
+                .map(|i| {
+                    if !i.placeholder.is_empty() {
+                        i.placeholder.clone()
+                    } else {
+                        i.label.clone()
+                    }
+                })
+        })
+        .unwrap_or_default()
+}
+
 /// Extract a human-readable label from a Container/Column's child items.
+///
+/// Searches recursively into ColumnSet/Column/Container children so that
+/// labels are found even when TextBlocks are nested (e.g. Container →
+/// ColumnSet → Column → TextBlock).
 fn label_from_items(items: &[Value]) -> String {
+    // Collect all TextBlocks by flattening nested structures.
+    let mut text_blocks: Vec<&Value> = Vec::new();
+    collect_text_blocks(items, &mut text_blocks);
+
     // First try: bold TextBlock.
-    for item in items {
-        if item.get("type").and_then(Value::as_str) == Some("TextBlock")
-            && item
-                .get("weight")
-                .and_then(Value::as_str)
-                .is_some_and(|w| w.eq_ignore_ascii_case("bolder"))
+    for tb in &text_blocks {
+        if tb
+            .get("weight")
+            .and_then(Value::as_str)
+            .is_some_and(|w| w.eq_ignore_ascii_case("bolder"))
         {
-            if let Some(text) = item.get("text").and_then(Value::as_str) {
+            if let Some(text) = tb.get("text").and_then(Value::as_str) {
                 let t = text.trim();
                 if !t.is_empty() {
                     return t.chars().take(64).collect();
@@ -1263,17 +1556,40 @@ fn label_from_items(items: &[Value]) -> String {
         }
     }
     // Fallback: first non-empty TextBlock.
-    for item in items {
-        if item.get("type").and_then(Value::as_str) == Some("TextBlock") {
-            if let Some(text) = item.get("text").and_then(Value::as_str) {
-                let t = text.trim();
-                if !t.is_empty() {
-                    return t.chars().take(64).collect();
-                }
+    for tb in &text_blocks {
+        if let Some(text) = tb.get("text").and_then(Value::as_str) {
+            let t = text.trim();
+            if !t.is_empty() {
+                return t.chars().take(64).collect();
             }
         }
     }
     String::new()
+}
+
+/// Recursively collect all TextBlock elements from nested AC structures.
+fn collect_text_blocks<'a>(items: &'a [Value], out: &mut Vec<&'a Value>) {
+    for item in items {
+        let etype = item.get("type").and_then(Value::as_str).unwrap_or_default();
+        match etype {
+            "TextBlock" => out.push(item),
+            "ColumnSet" => {
+                if let Some(cols) = item.get("columns").and_then(Value::as_array) {
+                    for col in cols {
+                        if let Some(col_items) = col.get("items").and_then(Value::as_array) {
+                            collect_text_blocks(col_items, out);
+                        }
+                    }
+                }
+            }
+            "Column" | "Container" => {
+                if let Some(child_items) = item.get("items").and_then(Value::as_array) {
+                    collect_text_blocks(child_items, out);
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 /// If an AC element has a `selectAction` (Action.Submit/Execute), convert it
@@ -1383,14 +1699,20 @@ fn build_inline_keyboard_from_metadata(
             let has_data = action.get("data").is_some();
             let cb = if let Some(data) = action.get("data") {
                 let serialized = data.to_string();
-                eprintln!("tg build_keyboard: title={title} data_len={} data={serialized}", serialized.len());
+                eprintln!(
+                    "tg build_keyboard: title={title} data_len={} data={serialized}",
+                    serialized.len()
+                );
                 if serialized.len() <= 64 {
                     serialized
                 } else {
                     // Too large — extract only routeToCardId for compact callback_data.
                     let compact = compact_callback_data(data);
                     let compact_str = compact.to_string();
-                    eprintln!("tg build_keyboard: compact_len={} compact={compact_str}", compact_str.len());
+                    eprintln!(
+                        "tg build_keyboard: compact_len={} compact={compact_str}",
+                        compact_str.len()
+                    );
                     if compact_str.len() <= 64 {
                         compact_str
                     } else {
@@ -1576,7 +1898,10 @@ pub(crate) fn setup_webhook(input_json: &[u8]) -> Vec<u8> {
                 .unwrap_or(Value::Null);
 
             if (200..300).contains(&resp.status) {
-                let tg_ok = resp_body.get("ok").and_then(Value::as_bool).unwrap_or(false);
+                let tg_ok = resp_body
+                    .get("ok")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
                 let description = resp_body
                     .get("description")
                     .and_then(Value::as_str)

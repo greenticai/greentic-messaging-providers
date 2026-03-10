@@ -17,13 +17,13 @@ use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_oper
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
+use crate::PROVIDER_TYPE;
 use crate::auth::{acquire_bot_token, extract_bearer_token, validate_jwt};
 use crate::bindings::greentic::http::http_client as client;
 use crate::config::{
     ProviderConfig, default_channel_destination, get_activity_id, get_conversation_id,
     get_service_url, load_config,
 };
-use crate::PROVIDER_TYPE;
 
 /// Handles the "send" operation - sends a message via Bot Connector API.
 ///
@@ -165,7 +165,10 @@ pub(crate) fn handle_send(input_json: &[u8]) -> Vec<u8> {
             service_url, conversation_id, activity_id
         )
     } else {
-        format!("{}/v3/conversations/{}/activities", service_url, conversation_id)
+        format!(
+            "{}/v3/conversations/{}/activities",
+            service_url, conversation_id
+        )
     };
 
     let request = client::Request {
@@ -485,7 +488,9 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
                 .insert("conversationId".into(), conv_id.clone());
         }
         if let Some(ref act_id) = activity_id {
-            envelope.metadata.insert("activityId".into(), act_id.clone());
+            envelope
+                .metadata
+                .insert("activityId".into(), act_id.clone());
             envelope
                 .metadata
                 .insert("reply_to_id".into(), act_id.clone());
@@ -498,6 +503,16 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         }
         if !card_id.is_empty() {
             envelope.metadata.insert("cardId".into(), card_id);
+        }
+        // Forward ALL action_data fields to metadata for MCP routing
+        if let Some(obj) = action_data.as_object() {
+            for (k, v) in obj {
+                let s = match v {
+                    Value::String(s) => s.clone(),
+                    _ => v.to_string(),
+                };
+                envelope.metadata.insert(k.clone(), s);
+            }
         }
         envelope.metadata.insert(
             "teams.actionData".into(),
@@ -513,8 +528,7 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             "conversation_id": conversation_id,
             "activity_id": activity_id,
         });
-        let normalized_bytes =
-            serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
+        let normalized_bytes = serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
         let out = HttpOutV1 {
             status: 200,
             headers: Vec::new(),
@@ -542,7 +556,9 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             .insert("conversationId".into(), conv_id.clone());
     }
     if let Some(ref act_id) = activity_id {
-        envelope.metadata.insert("activityId".into(), act_id.clone());
+        envelope
+            .metadata
+            .insert("activityId".into(), act_id.clone());
         envelope
             .metadata
             .insert("reply_to_id".into(), act_id.clone());
@@ -646,7 +662,8 @@ pub(crate) fn send_payload(input_json: &[u8]) -> Vec<u8> {
             return send_payload_error(&format!("invalid send_payload input: {err}"), false);
         }
     };
-    if send_in.provider_type != PROVIDER_TYPE {
+    // Accept both messaging.teams.bot and messaging.teams.graph (manifest.cbor mismatch).
+    if !send_in.provider_type.starts_with("messaging.teams") {
         return send_payload_error("provider type mismatch", false);
     }
     let payload_bytes = match STANDARD.decode(&send_in.payload.body_b64) {
@@ -822,7 +839,9 @@ pub(crate) fn channel_destination(
                 .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
                 .map(|s| s.to_string())
-                .ok_or_else(|| "conversation_id required for conversation destination".to_string())?;
+                .ok_or_else(|| {
+                    "conversation_id required for conversation destination".to_string()
+                })?;
             Ok(Destination {
                 id: conversation_id,
                 kind: Some("conversation".into()),

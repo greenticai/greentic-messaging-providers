@@ -225,12 +225,11 @@ fn apply_answers_impl(
             .unwrap_or(merged.enabled);
         merged.public_base_url =
             string_or_default(&answers, "public_base_url", &merged.public_base_url);
-        merged.ms_bot_app_id =
-            string_or_default(&answers, "ms_bot_app_id", &merged.ms_bot_app_id);
-        merged.ms_bot_app_password =
-            optional_string_from(&answers, "ms_bot_app_password").or(merged.ms_bot_app_password.clone());
-        merged.default_service_url =
-            optional_string_from(&answers, "default_service_url").or(merged.default_service_url.clone());
+        merged.ms_bot_app_id = string_or_default(&answers, "ms_bot_app_id", &merged.ms_bot_app_id);
+        merged.ms_bot_app_password = optional_string_from(&answers, "ms_bot_app_password")
+            .or(merged.ms_bot_app_password.clone());
+        merged.default_service_url = optional_string_from(&answers, "default_service_url")
+            .or(merged.default_service_url.clone());
         merged.team_id = optional_string_from(&answers, "team_id").or(merged.team_id.clone());
         merged.channel_id =
             optional_string_from(&answers, "channel_id").or(merged.channel_id.clone());
@@ -331,7 +330,8 @@ mod tests {
 
     #[test]
     fn parse_config_requires_new_fields() {
-        let cfg = br#"{"enabled":true,"ms_bot_app_id":"app-id","public_base_url":"https://example.com"}"#;
+        let cfg =
+            br#"{"enabled":true,"ms_bot_app_id":"app-id","public_base_url":"https://example.com"}"#;
         let parsed = parse_config_bytes(cfg).expect("valid config");
         assert!(parsed.enabled);
         assert_eq!(parsed.ms_bot_app_id, "app-id");

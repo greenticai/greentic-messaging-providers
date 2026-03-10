@@ -172,21 +172,30 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
                 // For Action.Submit, derive a text label from the action data.
                 let effective_text = if text.is_empty() {
                     action_value
-                        .and_then(|v| v.get("step").or(v.get("routeToCardId")).or(v.get("toCardId")))
+                        .and_then(|v| {
+                            v.get("step")
+                                .or(v.get("routeToCardId"))
+                                .or(v.get("toCardId"))
+                        })
                         .and_then(|s| s.as_str())
                         .unwrap_or("action")
                         .to_string()
                 } else {
                     text
                 };
-                let mut envelope = build_webchat_envelope(effective_text, user, conv_id.clone(), None);
-                // Store AC action routing hints in metadata for card navigation.
+                let mut envelope =
+                    build_webchat_envelope(effective_text, user, conv_id.clone(), None);
+                // Forward ALL Action.Submit data fields to metadata so the
+                // operator can handle MCP actions, token saves, card routing, etc.
                 if let Some(val) = action_value {
-                    if let Some(route_card) = val.get("routeToCardId").and_then(|s| s.as_str()) {
-                        envelope.metadata.insert("routeToCardId".to_string(), route_card.to_string());
-                    }
-                    if let Some(to_card) = val.get("toCardId").and_then(|s| s.as_str()) {
-                        envelope.metadata.insert("toCardId".to_string(), to_card.to_string());
+                    if let Some(obj) = val.as_object() {
+                        for (k, v) in obj {
+                            let s = match v {
+                                Value::String(s) => s.clone(),
+                                _ => v.to_string(),
+                            };
+                            envelope.metadata.insert(k.clone(), s);
+                        }
                     }
                 }
                 out.events.push(envelope);
@@ -324,7 +333,8 @@ fn persist_send_payload(payload: &Value) -> Result<(), String> {
     // If session_id is present, try to append the bot response as a Direct Line
     // activity so that GET /activities polling returns it to the frontend.
     if let Some(session_id) = value_as_trimmed_string(payload.get("session_id")) {
-        let _ = append_bot_activity_to_conversation(&session_id, &text, adaptive_card_json.as_deref());
+        let _ =
+            append_bot_activity_to_conversation(&session_id, &text, adaptive_card_json.as_deref());
     }
 
     let public_base_url = public_base_url_from_value(payload);
@@ -385,7 +395,11 @@ fn append_bot_activity_to_conversation(
     let activity = StoredActivity {
         id: format!("bot-{watermark}"),
         type_: "message".to_string(),
-        text: if text.is_empty() { None } else { Some(text.to_string()) },
+        text: if text.is_empty() {
+            None
+        } else {
+            Some(text.to_string())
+        },
         from: Some("bot".to_string()),
         timestamp: chrono::Utc::now().timestamp_millis(),
         watermark,

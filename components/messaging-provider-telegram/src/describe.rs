@@ -249,8 +249,12 @@ pub(crate) fn build_qa_spec(
         Mode::Upgrade => "upgrade",
         Mode::Remove => "remove",
     };
-    let mut spec =
-        provider_common::helpers::qa_spec_for_mode(mode_str, "telegram", SETUP_QUESTIONS, DEFAULT_KEYS);
+    let mut spec = provider_common::helpers::qa_spec_for_mode(
+        mode_str,
+        "telegram",
+        SETUP_QUESTIONS,
+        DEFAULT_KEYS,
+    );
 
     // api_base_url has a sensible default — inject it into the question
     for q in &mut spec.questions {

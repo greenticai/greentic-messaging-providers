@@ -88,7 +88,7 @@ greentic-secrets apply --file /tmp/email-secrets.json \
 The `--to` argument accepts an email address:
 
 ```bash
-GREENTIC_ENV=dev greentic-operator demo send \
+GREENTIC_ENV=dev gtc op demo send \
   --bundle demo-bundle \
   --provider messaging-email \
   --to "recipient@example.com" \

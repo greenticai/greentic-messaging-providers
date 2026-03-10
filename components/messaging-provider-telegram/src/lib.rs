@@ -223,8 +223,7 @@ fn apply_answers_impl(
         if merged.api_base_url.trim().is_empty() {
             merged.api_base_url = DEFAULT_API_BASE.to_string();
         }
-        merged.bot_token =
-            optional_string_from(&answers, "bot_token").or(merged.bot_token.clone());
+        merged.bot_token = optional_string_from(&answers, "bot_token").or(merged.bot_token.clone());
     }
 
     if mode == Mode::Upgrade {
@@ -242,8 +241,7 @@ fn apply_answers_impl(
             merged.default_chat_id = optional_string_from(&answers, "default_chat_id");
         }
         if has("api_base_url") {
-            merged.api_base_url =
-                string_or_default(&answers, "api_base_url", &merged.api_base_url);
+            merged.api_base_url = string_or_default(&answers, "api_base_url", &merged.api_base_url);
         }
         if has("bot_token") {
             merged.bot_token = optional_string_from(&answers, "bot_token");
