@@ -34,9 +34,6 @@ cp "${ARTIFACT_PATH}" "${TARGET_DIR}/${PACKAGE_NAME}.wasm"
 if [ "${PACKAGE_NAME}" = "provision" ]; then
   cp "${ARTIFACT_PATH}" "${ROOT_DIR}/components/provision/provision.wasm"
 fi
-if [ "${PACKAGE_NAME}" = "questions" ]; then
-  cp "${ARTIFACT_PATH}" "${ROOT_DIR}/components/questions/questions.wasm"
-fi
 if [ "${HAS_WASM_TOOLS}" -eq 1 ] && [ "${SKIP_WASM_TOOLS_VALIDATION}" -eq 0 ]; then
   if ! "${WASM_TOOLS_BIN}" component wit "${TARGET_DIR}/${PACKAGE_NAME}.wasm" | grep -q "wasi:cli/"; then
     echo "Artifact ${PACKAGE_NAME} does not appear to target WASI preview 2 (missing wasi:cli import)" >&2

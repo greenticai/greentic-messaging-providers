@@ -26,3 +26,13 @@
 2026-02-21T06:40:24.744864382+00:00 [Info] greentic_operator::secrets_gate - secrets selection: kind=dev-store pack_path=<none> bundle_root=demo-bundle env_allow_env_secrets=false GREENTIC_DEV_SECRETS_PATH=<unset>
 2026-02-21T06:40:24.744998100+00:00 [Info] greentic_operator::secrets_gate - secrets runtime backend chosen: dev_store_path=demo-bundle/.greentic/dev/.dev.secrets.env using_env_fallback=false
 2026-02-21T06:40:24.745213574+00:00 [Info] greentic_operator::cli - demo start bundle demo-bundle completed for targets=[demo]
+2026-03-01T02:58:33.583758050+00:00 [Info] greentic_operator::cli - demo start (bundle=demo-bundle targets=[demo]) log_dir=demo-bundle/logs
+2026-03-01T02:58:33.614248515+00:00 [Info] greentic_operator::cli - bundle discovery targets=[demo] messaging=false events=false providers=0
+2026-03-01T02:58:33.614301676+00:00 [Warn] greentic_operator::cli - failed to load demo-bundle/greentic.demo.yaml: No such file or directory (os error 2); using default values
+2026-03-01T02:58:33.614333993+00:00 [Info] greentic_operator::secrets_gate - secrets selection: kind=dev-store pack_path=<none> bundle_root=demo-bundle env_allow_env_secrets=false GREENTIC_DEV_SECRETS_PATH=<unset>
+2026-03-01T02:58:33.614410547+00:00 [Info] greentic_operator::secrets_gate - secrets runtime backend chosen: dev_store_path=demo-bundle/.greentic/dev/.dev.secrets.env using_env_fallback=false
+2026-03-01T02:59:33.471077582+00:00 [Info] greentic_operator::cli - demo start (bundle=demo-bundle targets=[demo]) log_dir=demo-bundle/logs
+2026-03-01T02:59:33.497419137+00:00 [Info] greentic_operator::cli - bundle discovery targets=[demo] messaging=false events=false providers=0
+2026-03-01T02:59:33.499646815+00:00 [Warn] greentic_operator::cli - failed to load demo-bundle/greentic.demo.yaml: No such file or directory (os error 2); using default values
+2026-03-01T02:59:33.499694366+00:00 [Info] greentic_operator::secrets_gate - secrets selection: kind=dev-store pack_path=<none> bundle_root=demo-bundle env_allow_env_secrets=false GREENTIC_DEV_SECRETS_PATH=<unset>
+2026-03-01T02:59:33.499744720+00:00 [Info] greentic_operator::secrets_gate - secrets runtime backend chosen: dev_store_path=demo-bundle/.greentic/dev/.dev.secrets.env using_env_fallback=false
