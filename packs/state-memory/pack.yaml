@@ -1,0 +1,48 @@
+pack_id: state-memory
+version: 0.4.0
+kind: capability
+publisher: Greentic
+name: In-Memory State Provider
+components:
+- id: state-provider-memory
+  version: 0.4.0
+  world: greentic:component/component-v0-v6-v0
+  supports:
+  - component_config
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/state-provider-memory.wasm
+dependencies: []
+flows:
+- id: setup_default
+  file: flows/setup_default.ygtc
+  tags:
+  - default
+  entrypoints:
+  - default
+assets: []
+extensions:
+  greentic.ext.capabilities.v1:
+    kind: greentic.ext.capabilities.v1
+    version: 1.0.0
+    inline:
+      offers:
+      - cap_id: greentic.cap.state.kv.v1
+        metadata:
+          backend: memory
+          ephemeral: true
+        offer_id: state.memory.kv.01
+        priority: 100
+        provider:
+          component_ref: state-provider-memory
+          op: state.dispatch
+        requires_setup: false
+        version: v1
+      schema_version: 1

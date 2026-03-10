@@ -1,0 +1,23 @@
+{
+  "id": "state-memory-setup",
+  "title": "In-Memory State Configuration",
+  "version": "1.0.0",
+  "questions": [
+    {
+      "id": "max_entries",
+      "kind": "Integer",
+      "title_i18n": { "key": "state.memory.qa.setup.max_entries" },
+      "required": false,
+      "default_value": "10000",
+      "constraint": { "min": 100, "max": 1000000 }
+    },
+    {
+      "id": "default_ttl_seconds",
+      "kind": "Integer",
+      "title_i18n": { "key": "state.memory.qa.setup.default_ttl_seconds" },
+      "required": false,
+      "default_value": "0",
+      "description_i18n": { "key": "state.memory.schema.config.default_ttl_seconds.description" }
+    }
+  ]
+}
