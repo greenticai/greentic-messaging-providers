@@ -183,7 +183,8 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
                 } else {
                     text
                 };
-                let mut envelope = build_webchat_envelope(effective_text, user, conv_id.clone(), None);
+                let mut envelope =
+                    build_webchat_envelope(effective_text, user, conv_id.clone(), None);
                 // Forward ALL Action.Submit data fields to metadata so the
                 // operator can handle MCP actions, token saves, card routing, etc.
                 if let Some(val) = action_value {

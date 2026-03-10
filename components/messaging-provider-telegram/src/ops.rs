@@ -682,15 +682,16 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
         }
         if !content.inputs.is_empty() {
             let ij = serde_json::to_string(&content.inputs).unwrap_or_default();
-            envelope.metadata.insert("ac_pending_inputs".to_string(), ij);
+            envelope
+                .metadata
+                .insert("ac_pending_inputs".to_string(), ij);
             // Store the submit action data so ingest_http can auto-submit
             // after all text inputs are collected.
             if let Some(submit_action) = content.actions.iter().find(|a| a.get("data").is_some()) {
                 if let Some(data) = submit_action.get("data") {
-                    envelope.metadata.insert(
-                        "ac_submit_data".to_string(),
-                        data.to_string(),
-                    );
+                    envelope
+                        .metadata
+                        .insert("ac_submit_data".to_string(), data.to_string());
                 }
             }
         }
@@ -998,7 +999,13 @@ fn ac_to_telegram(ac_raw: &str) -> Option<TelegramAcContent> {
 
     if let Some(body) = body {
         for element in body {
-            ac_element_to_html(element, &mut html_parts, &mut actions, &mut images, &mut inputs);
+            ac_element_to_html(
+                element,
+                &mut html_parts,
+                &mut actions,
+                &mut images,
+                &mut inputs,
+            );
         }
     }
     if let Some(top_actions) = top_actions {
@@ -1291,7 +1298,10 @@ fn ac_element_to_html(
 
         // ── Input elements → conversational prompts ──────────────────
         "Input.Text" => {
-            let id = element.get("id").and_then(Value::as_str).unwrap_or_default();
+            let id = element
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
             let label = element
                 .get("label")
                 .and_then(Value::as_str)
@@ -1312,7 +1322,11 @@ fn ac_element_to_html(
             } else {
                 String::new()
             };
-            parts.push(format!("\u{270f}\u{fe0f} <b>{}</b>{}", html_escape(display_label), hint));
+            parts.push(format!(
+                "\u{270f}\u{fe0f} <b>{}</b>{}",
+                html_escape(display_label),
+                hint
+            ));
             if !id.is_empty() {
                 inputs.push(AcInput {
                     id: id.to_string(),
@@ -1325,7 +1339,10 @@ fn ac_element_to_html(
         }
 
         "Input.ChoiceSet" => {
-            let id = element.get("id").and_then(Value::as_str).unwrap_or_default();
+            let id = element
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
             let label = element
                 .get("label")
                 .and_then(Value::as_str)
@@ -1371,11 +1388,11 @@ fn ac_element_to_html(
         }
 
         "Input.Toggle" => {
-            let id = element.get("id").and_then(Value::as_str).unwrap_or_default();
-            let title = element
-                .get("title")
+            let id = element
+                .get("id")
                 .and_then(Value::as_str)
-                .unwrap_or(id);
+                .unwrap_or_default();
+            let title = element.get("title").and_then(Value::as_str).unwrap_or(id);
             let value_on = element
                 .get("valueOn")
                 .and_then(Value::as_str)
@@ -1410,11 +1427,11 @@ fn ac_element_to_html(
 
         "Input.Number" | "Input.Date" | "Input.Time" => {
             // Treat like Input.Text — prompt user to type value.
-            let id = element.get("id").and_then(Value::as_str).unwrap_or_default();
-            let label = element
-                .get("label")
+            let id = element
+                .get("id")
                 .and_then(Value::as_str)
-                .unwrap_or(id);
+                .unwrap_or_default();
+            let label = element.get("label").and_then(Value::as_str).unwrap_or(id);
             let placeholder = element
                 .get("placeholder")
                 .and_then(Value::as_str)
@@ -1425,7 +1442,11 @@ fn ac_element_to_html(
                 String::new()
             };
             if !label.is_empty() {
-                parts.push(format!("\u{270f}\u{fe0f} <b>{}</b>{}", html_escape(label), hint));
+                parts.push(format!(
+                    "\u{270f}\u{fe0f} <b>{}</b>{}",
+                    html_escape(label),
+                    hint
+                ));
             }
             if !id.is_empty() {
                 inputs.push(AcInput {
@@ -1495,13 +1516,16 @@ fn first_input_placeholder(metadata: &greentic_types::MessageMetadata) -> String
         .get("ac_pending_inputs")
         .and_then(|s| serde_json::from_str::<Vec<AcInput>>(s).ok())
         .and_then(|inputs| {
-            inputs.iter().find(|i| matches!(i.kind, AcInputKind::Text)).map(|i| {
-                if !i.placeholder.is_empty() {
-                    i.placeholder.clone()
-                } else {
-                    i.label.clone()
-                }
-            })
+            inputs
+                .iter()
+                .find(|i| matches!(i.kind, AcInputKind::Text))
+                .map(|i| {
+                    if !i.placeholder.is_empty() {
+                        i.placeholder.clone()
+                    } else {
+                        i.label.clone()
+                    }
+                })
         })
         .unwrap_or_default()
 }
