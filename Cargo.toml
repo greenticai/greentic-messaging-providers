@@ -12,9 +12,9 @@ default-members = [
 ]
 exclude = [
     "components/ai.greentic.component-templates",
-    "components/templates",
-    "components/questions",
     "components/qa",
+    "components/questions",
+    "components/templates",
 ]
 resolver = "2"
 

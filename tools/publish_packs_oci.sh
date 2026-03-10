@@ -45,15 +45,6 @@ fi
 timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 git_sha="$(cd "${ROOT_DIR}" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 
-# Default OCI location for the shared templates component used by many packs.
-TEMPLATES_REGISTRY="${TEMPLATES_REGISTRY:-${OCI_REGISTRY:-ghcr.io}}"
-TEMPLATES_NAMESPACE="${TEMPLATES_NAMESPACE:-${GHCR_NAMESPACE:-${OCI_ORG:-greentic-ai-org}}}"
-DEFAULT_TEMPLATES_IMAGE="${TEMPLATES_IMAGE:-${TEMPLATES_REGISTRY}/${TEMPLATES_NAMESPACE}/components/templates:latest}"
-DEFAULT_TEMPLATES_DIGEST=""
-DEFAULT_TEMPLATES_ARTIFACT="component_templates.wasm"
-DEFAULT_TEMPLATES_MANIFEST="component.publish.manifest.json"
-echo "Using templates image: ${DEFAULT_TEMPLATES_IMAGE}"
-
 command -v jq >/dev/null 2>&1 || { echo "jq is required"; exit 1; }
 command -v zip >/dev/null 2>&1 || { echo "zip is required"; exit 1; }
 command -v oras >/dev/null 2>&1 || { echo "oras is required"; exit 1; }
@@ -308,13 +299,6 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     comp_id="$(jq -r '.id' <<<"${comp_json}")"
     wasm_path="$(jq -r '.wasm' <<<"${comp_json}")"
     fname="$(basename "${wasm_path}")"
-    is_templates_component=0
-    if [ "${comp_id}" = "templates" ] || [ "${comp_id}" = "ai.greentic.component-templates" ] || [ "${fname}" = "templates.wasm" ]; then
-      is_templates_component=1
-    fi
-    if [ -z "${oci_image}" ] && [ "${is_templates_component}" -eq 1 ]; then
-      oci_image="${DEFAULT_TEMPLATES_IMAGE}"
-    fi
     if [ -z "${oci_image}" ] && [ ! -f "${ROOT_DIR}/target/components/${fname}" ]; then
       missing_local=1
       break
@@ -335,23 +319,6 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     oci_artifact="$(jq -r '.oci.artifact // empty' <<<"${comp_json}")"
     manifest_rel="$(jq -r '.manifest // empty' <<<"${comp_json}")"
     oci_manifest="$(jq -r '.oci.manifest // empty' <<<"${comp_json}")"
-    is_templates_component=0
-    if [ "${comp_id}" = "templates" ] || [ "${comp_id}" = "ai.greentic.component-templates" ] || [ "${fname}" = "templates.wasm" ]; then
-      is_templates_component=1
-    fi
-
-    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_image}" ]; then
-      oci_image="${DEFAULT_TEMPLATES_IMAGE}"
-    fi
-    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_digest}" ]; then
-      oci_digest="${DEFAULT_TEMPLATES_DIGEST}"
-    fi
-    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_artifact}" ]; then
-      oci_artifact="${DEFAULT_TEMPLATES_ARTIFACT}"
-    fi
-    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_manifest}" ]; then
-      oci_manifest="${DEFAULT_TEMPLATES_MANIFEST}"
-    fi
 
     manifest_src=""
     manifest_dest=""
@@ -504,7 +471,7 @@ if [ -f "${bundle_pack}" ]; then
 fi
 
 if compgen -G "${ROOT_DIR}/${OUT_DIR}/messaging-*.gtpack" >/dev/null; then
-  validator_pack_ref="${VALIDATOR_PACK_REF:-oci://ghcr.io/greentic-ai/validators/messaging:latest}"
+  validator_pack_ref="${VALIDATOR_PACK_REF:-oci://ghcr.io/greenticai/validators/messaging:latest}"
   if "${PACKC_BIN}" doctor --help 2>&1 | rg -q -- '--validate'; then
     doctor_supports_validate=1
   else

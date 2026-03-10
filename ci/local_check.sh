@@ -49,11 +49,6 @@ echo "==> tools/build_components.sh"
 #   ./ci/steps/03_build_components.sh
 ./ci/steps/03_build_components.sh
 
-echo "==> ensuring shared templates component is available for each pack"
-# If this fails, re-run only:
-#   ./ci/steps/04_ensure_templates.sh
-./ci/steps/04_ensure_templates.sh
-
 echo "==> tools/check_op_schemas.py"
 # If this fails, re-run only:
 #   ./ci/steps/05_check_op_schemas.sh
@@ -63,23 +58,6 @@ echo "==> ci/gen_flows.sh"
 # If this fails, re-run only:
 #   ./ci/steps/06_gen_flows.sh
 ./ci/steps/06_gen_flows.sh
-
-if [ -n "${GHCR_TOKEN:-}" ] && [ "${LOCAL_CHECK_FETCH_TEMPLATES_FROM_OCI:-0}" = "1" ]; then
-  echo "==> Forcing templates refresh from OCI (LOCAL_CHECK_FETCH_TEMPLATES_FROM_OCI=1)"
-  rm -f "${ROOT_DIR}/target/components/templates.wasm"
-  rm -f "${ROOT_DIR}/target/components/templates.manifest.json"
-  rm -f "${ROOT_DIR}"/packs/*/components/templates.wasm
-  rm -f "${ROOT_DIR}"/packs/*/components/templates.manifest.json
-else
-  # Local/offline path: seed template artifacts from already-synced pack copies
-  # so sync_packs won't require OCI fetch for template components.
-  templates_src="$(find "${ROOT_DIR}"/packs/*/components -maxdepth 1 -type f -name 'ai.greentic.component-templates.wasm' | head -n 1 || true)"
-  if [ -n "${templates_src}" ]; then
-    mkdir -p "${ROOT_DIR}/target/components"
-    cp "${templates_src}" "${ROOT_DIR}/target/components/ai.greentic.component-templates.wasm"
-    cp "${templates_src}" "${ROOT_DIR}/target/components/templates.wasm"
-  fi
-fi
 
 echo "==> tools/sync_packs.sh (PACK_VERSION=${PACK_VERSION})"
 # If this fails, re-run only:
@@ -100,11 +78,6 @@ echo "==> greentic-component doctor --validate (components manifests)"
 # If this fails, re-run only:
 #   ./ci/steps/09_component_doctor.sh
 ./ci/steps/09_component_doctor.sh
-
-echo "==> greentic-component test (questions emit/validate)"
-# If this fails, re-run only:
-#   ./ci/steps/10_questions_component_test.sh
-./ci/steps/10_questions_component_test.sh
 
 echo "==> tools/build_packs_only.sh (dry-run; rebuild dist/packs)"
 # If this fails, re-run only:

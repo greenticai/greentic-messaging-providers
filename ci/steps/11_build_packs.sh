@@ -21,7 +21,7 @@ PY
 )}"
 export PACK_VERSION
 
-validator_ref="oci://ghcr.io/greentic-ai/validators/messaging:latest"
+validator_ref="oci://ghcr.io/greenticai/validators/messaging:latest"
 validator_root="${ROOT_DIR}/.greentic/validators"
 validator_wasm="${validator_root}/greentic.validators.messaging.wasm"
 mkdir -p "${validator_root}"

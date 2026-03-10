@@ -47,15 +47,6 @@ if [ -x "${ROOT_DIR}/tools/prepare_pack_assets.sh" ]; then
   "${ROOT_DIR}/tools/prepare_pack_assets.sh"
 fi
 
-# Default OCI location for the shared templates component used by many packs.
-TEMPLATES_REGISTRY="${TEMPLATES_REGISTRY:-${OCI_REGISTRY:-ghcr.io}}"
-TEMPLATES_NAMESPACE="${TEMPLATES_NAMESPACE:-${GHCR_NAMESPACE:-${OCI_ORG:-greentic-ai-org}}}"
-DEFAULT_TEMPLATES_IMAGE="${TEMPLATES_IMAGE:-${TEMPLATES_REGISTRY}/${TEMPLATES_NAMESPACE}/components/templates:latest}"
-DEFAULT_TEMPLATES_DIGEST=""
-DEFAULT_TEMPLATES_ARTIFACT="component_templates.wasm"
-DEFAULT_TEMPLATES_MANIFEST="component.publish.manifest.json"
-echo "Using templates image: ${DEFAULT_TEMPLATES_IMAGE}"
-
 if [ ! -d "${TARGET_COMPONENTS}" ]; then
   echo "Building components..."
   "${ROOT_DIR}/tools/build_components.sh"
@@ -264,10 +255,6 @@ for dir in "${PACKS_DIR}"/*; do
     [ -z "${comp}" ] && continue
     wasm_rel="${wasm_path:-components/${comp}.wasm}"
     wasm_file="$(basename "${wasm_rel}")"
-    is_templates_component=0
-    if [ "${comp}" = "templates" ] || [ "${comp}" = "ai.greentic.component-templates" ] || [ "${wasm_file}" = "templates.wasm" ]; then
-      is_templates_component=1
-    fi
     src="${TARGET_COMPONENTS}/${wasm_file}"
     dest="${dir}/${wasm_rel}"
     manifest_src=""
@@ -275,19 +262,6 @@ for dir in "${PACKS_DIR}"/*; do
     if [ -n "${manifest_rel}" ]; then
       manifest_dest="${dir}/${manifest_rel}"
       manifest_src="${TARGET_COMPONENTS}/$(basename "${manifest_rel}")"
-    fi
-    # Fill in default OCI metadata for template components when missing.
-    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_image}" ]; then
-      oci_image="${DEFAULT_TEMPLATES_IMAGE}"
-    fi
-    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_digest}" ]; then
-      oci_digest="${DEFAULT_TEMPLATES_DIGEST}"
-    fi
-    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_artifact}" ]; then
-      oci_artifact="${DEFAULT_TEMPLATES_ARTIFACT}"
-    fi
-    if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_manifest}" ]; then
-      oci_manifest="${DEFAULT_TEMPLATES_MANIFEST}"
     fi
     mkdir -p "$(dirname "${dest}")"
     if [ ! -f "${src}" ] || { [ -n "${manifest_rel}" ] && [ ! -f "${manifest_src}" ]; }; then
@@ -330,11 +304,7 @@ for dir in "${PACKS_DIR}"/*; do
       wasm_rel="components/${name}.wasm"
       dest="${dir}/${wasm_rel}"
       if [ ! -f "${dest}" ]; then
-        if [[ "${ref}" == *"components/questions"* ]] && [ -f "${ROOT_DIR}/components/questions/questions.wasm" ]; then
-          cp "${ROOT_DIR}/components/questions/questions.wasm" "${dest}"
-        else
-          fetch_locked_component "${ref}" "${digest}" "${dest}"
-        fi
+        fetch_locked_component "${ref}" "${digest}" "${dest}"
       fi
     done < <(jq -r '.components[]? | [.name, .ref, .digest] | @tsv' "${lock_file}")
   fi
