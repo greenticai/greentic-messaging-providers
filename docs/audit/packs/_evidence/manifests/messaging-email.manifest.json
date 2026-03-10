@@ -442,7 +442,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -454,7 +454,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -466,7 +466,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -478,7 +478,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -490,7 +490,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -502,7 +502,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -514,7 +514,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -526,7 +526,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -538,7 +538,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -550,7 +550,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -562,7 +562,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           }
         ],
         "schema_version": 1
@@ -716,122 +716,6 @@
         "schema_version": "flow-v1"
       },
       "id": "requirements",
-      "kind": "job",
-      "tags": [
-        "default"
-      ]
-    },
-    {
-      "entrypoints": [
-        "setup"
-      ],
-      "flow": {
-        "entrypoints": {
-          "default": "collect"
-        },
-        "id": "setup_custom",
-        "kind": "job",
-        "metadata": {
-          "extra": {},
-          "tags": []
-        },
-        "nodes": [
-          {
-            "component": {
-              "id": 0,
-              "operation": "handlebars",
-              "pack_alias": null
-            },
-            "id": 2,
-            "input": {
-              "mapping": {
-                "text": "Collect:\n- smtp_host, smtp_port, username, password\n- tls_mode: starttls | implicit | none\n- connection_timeout_ms, send_timeout_ms\n- retry_policy (attempts/backoff)\n- from_address/display_name\n- inbound_support: false (egress-only)\n"
-              }
-            },
-            "output": {
-              "mapping": {}
-            },
-            "routing": {
-              "Next": {
-                "node_id": 4
-              }
-            },
-            "telemetry": {
-              "attributes": {}
-            }
-          },
-          {
-            "component": {
-              "id": 0,
-              "operation": "handlebars",
-              "pack_alias": null
-            },
-            "id": 4,
-            "input": {
-              "mapping": {
-                "text": "- Connect/auth with provided creds and TLS mode.\n- If test_email true, send to provided recipient; respect timeout/retry settings.\n"
-              }
-            },
-            "output": {
-              "mapping": {}
-            },
-            "routing": {
-              "Next": {
-                "node_id": 0
-              }
-            },
-            "telemetry": {
-              "attributes": {}
-            }
-          },
-          {
-            "component": {
-              "id": 0,
-              "operation": "handlebars",
-              "pack_alias": null
-            },
-            "id": 0,
-            "input": {
-              "mapping": {
-                "text": "- Save secrets (username/password) and TLS preference.\n- Persist config: timeouts, retry_policy, from_address, egress-only flag.\n- Idempotent updates allowed.\n"
-              }
-            },
-            "output": {
-              "mapping": {}
-            },
-            "routing": {
-              "Next": {
-                "node_id": 3
-              }
-            },
-            "telemetry": {
-              "attributes": {}
-            }
-          },
-          {
-            "component": {
-              "id": 0,
-              "operation": "handlebars",
-              "pack_alias": null
-            },
-            "id": 3,
-            "input": {
-              "mapping": {
-                "text": "SMTP setup_custom applied with tls_mode {{payload.tls_mode}}."
-              }
-            },
-            "output": {
-              "mapping": {}
-            },
-            "routing": "End",
-            "telemetry": {
-              "attributes": {}
-            }
-          }
-        ],
-        "schema_version": "flow-v1"
-      },
-      "id": "setup_custom",
       "kind": "job",
       "tags": [
         "default"

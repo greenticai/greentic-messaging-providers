@@ -58,7 +58,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -70,7 +70,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -82,7 +82,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -94,7 +94,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           }
         ],
         "schema_version": 1
@@ -223,50 +223,6 @@
         "schema_version": "flow-v1"
       },
       "id": "requirements",
-      "kind": "job",
-      "tags": [
-        "default"
-      ]
-    },
-    {
-      "entrypoints": [
-        "setup"
-      ],
-      "flow": {
-        "entrypoints": {
-          "default": "summarize"
-        },
-        "id": "setup_custom",
-        "kind": "job",
-        "metadata": {
-          "extra": {},
-          "tags": []
-        },
-        "nodes": [
-          {
-            "component": {
-              "id": 0,
-              "operation": "handlebars",
-              "pack_alias": null
-            },
-            "id": 0,
-            "input": {
-              "mapping": {
-                "text": "Nothing to configure; records last_applied for idempotency."
-              }
-            },
-            "output": {
-              "mapping": {}
-            },
-            "routing": "End",
-            "telemetry": {
-              "attributes": {}
-            }
-          }
-        ],
-        "schema_version": "flow-v1"
-      },
-      "id": "setup_custom",
       "kind": "job",
       "tags": [
         "default"
