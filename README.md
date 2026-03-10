@@ -154,7 +154,7 @@ Results stored in `catalog: HashMap<(Domain, String), ProviderPack>`.
 
 When an operation is dispatched, the operator:
 
-1. Opens `.gtpack` ZIP → extracts `components/messaging-provider-*.wasm`
+1. Opens `.gtpack` ZIP → extracts `components/messaging-provider-*/component.wasm`
 2. Creates a `PackRuntime` with Wasmtime and links WIT imports:
 
 | WIT Import | Host Implementation |
@@ -426,7 +426,7 @@ rustup target add wasm32-wasip2
 SKIP_WASM_TOOLS_VALIDATION=1 ./tools/build_components.sh
 ```
 
-Built WASMs output to `target/components/messaging-provider-*.wasm`.
+Built WASMs output to `target/components/messaging-provider-*/component.wasm`.
 
 **Note:** Uses `cargo build` (not `cargo component build`) due to a WIT resolution bug.
 
@@ -454,9 +454,9 @@ cargo test -p messaging-provider-slack
 
 ```bash
 tmpdir=$(mktemp -d)
-mkdir -p "${tmpdir}/components"
-cp target/components/messaging-provider-slack.wasm "${tmpdir}/components/"
-(cd "$tmpdir" && zip -u /path/to/messaging-slack.gtpack components/messaging-provider-slack.wasm)
+mkdir -p "${tmpdir}/components/messaging-provider-slack"
+cp target/components/messaging-provider-slack/component.wasm "${tmpdir}/components/messaging-provider-slack/"
+(cd "$tmpdir" && zip -u /path/to/messaging-slack.gtpack components/messaging-provider-slack/component.wasm)
 zipinfo /path/to/messaging-slack.gtpack  # verify
 ```
 
@@ -480,7 +480,7 @@ cd greentic-messaging-providers
 SKIP_WASM_TOOLS_VALIDATION=1 ./tools/build_components.sh
 ```
 
-Output: `target/components/messaging-provider-*.wasm` (8 WASMs).
+Output: `target/components/messaging-provider-*/component.wasm` (8 WASMs).
 
 ### 2. Update Demo Bundle
 
@@ -492,10 +492,10 @@ WASM_DIR="target/components"
 
 for provider in dummy email slack teams telegram webchat webex whatsapp; do
   gtpack="${DEMO_BUNDLE}/providers/messaging/messaging-${provider}.gtpack"
-  wasm="${WASM_DIR}/messaging-provider-${provider}.wasm"
+  wasm="${WASM_DIR}/messaging-provider-${provider}/component.wasm"
   [ ! -f "$gtpack" ] || [ ! -f "$wasm" ] && continue
 
-  wasm_entry=$(unzip -l "$gtpack" | grep "messaging-provider-${provider}.wasm" | awk '{print $4}')
+  wasm_entry=$(unzip -l "$gtpack" | grep "messaging-provider-${provider}/component.wasm" | awk '{print $4}')
   [ -z "$wasm_entry" ] && continue
 
   tmpdir=$(mktemp -d)
@@ -547,37 +547,37 @@ greentic-secrets apply \
 export GREENTIC_ENV=dev
 
 # Slack
-greentic-operator demo send \
+gtc op demo send \
   --bundle demo-bundle --provider messaging-slack \
   --to "C0AFWP5C067" --text "Hello from Greentic" \
   --tenant default --env dev
 
 # Telegram
-greentic-operator demo send \
+gtc op demo send \
   --bundle demo-bundle --provider messaging-telegram \
   --to "7951102355" --text "Hello from Greentic" \
   --tenant default --env dev
 
 # Webex (auto-detect: Y2lz* = roomId, @ = email)
-greentic-operator demo send \
+gtc op demo send \
   --bundle demo-bundle --provider messaging-webex \
   --to "user@example.com" --text "Hello from Greentic" \
   --tenant default --env dev
 
 # Email (MS Graph sendMail)
-greentic-operator demo send \
+gtc op demo send \
   --bundle demo-bundle --provider messaging-email \
   --to "recipient@example.com" --text "Hello from Greentic" \
   --tenant default --env dev
 
 # Teams (MS Graph channel message)
-greentic-operator demo send \
+gtc op demo send \
   --bundle demo-bundle --provider messaging-teams \
   --to "team_id:channel_id" --text "Hello from Greentic" \
   --tenant demo --env dev
 
 # Dummy (no external call, pipeline validation only)
-greentic-operator demo send \
+gtc op demo send \
   --bundle demo-bundle --provider messaging-dummy \
   --to "test" --text "Pipeline validation" \
   --tenant default --env dev
@@ -602,13 +602,13 @@ cat > /tmp/test-card.json << 'EOF'
 EOF
 
 # Webex — AC renders natively (TierB)
-GREENTIC_ENV=dev greentic-operator demo send \
+GREENTIC_ENV=dev gtc op demo send \
   --bundle demo-bundle --provider messaging-webex \
   --to "user@example.com" --text "AC Demo" \
   --card /tmp/test-card.json --tenant default --env dev
 
 # Slack — AC downsampled to text (TierD)
-GREENTIC_ENV=dev greentic-operator demo send \
+GREENTIC_ENV=dev gtc op demo send \
   --bundle demo-bundle --provider messaging-slack \
   --to "C0AFWP5C067" --text "AC Demo" \
   --card /tmp/test-card.json --tenant default --env dev
@@ -620,19 +620,19 @@ GREENTIC_ENV=dev greentic-operator demo send \
 
 ```bash
 # Slack
-GREENTIC_ENV=dev greentic-operator demo ingress \
+GREENTIC_ENV=dev gtc op demo ingress \
   --bundle demo-bundle --provider messaging-slack \
   --body '{"event":{"type":"message","text":"hello","channel":"C123","user":"U456"}}' \
   --tenant default --env dev
 
 # Telegram
-GREENTIC_ENV=dev greentic-operator demo ingress \
+GREENTIC_ENV=dev gtc op demo ingress \
   --bundle demo-bundle --provider messaging-telegram \
   --body '{"update_id":1,"message":{"message_id":1,"chat":{"id":123},"text":"hello","from":{"id":456,"first_name":"Test"}}}' \
   --tenant default --env dev
 
 # Webex
-GREENTIC_ENV=dev greentic-operator demo ingress \
+GREENTIC_ENV=dev gtc op demo ingress \
   --bundle demo-bundle --provider messaging-webex \
   --body '{"resource":"messages","event":"created","data":{"id":"msg123","roomId":"room456","personEmail":"user@example.com"}}' \
   --tenant default --env dev
@@ -643,7 +643,7 @@ GREENTIC_ENV=dev greentic-operator demo ingress \
 For full bidirectional testing (webhooks + egress), start the operator HTTP server:
 
 ```bash
-GREENTIC_ENV=dev greentic-operator demo start \
+GREENTIC_ENV=dev gtc op demo start \
   --bundle demo-bundle \
   --cloudflared off --nats off --skip-setup --skip-secrets-init \
   --domains messaging
@@ -660,7 +660,7 @@ WebChat requires the full operator HTTP server + the webchat SPA:
 
 ```bash
 # Terminal 1: Start operator
-GREENTIC_ENV=dev greentic-operator demo start \
+GREENTIC_ENV=dev gtc op demo start \
   --bundle demo-bundle \
   --cloudflared off --nats off --skip-setup --skip-secrets-init \
   --domains messaging
@@ -729,11 +729,34 @@ Each provider has tests for:
 
 **WASM build errors** — set `SKIP_WASM_TOOLS_VALIDATION=1`. If WIT deps missing, check `wit/<provider>/deps/provider-schema-core/package.wit` exists.
 
-## Generated Flows
+## Pack Structure (Capability-Driven)
 
-`packs/*/flows/*.ygtc` are generated artifacts — do not edit by hand.
+Each provider pack follows the simplified capability-driven pattern (matching `packs/telemetry-otlp/`):
 
-To regenerate: update component manifests under `components/` or provider specs, then run `./ci/gen_flows.sh`.
+```
+packs/messaging-{name}/
+├── pack.yaml                    # 1-2 components, 2 flows, capability extension
+├── components/
+│   ├── messaging-provider-{name}/
+│   │   └── component.wasm                # Core provider
+│   └── messaging-ingress-{name}/
+│       └── component.wasm                # Ingress (where applicable)
+├── flows/
+│   ├── setup_default.ygtc               # Single-node setup flow
+│   ├── setup_default.ygtc.resolve.json
+│   ├── requirements.ygtc                # Single-node requirements flow
+│   └── requirements.ygtc.resolve.json
+├── schemas/messaging/{name}/            # JSON schemas
+├── fixtures/                            # Test fixtures
+└── setup.yaml                           # QA wizard definition
+```
+
+**Key extension**: `greentic.ext.capabilities.v1` declares a messaging capability offer.
+The operator reads this extension and invokes `messaging.configure` on the provider component directly — no legacy flow-node WASMs needed.
+
+Legacy flows (diagnostics, setup_custom, verify_webhooks, rotate_credentials, etc.) and
+their generated component WASMs have been removed. All QA operations (qa-spec, apply-answers,
+i18n-keys) are handled natively by the provider WASM component.
 
 ## Publishing
 
