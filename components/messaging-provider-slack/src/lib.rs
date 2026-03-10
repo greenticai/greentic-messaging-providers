@@ -22,7 +22,6 @@ pub(crate) mod config;
 mod describe;
 mod ops;
 
-
 pub(crate) const PROVIDER_ID: &str = "messaging-provider-slack";
 pub(crate) const PROVIDER_TYPE: &str = "messaging.slack.api";
 pub(crate) const WORLD_ID: &str = "component-v0-v6-v0";
@@ -240,8 +239,7 @@ fn apply_answers_impl(
                 string_or_default(&answers, "public_base_url", &merged.public_base_url);
         }
         if has("api_base_url") {
-            merged.api_base_url =
-                string_or_default(&answers, "api_base_url", &merged.api_base_url);
+            merged.api_base_url = string_or_default(&answers, "api_base_url", &merged.api_base_url);
         }
         if has("bot_token") {
             merged.bot_token = string_or_default(&answers, "bot_token", &merged.bot_token);
@@ -318,7 +316,7 @@ mod tests {
         let describe = build_describe_payload();
         assert_eq!(
             describe.schema_hash,
-            "0d7cbda46632fd39f7ade4774c1dee9a7deebd7b382b5c785a384b1899faa519"
+            "6fc6eaabb95b38df484165458b921e0580d9ec98af88a12ea2805faa2344c476"
         );
     }
 

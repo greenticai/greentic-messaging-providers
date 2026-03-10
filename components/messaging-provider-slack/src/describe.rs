@@ -69,7 +69,11 @@ pub(crate) const SETUP_QUESTIONS: &[provider_common::helpers::QaQuestionDef] = &
     ("bot_token", "slack.qa.setup.bot_token", true),
     ("default_channel", "slack.qa.setup.default_channel", false),
     ("slack_app_id", "slack.qa.setup.slack_app_id", false),
-    ("slack_configuration_token", "slack.qa.setup.slack_configuration_token", false),
+    (
+        "slack_configuration_token",
+        "slack.qa.setup.slack_configuration_token",
+        false,
+    ),
 ];
 
 pub(crate) const DEFAULT_KEYS: &[&str] = &["public_base_url", "bot_token"];
@@ -149,35 +153,83 @@ pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
     ("slack.op.reply.title", "Reply"),
     ("slack.op.reply.description", "Reply in a Slack thread"),
     ("slack.op.ingest_http.title", "Ingest HTTP"),
-    ("slack.op.ingest_http.description", "Normalize Slack webhook payload"),
+    (
+        "slack.op.ingest_http.description",
+        "Normalize Slack webhook payload",
+    ),
     ("slack.op.render_plan.title", "Render Plan"),
-    ("slack.op.render_plan.description", "Render universal message plan"),
+    (
+        "slack.op.render_plan.description",
+        "Render universal message plan",
+    ),
     ("slack.op.encode.title", "Encode"),
-    ("slack.op.encode.description", "Encode universal payload for Slack"),
+    (
+        "slack.op.encode.description",
+        "Encode universal payload for Slack",
+    ),
     ("slack.op.send_payload.title", "Send Payload"),
-    ("slack.op.send_payload.description", "Send encoded payload to Slack API"),
+    (
+        "slack.op.send_payload.description",
+        "Send encoded payload to Slack API",
+    ),
     ("slack.schema.input.title", "Slack input"),
-    ("slack.schema.input.description", "Input for Slack run/send operations"),
+    (
+        "slack.schema.input.description",
+        "Input for Slack run/send operations",
+    ),
     ("slack.schema.input.message.title", "Message"),
     ("slack.schema.input.message.description", "Message text"),
     ("slack.schema.output.title", "Slack output"),
-    ("slack.schema.output.description", "Result of Slack operation"),
+    (
+        "slack.schema.output.description",
+        "Result of Slack operation",
+    ),
     ("slack.schema.output.ok.title", "Success"),
-    ("slack.schema.output.ok.description", "Whether operation succeeded"),
+    (
+        "slack.schema.output.ok.description",
+        "Whether operation succeeded",
+    ),
     ("slack.schema.output.message_id.title", "Message ID"),
-    ("slack.schema.output.message_id.description", "Slack timestamp identifier"),
+    (
+        "slack.schema.output.message_id.description",
+        "Slack timestamp identifier",
+    ),
     ("slack.schema.config.title", "Slack config"),
-    ("slack.schema.config.description", "Slack provider configuration"),
+    (
+        "slack.schema.config.description",
+        "Slack provider configuration",
+    ),
     ("slack.schema.config.enabled.title", "Enabled"),
-    ("slack.schema.config.enabled.description", "Enable this provider"),
-    ("slack.schema.config.default_channel.title", "Default channel"),
-    ("slack.schema.config.default_channel.description", "Channel used when destination is omitted"),
-    ("slack.schema.config.public_base_url.title", "Public base URL"),
-    ("slack.schema.config.public_base_url.description", "Public URL for callbacks"),
+    (
+        "slack.schema.config.enabled.description",
+        "Enable this provider",
+    ),
+    (
+        "slack.schema.config.default_channel.title",
+        "Default channel",
+    ),
+    (
+        "slack.schema.config.default_channel.description",
+        "Channel used when destination is omitted",
+    ),
+    (
+        "slack.schema.config.public_base_url.title",
+        "Public base URL",
+    ),
+    (
+        "slack.schema.config.public_base_url.description",
+        "Public URL for callbacks",
+    ),
     ("slack.schema.config.api_base_url.title", "API base URL"),
-    ("slack.schema.config.api_base_url.description", "Slack API base URL"),
+    (
+        "slack.schema.config.api_base_url.description",
+        "Slack API base URL",
+    ),
     ("slack.schema.config.bot_token.title", "Bot token"),
-    ("slack.schema.config.bot_token.description", "Bot token for Slack API calls"),
+    (
+        "slack.schema.config.bot_token.description",
+        "Bot token for Slack API calls",
+    ),
     ("slack.qa.default.title", "Default"),
     ("slack.qa.setup.title", "Setup"),
     ("slack.qa.upgrade.title", "Upgrade"),
@@ -188,11 +240,23 @@ pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
     ("slack.qa.setup.bot_token", "Bot token"),
     ("slack.qa.setup.default_channel", "Default channel"),
     ("slack.qa.setup.slack_app_id", "Slack App ID"),
-    ("slack.qa.setup.slack_configuration_token", "Configuration token"),
+    (
+        "slack.qa.setup.slack_configuration_token",
+        "Configuration token",
+    ),
     ("slack.schema.config.slack_app_id.title", "Slack App ID"),
-    ("slack.schema.config.slack_app_id.description", "App ID from api.slack.com/apps (e.g. A07XXXXXX). Required for auto-configuring event subscriptions."),
-    ("slack.schema.config.slack_configuration_token.title", "Configuration token"),
-    ("slack.schema.config.slack_configuration_token.description", "Short-lived configuration token from api.slack.com/apps settings. Used to update your app manifest automatically."),
+    (
+        "slack.schema.config.slack_app_id.description",
+        "App ID from api.slack.com/apps (e.g. A07XXXXXX). Required for auto-configuring event subscriptions.",
+    ),
+    (
+        "slack.schema.config.slack_configuration_token.title",
+        "Configuration token",
+    ),
+    (
+        "slack.schema.config.slack_configuration_token.description",
+        "Short-lived configuration token from api.slack.com/apps settings. Used to update your app manifest automatically.",
+    ),
 ];
 
 pub(crate) fn i18n_bundle(locale: String) -> Vec<u8> {

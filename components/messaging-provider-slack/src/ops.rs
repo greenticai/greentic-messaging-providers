@@ -212,21 +212,41 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
     // Slack interactive payloads (button clicks) come as URL-encoded `payload=<json>`
     // or directly as JSON with `type: "block_actions"`.
     // Also check for URL-encoded form body.
-    let interactive_payload = if body_val.get("type").and_then(Value::as_str) == Some("block_actions")
-    {
-        Some(body_val.clone())
-    } else {
-        // Try URL-encoded: body may be "payload=%7B..." raw text.
-        let body_str = String::from_utf8(body_bytes.clone()).unwrap_or_default();
-        if body_str.starts_with("payload=") {
-            let decoded = urldecode(&body_str[8..]);
-            serde_json::from_str::<Value>(&decoded)
-                .ok()
-                .filter(|v| v.get("type").and_then(Value::as_str) == Some("block_actions"))
+    let interactive_payload =
+        if body_val.get("type").and_then(Value::as_str) == Some("block_actions") {
+            Some(body_val.clone())
         } else {
-            None
-        }
-    };
+            // Try URL-encoded: body may be "payload=%7B..." raw text.
+            let body_str = String::from_utf8(body_bytes.clone()).unwrap_or_default();
+            if body_str.starts_with("payload=") {
+                let decoded = urldecode(&body_str[8..]);
+                serde_json::from_str::<Value>(&decoded)
+                    .ok()
+                    .filter(|v| v.get("type").and_then(Value::as_str) == Some("block_actions"))
+            } else {
+                None
+            }
+        };
+
+    // Handle view_submission — Slack modal form submitted.
+    let view_submission_payload =
+        if body_val.get("type").and_then(Value::as_str) == Some("view_submission") {
+            Some(body_val.clone())
+        } else {
+            let body_str = String::from_utf8(body_bytes.clone()).unwrap_or_default();
+            if body_str.starts_with("payload=") {
+                let decoded = urldecode(&body_str[8..]);
+                serde_json::from_str::<Value>(&decoded)
+                    .ok()
+                    .filter(|v| v.get("type").and_then(Value::as_str) == Some("view_submission"))
+            } else {
+                None
+            }
+        };
+
+    if let Some(submission) = view_submission_payload {
+        return handle_view_submission(&submission);
+    }
 
     if let Some(interactive) = interactive_payload {
         // Handle block_actions — Slack button click (AC Action.Submit mapped to Slack button).
@@ -257,8 +277,39 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             .and_then(Value::as_str)
             .unwrap_or_default();
 
+        // Check if this button triggers a modal (AC input fields present).
+        let parsed_action_val = serde_json::from_str::<Value>(action_value_str).ok();
+        let is_modal = parsed_action_val
+            .as_ref()
+            .and_then(|v| v.get("ac_modal"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+
+        if is_modal {
+            let trigger_id = interactive
+                .get("trigger_id")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            if !trigger_id.is_empty() {
+                // Retrieve input specs from message metadata (not button value).
+                let msg_metadata_inputs = interactive
+                    .get("message")
+                    .and_then(|m| m.get("metadata"))
+                    .and_then(|m| m.get("event_payload"))
+                    .and_then(|p| p.get("inputs"))
+                    .cloned()
+                    .unwrap_or(json!([]));
+                // Merge: action data + input specs for the modal builder.
+                let mut modal_data = parsed_action_val.clone().unwrap_or(json!({}));
+                modal_data.as_object_mut().map(|obj| {
+                    obj.insert("ac_modal_inputs".into(), msg_metadata_inputs);
+                });
+                return open_slack_modal(trigger_id, &modal_data, channel.as_deref());
+            }
+        }
+
         // Try to parse action value as JSON for routeToCardId.
-        let (route_to_card, card_id, action_text) =
+        let (_route_to_card, _card_id, action_text) =
             if let Ok(val) = serde_json::from_str::<Value>(action_value_str) {
                 let rtc = val
                     .get("routeToCardId")
@@ -287,13 +338,17 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             };
 
         let mut envelope = build_slack_envelope(action_text, channel.clone(), sender);
-        if !route_to_card.is_empty() {
-            envelope
-                .metadata
-                .insert("routeToCardId".into(), route_to_card);
-        }
-        if !card_id.is_empty() {
-            envelope.metadata.insert("cardId".into(), card_id);
+        // Forward ALL Action.Submit data fields to metadata for MCP routing.
+        if let Ok(val) = serde_json::from_str::<Value>(action_value_str) {
+            if let Some(obj) = val.as_object() {
+                for (k, v) in obj {
+                    let s = match v {
+                        Value::String(s) => s.clone(),
+                        _ => v.to_string(),
+                    };
+                    envelope.metadata.insert(k.clone(), s);
+                }
+            }
         }
         envelope
             .metadata
@@ -307,8 +362,7 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             "event": interactive,
             "channel": channel,
         });
-        let normalized_bytes =
-            serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
+        let normalized_bytes = serde_json::to_vec(&normalized).unwrap_or_else(|_| b"{}".to_vec());
         let out = HttpOutV1 {
             status: 200,
             headers: Vec::new(),
@@ -435,12 +489,12 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
     }
 
     // If the message carries an Adaptive Card, convert to Slack Block Kit.
-    let ac_blocks = encode_message
+    let ac_result = encode_message
         .metadata
         .get("adaptive_card")
         .and_then(|ac_raw| ac_to_slack_blocks(ac_raw));
 
-    let text = if ac_blocks.is_some() {
+    let text = if ac_result.is_some() {
         // Blocks present — text is the plain-text fallback for notifications.
         let caps = PlannerCapabilities {
             supports_adaptive_cards: false,
@@ -470,10 +524,23 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
         "channel": channel,
         "text": text,
     });
-    if let Some(blocks) = ac_blocks {
+    if let Some(ref result) = ac_result {
         body.as_object_mut()
             .unwrap()
-            .insert("blocks".into(), Value::Array(blocks));
+            .insert("blocks".into(), Value::Array(result.blocks.clone()));
+        // Store modal input specs in Slack message metadata (not in button value)
+        // so they can be retrieved when a modal-trigger button is clicked.
+        if !result.modal_inputs.is_empty() {
+            body.as_object_mut().unwrap().insert(
+                "metadata".into(),
+                json!({
+                    "event_type": "ac_modal_inputs",
+                    "event_payload": {
+                        "inputs": result.modal_inputs
+                    }
+                }),
+            );
+        }
     }
     let body_bytes = serde_json::to_vec(&body).unwrap_or_else(|_| b"{}".to_vec());
     let mut metadata = BTreeMap::new();
@@ -661,7 +728,15 @@ fn build_slack_envelope(
 /// - Container → recursive processing
 /// - ActionSet + top-level actions → `actions` block with buttons
 /// - Table → `section` with preformatted code block
-fn ac_to_slack_blocks(ac_raw: &str) -> Option<Vec<Value>> {
+/// - Input.Text → collected for Slack modal (opened on Action.Submit click)
+/// Result of converting an AC card to Slack blocks.
+struct SlackBlocksResult {
+    blocks: Vec<Value>,
+    /// Input field specs for modal rendering (empty if no inputs).
+    modal_inputs: Vec<Value>,
+}
+
+fn ac_to_slack_blocks(ac_raw: &str) -> Option<SlackBlocksResult> {
     let ac: Value = serde_json::from_str(ac_raw).ok()?;
     let body = ac.get("body").and_then(Value::as_array);
     let top_actions = ac.get("actions").and_then(Value::as_array);
@@ -669,13 +744,26 @@ fn ac_to_slack_blocks(ac_raw: &str) -> Option<Vec<Value>> {
     let mut blocks: Vec<Value> = Vec::new();
     let mut actions: Vec<Value> = Vec::new();
 
+    // Collect input fields (Input.Text + Input.ChoiceSet) for modal support.
+    let mut input_fields: Vec<Value> = Vec::new();
+    if let Some(body) = body {
+        collect_ac_input_fields(body, &mut input_fields);
+    }
+    let has_modal = !input_fields.is_empty();
+
     if let Some(body) = body {
         for element in body {
-            ac_element_to_blocks(element, &mut blocks, &mut actions);
+            ac_element_to_blocks(element, &mut blocks, &mut actions, has_modal);
         }
     }
     if let Some(top_actions) = top_actions {
         collect_slack_actions(top_actions, &mut actions);
+    }
+
+    // If there are input fields, mark Action.Submit buttons as modal triggers.
+    // Input specs are NOT embedded in button value (too large) — they go in message metadata.
+    if has_modal {
+        inject_modal_metadata(&mut actions);
     }
 
     // Add actions block if any buttons were collected.
@@ -694,7 +782,123 @@ fn ac_to_slack_blocks(ac_raw: &str) -> Option<Vec<Value>> {
 
     // Slack max 50 blocks per message.
     blocks.truncate(50);
-    Some(blocks)
+    Some(SlackBlocksResult {
+        blocks,
+        modal_inputs: input_fields,
+    })
+}
+
+/// Recursively collect input field specs (Input.Text + Input.ChoiceSet) from an AC body
+/// for rendering in a Slack modal instead of inline in the message.
+fn collect_ac_input_fields(elements: &[Value], inputs: &mut Vec<Value>) {
+    for element in elements {
+        let etype = element
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        match etype {
+            "Input.Text" => {
+                let id = element.get("id").and_then(Value::as_str).unwrap_or("input");
+                let label = element
+                    .get("label")
+                    .and_then(Value::as_str)
+                    .or_else(|| element.get("placeholder").and_then(Value::as_str))
+                    .unwrap_or(id);
+                let placeholder = element
+                    .get("placeholder")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                let is_required = element
+                    .get("isRequired")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                let is_multiline = element
+                    .get("isMultiline")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                inputs.push(json!({
+                    "input_type": "text",
+                    "id": id,
+                    "label": label,
+                    "placeholder": placeholder,
+                    "required": is_required,
+                    "multiline": is_multiline,
+                }));
+            }
+            "Input.ChoiceSet" => {
+                let id = element
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("choice");
+                let label = element
+                    .get("label")
+                    .and_then(Value::as_str)
+                    .or_else(|| element.get("placeholder").and_then(Value::as_str))
+                    .unwrap_or(id);
+                let placeholder = element
+                    .get("placeholder")
+                    .and_then(Value::as_str)
+                    .unwrap_or("Select");
+                let is_required = element
+                    .get("isRequired")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                let is_multi = element
+                    .get("isMultiSelect")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                let choices = element
+                    .get("choices")
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                inputs.push(json!({
+                    "input_type": "choice",
+                    "id": id,
+                    "label": label,
+                    "placeholder": placeholder,
+                    "required": is_required,
+                    "multi": is_multi,
+                    "choices": choices,
+                }));
+            }
+            "Container" => {
+                if let Some(items) = element.get("items").and_then(Value::as_array) {
+                    collect_ac_input_fields(items, inputs);
+                }
+            }
+            "ColumnSet" => {
+                if let Some(cols) = element.get("columns").and_then(Value::as_array) {
+                    for col in cols {
+                        if let Some(items) = col.get("items").and_then(Value::as_array) {
+                            collect_ac_input_fields(items, inputs);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Mark Action.Submit buttons as modal triggers by injecting `ac_modal: true`
+/// into the button value. Input specs are stored in message metadata instead
+/// of button value to avoid exceeding Slack's 2000 char limit.
+fn inject_modal_metadata(actions: &mut [Value]) {
+    for action in actions.iter_mut() {
+        let is_url_button = action.get("url").is_some();
+        if is_url_button {
+            continue;
+        }
+        let existing_value = action.get("value").and_then(Value::as_str).unwrap_or("{}");
+        let mut val: Value = serde_json::from_str(existing_value).unwrap_or(json!({}));
+        val.as_object_mut().map(|obj| {
+            obj.insert("ac_modal".into(), json!(true));
+        });
+        action.as_object_mut().map(|obj| {
+            obj.insert("value".into(), Value::String(val.to_string()));
+        });
+    }
 }
 
 /// Convert AC markdown to Slack mrkdwn: `**bold**` → `*bold*`, `[text](url)` → `<url|text>`.
@@ -783,7 +987,14 @@ fn extract_texts_from_items(items: &[Value]) -> Vec<String> {
 }
 
 /// Recursively convert an AC body element to Slack Block Kit blocks.
-fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut Vec<Value>) {
+/// When `has_modal` is true, input fields (Input.Text, Input.ChoiceSet) are skipped
+/// because they will be rendered inside a Slack modal instead.
+fn ac_element_to_blocks(
+    element: &Value,
+    blocks: &mut Vec<Value>,
+    actions: &mut Vec<Value>,
+    has_modal: bool,
+) {
     let etype = element
         .get("type")
         .and_then(Value::as_str)
@@ -1052,7 +1263,13 @@ fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut 
             let has_style = element
                 .get("style")
                 .and_then(Value::as_str)
-                .is_some_and(|s| s == "accent" || s == "emphasis" || s == "good" || s == "attention" || s == "warning");
+                .is_some_and(|s| {
+                    s == "accent"
+                        || s == "emphasis"
+                        || s == "good"
+                        || s == "attention"
+                        || s == "warning"
+                });
 
             // Add divider before styled containers for visual separation.
             if has_style && !blocks.is_empty() {
@@ -1061,7 +1278,7 @@ fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut 
 
             if let Some(items) = element.get("items").and_then(Value::as_array) {
                 for item in items {
-                    ac_element_to_blocks(item, blocks, actions);
+                    ac_element_to_blocks(item, blocks, actions, has_modal);
                 }
             }
 
@@ -1075,72 +1292,72 @@ fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut 
             }
         }
 
-        "Input.Text" => {
-            // Show input placeholder as context hint.
-            let label = element.get("label").and_then(Value::as_str)
-                .or_else(|| element.get("placeholder").and_then(Value::as_str));
-            if let Some(label) = label {
-                blocks.push(json!({
-                    "type": "context",
-                    "elements": [{ "type": "mrkdwn", "text": format!("_\u{270f}\u{fe0f} {label}_") }]
-                }));
+        "Input.Text" | "Input.ChoiceSet" => {
+            // When modal is active, skip inline rendering — these will be in the modal.
+            // Otherwise fall back to inline rendering.
+            if has_modal {
+                return;
             }
-        }
-
-        "Input.ChoiceSet" => {
-            // Convert AC ChoiceSet to Slack static_select (interactive dropdown).
-            if let Some(choices) = element.get("choices").and_then(Value::as_array) {
-                let options: Vec<Value> = choices
-                    .iter()
-                    .take(100) // Slack max 100 options
-                    .filter_map(|c| {
-                        let title = c.get("title").and_then(Value::as_str)?;
-                        let value = c
-                            .get("value")
-                            .and_then(Value::as_str)
-                            .unwrap_or(title);
-                        Some(json!({
-                            "text": { "type": "plain_text", "text": title.chars().take(75).collect::<String>() },
-                            "value": value.chars().take(75).collect::<String>()
-                        }))
-                    })
-                    .collect();
-                if !options.is_empty() {
-                    let input_id = element
-                        .get("id")
-                        .and_then(Value::as_str)
-                        .unwrap_or("choice");
-                    let placeholder = element
-                        .get("placeholder")
-                        .and_then(Value::as_str)
-                        .unwrap_or("Select");
-                    let mut select = json!({
-                        "type": "static_select",
-                        "action_id": format!("ac_input_{input_id}"),
-                        "placeholder": { "type": "plain_text", "text": placeholder.chars().take(150).collect::<String>() },
-                        "options": options
-                    });
-                    // For multi-select style
-                    let is_multi = element
-                        .get("isMultiSelect")
-                        .and_then(Value::as_bool)
-                        .unwrap_or(false);
-                    if is_multi {
-                        select.as_object_mut().unwrap().insert(
-                            "type".into(),
-                            Value::String("multi_static_select".into()),
-                        );
-                    }
-                    // Wrap in a section block with accessory
-                    let label = element
-                        .get("label")
-                        .and_then(Value::as_str)
-                        .unwrap_or(placeholder);
+            if etype == "Input.Text" {
+                let label = element
+                    .get("label")
+                    .and_then(Value::as_str)
+                    .or_else(|| element.get("placeholder").and_then(Value::as_str));
+                if let Some(label) = label {
                     blocks.push(json!({
-                        "type": "section",
-                        "text": { "type": "mrkdwn", "text": format!("*{label}*") },
-                        "accessory": select
+                        "type": "context",
+                        "elements": [{ "type": "mrkdwn", "text": format!("_{label}_") }]
                     }));
+                }
+            } else {
+                // Input.ChoiceSet inline fallback (no modal).
+                if let Some(choices) = element.get("choices").and_then(Value::as_array) {
+                    let options: Vec<Value> = choices
+                        .iter()
+                        .take(100)
+                        .filter_map(|c| {
+                            let title = c.get("title").and_then(Value::as_str)?;
+                            let value = c.get("value").and_then(Value::as_str).unwrap_or(title);
+                            Some(json!({
+                                "text": { "type": "plain_text", "text": title.chars().take(75).collect::<String>() },
+                                "value": value.chars().take(75).collect::<String>()
+                            }))
+                        })
+                        .collect();
+                    if !options.is_empty() {
+                        let input_id = element
+                            .get("id")
+                            .and_then(Value::as_str)
+                            .unwrap_or("choice");
+                        let placeholder = element
+                            .get("placeholder")
+                            .and_then(Value::as_str)
+                            .unwrap_or("Select");
+                        let is_multi = element
+                            .get("isMultiSelect")
+                            .and_then(Value::as_bool)
+                            .unwrap_or(false);
+                        let select_type = if is_multi {
+                            "multi_static_select"
+                        } else {
+                            "static_select"
+                        };
+                        let select = json!({
+                            "type": select_type,
+                            "action_id": format!("ac_input_{input_id}"),
+                            "placeholder": { "type": "plain_text", "text": placeholder.chars().take(150).collect::<String>() },
+                            "options": options
+                        });
+                        let label = element
+                            .get("label")
+                            .and_then(Value::as_str)
+                            .unwrap_or(placeholder);
+                        blocks.push(json!({
+                            "type": "section",
+                            "text": { "type": "mrkdwn", "text": format!("*{label}*") },
+                            "accessory": select
+                        }));
+                    }
                 }
             }
         }
@@ -1208,8 +1425,10 @@ fn ac_element_to_blocks(element: &Value, blocks: &mut Vec<Value>, actions: &mut 
 }
 
 /// Extract a human-readable label from a Container/Column's child items.
+/// Recurses into ColumnSet > Column > items and Container > items to find
+/// a suitable TextBlock label.
 fn label_from_items(items: &[Value]) -> String {
-    // First try: bold TextBlock
+    // First try: bold TextBlock at this level
     for item in items {
         if item.get("type").and_then(Value::as_str) == Some("TextBlock") {
             if item
@@ -1226,7 +1445,7 @@ fn label_from_items(items: &[Value]) -> String {
             }
         }
     }
-    // Fallback: first non-empty TextBlock
+    // Fallback: first non-empty TextBlock at this level
     for item in items {
         if item.get("type").and_then(Value::as_str) == Some("TextBlock") {
             if let Some(text) = item.get("text").and_then(Value::as_str) {
@@ -1234,6 +1453,27 @@ fn label_from_items(items: &[Value]) -> String {
                 if !t.is_empty() {
                     return t.chars().take(75).collect();
                 }
+            }
+        }
+    }
+    // Recurse into nested structures (ColumnSet > Column, Container)
+    for item in items {
+        let etype = item.get("type").and_then(Value::as_str).unwrap_or_default();
+        let nested = match etype {
+            "ColumnSet" => item.get("columns").and_then(Value::as_array).map(|cols| {
+                cols.iter()
+                    .filter_map(|col| col.get("items").and_then(Value::as_array))
+                    .flatten()
+                    .cloned()
+                    .collect::<Vec<Value>>()
+            }),
+            "Container" => item.get("items").and_then(Value::as_array).cloned(),
+            _ => None,
+        };
+        if let Some(children) = nested {
+            let label = label_from_items(&children);
+            if !label.is_empty() {
+                return label;
             }
         }
     }
@@ -1246,24 +1486,37 @@ fn collect_select_action(element: &Value, actions: &mut Vec<Value>) {
         Some(sa) => sa,
         None => return,
     };
-    let atype = sa
-        .get("type")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
+    let atype = sa.get("type").and_then(Value::as_str).unwrap_or_default();
     if atype != "Action.Submit" && atype != "Action.Execute" {
         return;
     }
 
-    // Derive button label from the element's child items.
-    let items = element
-        .get("items")
-        .and_then(Value::as_array)
-        .map(|a| a.as_slice())
-        .unwrap_or(&[]);
-    let label = label_from_items(items);
-    if label.is_empty() {
-        return;
-    }
+    // Derive button label: try selectAction.title first, then child items, then fallback.
+    let sa_title = sa
+        .get("title")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let label = if !sa_title.is_empty() {
+        sa_title
+    } else {
+        let items = element
+            .get("items")
+            .and_then(Value::as_array)
+            .map(|a| a.as_slice())
+            .unwrap_or(&[]);
+        label_from_items(items)
+    };
+    // Fallback: derive from data keys or use generic label.
+    let label = if label.is_empty() {
+        sa.get("data")
+            .and_then(|d| d.get("routeToCardId").and_then(Value::as_str))
+            .unwrap_or("Select")
+            .to_string()
+    } else {
+        label
+    };
 
     let btn_text: String = label.chars().take(75).collect();
     let mut btn = json!({
@@ -1322,6 +1575,304 @@ fn collect_slack_actions(action_list: &[Value], actions: &mut Vec<Value>) {
             }
         }
     }
+}
+
+// ─── Slack Modal support (AC inputs → views.open) ───────────────────────
+
+/// Build a Slack modal view from AC input field specs (Input.Text + Input.ChoiceSet)
+/// and open it via the Slack `views.open` API using the `trigger_id` from the interaction.
+fn open_slack_modal(trigger_id: &str, action_data: &Value, channel: Option<&str>) -> Vec<u8> {
+    let inputs = action_data
+        .get("ac_modal_inputs")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+
+    // Build modal input blocks from the AC input specs.
+    let mut modal_blocks: Vec<Value> = Vec::new();
+    for input in &inputs {
+        let id = input.get("id").and_then(Value::as_str).unwrap_or("input");
+        let label = input.get("label").and_then(Value::as_str).unwrap_or(id);
+        let placeholder = input
+            .get("placeholder")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let is_required = input
+            .get("required")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let input_type = input
+            .get("input_type")
+            .and_then(Value::as_str)
+            .unwrap_or("text");
+
+        let element = match input_type {
+            "choice" => {
+                // Build static_select / multi_static_select from choices.
+                let choices = input
+                    .get("choices")
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                let options: Vec<Value> = choices
+                    .iter()
+                    .take(100)
+                    .filter_map(|c| {
+                        let title = c.get("title").and_then(Value::as_str)?;
+                        let value = c.get("value").and_then(Value::as_str).unwrap_or(title);
+                        Some(json!({
+                            "text": { "type": "plain_text", "text": title.chars().take(75).collect::<String>() },
+                            "value": value.chars().take(75).collect::<String>()
+                        }))
+                    })
+                    .collect();
+                if options.is_empty() {
+                    continue;
+                }
+                let is_multi = input.get("multi").and_then(Value::as_bool).unwrap_or(false);
+                let select_type = if is_multi {
+                    "multi_static_select"
+                } else {
+                    "static_select"
+                };
+                let mut el = json!({
+                    "type": select_type,
+                    "action_id": id,
+                    "options": options,
+                });
+                if !placeholder.is_empty() {
+                    el.as_object_mut().unwrap().insert(
+                        "placeholder".into(),
+                        json!({"type": "plain_text", "text": placeholder.chars().take(150).collect::<String>()}),
+                    );
+                }
+                el
+            }
+            _ => {
+                // plain_text_input for Input.Text
+                let is_multiline = input
+                    .get("multiline")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                let mut el = json!({
+                    "type": "plain_text_input",
+                    "action_id": id,
+                    "multiline": is_multiline,
+                });
+                if !placeholder.is_empty() {
+                    el.as_object_mut().unwrap().insert(
+                        "placeholder".into(),
+                        json!({"type": "plain_text", "text": placeholder.chars().take(150).collect::<String>()}),
+                    );
+                }
+                el
+            }
+        };
+
+        let block = json!({
+            "type": "input",
+            "block_id": format!("ac_input_{id}"),
+            "optional": !is_required,
+            "label": { "type": "plain_text", "text": label.chars().take(48).collect::<String>() },
+            "element": element,
+        });
+        modal_blocks.push(block);
+    }
+
+    if modal_blocks.is_empty() {
+        // Fallback: no inputs found, just ack.
+        let out = HttpOutV1 {
+            status: 200,
+            headers: Vec::new(),
+            body_b64: STANDARD.encode(b"{}"),
+            events: vec![],
+        };
+        return http_out_v1_bytes(&out);
+    }
+
+    // Preserve the original action data (minus modal fields) as private_metadata
+    // so we can forward it when the modal is submitted.
+    let mut forward_data = action_data.clone();
+    if let Some(obj) = forward_data.as_object_mut() {
+        obj.remove("ac_modal");
+        obj.remove("ac_modal_inputs");
+        if let Some(ch) = channel {
+            obj.insert("_channel".into(), Value::String(ch.to_string()));
+        }
+    }
+    let private_metadata = forward_data.to_string();
+
+    // Build the modal view.
+    let title_text = action_data
+        .get("routeToCardId")
+        .and_then(Value::as_str)
+        .unwrap_or("Input Required");
+    let view = json!({
+        "type": "modal",
+        "title": { "type": "plain_text", "text": title_text.chars().take(24).collect::<String>() },
+        "submit": { "type": "plain_text", "text": "Submit" },
+        "close": { "type": "plain_text", "text": "Cancel" },
+        "private_metadata": private_metadata.chars().take(3000).collect::<String>(),
+        "blocks": modal_blocks,
+    });
+
+    let api_body = json!({
+        "trigger_id": trigger_id,
+        "view": view,
+    });
+
+    // Call views.open API.
+    let token = match get_secret_string(DEFAULT_BOT_TOKEN_KEY) {
+        Ok(t) => t,
+        Err(err) => {
+            return http_out_error(500, &format!("cannot open modal: secret error: {err}"));
+        }
+    };
+    let api_url = format!("{}/views.open", DEFAULT_API_BASE);
+    let req_body = serde_json::to_vec(&api_body).unwrap_or_else(|_| b"{}".to_vec());
+    let request = client::Request {
+        method: "POST".to_string(),
+        url: api_url,
+        headers: vec![
+            ("Content-Type".into(), "application/json".into()),
+            ("Authorization".into(), format!("Bearer {token}")),
+        ],
+        body: Some(req_body),
+    };
+    let resp = client::send(&request, None, None);
+    if let Err(err) = &resp {
+        return http_out_error(500, &format!("views.open transport error: {}", err.message));
+    }
+    let resp = resp.unwrap();
+    if resp.status < 200 || resp.status >= 300 {
+        return http_out_error(500, &format!("views.open returned status {}", resp.status));
+    }
+
+    // Return 200 with no events — the modal submission will arrive later.
+    let out = HttpOutV1 {
+        status: 200,
+        headers: Vec::new(),
+        body_b64: STANDARD.encode(b""),
+        events: vec![],
+    };
+    http_out_v1_bytes(&out)
+}
+
+/// Handle `view_submission` — user submitted a Slack modal that was opened
+/// from an AC Input.Text button. Extract input values, merge with the
+/// original action data (from private_metadata), and create an envelope.
+fn handle_view_submission(submission: &Value) -> Vec<u8> {
+    let user = submission
+        .get("user")
+        .and_then(|v| v.get("id"))
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
+
+    // Parse the private_metadata to recover the original action data.
+    let private_metadata = submission
+        .get("view")
+        .and_then(|v| v.get("private_metadata"))
+        .and_then(Value::as_str)
+        .unwrap_or("{}");
+    let mut action_data: Value = serde_json::from_str(private_metadata).unwrap_or(json!({}));
+
+    // Extract channel from preserved metadata.
+    let channel = action_data
+        .get("_channel")
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
+    if let Some(obj) = action_data.as_object_mut() {
+        obj.remove("_channel");
+    }
+
+    // Extract input values from the modal state.
+    let state_values = submission
+        .get("view")
+        .and_then(|v| v.get("state"))
+        .and_then(|v| v.get("values"))
+        .cloned()
+        .unwrap_or(json!({}));
+
+    // Flatten: state.values is { block_id: { action_id: { type, value/selected_option } } }
+    let mut input_values: BTreeMap<String, String> = BTreeMap::new();
+    if let Some(blocks) = state_values.as_object() {
+        for (_block_id, actions) in blocks {
+            if let Some(actions_obj) = actions.as_object() {
+                for (action_id, action_val) in actions_obj {
+                    // plain_text_input → "value"
+                    // static_select → "selected_option.value"
+                    // multi_static_select → "selected_options[].value"
+                    let value = if let Some(v) = action_val.get("value").and_then(Value::as_str) {
+                        v.to_string()
+                    } else if let Some(opt) = action_val.get("selected_option") {
+                        opt.get("value")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                            .to_string()
+                    } else if let Some(opts) =
+                        action_val.get("selected_options").and_then(Value::as_array)
+                    {
+                        opts.iter()
+                            .filter_map(|o| o.get("value").and_then(Value::as_str))
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    } else {
+                        String::new()
+                    };
+                    if !value.is_empty() {
+                        input_values.insert(action_id.clone(), value);
+                    }
+                }
+            }
+        }
+    }
+
+    // Merge input values into action_data.
+    if let Some(obj) = action_data.as_object_mut() {
+        for (k, v) in &input_values {
+            obj.insert(k.clone(), Value::String(v.clone()));
+        }
+    }
+
+    // Build the action text for the envelope.
+    let route_to_card = action_data
+        .get("routeToCardId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let action_text = if !route_to_card.is_empty() {
+        format!("[card:{route_to_card}]")
+    } else {
+        "[modal:submit]".to_string()
+    };
+
+    let mut envelope = build_slack_envelope(action_text, channel.clone(), user);
+    // Forward all action data fields to metadata.
+    if let Some(obj) = action_data.as_object() {
+        for (k, v) in obj {
+            let s = match v {
+                Value::String(s) => s.clone(),
+                _ => v.to_string(),
+            };
+            envelope.metadata.insert(k.clone(), s);
+        }
+    }
+    envelope
+        .metadata
+        .insert("slack.modal_submission".into(), "true".to_string());
+    // Also insert raw input values for easy access.
+    for (k, v) in &input_values {
+        envelope.metadata.insert(format!("input.{k}"), v.clone());
+    }
+
+    // Return empty response body to close the modal (Slack requires empty or
+    // `{"response_action":"clear"}` to dismiss). Events are processed by the operator.
+    let out = HttpOutV1 {
+        status: 200,
+        headers: Vec::new(),
+        body_b64: STANDARD.encode(b""),
+        events: vec![envelope],
+    };
+    http_out_v1_bytes(&out)
 }
 
 /// Simple percent-decode for URL-encoded strings.
