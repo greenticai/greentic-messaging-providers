@@ -99,7 +99,7 @@ DemoRunnerHost::new(bundle_path)
 ### CLI Command
 
 ```bash
-GREENTIC_ENV=dev greentic-operator demo send \
+GREENTIC_ENV=dev gtc op demo send \
   --bundle /path/to/demo-bundle \
   --provider messaging-telegram \
   --to "7951102355" \
@@ -238,7 +238,7 @@ println!("Sent: {:?}", result);
 
 ```bash
 # Recommended: use --body with a file path
-GREENTIC_ENV=dev greentic-operator demo ingress \
+GREENTIC_ENV=dev gtc op demo ingress \
   --bundle /path/to/demo-bundle \
   --provider messaging-telegram \
   --body /tmp/telegram-webhook.json \
@@ -312,7 +312,7 @@ When running `demo start`, the operator starts an HTTP server that receives real
 
 ```bash
 # Terminal 1: Start server
-GREENTIC_ENV=dev greentic-operator demo start \
+GREENTIC_ENV=dev gtc op demo start \
   --bundle /path/to/demo-bundle \
   --cloudflared off \
   --skip-setup \
@@ -585,7 +585,7 @@ Examples:
 # File: demo-bundle/.greentic/dev/.dev.secrets.env
 
 # Seed via operator
-GREENTIC_ENV=dev greentic-operator demo setup \
+GREENTIC_ENV=dev gtc op demo setup \
   --bundle /path/to/demo-bundle \
   --provider messaging-telegram \
   --setup-input '{"telegram_bot_token":"123:ABC..."}'
@@ -797,7 +797,7 @@ The operator enriches errors with context:
 ```
 If error contains "secret store error":
   → Print: "Missing secret: telegram_bot_token"
-  → Print: "Seed it with: greentic-operator demo setup --provider messaging-telegram"
+  → Print: "Seed it with: gtc op demo setup --provider messaging-telegram"
 
 If error contains API failure:
   → Print: HTTP status + response body
@@ -874,7 +874,7 @@ cargo build --target wasm32-wasip2 --release -p messaging-provider-newservice
 cargo test -p messaging-provider-newservice
 
 # Test with operator
-GREENTIC_ENV=dev greentic-operator demo send \
+GREENTIC_ENV=dev gtc op demo send \
   --bundle demo-bundle \
   --provider messaging-newservice \
   --to "destination" \

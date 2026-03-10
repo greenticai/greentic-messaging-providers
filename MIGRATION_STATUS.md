@@ -12,3 +12,4 @@
 - PR-10: Added WhatsApp provider component (egress/ingress/formatting/refresh stub) with WIT bindings, manifest, tests, and build integration.
 - PR-11: Added provider conformance tests and docs clarifying build/publish and component coverage.
 - PR-12: Added pack publishing flow (gtpack build/push script with dry-run), release workflow for GHCR, CI validation, and README updates on packs/lockfile usage.
+- Pack Simplification: Migrated all 8 messaging provider packs to capability-driven pattern (matching `packs/telemetry-otlp/`). Removed legacy generated flows (diagnostics, setup_custom, verify_webhooks, rotate_credentials, sync_subscriptions, etc.), legacy component WASMs (provision, questions, templates, flow-node stubs), and unused extensions (validators, flow_hints). Added `greentic.ext.capabilities.v1` extension to all packs. Each pack now has 1-2 components and 2 flows (setup_default + requirements).

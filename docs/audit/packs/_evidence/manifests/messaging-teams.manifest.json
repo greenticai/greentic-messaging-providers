@@ -570,7 +570,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -582,7 +582,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -594,7 +594,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -606,7 +606,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -618,7 +618,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -630,7 +630,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -642,7 +642,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -654,7 +654,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -666,7 +666,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -678,7 +678,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -690,7 +690,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -702,7 +702,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -714,7 +714,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -726,7 +726,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           }
         ],
         "schema_version": 1
@@ -975,122 +975,6 @@
         "schema_version": "flow-v1"
       },
       "id": "requirements",
-      "kind": "job",
-      "tags": [
-        "default"
-      ]
-    },
-    {
-      "entrypoints": [
-        "setup"
-      ],
-      "flow": {
-        "entrypoints": {
-          "default": "collect"
-        },
-        "id": "setup_custom",
-        "kind": "job",
-        "metadata": {
-          "extra": {},
-          "tags": []
-        },
-        "nodes": [
-          {
-            "component": {
-              "id": 0,
-              "operation": "handlebars",
-              "pack_alias": null
-            },
-            "id": 2,
-            "input": {
-              "mapping": {
-                "text": "Collect:\n- tenant_id, client_id, client_secret/cert\n- bot/service principal ids\n- channels: list of team_id/channel_id targets\n- subscription_types (message, reactions) for webhook callbacks\n- retry/timeouts, test_message flag\n"
-              }
-            },
-            "output": {
-              "mapping": {}
-            },
-            "routing": {
-              "Next": {
-                "node_id": 6
-              }
-            },
-            "telemetry": {
-              "attributes": {}
-            }
-          },
-          {
-            "component": {
-              "id": 0,
-              "operation": "handlebars",
-              "pack_alias": null
-            },
-            "id": 6,
-            "input": {
-              "mapping": {
-                "text": "- Acquire token and validate Graph scopes.\n- For each channel, confirm postMessage permission.\n- For subscriptions, ensure webhook endpoint available; create/update subscriptions as needed.\n"
-              }
-            },
-            "output": {
-              "mapping": {}
-            },
-            "routing": {
-              "Next": {
-                "node_id": 0
-              }
-            },
-            "telemetry": {
-              "attributes": {}
-            }
-          },
-          {
-            "component": {
-              "id": 0,
-              "operation": "handlebars",
-              "pack_alias": null
-            },
-            "id": 0,
-            "input": {
-              "mapping": {
-                "text": "- Save credentials and channel list.\n- Persist subscriptions metadata (resource, expiration, webhook URL) for idempotent reconciliation.\n- Optionally send test message if requested.\n"
-              }
-            },
-            "output": {
-              "mapping": {}
-            },
-            "routing": {
-              "Next": {
-                "node_id": 4
-              }
-            },
-            "telemetry": {
-              "attributes": {}
-            }
-          },
-          {
-            "component": {
-              "id": 0,
-              "operation": "handlebars",
-              "pack_alias": null
-            },
-            "id": 4,
-            "input": {
-              "mapping": {
-                "text": "Teams setup_custom applied with {{payload.subscription_types}} subscriptions."
-              }
-            },
-            "output": {
-              "mapping": {}
-            },
-            "routing": "End",
-            "telemetry": {
-              "attributes": {}
-            }
-          }
-        ],
-        "schema_version": "flow-v1"
-      },
-      "id": "setup_custom",
       "kind": "job",
       "tags": [
         "default"

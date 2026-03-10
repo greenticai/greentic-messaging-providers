@@ -570,7 +570,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -582,7 +582,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -594,7 +594,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -606,7 +606,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -618,7 +618,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -630,7 +630,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -642,7 +642,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -654,7 +654,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -666,7 +666,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -678,7 +678,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -690,7 +690,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -702,7 +702,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -714,7 +714,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           },
           {
             "artifact": {
@@ -726,7 +726,7 @@
             "resolved": {
               "digest": "sha256:5ec85da53ba2087a2990ffe996ee27702cab8123eed368f842907d112e643d00"
             },
-            "source": "oci://ghcr.io/greentic-ai/components/templates:latest"
+            "source": "oci://ghcr.io/greenticai/components/templates:latest"
           }
         ],
         "schema_version": 1
@@ -944,122 +944,6 @@
         "schema_version": "flow-v1"
       },
       "id": "requirements",
-      "kind": "job",
-      "tags": [
-        "default"
-      ]
-    },
-    {
-      "entrypoints": [
-        "setup"
-      ],
-      "flow": {
-        "entrypoints": {
-          "default": "collect"
-        },
-        "id": "setup_custom",
-        "kind": "job",
-        "metadata": {
-          "extra": {},
-          "tags": []
-        },
-        "nodes": [
-          {
-            "component": {
-              "id": 0,
-              "operation": "handlebars",
-              "pack_alias": null
-            },
-            "id": 1,
-            "input": {
-              "mapping": {
-                "text": "Collect:\n- access_token, phone_number_id, business_account_id\n- webhook_url + verify_token\n- allowed_numbers (optional)\n- template_defaults (optional)\n- test_message flag\n"
-              }
-            },
-            "output": {
-              "mapping": {}
-            },
-            "routing": {
-              "Next": {
-                "node_id": 7
-              }
-            },
-            "telemetry": {
-              "attributes": {}
-            }
-          },
-          {
-            "component": {
-              "id": 0,
-              "operation": "handlebars",
-              "pack_alias": null
-            },
-            "id": 7,
-            "input": {
-              "mapping": {
-                "text": "- Call Graph API me/product_catalog or phone_number lookup to ensure permissions.\n- If webhook configured, call GET {webhook_url}?hub.verify_token flow.\n- Optional test message to an allowed number if requested.\n"
-              }
-            },
-            "output": {
-              "mapping": {}
-            },
-            "routing": {
-              "Next": {
-                "node_id": 0
-              }
-            },
-            "telemetry": {
-              "attributes": {}
-            }
-          },
-          {
-            "component": {
-              "id": 0,
-              "operation": "handlebars",
-              "pack_alias": null
-            },
-            "id": 0,
-            "input": {
-              "mapping": {
-                "text": "- Write secrets and verify_token.\n- Persist allowed_numbers, template_defaults, webhook target and status.\n- Idempotent reconciliation.\n"
-              }
-            },
-            "output": {
-              "mapping": {}
-            },
-            "routing": {
-              "Next": {
-                "node_id": 5
-              }
-            },
-            "telemetry": {
-              "attributes": {}
-            }
-          },
-          {
-            "component": {
-              "id": 0,
-              "operation": "handlebars",
-              "pack_alias": null
-            },
-            "id": 5,
-            "input": {
-              "mapping": {
-                "text": "WhatsApp setup_custom applied."
-              }
-            },
-            "output": {
-              "mapping": {}
-            },
-            "routing": "End",
-            "telemetry": {
-              "attributes": {}
-            }
-          }
-        ],
-        "schema_version": "flow-v1"
-      },
-      "id": "setup_custom",
       "kind": "job",
       "tags": [
         "default"

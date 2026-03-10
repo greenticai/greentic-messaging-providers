@@ -191,7 +191,7 @@ Suggested pipeline (commands + locations):
 3) **Build packs from generated output**
    - Command: `greentic-pack build --no-update --in target/generated/providers/<pack_id> --gtpack-out dist/packs/<pack_id>.gtpack`
 4) **Doctor packs**
-   - Command: `greentic-pack doctor --validate --validator-pack oci://ghcr.io/greentic-ai/validators/messaging:latest --pack dist/packs/*.gtpack`
+   - Command: `greentic-pack doctor --validate --validator-pack oci://ghcr.io/greenticai/validators/messaging:latest --pack dist/packs/*.gtpack`
 
 CI hook points (specific):
 - Add `ci/gen_flows.sh` before flow validation in `.github/workflows/build-and-publish.yml`.

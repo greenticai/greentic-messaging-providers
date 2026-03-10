@@ -95,7 +95,7 @@ as the operator does. All 8 providers (including Dummy) are tested.
 The operator's `demo setup` command exercises the full QA flow end-to-end:
 
 ```bash
-GREENTIC_ENV=dev greentic-operator demo setup \
+GREENTIC_ENV=dev gtc op demo setup \
   --bundle demo-bundle \
   --domain messaging \
   --provider messaging-slack
@@ -123,14 +123,14 @@ SKIP_WASM_TOOLS_VALIDATION=1 ./tools/build_components.sh
 Output lands in `target/components/`:
 
 ```
-target/components/messaging-provider-dummy.wasm
-target/components/messaging-provider-email.wasm
-target/components/messaging-provider-slack.wasm
-target/components/messaging-provider-teams.wasm
-target/components/messaging-provider-telegram.wasm
-target/components/messaging-provider-webchat.wasm
-target/components/messaging-provider-webex.wasm
-target/components/messaging-provider-whatsapp.wasm
+target/components/messaging-provider-dummy/component.wasm
+target/components/messaging-provider-email/component.wasm
+target/components/messaging-provider-slack/component.wasm
+target/components/messaging-provider-teams/component.wasm
+target/components/messaging-provider-telegram/component.wasm
+target/components/messaging-provider-webchat/component.wasm
+target/components/messaging-provider-webex/component.wasm
+target/components/messaging-provider-whatsapp/component.wasm
 ```
 
 Build a single provider:
@@ -156,7 +156,7 @@ WASM_DIR="target/components"
 
 for provider in dummy email slack teams telegram webchat webex whatsapp; do
   gtpack="${DEMO_BUNDLE}/providers/messaging/messaging-${provider}.gtpack"
-  wasm="${WASM_DIR}/messaging-provider-${provider}.wasm"
+  wasm="${WASM_DIR}/messaging-provider-${provider}/component.wasm"
 
   if [ ! -f "$gtpack" ] || [ ! -f "$wasm" ]; then
     echo "SKIP: missing $gtpack or $wasm"
@@ -164,7 +164,7 @@ for provider in dummy email slack teams telegram webchat webex whatsapp; do
   fi
 
   # Find the internal path of the WASM inside the zip
-  wasm_entry=$(unzip -l "$gtpack" | grep "messaging-provider-${provider}.wasm" | awk '{print $4}')
+  wasm_entry=$(unzip -l "$gtpack" | grep "messaging-provider-${provider}/component.wasm" | awk '{print $4}')
   if [ -z "$wasm_entry" ]; then
     echo "SKIP: no WASM entry in $gtpack"
     continue
@@ -238,7 +238,7 @@ export GREENTIC_ENV=dev
 ### 5.1 Slack — Send Text
 
 ```bash
-GREENTIC_ENV=dev greentic-operator demo send \
+GREENTIC_ENV=dev gtc op demo send \
   --bundle /root/works/personal/greentic/demo-bundle \
   --provider messaging-slack \
   --to "C0AFWP5C067" \
@@ -256,7 +256,7 @@ Verify: message appears in Slack channel `#C0AFWP5C067`.
 ### 5.2 Telegram — Send Text
 
 ```bash
-GREENTIC_ENV=dev greentic-operator demo send \
+GREENTIC_ENV=dev gtc op demo send \
   --bundle /root/works/personal/greentic/demo-bundle \
   --provider messaging-telegram \
   --to "7951102355" \
@@ -274,7 +274,7 @@ Verify: message appears in Telegram chat.
 ### 5.3 Webex — Send Text
 
 ```bash
-GREENTIC_ENV=dev greentic-operator demo send \
+GREENTIC_ENV=dev gtc op demo send \
   --bundle /root/works/personal/greentic/demo-bundle \
   --provider messaging-webex \
   --to "<email-or-room-id>" \
@@ -305,7 +305,7 @@ EOF
 ```
 
 ```bash
-GREENTIC_ENV=dev greentic-operator demo send \
+GREENTIC_ENV=dev gtc op demo send \
   --bundle /root/works/personal/greentic/demo-bundle \
   --provider messaging-webex \
   --to "<email-or-room-id>" \
@@ -321,7 +321,7 @@ Verify: Adaptive Card renders natively in Webex client.
 The dummy provider always succeeds without external calls — useful for pipeline validation:
 
 ```bash
-GREENTIC_ENV=dev greentic-operator demo send \
+GREENTIC_ENV=dev gtc op demo send \
   --bundle /root/works/personal/greentic/demo-bundle \
   --provider messaging-dummy \
   --to "test" \
@@ -335,14 +335,14 @@ WebChat is **client-initiated** (Azure Direct Line API). `demo send` validates t
 pipeline doesn't crash, but messages go to a local state store queue — no external delivery.
 
 For a full WebChat demo, you need:
-1. Start operator HTTP server: `GREENTIC_ENV=dev greentic-operator demo start --bundle demo-bundle`
+1. Start operator HTTP server: `GREENTIC_ENV=dev gtc op demo start --bundle demo-bundle`
 2. Seed `jwt_signing_key` for token generation
 3. Point `greentic-webchat` frontend at the operator
 
 ### 5.7 Teams — Send Text
 
 ```bash
-GREENTIC_ENV=dev greentic-operator demo send \
+GREENTIC_ENV=dev gtc op demo send \
   --bundle /root/works/personal/greentic/demo-bundle \
   --provider messaging-teams \
   --to "c3392cbc-2cb0-48e8-9247-504d8defea40:19:wQzzrth6t3YA-aEdLzt8Pse3kW3Us-nJl9XzN-5NcEE1@thread.tacv2" \
@@ -378,7 +378,7 @@ EOF
 ```
 
 ```bash
-GREENTIC_ENV=dev greentic-operator demo ingress \
+GREENTIC_ENV=dev gtc op demo ingress \
   --bundle /root/works/personal/greentic/demo-bundle \
   --provider messaging-teams \
   --tenant demo \
@@ -391,7 +391,7 @@ Expected: `events[0].to` contains `[{id: "c3392cbc-...:19:...@thread.tacv2", kin
 
 ```bash
 # Start the operator HTTP server
-GREENTIC_ENV=dev greentic-operator demo start \
+GREENTIC_ENV=dev gtc op demo start \
   --bundle /root/works/personal/greentic/demo-bundle \
   --cloudflared off --nats off --skip-setup --skip-secrets-init --domains messaging
 
