@@ -1,52 +1,37 @@
-# Messaging Webchat Pack
+# Messaging WebChat Pack
 
-Provider-core WebChat messaging pack (send + ingest).
+WebChat messaging provider — Direct Line protocol with inline ingress.
 
 ## Pack ID
 - `messaging-webchat`
 
 ## Providers
-- `messaging.webchat` (capabilities: messaging; ops: send, ingest)
+- `messaging.webchat` (capabilities: messaging; ops: send, ingest, ingest_http, qa-spec, apply-answers, i18n-keys)
 
 ## Components
-- `ai.greentic.component-templates`
-- `messaging-provider-webchat`
-- `templates`
+- `messaging-provider-webchat` — core provider WASM (secrets-store + state-store, handles both egress and ingress)
 
 ## Secrets
-- `jwt_signing_key` – HS256 key used to mint Direct Line JWTs; scope = `{env, tenant}`.
+- `jwt_signing_key` — HS256 key used to mint Direct Line JWTs
 
 ## Flows
-- `diagnostics`
-- `setup_custom`
-- `setup_default`
-- `verify_webhooks`
+- `setup_default` — configures provider via `messaging.configure` op
+- `requirements` — validates provider configuration
 
 ## Setup
 Inputs:
 - Config required: `public_base_url`
 - Config optional: `ingress_path`
 - Secrets required: `jwt_signing_key`
-- Secrets optional: none
-
-Writes:
-- Config keys: public_base_url, ingress_path
-- Secrets: none
-
-Webhooks:
-- public_base_url (the component registers whatever URL you provide; do not append extra segments)
-- Operator must also route `/v3/directline/**` into the provider’s `ingest_http` so the new polling-only Direct Line endpoints run inside the wasm.  Streaming (`/stream`) is not implemented yet, so WebChat clients should disable WebSocket and poll `/activities` instead.
 
 ## Direct Line (polling) contract
 
-- `POST /v3/directline/tokens/generate`: mint user tokens (optional `{"user":{"id":"..."}}` payload, rate-limited via secrets store). Requires `env`/`tenant`/`team` query params if the tenant context differs from defaults.
-- `POST /v3/directline/conversations`: requires `Authorization: Bearer <user-token>`; returns conversation ID + conv token (no `streamUrl` since streaming is disabled) and initializes a persistent state entry.
-- `POST /v3/directline/conversations/{id}/activities`: requires convo token bound to `{id}`; accepts minimal activity JSON, validates attachments (whitelisted MIME types + 512 KiB limit), increments a watermark, and stores the activity.
-- `GET /v3/directline/conversations/{id}/activities`: requires convo token; returns `{activities:[...], watermark:"<next>"}` with only entries newer than the requested watermark (or all if no watermark query). Responds `200` with `activities:[]` when there are no new activities and keeps watermark unchanged.
-- All endpoints respond with JSON errors (`{"error": "...", "message": "..."}`) and rely on `jwt_signing_key` for verifying/issuing HS256 tokens.
+- `POST /v3/directline/tokens/generate`: mint user tokens
+- `POST /v3/directline/conversations`: create conversation (requires Bearer token)
+- `POST /v3/directline/conversations/{id}/activities`: send activity
+- `GET /v3/directline/conversations/{id}/activities`: poll activities (watermark-based)
 
-Subscriptions:
-- none
-
-OAuth:
-- not required
+## Extensions
+- `greentic.ext.capabilities.v1` — capability offer `messaging-webchat-v1`
+- `greentic.provider-extension.v1` — provider type, ops, runtime binding
+- `messaging.provider_ingress.v1` — inline ingress (same component handles webhooks)

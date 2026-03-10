@@ -8,7 +8,7 @@ entrypoints: {}
 nodes:
   summary:
     routing: out
-    text:
+    render_text:
       msg:
         channel: '{{ state.input.msg.channel }}'
         correlation_id: '{{ state.input.msg.correlation_id }}'
@@ -29,6 +29,6 @@ nodes:
 x-generated-by: greentic-messaging-packgen
 x-generated-from:
   spec: specs/providers/whatsapp.yaml
-  spec-hash: sha256:615475b5611106c913cd6818b3f81a28835263398cf41f883c3ad2eac7ba4d14
-  manifest-hash: sha256:95560aa0889fea8d9aaf5dd6a5b598af4d03d128d9f283909c14ae94d7fcef5e
-  schemas-hash: sha256:da4d8cbca7825fa82528cd6da9606519fcc0196a1e99a149d778f312bd0fd13d
+  spec-hash: sha256:45bcc76d6312913ca5e376bdb76119018f096e2c87525ebf9e7be5c263d9b212
+  manifest-hash: sha256:71033557a600c1238cc6fa98e11a6d2defe9087e1117ef6bff900e8950c7d13e
+  schemas-hash: sha256:943cb8c04251ec569ed1ad807cbd1279384b87948005a470f439256973a40dd6

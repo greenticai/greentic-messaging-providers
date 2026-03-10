@@ -17,7 +17,7 @@ components:
       random: false
       clocks: false
     host: {}
-  wasm: components/templates.wasm
+  wasm: components/templates/component.wasm
 - id: messaging-provider-dummy
   version: 0.4.33
   world: greentic:provider/schema-core@1.0.0
@@ -32,7 +32,7 @@ components:
       random: false
       clocks: false
     host: {}
-  wasm: components/messaging-provider-dummy.wasm
+  wasm: components/messaging-provider-dummy/component.wasm
 extensions:
   greentic.provider-extension.v1:
     kind: greentic.provider-extension.v1

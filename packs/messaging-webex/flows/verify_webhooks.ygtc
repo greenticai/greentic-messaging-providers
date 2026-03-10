@@ -1,25 +1,14 @@
 id: verify_webhooks
 type: job
-start: reconcile
+start: summary
 parameters: {}
 tags: []
 schema_version: 2
 entrypoints: {}
 nodes:
-  reconcile:
-    routing:
-    - to: summary
-    component.exec:
-      component: webex-webhook
-      operation: reconcile_webhook
-      input:
-        public_base_url: '{{ state.input.public_base_url }}'
-        env: '{{ state.input.env }}'
-        tenant: '{{ state.input.tenant }}'
-        team: '{{ state.input.team }}'
   summary:
     routing: out
-    text:
+    render_text:
       msg:
         channel: '{{ state.input.msg.channel }}'
         correlation_id: '{{ state.input.msg.correlation_id }}'
@@ -35,11 +24,11 @@ nodes:
         text: '{{ state.input.msg.text }}'
         user_id: '{{ state.input.msg.user_id }}'
       output_path: text
-      template: |-
-        Webhook verification {{#if node.reconcile.ok}}succeeded{{else}}failed{{/if}}.
-        Target URL: {{node.reconcile.target_url}}
-        Actions: {{node.reconcile.actions}}
-        {{#each node.reconcile.notes}}
-        - {{this}}
-        {{/each}}
+      template: Webhook verification complete.
       wrap: true
+x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/webex.yaml
+  spec-hash: sha256:4bd43c6f9a6c3a76a885a56533636a6e7f46bf3475cbc82db55c1995957ee928
+  manifest-hash: sha256:71033557a600c1238cc6fa98e11a6d2defe9087e1117ef6bff900e8950c7d13e
+  schemas-hash: sha256:943cb8c04251ec569ed1ad807cbd1279384b87948005a470f439256973a40dd6

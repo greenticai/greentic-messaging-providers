@@ -18,7 +18,7 @@ nodes:
           id: '{{ state.input.msg.message.id }}'
           text: '{{ state.input.msg.message.text }}'
         metadata: '{{ state.input.msg.metadata }}'
-        provider: messaging.teams.bot
+        provider: messaging.teams.graph
         reply_scope: '{{ state.input.msg.reply_scope }}'
         session_id: '{{ state.input.msg.session_id }}'
         tenant_id: '{{ state.input.msg.tenant_id }}'
@@ -40,7 +40,7 @@ nodes:
         - key: subscriptions
           scope: provider
           type: remove_subscription
-        - key: secret
+        - key: bot_token
           scope: provider
           type: clear_secret
         - key: config
@@ -57,13 +57,18 @@ nodes:
           id: '{{ state.input.msg.message.id }}'
           text: '{{ state.input.msg.message.text }}'
         metadata: '{{ state.input.msg.metadata }}'
-        provider: messaging.teams.bot
+        provider: messaging.teams.graph
         reply_scope: '{{ state.input.msg.reply_scope }}'
         session_id: '{{ state.input.msg.session_id }}'
         tenant_id: '{{ state.input.msg.tenant_id }}'
         text: '{{ state.input.msg.text }}'
         user_id: '{{ state.input.msg.user_id }}'
       output_path: text
-      template: messaging.teams.bot removal complete. Provider has been safely removed.
+      template: messaging.teams.graph removal complete. Provider has been safely removed.
       wrap: true
 x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/teams.yaml
+  spec-hash: sha256:c90518a50c77ea0f6f99bb6d6e65377e78d55ac0e9f8a77f3dcddd00f657ae1d
+  manifest-hash: sha256:71033557a600c1238cc6fa98e11a6d2defe9087e1117ef6bff900e8950c7d13e
+  schemas-hash: sha256:943cb8c04251ec569ed1ad807cbd1279384b87948005a470f439256973a40dd6

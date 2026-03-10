@@ -1,42 +1,28 @@
 # Messaging Dummy Pack
 
-Deterministic provider-core messaging provider for CI and integration tests.
+Deterministic provider for CI and integration tests.
 
 ## Pack ID
 - `messaging-dummy`
 
 ## Providers
-- `messaging.dummy` (capabilities: messaging; ops: send)
+- `messaging.dummy` (capabilities: messaging; ops: send, qa-spec, apply-answers, i18n-keys)
 
 ## Components
-- `ai.greentic.component-templates`
-- `messaging-provider-dummy`
-- `templates`
+- `messaging-provider-dummy` — core provider WASM
 
 ## Secrets
 - None.
 
 ## Flows
-- `diagnostics`
-- `setup_custom`
-- `setup_default`
+- `setup_default` — configures provider via `messaging.configure` op
+- `requirements` — validates provider configuration
 
 ## Setup
 Inputs:
 - Config required: none
-- Config optional: none
 - Secrets required: none
-- Secrets optional: none
 
-Writes:
-- Config keys: none
-- Secrets: none
-
-Webhooks:
-- none
-
-Subscriptions:
-- none
-
-OAuth:
-- not required
+## Extensions
+- `greentic.ext.capabilities.v1` — capability offer `messaging-dummy-v1` (requires_setup: false)
+- `greentic.provider-extension.v1` — provider type, ops, runtime binding

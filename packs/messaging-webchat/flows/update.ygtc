@@ -9,7 +9,7 @@ nodes:
   update__emit_questions:
     routing:
     - to: update__collect
-    emit:
+    describe:
       id: webchat-update
       spec_ref: assets/setup.yaml
   update__collect:
@@ -24,7 +24,7 @@ nodes:
           id: '{{ state.input.msg.message.id }}'
           text: '{{ state.input.msg.message.text }}'
         metadata: '{{ state.input.msg.metadata }}'
-        provider: messaging.webchat.directline
+        provider: messaging.webchat
         reply_scope: '{{ state.input.msg.reply_scope }}'
         session_id: '{{ state.input.msg.session_id }}'
         tenant_id: '{{ state.input.msg.tenant_id }}'
@@ -36,7 +36,7 @@ nodes:
   update__validate:
     routing:
     - to: update__apply
-    validate:
+    validate_answers:
       answers_json: '{{ state.input.answers_json }}'
       spec_json: '{{ node.update__emit_questions }}'
   update__apply:
@@ -49,7 +49,7 @@ nodes:
         - key: config
           scope: provider
           type: update_config
-        - key: secret
+        - key: bot_token
           scope: provider
           type: update_secret
         - key: status
@@ -66,13 +66,18 @@ nodes:
           id: '{{ state.input.msg.message.id }}'
           text: '{{ state.input.msg.message.text }}'
         metadata: '{{ state.input.msg.metadata }}'
-        provider: messaging.webchat.directline
+        provider: messaging.webchat
         reply_scope: '{{ state.input.msg.reply_scope }}'
         session_id: '{{ state.input.msg.session_id }}'
         tenant_id: '{{ state.input.msg.tenant_id }}'
         text: '{{ state.input.msg.text }}'
         user_id: '{{ state.input.msg.user_id }}'
       output_path: text
-      template: messaging.webchat.directline update complete.
+      template: messaging.webchat update complete.
       wrap: true
 x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/webchat.yaml
+  spec-hash: sha256:ae61b3e1d388a1aea22328f630f980fd78c395c286ddf944879f7254d184824b
+  manifest-hash: sha256:71033557a600c1238cc6fa98e11a6d2defe9087e1117ef6bff900e8950c7d13e
+  schemas-hash: sha256:943cb8c04251ec569ed1ad807cbd1279384b87948005a470f439256973a40dd6

@@ -8,7 +8,7 @@ entrypoints: {}
 nodes:
   default__config:
     routing: out
-    text:
+    render_text:
       msg:
         channel: '{{ state.input.msg.channel }}'
         correlation_id: '{{ state.input.msg.correlation_id }}'
@@ -33,3 +33,8 @@ nodes:
         - Default Channel/Chat ID: (optional)
       wrap: true
 x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/telegram.yaml
+  spec-hash: sha256:e9c32bfd7f51e8d90608995decad2fc5f42203c16a21bc25e1cce48555eec40f
+  manifest-hash: sha256:71033557a600c1238cc6fa98e11a6d2defe9087e1117ef6bff900e8950c7d13e
+  schemas-hash: sha256:943cb8c04251ec569ed1ad807cbd1279384b87948005a470f439256973a40dd6

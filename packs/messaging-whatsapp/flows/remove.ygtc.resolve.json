@@ -11,13 +11,13 @@
     "remove__check_state": {
       "source": {
         "kind": "local",
-        "path": "file://../components/templates/templates.wasm"
+        "path": "file://../components/qa/qa.wasm"
       }
     },
     "remove__summary": {
       "source": {
         "kind": "local",
-        "path": "file://../components/templates/templates.wasm"
+        "path": "file://../components/qa/qa.wasm"
       }
     }
   }
