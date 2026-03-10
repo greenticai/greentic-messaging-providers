@@ -9,7 +9,7 @@ nodes:
   update__emit_questions:
     routing:
     - to: update__collect
-    emit:
+    describe:
       id: email-update
       spec_ref: assets/setup.yaml
   update__collect:
@@ -36,7 +36,7 @@ nodes:
   update__validate:
     routing:
     - to: update__apply
-    validate:
+    validate_answers:
       answers_json: '{{ state.input.answers_json }}'
       spec_json: '{{ node.update__emit_questions }}'
   update__apply:
@@ -49,7 +49,7 @@ nodes:
         - key: config
           scope: provider
           type: update_config
-        - key: secret
+        - key: bot_token
           scope: provider
           type: update_secret
         - key: status
@@ -76,3 +76,8 @@ nodes:
       template: messaging.email.smtp update complete.
       wrap: true
 x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/email.yaml
+  spec-hash: sha256:a59aa79bfca613c6bf5c270e6e328471217ad449c4a818dd4ede232ef90836d4
+  manifest-hash: sha256:71033557a600c1238cc6fa98e11a6d2defe9087e1117ef6bff900e8950c7d13e
+  schemas-hash: sha256:943cb8c04251ec569ed1ad807cbd1279384b87948005a470f439256973a40dd6

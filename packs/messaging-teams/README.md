@@ -1,45 +1,36 @@
 # Messaging Teams Pack
 
-Provider-core Microsoft Teams messaging pack (Graph send).
+Microsoft Teams messaging provider — Bot Framework with webhook ingress.
 
 ## Pack ID
 - `messaging-teams`
 
 ## Providers
-- `messaging.teams.graph` (capabilities: messaging; ops: send, reply)
+- `messaging.teams.bot` (capabilities: messaging; ops: send, reply, ingest_http, render_plan, encode, send_payload, qa-spec, apply-answers, i18n-keys)
 
 ## Components
-- `ai.greentic.component-templates`
-- `messaging-provider-teams`
-- `messaging-ingress-teams`
-- `templates`
+- `messaging-provider-teams` — core provider WASM (secrets-store + http-client)
+- `messaging-ingress-teams` — Bot Framework webhook ingress WASM
 
 ## Secrets
-- `MS_GRAPH_CLIENT_SECRET` (tenant): Client secret used for client_credentials or refresh flows.
-- `MS_GRAPH_REFRESH_TOKEN` (tenant): Refresh token used when auth_mode selects refresh_token grant.
+- `MS_GRAPH_TENANT_ID` — Azure AD tenant ID
+- `MS_GRAPH_CLIENT_ID` — Azure AD app client ID (public client)
+- `MS_GRAPH_REFRESH_TOKEN` — OAuth refresh token (delegated permissions)
 
 ## Flows
-- `diagnostics`
-- `setup_custom`
-- `setup_default`
-- `verify_webhooks`
+- `setup_default` — configures provider via `messaging.configure` op
+- `requirements` — validates provider configuration
 
 ## Setup
 Inputs:
 - Config required: tenant_id, client_id, public_base_url
 - Config optional: default_channel
-- Secrets required: MS_GRAPH_CLIENT_SECRET, MS_GRAPH_REFRESH_TOKEN
-- Secrets optional: none
-
-Writes:
-- Config keys: tenant_id, client_id, public_base_url, default_channel
-- Secrets: MS_GRAPH_CLIENT_SECRET, MS_GRAPH_REFRESH_TOKEN
+- Secrets required: MS_GRAPH_REFRESH_TOKEN
 
 Webhooks:
 - public_base_url + /webhooks/teams
 
-Subscriptions:
-- required
-
-OAuth:
-- required
+## Extensions
+- `greentic.ext.capabilities.v1` — capability offer `messaging-teams-v1`
+- `greentic.provider-extension.v1` — provider type, ops, runtime binding
+- `messaging.provider_ingress.v1` — webhook ingress (supports_webhook_validation: false)

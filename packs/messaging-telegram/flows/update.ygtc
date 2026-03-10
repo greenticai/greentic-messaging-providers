@@ -9,7 +9,7 @@ nodes:
   update__emit_questions:
     routing:
     - to: update__collect
-    emit:
+    describe:
       id: telegram-update
       spec_ref: assets/setup.yaml
   update__collect:
@@ -36,7 +36,7 @@ nodes:
   update__validate:
     routing:
     - to: update__apply
-    validate:
+    validate_answers:
       answers_json: '{{ state.input.answers_json }}'
       spec_json: '{{ node.update__emit_questions }}'
   update__apply:
@@ -76,3 +76,8 @@ nodes:
       template: messaging.telegram.bot update complete.
       wrap: true
 x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/telegram.yaml
+  spec-hash: sha256:e9c32bfd7f51e8d90608995decad2fc5f42203c16a21bc25e1cce48555eec40f
+  manifest-hash: sha256:71033557a600c1238cc6fa98e11a6d2defe9087e1117ef6bff900e8950c7d13e
+  schemas-hash: sha256:943cb8c04251ec569ed1ad807cbd1279384b87948005a470f439256973a40dd6

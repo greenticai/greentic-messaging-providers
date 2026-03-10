@@ -1,0 +1,11 @@
+{
+  "id": "messaging-provider-whatsapp",
+  "version": "0.4.34",
+  "supports": ["messaging"],
+  "world": "greentic:component/component-v0-v6-v0@0.6.1",
+  "profiles": {"default": "default", "supported": ["default"]},
+  "capabilities": {"wasi": {}, "host": {}},
+  "operations": [],
+  "resources": {},
+  "dev_flows": {}
+}

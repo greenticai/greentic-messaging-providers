@@ -40,7 +40,7 @@ nodes:
         - key: subscriptions
           scope: provider
           type: remove_subscription
-        - key: secret
+        - key: bot_token
           scope: provider
           type: clear_secret
         - key: config
@@ -67,3 +67,8 @@ nodes:
       template: messaging.whatsapp.cloud removal complete. Provider has been safely removed.
       wrap: true
 x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/whatsapp.yaml
+  spec-hash: sha256:45bcc76d6312913ca5e376bdb76119018f096e2c87525ebf9e7be5c263d9b212
+  manifest-hash: sha256:71033557a600c1238cc6fa98e11a6d2defe9087e1117ef6bff900e8950c7d13e
+  schemas-hash: sha256:943cb8c04251ec569ed1ad807cbd1279384b87948005a470f439256973a40dd6
