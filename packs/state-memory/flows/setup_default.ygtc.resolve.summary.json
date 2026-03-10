@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "flow": "setup_default.ygtc",
+  "nodes": {
+    "setup_default__emit_questions": {
+      "component_id": "ai.greentic.component-questions",
+      "source": {"kind": "local", "path": "../../../target/components/questions.wasm"},
+      "digest": "sha256:0e4da68276705bed5d6383b0efc2b7b3becd9a0de806d780714a156b5cb42ff3",
+      "manifest": {"world": "greentic:component/component@0.5.0", "version": "0.1.0"}
+    },
+    "setup_default__collect": {
+      "component_id": "ai.greentic.component-templates",
+      "source": {"kind": "local", "path": "../../../target/components/webchat.wasm"},
+      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
+      "manifest": {"world": "greentic:component/component@0.5.0", "version": "0.1.0"}
+    },
+    "setup_default__apply": {
+      "component_id": "ai.greentic.component-provision",
+      "source": {"kind": "local", "path": "../../../target/components/provision.wasm"},
+      "digest": "sha256:4acd9db67f595b73597ec7bddfc787db7e1a4a9cfae25f03f67ce11d4c564f4c",
+      "manifest": {"world": "greentic:component/component@0.5.0", "version": "0.1.0"}
+    },
+    "setup_default__summary": {
+      "component_id": "ai.greentic.component-templates",
+      "source": {"kind": "local", "path": "../../../target/components/webchat.wasm"},
+      "digest": "sha256:c8d19b90dd5e3d42189e7836639e36e04ca41e32dd75905569eb09cd68188733",
+      "manifest": {"world": "greentic:component/component@0.5.0", "version": "0.1.0"}
+    }
+  }
+}

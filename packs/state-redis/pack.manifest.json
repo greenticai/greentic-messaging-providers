@@ -1,0 +1,109 @@
+{
+  "name": "state-redis",
+  "version": "0.4.0",
+  "kind": "capability",
+  "publisher": "Greentic",
+  "description": "Persistent key-value state provider backed by Redis.",
+  "components": [
+    "state-provider-redis"
+  ],
+  "component_sources": [
+    {
+      "id": "state-provider-redis",
+      "version": "0.4.0",
+      "world": "greentic:component/component-v0-v6-v0",
+      "supports": [
+        "component_config"
+      ],
+      "profiles": {
+        "default": "default",
+        "supported": [
+          "default"
+        ]
+      },
+      "capabilities": {
+        "wasi": {
+          "random": false,
+          "clocks": false
+        },
+        "host": {}
+      },
+      "wasm": "components/state-provider-redis.wasm"
+    }
+  ],
+  "flows": [
+    {
+      "id": "setup_default",
+      "file": "flows/setup_default.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "default"
+      ]
+    },
+    {
+      "id": "update",
+      "file": "flows/update.ygtc",
+      "tags": [
+        "update"
+      ],
+      "entrypoints": [
+        "default"
+      ]
+    },
+    {
+      "id": "remove",
+      "file": "flows/remove.ygtc",
+      "tags": [
+        "remove"
+      ],
+      "entrypoints": [
+        "default"
+      ]
+    }
+  ],
+  "extensions": {
+    "greentic.ext.capabilities.v1": {
+      "kind": "greentic.ext.capabilities.v1",
+      "version": "1.0.0",
+      "inline": {
+        "schema_version": 1,
+        "offers": [
+          {
+            "offer_id": "state.redis.kv.01",
+            "cap_id": "greentic.cap.state.kv.v1",
+            "version": "v1",
+            "provider": {
+              "component_ref": "state-provider-redis",
+              "op": "state.dispatch"
+            },
+            "priority": 50,
+            "requires_setup": true,
+            "setup": {
+              "qa_ref": "qa/state-redis-setup.json"
+            },
+            "metadata": {
+              "ephemeral": false,
+              "backend": "redis"
+            }
+          }
+        ]
+      }
+    },
+    "greentic.provider-extension.v1": {
+      "kind": "greentic.provider-extension.v1",
+      "version": "0.4.0",
+      "inline": {
+        "providers": []
+      }
+    }
+  },
+  "secret_requirements": [
+    {
+      "name": "redis_url",
+      "scope": "tenant",
+      "description": "Redis connection URL (e.g. redis://127.0.0.1:6379)."
+    }
+  ]
+}

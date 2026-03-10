@@ -1,0 +1,52 @@
+{
+  "id": "state-redis-setup",
+  "title": "Redis State Configuration",
+  "version": "1.0.0",
+  "questions": [
+    {
+      "id": "redis_url",
+      "kind": "String",
+      "title_i18n": { "key": "state.redis.qa.setup.redis_url" },
+      "required": true,
+      "secret": true,
+      "placeholder": "redis://localhost:6379/0"
+    },
+    {
+      "id": "redis_password",
+      "kind": "String",
+      "title_i18n": { "key": "state.redis.qa.setup.redis_password" },
+      "required": false,
+      "secret": true
+    },
+    {
+      "id": "redis_tls_enabled",
+      "kind": "Boolean",
+      "title_i18n": { "key": "state.redis.qa.setup.redis_tls_enabled" },
+      "required": false,
+      "default_value": "false"
+    },
+    {
+      "id": "key_prefix",
+      "kind": "String",
+      "title_i18n": { "key": "state.redis.qa.setup.key_prefix" },
+      "required": false,
+      "default_value": "greentic"
+    },
+    {
+      "id": "default_ttl_seconds",
+      "kind": "Integer",
+      "title_i18n": { "key": "state.redis.qa.setup.default_ttl_seconds" },
+      "required": false,
+      "default_value": "0",
+      "description_i18n": { "key": "state.redis.schema.config.default_ttl_seconds.description" }
+    },
+    {
+      "id": "connection_pool_size",
+      "kind": "Integer",
+      "title_i18n": { "key": "state.redis.qa.setup.connection_pool_size" },
+      "required": false,
+      "default_value": "5",
+      "constraint": { "min": 1, "max": 100 }
+    }
+  ]
+}
