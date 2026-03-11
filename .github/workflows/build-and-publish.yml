@@ -507,7 +507,10 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     needs: [fmt, clippy, check-op-schemas, build-packs, cargo-test]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
+    # FIXME: Remove the pull_request publish path after PR package validation is complete.
+    if: |
+      (github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -556,7 +559,8 @@ jobs:
           path: target/components
           merge-multiple: true
 
-      - name: Set publish version
+      # FIXME: Remove PR-specific preview versioning when pull_request publishing is removed.
+      - name: Set publish metadata
         run: |
           python3 - <<'PY'
           import os
@@ -564,11 +568,24 @@ jobs:
           from pathlib import Path
 
           data = tomllib.loads(Path("Cargo.toml").read_text())
-          version = data["workspace"]["package"]["version"]
+          base_version = data["workspace"]["package"]["version"]
+          event_name = os.environ["GITHUB_EVENT_NAME"]
+          sha = os.environ.get("GITHUB_SHA", "")[:7]
+          if event_name == "pull_request":
+            pr_number = os.environ.get("PR_NUMBER", "0")
+            version = f"{base_version}-pr{pr_number}-{sha}"
+            publish_latest = "0"
+          else:
+            version = base_version
+            publish_latest = "1"
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
             handle.write(f"PUBLISH_VERSION={version}\n")
-          print(f"Using Cargo workspace version: {version}")
+            handle.write(f"PUBLISH_LATEST={publish_latest}\n")
+          print(f"Using publish version: {version}")
+          print(f"PUBLISH_LATEST={publish_latest}")
           PY
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Login to GHCR
         env:
@@ -578,7 +595,7 @@ jobs:
       - name: Publish components
         env:
           VERSION: ${{ env.PUBLISH_VERSION }}
-          PUBLISH_LATEST: "1"
+          PUBLISH_LATEST: ${{ env.PUBLISH_LATEST }}
         run: bash ./tools/publish_oci.sh
 
       - name: Upload components lockfile
@@ -593,7 +610,7 @@ jobs:
           OCI_NAMESPACE: ${{ env.PACKS_OCI_NAMESPACE }}
           OCI_REPO: ${{ env.PACKS_OCI_REPO }}
           PACK_VERSION: ${{ env.PUBLISH_VERSION }}
-          PUBLISH_LATEST: "1"
+          PUBLISH_LATEST: ${{ env.PUBLISH_LATEST }}
         run: ./tools/publish_packs_oci.sh
 
       - name: Upload built packs
