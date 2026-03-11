@@ -360,6 +360,7 @@ fn allowed_flow_names() -> BTreeSet<&'static str> {
     // TODO: source from greentic-interfaces/types once canonical entry flow names are exposed.
     [
         "setup_default",
+        "setup_custom",
         "update",
         "remove",
         "default",
@@ -1457,6 +1458,15 @@ fn validator_from_source(source_pack: &serde_yaml::Value) -> Option<ValidatorSpe
     })
 }
 
+fn provider_type_matches(actual: &str, expected: &str) -> bool {
+    actual == expected
+        || matches!(
+            (actual, expected),
+            ("messaging.teams.bot", "messaging.teams.graph")
+                | ("messaging.teams.graph", "messaging.teams.bot")
+        )
+}
+
 fn find_provider_entry<'a>(
     pack: &'a serde_yaml::Value,
     provider_type: &str,
@@ -1487,7 +1497,7 @@ fn find_provider_entry<'a>(
         else {
             continue;
         };
-        if existing_type == provider_type {
+        if provider_type_matches(existing_type, provider_type) {
             return Ok(provider_map);
         }
     }
@@ -1689,7 +1699,7 @@ fn verify_pack_dir(out_dir: &Path, spec: &Spec, flows: &[String]) -> Result<()> 
         else {
             continue;
         };
-        if provider_type == spec.provider.provider_type {
+        if provider_type_matches(provider_type, &spec.provider.provider_type) {
             has_provider = true;
         }
     }
@@ -1747,6 +1757,7 @@ fn update_flow_entrypoints(
 fn expected_entrypoint(flow_id: &str) -> Option<&'static str> {
     match flow_id {
         "setup_default" => Some("setup"),
+        "setup_custom" => Some("setup_custom"),
         "update" => Some("update"),
         "remove" => Some("remove"),
         "default" => Some("default"),
@@ -2042,6 +2053,161 @@ fn generate_flows(
                     "setup_default__apply",
                 )?;
                 stamp_generated_header(&setup_default, &generated_meta)?;
+            }
+            "setup_custom" => {
+                let setup_custom = flows_dir.join("setup_custom.ygtc");
+                flow_new(&setup_custom, "setup_custom", "job")?;
+                let emit_payload = merge_payload(
+                    questions_emit_example.clone(),
+                    json!({
+                        "id": format!("{}-setup_custom", provider_id(spec)),
+                        "spec_ref": "assets/setup.yaml"
+                    }),
+                );
+                flow_add_step(
+                    flows_dir,
+                    &setup_custom,
+                    "setup_custom__emit_questions",
+                    "describe",
+                    emit_payload,
+                    Some("out"),
+                    None,
+                    None,
+                    &questions_manifest_inline,
+                    "../components/qa/qa.wasm",
+                )?;
+
+                let collect_payload = merge_payload(
+                    templates_example.clone(),
+                    json!({
+                        "template": "Collect inputs for setup_custom.",
+                    }),
+                );
+                flow_add_step(
+                    flows_dir,
+                    &setup_custom,
+                    "setup_custom__collect",
+                    "text",
+                    collect_payload,
+                    Some("out"),
+                    None,
+                    Some("setup_custom__emit_questions"),
+                    &templates_manifest_inline,
+                    "../components/qa/qa.wasm",
+                )?;
+
+                let validate_payload = merge_payload(
+                    questions_validate_example.clone(),
+                    json!({
+                        "answers_json": "{{ state.input.answers_json }}",
+                        "spec_json": "{{ node.setup_custom__emit_questions }}"
+                    }),
+                );
+                flow_add_step(
+                    flows_dir,
+                    &setup_custom,
+                    "setup_custom__validate",
+                    "validate_answers",
+                    validate_payload,
+                    Some("out"),
+                    None,
+                    Some("setup_custom__collect"),
+                    &questions_manifest_inline,
+                    "../components/qa/qa.wasm",
+                )?;
+
+                let apply_payload = merge_payload(
+                    provision_apply_example.clone(),
+                    json!({
+                        "dry_run": "{{ state.input.dry_run }}",
+                        "plan": {
+                            "actions": [
+                                {
+                                    "type": "store_config",
+                                    "scope": "provider",
+                                    "key": "config"
+                                },
+                                {
+                                    "type": "store_secret",
+                                    "scope": "provider",
+                                    "key": "bot_token"
+                                },
+                                {
+                                    "type": "register_webhook",
+                                    "scope": "provider",
+                                    "key": "webhook_url"
+                                },
+                                {
+                                    "type": "verify_connectivity",
+                                    "scope": "provider",
+                                    "key": "status"
+                                }
+                            ]
+                        }
+                    }),
+                );
+                flow_add_step(
+                    flows_dir,
+                    &setup_custom,
+                    "setup_custom__apply",
+                    "apply",
+                    apply_payload,
+                    Some("out"),
+                    None,
+                    Some("setup_custom__validate"),
+                    &provision_manifest_inline,
+                    "../components/provision/provision.wasm",
+                )?;
+
+                if spec
+                    .setup
+                    .as_ref()
+                    .and_then(|setup| setup.emits_success_message)
+                    .unwrap_or(true)
+                {
+                    let summary_text =
+                        format!("{} setup_custom complete.", spec.provider.provider_type);
+                    let summary_payload = merge_payload(
+                        templates_example.clone(),
+                        json!({
+                            "template": summary_text,
+                        }),
+                    );
+                    flow_add_step(
+                        flows_dir,
+                        &setup_custom,
+                        "setup_custom__summary",
+                        "render_text",
+                        summary_payload,
+                        Some("out"),
+                        None,
+                        Some("setup_custom__apply"),
+                        &templates_manifest_inline,
+                        "../components/qa/qa.wasm",
+                    )?;
+                    flow_update_routing(
+                        &setup_custom,
+                        "setup_custom__apply",
+                        "setup_custom__summary",
+                    )?;
+                }
+
+                flow_update_routing(
+                    &setup_custom,
+                    "setup_custom__emit_questions",
+                    "setup_custom__collect",
+                )?;
+                flow_update_routing(
+                    &setup_custom,
+                    "setup_custom__collect",
+                    "setup_custom__validate",
+                )?;
+                flow_update_routing(
+                    &setup_custom,
+                    "setup_custom__validate",
+                    "setup_custom__apply",
+                )?;
+                stamp_generated_header(&setup_custom, &generated_meta)?;
             }
             "verify_webhooks" => {
                 let verify = flows_dir.join("verify_webhooks.ygtc");
@@ -2905,7 +3071,7 @@ fn stage_components(
     let mut needs_provision = false;
     for flow in flows {
         match flow.as_str() {
-            "setup_default" | "update" => {
+            "setup_default" | "setup_custom" | "update" => {
                 needs_qa = true;
                 needs_provision = true;
             }
