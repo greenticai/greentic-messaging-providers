@@ -14,6 +14,9 @@ permissions:
 env:
   OCI_REGISTRY: ghcr.io
   OCI_NAMESPACE: ${{ github.repository_owner }}/greentic-messaging-providers
+  PACKS_OCI_NAMESPACE: greenticai
+  PACKS_OCI_REPO: packs/messaging
+  TEMPLATES_NAMESPACE: greenticai
 
 jobs:
   fmt:
@@ -280,7 +283,9 @@ jobs:
           merge-multiple: true
 
       - name: Login to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+        env:
+          GHCR_USERNAME: ${{ vars.GHCR_USERNAME }}
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${GHCR_USERNAME:-${{ github.actor }}}" --password-stdin
 
       - name: Step 07 - Sync packs
         run: ./ci/steps/07_sync_packs.sh
@@ -566,7 +571,9 @@ jobs:
           PY
 
       - name: Login to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+        env:
+          GHCR_USERNAME: ${{ vars.GHCR_USERNAME }}
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${GHCR_USERNAME:-${{ github.actor }}}" --password-stdin
 
       - name: Publish components
         env:
@@ -583,6 +590,8 @@ jobs:
 
       - name: Publish packs
         env:
+          OCI_NAMESPACE: ${{ env.PACKS_OCI_NAMESPACE }}
+          OCI_REPO: ${{ env.PACKS_OCI_REPO }}
           PACK_VERSION: ${{ env.PUBLISH_VERSION }}
           PUBLISH_LATEST: "1"
         run: ./tools/publish_packs_oci.sh
