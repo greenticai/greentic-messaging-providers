@@ -5,8 +5,8 @@ set -euo pipefail
 # DRY_RUN=1 builds packs and writes the lockfile but does not push.
 
 OCI_REGISTRY="${OCI_REGISTRY:-ghcr.io}"
-OCI_ORG="${OCI_ORG:-${GITHUB_REPOSITORY_OWNER:-greentic}}"
-OCI_REPO="${OCI_REPO:-greentic-packs}"
+OCI_NAMESPACE="${OCI_NAMESPACE:-${OCI_ORG:-${GITHUB_REPOSITORY_OWNER:-greenticai}}}"
+OCI_REPO="${OCI_REPO:-packs/messaging}"
 PACK_VERSION="${PACK_VERSION:-}"
 if [ -z "${PACK_VERSION}" ]; then
   command -v python3 >/dev/null 2>&1 || { echo "python3 is required"; exit 1; }
@@ -47,7 +47,7 @@ git_sha="$(cd "${ROOT_DIR}" && git rev-parse --short HEAD 2>/dev/null || echo "u
 
 # Default OCI location for the shared templates component used by many packs.
 TEMPLATES_REGISTRY="${TEMPLATES_REGISTRY:-${OCI_REGISTRY:-ghcr.io}}"
-TEMPLATES_NAMESPACE="${TEMPLATES_NAMESPACE:-${GHCR_NAMESPACE:-${OCI_ORG:-greentic-ai-org}}}"
+TEMPLATES_NAMESPACE="${TEMPLATES_NAMESPACE:-${GHCR_NAMESPACE:-${OCI_NAMESPACE:-greenticai}}}"
 DEFAULT_TEMPLATES_IMAGE="${TEMPLATES_IMAGE:-${TEMPLATES_REGISTRY}/${TEMPLATES_NAMESPACE}/components/templates:latest}"
 DEFAULT_TEMPLATES_DIGEST=""
 DEFAULT_TEMPLATES_ARTIFACT="component_templates.wasm"
@@ -428,8 +428,8 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
 
   python3 "${ROOT_DIR}/tools/validate_pack_fixtures.py"
 
-  oci_ref="${OCI_REGISTRY}/${OCI_ORG}/${OCI_REPO}/${pack_name}:${PACK_VERSION}"
-  latest_ref="${OCI_REGISTRY}/${OCI_ORG}/${OCI_REPO}/${pack_name}:latest"
+  oci_ref="${OCI_REGISTRY}/${OCI_NAMESPACE}/${OCI_REPO}/${pack_name}:${PACK_VERSION}"
+  latest_ref="${OCI_REGISTRY}/${OCI_NAMESPACE}/${OCI_REPO}/${pack_name}:latest"
   # Compute local content digest (used for dry-run and lockfile regardless of push).
   digest="$(python3 - <<'PY' "${pack_out}"
 import hashlib, sys
@@ -504,7 +504,7 @@ if [ -f "${bundle_pack}" ]; then
 fi
 
 if compgen -G "${ROOT_DIR}/${OUT_DIR}/messaging-*.gtpack" >/dev/null; then
-  validator_pack_ref="${VALIDATOR_PACK_REF:-oci://ghcr.io/greentic-ai/validators/messaging:latest}"
+  validator_pack_ref="${VALIDATOR_PACK_REF:-oci://ghcr.io/greenticai/validators/messaging:latest}"
   if "${PACKC_BIN}" doctor --help 2>&1 | rg -q -- '--validate'; then
     doctor_supports_validate=1
   else
