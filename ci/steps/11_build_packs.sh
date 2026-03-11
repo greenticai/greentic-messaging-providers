@@ -8,9 +8,11 @@ if ! command -v cargo-binstall >/dev/null 2>&1; then
   cargo install cargo-binstall --locked
 fi
 
-GREENTIC_PACK_VERSION="${GREENTIC_PACK_VERSION:-0.4}"
-cargo binstall greentic-pack --version "${GREENTIC_PACK_VERSION}" --force --no-confirm --locked || \
-  cargo install greentic-pack --version "${GREENTIC_PACK_VERSION}" --force --locked
+if ! command -v greentic-pack >/dev/null 2>&1; then
+  GREENTIC_PACK_VERSION="${GREENTIC_PACK_VERSION:-^0.4}"
+  cargo binstall greentic-pack --version "${GREENTIC_PACK_VERSION}" --force --no-confirm --locked || \
+    cargo install greentic-pack --version "${GREENTIC_PACK_VERSION}" --force --locked
+fi
 
 PACK_VERSION="${PACK_VERSION:-$(python3 - <<'PY'
 from pathlib import Path
