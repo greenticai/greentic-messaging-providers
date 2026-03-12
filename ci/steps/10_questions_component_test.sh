@@ -9,15 +9,6 @@ if ! command -v greentic-component >/dev/null 2>&1; then
   exit 1
 fi
 
-fallback_to_crate_tests() {
-  if ! command -v cargo >/dev/null 2>&1; then
-    echo "cargo is required for fallback tests" >&2
-    return 1
-  fi
-  echo "greentic-component test world mismatch detected; falling back to cargo tests for crate 'questions'." >&2
-  cargo test -p questions --tests
-}
-
 is_world_mismatch_error() {
   local log_file="$1"
   rg -q \
@@ -63,8 +54,8 @@ set -e
 cat "${emit_log}"
 if [ "${emit_rc}" -ne 0 ]; then
   if is_world_mismatch_error "${emit_log}"; then
-    fallback_to_crate_tests
-    exit 0
+    echo "questions component world/export is incompatible with installed greentic-component test runner." >&2
+    echo "expected by runner: greentic:component/component@0.6.0; exported by wasm: greentic:component/node@0.5.0." >&2
   fi
   exit "${emit_rc}"
 fi
@@ -106,8 +97,8 @@ set -e
 cat "${validate_log}"
 if [ "${validate_rc}" -ne 0 ]; then
   if is_world_mismatch_error "${validate_log}"; then
-    fallback_to_crate_tests
-    exit 0
+    echo "questions component world/export is incompatible with installed greentic-component test runner." >&2
+    echo "expected by runner: greentic:component/component@0.6.0; exported by wasm: greentic:component/node@0.5.0." >&2
   fi
   exit "${validate_rc}"
 fi
