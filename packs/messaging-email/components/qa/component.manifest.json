@@ -1,0 +1,157 @@
+{
+  "$schema": "https://greentic-ai.github.io/greentic-component/schemas/v1/component.manifest.schema.json",
+  "id": "ai.greentic.component-qa",
+  "name": "component-qa",
+  "version": "0.4.36",
+  "world": "greentic:component/component@0.5.0",
+  "describe_export": "describe",
+  "default_operation": "render_text",
+  "artifacts": {
+    "component_wasm": "qa.wasm"
+  },
+  "hashes": {
+    "component_wasm": "blake3:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "limits": {
+    "memory_mb": 128,
+    "wall_time_ms": 3000
+  },
+  "capabilities": {
+    "host": {
+      "messaging": {
+        "inbound": true,
+        "outbound": true
+      },
+      "qa": {
+        "process": true
+      },
+      "secrets": {
+        "required": []
+      },
+      "telemetry": {
+        "scope": "node"
+      }
+    },
+    "wasi": {
+      "clocks": true,
+      "filesystem": {
+        "mode": "none",
+        "mounts": []
+      },
+      "random": true
+    }
+  },
+  "config_schema": {
+    "$ref": "schemas/io/input.schema.json"
+  },
+  "operations": [
+    {
+      "name": "describe",
+      "input_schema": {
+        "$ref": "schemas/io/input.schema.json"
+      },
+      "output_schema": {
+        "$ref": "schemas/io/output.schema.json"
+      }
+    },
+    {
+      "name": "render_text",
+      "input_schema": {
+        "$ref": "schemas/io/input.schema.json"
+      },
+      "output_schema": {
+        "$ref": "schemas/io/output.schema.json"
+      }
+    },
+    {
+      "name": "render_json_ui",
+      "input_schema": {
+        "$ref": "schemas/io/input.schema.json"
+      },
+      "output_schema": {
+        "$ref": "schemas/io/output.schema.json"
+      }
+    },
+    {
+      "name": "render_card",
+      "input_schema": {
+        "$ref": "schemas/io/input.schema.json"
+      },
+      "output_schema": {
+        "$ref": "schemas/io/output.schema.json"
+      }
+    },
+    {
+      "name": "next",
+      "input_schema": {
+        "$ref": "schemas/io/input.schema.json"
+      },
+      "output_schema": {
+        "$ref": "schemas/io/output.schema.json"
+      }
+    },
+    {
+      "name": "apply_store",
+      "input_schema": {
+        "$ref": "schemas/io/input.schema.json"
+      },
+      "output_schema": {
+        "$ref": "schemas/io/output.schema.json"
+      }
+    },
+    {
+      "name": "submit_patch",
+      "input_schema": {
+        "$ref": "schemas/io/input.schema.json"
+      },
+      "output_schema": {
+        "$ref": "schemas/io/output.schema.json"
+      }
+    },
+    {
+      "name": "submit_all",
+      "input_schema": {
+        "$ref": "schemas/io/input.schema.json"
+      },
+      "output_schema": {
+        "$ref": "schemas/io/output.schema.json"
+      }
+    },
+    {
+      "name": "validate_answers",
+      "input_schema": {
+        "$ref": "schemas/io/input.schema.json"
+      },
+      "output_schema": {
+        "$ref": "schemas/io/output.schema.json"
+      }
+    },
+    {
+      "name": "get_answer_schema",
+      "input_schema": {
+        "$ref": "schemas/io/input.schema.json"
+      },
+      "output_schema": {
+        "$ref": "schemas/io/output.schema.json"
+      }
+    },
+    {
+      "name": "get_example_answers",
+      "input_schema": {
+        "$ref": "schemas/io/input.schema.json"
+      },
+      "output_schema": {
+        "$ref": "schemas/io/output.schema.json"
+      }
+    }
+  ],
+  "profiles": {
+    "default": "stateless",
+    "supported": [
+      "stateless"
+    ]
+  },
+  "supports": [
+    "messaging"
+  ]
+}

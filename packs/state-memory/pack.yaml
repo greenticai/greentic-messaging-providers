@@ -1,11 +1,11 @@
 pack_id: state-memory
-version: 0.4.0
+version: 0.4.35
 kind: capability
 publisher: Greentic
 name: In-Memory State Provider
 components:
 - id: state-provider-memory
-  version: 0.4.0
+  version: 0.4.35
   world: greentic:component/component-v0-v6-v0
   supports:
   - component_config
@@ -31,7 +31,7 @@ assets: []
 extensions:
   greentic.ext.capabilities.v1:
     kind: greentic.ext.capabilities.v1
-    version: 1.0.0
+    version: 0.4.35
     inline:
       offers:
       - cap_id: greentic.cap.state.kv.v1
@@ -44,5 +44,5 @@ extensions:
           component_ref: state-provider-memory
           op: state.dispatch
         requires_setup: false
-        version: v1
+        version: 0.4.35
       schema_version: 1

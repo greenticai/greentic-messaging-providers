@@ -1,0 +1,98 @@
+name: Publish Packs (PR)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  OCI_REGISTRY: ghcr.io
+  OCI_NAMESPACE: greenticai
+  OCI_REPO: packs/messaging
+  TEMPLATES_NAMESPACE: greenticai
+
+jobs:
+  publish-packs-pr:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+          components: rustfmt, clippy
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: publish-packs-pr
+
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
+
+      - name: Install cargo-binstall
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
+
+      - name: Install greentic-pack
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+        run: |
+          cargo binstall greentic-pack --force --no-confirm --locked || cargo install greentic-pack --force --locked
+          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+          greentic-pack --version
+
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+
+      - name: Set publish metadata
+        run: |
+          python3 - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          data = tomllib.loads(Path("Cargo.toml").read_text())
+          base_version = data["workspace"]["package"]["version"]
+          sha = os.environ.get("GITHUB_SHA", "")[:7]
+          pr_number = os.environ.get("PR_NUMBER", "0")
+          version = f"{base_version}-pr{pr_number}-{sha}"
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
+              handle.write(f"PUBLISH_VERSION={version}\n")
+              handle.write("PUBLISH_LATEST=1\n")
+          print(f"Using publish version: {version}")
+          PY
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+
+      - name: Login to GHCR
+        env:
+          GHCR_USERNAME: ${{ vars.GHCR_USERNAME }}
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${GHCR_USERNAME:-${{ github.actor }}}" --password-stdin
+
+      - name: Publish packs
+        env:
+          PACK_VERSION: ${{ env.PUBLISH_VERSION }}
+          PUBLISH_LATEST: ${{ env.PUBLISH_LATEST }}
+        run: ./tools/publish_packs_oci.sh
+
+      - name: Upload published packs lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: packs-lockfile-published-pr
+          path: packs.lock.json
+          if-no-files-found: error

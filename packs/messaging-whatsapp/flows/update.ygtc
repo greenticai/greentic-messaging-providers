@@ -78,6 +78,6 @@ nodes:
 x-generated-by: greentic-messaging-packgen
 x-generated-from:
   spec: specs/providers/whatsapp.yaml
-  spec-hash: sha256:45bcc76d6312913ca5e376bdb76119018f096e2c87525ebf9e7be5c263d9b212
-  manifest-hash: sha256:71033557a600c1238cc6fa98e11a6d2defe9087e1117ef6bff900e8950c7d13e
-  schemas-hash: sha256:943cb8c04251ec569ed1ad807cbd1279384b87948005a470f439256973a40dd6
+  spec-hash: sha256:0ccd89bd9a7655b1324707e9465bcb80355996fe4dc434a50a5bef2182ec148f
+  manifest-hash: sha256:8db11d9aa53d276dc8faa748995a84ff4186c57a6967dc0bf046eec497a8708b
+  schemas-hash: sha256:96d76f8254406089f49781adbc7456611d25cc08029006e8172d9db8ba621821

@@ -3,60 +3,58 @@
     {
       "name": "messaging-dummy",
       "file": "dist/packs/messaging-dummy.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-dummy:0.4.34",
-      "digest": "sha256:e6c38d8d12b3b9fb3f67e659798370932b2d330e5a2c48497febe1cd7dee43eb",
-      "built_at": "2026-02-17T07:01:12Z"
+      "ref": "ghcr.io/greenticai/packs/messaging/messaging-dummy:0.4.36",
+      "digest": "sha256:092486bc3b269e411f7eba48e863668bc6f3795a40cc8e5b8aacebc8bb299c4d",
+      "built_at": "2026-03-12T14:45:34Z"
     },
     {
       "name": "messaging-email",
       "file": "dist/packs/messaging-email.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-email:0.4.34",
-      "digest": "sha256:6126e96736fdd93b9136ce2674895fbcae440b0116f9ae550ec9017a8c9daf63",
-      "built_at": "2026-02-17T07:01:12Z"
+      "ref": "ghcr.io/greenticai/packs/messaging/messaging-email:0.4.36",
+      "digest": "sha256:e74ac0c671e7409611697bd70984c0c524577a2cf27c9e25d8d78742d0a6c860",
+      "built_at": "2026-03-12T14:45:34Z"
     },
     {
       "name": "messaging-slack",
       "file": "dist/packs/messaging-slack.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-slack:0.4.34",
-      "digest": "sha256:27e695f92f25ccd20c1f1ac45847fbc8f3a160af8442765b8ccc9275e97b66b9",
-      "built_at": "2026-02-17T07:01:12Z"
+      "ref": "ghcr.io/greenticai/packs/messaging/messaging-slack:0.4.36",
+      "digest": "sha256:23040e61cff69b20a6db5951acb4fcca4fa5fcc5d6e114b3572b9d19dd951e30",
+      "built_at": "2026-03-12T14:45:34Z"
     },
     {
       "name": "messaging-teams",
       "file": "dist/packs/messaging-teams.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-teams:0.4.34",
-      "digest": "sha256:f5910ffac942599041f58d684adf11472f5a5a87d0e5c3ec8997d39c9adab6e2",
-      "built_at": "2026-02-17T07:01:12Z"
+      "ref": "ghcr.io/greenticai/packs/messaging/messaging-teams:0.4.36",
+      "digest": "sha256:11e094569928d68c3604b3717b14de71317e2878e537467ea783db6db3b2437b",
+      "built_at": "2026-03-12T14:45:34Z"
     },
     {
       "name": "messaging-telegram",
       "file": "dist/packs/messaging-telegram.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-telegram:0.4.34",
-      "digest": "sha256:132fcc67706ae24701904b3fbab2a259d2c5c97a309d068ee5d5a57240c3d483",
-      "built_at": "2026-02-17T07:01:12Z"
+      "ref": "ghcr.io/greenticai/packs/messaging/messaging-telegram:0.4.36",
+      "digest": "sha256:52cd3ab47e04deb42d01812e117e01bc5d975f3061114e3aac9f3922cb2be6a6",
+      "built_at": "2026-03-12T14:45:34Z"
     },
     {
       "name": "messaging-webchat",
       "file": "dist/packs/messaging-webchat.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-webchat:0.4.34",
-      "digest": "sha256:c7a86ed1fab039abfb801cd494f93696629cf6b1392581ab74b627133fc7fad9",
-      "built_at": "2026-02-17T07:01:12Z"
+      "ref": "ghcr.io/greenticai/packs/messaging/messaging-webchat:0.4.36",
+      "digest": "sha256:0d31d3d91a1e7365e3d456b816261f3fcfe0293af1cc7c2a419e89760b344780",
+      "built_at": "2026-03-12T14:45:34Z"
     },
     {
       "name": "messaging-webex",
       "file": "dist/packs/messaging-webex.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-webex:0.4.34",
-      "digest": "sha256:ca2981647aa3adbff23b86711aaaddc446b6cc2335738c2a9c3718b8d4cb9d18",
-      "built_at": "2026-02-17T07:01:12Z"
+      "ref": "ghcr.io/greenticai/packs/messaging/messaging-webex:0.4.36",
+      "digest": "sha256:467ab625744f8ef8f4c672675c4ce643ad86af93e5d7a39a87d87b9447ac8ee6",
+      "built_at": "2026-03-12T14:45:34Z"
     },
     {
       "name": "messaging-whatsapp",
       "file": "dist/packs/messaging-whatsapp.gtpack",
-      "ref": "ghcr.io/greentic/greentic-packs/messaging-whatsapp:0.4.34",
-      "digest": "sha256:2cf1202bb7208cdbef04ee65315070b3d2eeb0b0bc4cbf4d2f6455ea924be9b4",
-      "built_at": "2026-02-17T07:01:12Z"
+      "ref": "ghcr.io/greenticai/packs/messaging/messaging-whatsapp:0.4.36",
+      "digest": "sha256:7faeb3107b1b402d975cbd38dbeb2301cad8df0dfbc36842b1c35fb1f7b55cd3",
+      "built_at": "2026-03-12T14:45:34Z"
     }
-  ],
-  "generated_at": "2026-02-25T16:11:59+00:00",
-  "git_sha": "98b725b"
+  ]
 }

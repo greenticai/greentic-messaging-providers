@@ -11,25 +11,25 @@
     "setup_custom__collect": {
       "source": {
         "kind": "local",
-        "path": "file://../components/templates/templates.wasm"
+        "path": "file://../components/qa/qa.wasm"
       }
     },
     "setup_custom__emit_questions": {
       "source": {
         "kind": "local",
-        "path": "file://../components/questions/questions.wasm"
+        "path": "file://../components/qa/qa.wasm"
       }
     },
     "setup_custom__summary": {
       "source": {
         "kind": "local",
-        "path": "file://../components/templates/templates.wasm"
+        "path": "file://../components/qa/qa.wasm"
       }
     },
     "setup_custom__validate": {
       "source": {
         "kind": "local",
-        "path": "file://../components/questions/questions.wasm"
+        "path": "file://../components/qa/qa.wasm"
       }
     }
   }

@@ -1,6 +1,6 @@
 {
   "name": "state-redis",
-  "version": "0.4.0",
+  "version": "0.4.35",
   "kind": "capability",
   "publisher": "Greentic",
   "description": "Persistent key-value state provider backed by Redis.",
@@ -89,13 +89,6 @@
             }
           }
         ]
-      }
-    },
-    "greentic.provider-extension.v1": {
-      "kind": "greentic.provider-extension.v1",
-      "version": "0.4.0",
-      "inline": {
-        "providers": []
       }
     }
   },

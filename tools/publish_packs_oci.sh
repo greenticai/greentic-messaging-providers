@@ -211,6 +211,123 @@ out_path.write_text("\n".join(lines), encoding="utf-8")
 PY
 }
 
+ensure_flow_local_components_in_pack_yaml() {
+  local pack_dir="$1"
+  local yaml_path="${pack_dir}/pack.yaml"
+  local manifest_path="${pack_dir}/pack.manifest.json"
+  [ -f "${yaml_path}" ] || return 0
+  [ -f "${manifest_path}" ] || return 0
+  python3 - "${pack_dir}" "${yaml_path}" "${manifest_path}" <<'PY'
+import json
+import sys
+from pathlib import Path
+import yaml
+
+pack_dir = Path(sys.argv[1])
+yaml_path = Path(sys.argv[2])
+manifest_path = Path(sys.argv[3])
+
+pack = yaml.safe_load(yaml_path.read_text()) or {}
+manifest = json.loads(manifest_path.read_text())
+components = pack.get("components") or []
+if not isinstance(components, list):
+    components = []
+
+component_by_id = {
+    c.get("id"): c
+    for c in components
+    if isinstance(c, dict) and c.get("id")
+}
+
+flow_local_ids = set()
+for summary_path in sorted((pack_dir / "flows").glob("*.ygtc.resolve.summary.json")):
+    try:
+        doc = json.loads(summary_path.read_text())
+    except Exception:
+        continue
+    nodes = doc.get("nodes") or {}
+    if not isinstance(nodes, dict):
+        continue
+    for node in nodes.values():
+        if not isinstance(node, dict):
+            continue
+        comp_id = node.get("component_id")
+        source = node.get("source") or {}
+        src_path = source.get("path") if isinstance(source, dict) else ""
+        if comp_id and isinstance(src_path, str) and src_path.startswith("../components/"):
+            flow_local_ids.add(comp_id)
+
+sources = {}
+for entry in manifest.get("component_sources") or []:
+    if isinstance(entry, dict) and entry.get("id"):
+        sources[entry["id"]] = entry
+
+changed = False
+for comp_id in sorted(flow_local_ids):
+    src = sources.get(comp_id)
+    if not src:
+        continue
+    comp_entry = component_by_id.get(comp_id) or {"id": comp_id}
+    before = json.dumps(comp_entry, sort_keys=True)
+    for key in ("version", "world", "supports", "profiles", "capabilities", "manifest", "wasm", "oci"):
+        if (key not in comp_entry or comp_entry.get(key) is None) and key in src and src[key] is not None:
+            comp_entry[key] = src[key]
+    manifest_rel = comp_entry.get("manifest")
+    if isinstance(manifest_rel, str) and manifest_rel:
+        manifest_file = pack_dir / manifest_rel
+        if manifest_file.exists():
+            try:
+                comp_manifest = json.loads(manifest_file.read_text())
+            except Exception:
+                comp_manifest = {}
+            for key in ("version", "world", "supports", "profiles", "capabilities"):
+                if key not in comp_entry and key in comp_manifest:
+                    comp_entry[key] = comp_manifest[key]
+    if comp_id not in component_by_id:
+        components.append(comp_entry)
+        component_by_id[comp_id] = comp_entry
+        changed = True
+    elif json.dumps(comp_entry, sort_keys=True) != before:
+        changed = True
+
+if changed:
+    pack["components"] = components
+    yaml_path.write_text(yaml.safe_dump(pack, sort_keys=False))
+PY
+}
+
+align_component_manifest_versions() {
+  local pack_dir="$1"
+  local pack_manifest="${pack_dir}/pack.manifest.json"
+  [ -f "${pack_manifest}" ] || return 0
+
+  while IFS=$'\x1f' read -r comp_id manifest_rel comp_version; do
+    [ -n "${comp_id}" ] || continue
+    if [ -z "${manifest_rel}" ]; then
+      manifest_rel="components/${comp_id}/component.manifest.json"
+    fi
+    [ -n "${comp_version}" ] || continue
+    local manifest_path="${pack_dir}/${manifest_rel}"
+    [ -f "${manifest_path}" ] || continue
+    local tmp
+    tmp="$(mktemp)"
+    jq --arg v "${comp_version}" '.version = $v' "${manifest_path}" > "${tmp}"
+    mv "${tmp}" "${manifest_path}"
+  done < <(jq -r '(.component_sources // .components // [])[] | select(type=="object") | [(.id // ""), (.manifest // ""), (.version // "")] | join("\u001f")' "${pack_manifest}")
+}
+
+align_all_staged_component_manifest_versions() {
+  local pack_dir="$1"
+  local manifest_path
+  while IFS= read -r manifest_path; do
+    [ -n "${manifest_path}" ] || continue
+    local tmp
+    tmp="$(mktemp)"
+    jq --arg v "${PACK_VERSION}" '.version = $v' "${manifest_path}" > "${tmp}"
+    mv "${tmp}" "${manifest_path}"
+  done < <(find "${pack_dir}/components" -type f -name component.manifest.json 2>/dev/null | sort)
+}
+
 update_pack_yaml_version() {
   local pack_dir="$1"
   local yaml_path="${pack_dir}/pack.yaml"
@@ -280,6 +397,10 @@ read_components() {
 for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   [ -d "${dir}" ] || continue
   pack_name="$(basename "${dir}")"
+  if [[ "${pack_name}" != messaging-* ]]; then
+    echo "Skipping non-messaging pack ${pack_name}"
+    continue
+  fi
   if [ "${pack_name}" = "messaging-provider-bundle" ]; then
     echo "Skipping deprecated pack ${pack_name}"
     continue
@@ -289,6 +410,7 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   secrets_out="${dir}/.secret_requirements.json"
 
   generate_pack_manifest "${dir}" "${secrets_out}"
+  ensure_flow_local_components_in_pack_yaml "${dir}"
   ensure_secret_requirements_asset "${dir}" "${secrets_out}"
   ensure_pack_readme "${dir}"
   update_pack_yaml_version "${dir}"
@@ -357,6 +479,9 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     manifest_dest=""
     if [ -n "${manifest_rel}" ]; then
       manifest_src="${ROOT_DIR}/target/components/$(basename "${manifest_rel}")"
+      if [ ! -f "${manifest_src}" ]; then
+        manifest_src="${ROOT_DIR}/${manifest_rel}"
+      fi
       manifest_dest="${dir}/${manifest_rel}"
     fi
 
@@ -369,8 +494,12 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
         mkdir -p "$(dirname "${src}")"
         cp "${dir}/${wasm_path}" "${src}"
         if [ -n "${manifest_rel}" ] && [ -f "${dir}/${manifest_rel}" ]; then
-          mkdir -p "$(dirname "${manifest_src}")"
-          cp "${dir}/${manifest_rel}" "${manifest_src}"
+          # Only cache manifests into target/components. Avoid creating
+          # root-level components/<id>/ paths from pack-local relpaths.
+          if [[ "${manifest_src}" == "${ROOT_DIR}/target/components/"* ]]; then
+            mkdir -p "$(dirname "${manifest_src}")"
+            cp "${dir}/${manifest_rel}" "${manifest_src}"
+          fi
         fi
       else
         echo "Missing component artifact: ${src} (component ${comp_id})" >&2
@@ -385,6 +514,9 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     fi
   done
 
+  align_component_manifest_versions "${dir}"
+  align_all_staged_component_manifest_versions "${dir}"
+
   if [ ! -f "${dir}/pack.yaml" ]; then
     echo "Missing pack.yaml in ${dir}; greentic-pack requires pack.yaml inputs" >&2
     exit 1
@@ -395,6 +527,10 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   declare -a packc_flags=()
   if [ -n "${PACKC_BUILD_FLAGS:-}" ]; then
     IFS=' ' read -r -a packc_flags <<< "${PACKC_BUILD_FLAGS}"
+  fi
+  # Compat mode for packs that still rely on schema derivation from pack.yaml.
+  if [[ " ${packc_flags[*]-} " != *" --allow-pack-schema "* ]]; then
+    packc_flags+=("--allow-pack-schema")
   fi
   # Avoid greentic-pack mutating pack.yaml during CI runs.
   packc_flags+=("--no-update")

@@ -1,11 +1,11 @@
 {
   "name": "messaging-provider-bundle",
   "publisher": "Greentic",
-  "version": "0.4.34",
+  "version": "0.4.35",
   "kind": "application",
   "components": [
-    "templates",
-    "messaging-provider-dummy"
+    "messaging-provider-dummy",
+    "templates"
   ],
   "component_sources": [
     {
@@ -28,7 +28,7 @@
         },
         "host": {}
       },
-      "wasm": "components/templates.wasm"
+      "wasm": "components/templates/component.wasm"
     },
     {
       "id": "messaging-provider-dummy",
@@ -50,7 +50,7 @@
         },
         "host": {}
       },
-      "wasm": "components/messaging-provider-dummy.wasm"
+      "wasm": "components/messaging-provider-dummy/component.wasm"
     }
   ],
   "extensions": {

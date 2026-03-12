@@ -1,10 +1,20 @@
 {
   "id": "messaging-provider-telegram",
-  "version": "0.4.34",
-  "supports": ["messaging"],
+  "version": "0.4.36",
+  "supports": [
+    "messaging"
+  ],
   "world": "greentic:component/component-v0-v6-v0@0.6.1",
-  "profiles": {"default": "default", "supported": ["default"]},
-  "capabilities": {"wasi": {}, "host": {}},
+  "profiles": {
+    "default": "default",
+    "supported": [
+      "default"
+    ]
+  },
+  "capabilities": {
+    "wasi": {},
+    "host": {}
+  },
   "operations": [],
   "resources": {},
   "dev_flows": {}
