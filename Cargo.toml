@@ -12,6 +12,7 @@ default-members = [
 ]
 exclude = [
     "components/ai.greentic.component-templates",
+    "components/ai.greentic.component-*",
     "components/qa",
     "components/questions",
     "components/templates",
@@ -20,7 +21,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2024"
-version = "0.4.35"
+version = "0.4.36"
 license = "MIT"
 
 

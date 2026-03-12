@@ -78,6 +78,6 @@ nodes:
 x-generated-by: greentic-messaging-packgen
 x-generated-from:
   spec: specs/providers/telegram.yaml
-  spec-hash: sha256:e9c32bfd7f51e8d90608995decad2fc5f42203c16a21bc25e1cce48555eec40f
-  manifest-hash: sha256:71033557a600c1238cc6fa98e11a6d2defe9087e1117ef6bff900e8950c7d13e
-  schemas-hash: sha256:943cb8c04251ec569ed1ad807cbd1279384b87948005a470f439256973a40dd6
+  spec-hash: sha256:c22a36342eb78dbd332d560c8110782f2b760667d2dd38917cb18dd7a8819edf
+  manifest-hash: sha256:8db11d9aa53d276dc8faa748995a84ff4186c57a6967dc0bf046eec497a8708b
+  schemas-hash: sha256:96d76f8254406089f49781adbc7456611d25cc08029006e8172d9db8ba621821

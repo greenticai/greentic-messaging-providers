@@ -64,6 +64,7 @@ def aggregate_requirements(pack_dir: Path, components_dir: Path) -> List[dict]:
     manifest_fallbacks = {
         "ai.greentic.component-provision": "provision",
         "ai.greentic.component-questions": "questions",
+        "ai.greentic.component-qa": "qa",
     }
     reqs: List[dict] = []
     for component in components:
@@ -149,6 +150,49 @@ def include_capabilities_cache(
         manifest["capabilities_cache"] = cache_entries
 
 
+def collect_flow_local_components(pack_dir: Path) -> Dict[str, Dict[str, str]]:
+    entries: Dict[str, Dict[str, str]] = {}
+    flows_dir = pack_dir / "flows"
+    for resolve_file in sorted(flows_dir.glob("*.ygtc.resolve.summary.json")):
+        try:
+            doc = json.loads(resolve_file.read_text())
+        except Exception:
+            continue
+        nodes = doc.get("nodes") or {}
+        for node in nodes.values():
+            if not isinstance(node, dict):
+                continue
+            comp_id = node.get("component_id")
+            source = node.get("source") or {}
+            if not comp_id or not isinstance(source, dict):
+                continue
+            if source.get("kind") != "local":
+                continue
+            src_path = source.get("path") or ""
+            wasm_rel = ""
+            if src_path.startswith("file://../components/"):
+                wasm_rel = "components/" + src_path.removeprefix("file://../components/")
+            elif src_path.startswith("../components/"):
+                wasm_rel = "components/" + src_path.removeprefix("../components/")
+            if not wasm_rel:
+                continue
+            parts = Path(wasm_rel).parts
+            if len(parts) < 3:
+                continue
+            manifest_rel = f"components/{parts[1]}/component.manifest.json"
+            existing = entries.get(comp_id, {})
+            version = (node.get("manifest") or {}).get("version") or existing.get("version")
+            entry = {
+                "id": comp_id,
+                "wasm": wasm_rel,
+                "manifest": manifest_rel,
+            }
+            if version:
+                entry["version"] = str(version)
+            entries[comp_id] = entry
+    return entries
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Aggregate pack secret requirements.")
     parser.add_argument(
@@ -211,6 +255,7 @@ def main() -> int:
 
         component_ids = []
         component_sources = []
+        known_ids = set()
         for comp in pack_yaml.get("components", []) or []:
             if not isinstance(comp, dict):
                 continue
@@ -220,14 +265,41 @@ def main() -> int:
             comp_copy = dict(comp)
             comp_copy.setdefault("wasm", f"components/{comp_id}.wasm")
             component_sources.append(comp_copy)
+            known_ids.add(comp_id)
             # Only include components without an OCI reference in the manifest's
             # top-level components list (legacy consumers expect local manifests).
             if not comp_copy.get("oci"):
                 comp_manifest = components_dir / comp_id / "component.manifest.json"
                 if comp_manifest.exists():
                     component_ids.append(comp_id)
+
+        for flow_comp in collect_flow_local_components(pack_dir).values():
+            comp_id = flow_comp["id"]
+            if comp_id in known_ids:
+                continue
+            comp_entry = {
+                "id": comp_id,
+                "wasm": flow_comp["wasm"],
+                "manifest": flow_comp["manifest"],
+            }
+            if flow_comp.get("version"):
+                comp_entry["version"] = flow_comp["version"]
+            src_manifest = components_dir / flow_comp["manifest"].removeprefix("components/")
+            if src_manifest.exists():
+                try:
+                    src_manifest_doc = load_json(src_manifest)
+                    ver = src_manifest_doc.get("version")
+                    if ver:
+                        comp_entry["version"] = ver
+                except SystemExit:
+                    pass
+                component_ids.append(comp_id)
+            component_sources.append(comp_entry)
+            known_ids.add(comp_id)
+
         if component_ids:
-            manifest["components"] = component_ids
+            manifest["components"] = sorted(set(component_ids))
+        if component_sources:
             manifest["component_sources"] = component_sources
 
         schemas = pack_yaml.get("schemas") or []

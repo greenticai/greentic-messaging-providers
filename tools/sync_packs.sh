@@ -113,6 +113,38 @@ ensure_secret_requirements_asset() {
   fi
 }
 
+align_component_manifest_versions() {
+  local pack_dir="$1"
+  local pack_manifest="${pack_dir}/pack.manifest.json"
+  [ -f "${pack_manifest}" ] || return 0
+
+  while IFS=$'\x1f' read -r comp_id manifest_rel comp_version; do
+    [ -n "${comp_id}" ] || continue
+    if [ -z "${manifest_rel}" ]; then
+      manifest_rel="components/${comp_id}/component.manifest.json"
+    fi
+    [ -n "${comp_version}" ] || continue
+    local manifest_path="${pack_dir}/${manifest_rel}"
+    [ -f "${manifest_path}" ] || continue
+    local tmp
+    tmp="$(mktemp)"
+    jq --arg v "${comp_version}" '.version = $v' "${manifest_path}" > "${tmp}"
+    mv "${tmp}" "${manifest_path}"
+  done < <(jq -r '(.component_sources // .components // [])[] | select(type=="object") | [(.id // ""), (.manifest // ""), (.version // "")] | join("\u001f")' "${pack_manifest}")
+}
+
+align_all_staged_component_manifest_versions() {
+  local pack_dir="$1"
+  local manifest_path
+  while IFS= read -r manifest_path; do
+    [ -n "${manifest_path}" ] || continue
+    local tmp
+    tmp="$(mktemp)"
+    jq --arg v "${VERSION}" '.version = $v' "${manifest_path}" > "${tmp}"
+    mv "${tmp}" "${manifest_path}"
+  done < <(find "${pack_dir}/components" -type f -name component.manifest.json 2>/dev/null | sort)
+}
+
 fetch_oci_component() {
   local image="$1"
   local digest="$2"
@@ -227,6 +259,38 @@ fetch_locked_component() {
   cp "${tmpdir}/${artifact}" "${dest_wasm}"
 }
 
+sync_flow_local_components() {
+  local pack_dir="$1"
+  local flow_file
+
+  for flow_file in "${pack_dir}"/flows/*.ygtc.resolve.json; do
+    [ -f "${flow_file}" ] || continue
+    while IFS= read -r source_path; do
+      [ -n "${source_path}" ] || continue
+      case "${source_path}" in
+        file://../components/*)
+          local rel="${source_path#file://../components/}"
+          local dest="${pack_dir}/components/${rel}"
+          local src="${ROOT_DIR}/components/${rel}"
+          if [ ! -f "${dest}" ] && [ -f "${src}" ]; then
+            mkdir -p "$(dirname "${dest}")"
+            cp "${src}" "${dest}"
+          fi
+          local rel_dir
+          rel_dir="$(dirname "${rel}")"
+          local manifest_rel="components/${rel_dir}/component.manifest.json"
+          local manifest_src="${ROOT_DIR}/${manifest_rel}"
+          local manifest_dest="${pack_dir}/${manifest_rel}"
+          if [ ! -f "${manifest_dest}" ] && [ -f "${manifest_src}" ]; then
+            mkdir -p "$(dirname "${manifest_dest}")"
+            cp "${manifest_src}" "${manifest_dest}"
+          fi
+          ;;
+      esac
+    done < <(jq -r '.nodes[]?.source.path // empty' "${flow_file}")
+  done
+}
+
 oras_pull() {
   local ref="$1"
   local out_dir="$2"
@@ -275,6 +339,9 @@ for dir in "${PACKS_DIR}"/*; do
     if [ -n "${manifest_rel}" ]; then
       manifest_dest="${dir}/${manifest_rel}"
       manifest_src="${TARGET_COMPONENTS}/$(basename "${manifest_rel}")"
+      if [ ! -f "${manifest_src}" ]; then
+        manifest_src="${ROOT_DIR}/${manifest_rel}"
+      fi
     fi
     # Fill in default OCI metadata for template components when missing.
     if [ "${is_templates_component}" -eq 1 ] && [ -z "${oci_image}" ]; then
@@ -299,8 +366,12 @@ for dir in "${PACKS_DIR}"/*; do
         mkdir -p "$(dirname "${src}")"
         cp "${dir}/${wasm_rel}" "${src}"
         if [ -n "${manifest_rel}" ] && [ -f "${dir}/${manifest_rel}" ]; then
-          mkdir -p "$(dirname "${manifest_src}")"
-          cp "${dir}/${manifest_rel}" "${manifest_src}"
+          # Only cache manifests into target/components. Avoid writing to
+          # root-level components/<id>/ paths derived from pack-local relpaths.
+          if [[ "${manifest_src}" == "${TARGET_COMPONENTS}/"* ]]; then
+            mkdir -p "$(dirname "${manifest_src}")"
+            cp "${dir}/${manifest_rel}" "${manifest_src}"
+          fi
         fi
       else
         echo "Missing component artifact: ${src}" >&2
@@ -338,6 +409,10 @@ for dir in "${PACKS_DIR}"/*; do
       fi
     done < <(jq -r '.components[]? | [.name, .ref, .digest] | @tsv' "${lock_file}")
   fi
+
+  sync_flow_local_components "${dir}"
+  align_component_manifest_versions "${dir}"
+  align_all_staged_component_manifest_versions "${dir}"
 done
 
 echo "Pack sync complete."

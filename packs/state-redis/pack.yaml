@@ -1,5 +1,5 @@
 pack_id: state-redis
-version: 0.4.0
+version: 0.4.35
 kind: capability
 publisher: Greentic
 name: "Redis State Provider"
