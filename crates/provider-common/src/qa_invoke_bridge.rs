@@ -41,6 +41,7 @@ pub fn dispatch_qa_ops(
 
 /// Extended version of [`dispatch_qa_ops`] that also accepts `i18n_pairs`
 /// for the `i18n-bundle` operation.
+#[allow(clippy::too_many_arguments)]
 pub fn dispatch_qa_ops_with_i18n(
     op: &str,
     input_json: &[u8],

@@ -67,15 +67,15 @@ fn read_from_gtpack(gtpack: &Path, file: &str) -> Result<Vec<u8>> {
     Ok(buf)
 }
 
-fn list_flow_json_entries(gtpack: &Path) -> Result<Vec<String>> {
-    let archive = fs::File::open(gtpack)?;
-    let zip = zip::ZipArchive::new(archive)?;
-    Ok(zip
-        .file_names()
-        .filter(|name| name.starts_with("flows/") && name.ends_with("/flow.json"))
-        .map(|name| name.to_string())
-        .collect())
-}
+// fn list_flow_json_entries(gtpack: &Path) -> Result<Vec<String>> {
+//     let archive = fs::File::open(gtpack)?;
+//     let zip = zip::ZipArchive::new(archive)?;
+//     Ok(zip
+//         .file_names()
+//         .filter(|name| name.starts_with("flows/") && name.ends_with("/flow.json"))
+//         .map(|name| name.to_string())
+//         .collect())
+// }
 
 fn run_metadata_generator(workspace_root: &Path, pack_dir: &Path) {
     let status = Command::new("python3")

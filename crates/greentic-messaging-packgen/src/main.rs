@@ -296,7 +296,11 @@ fn generate(spec_path: &Path, out_dir: &Path, write_default_spec: Option<&Path>)
 
         pack_update(&out_dir)?;
         update_pack_yaml(&out_dir, &spec, None, false)?;
-        add_provider_extension(&out_dir, &spec, spec.validators.as_ref().and_then(|v| v.first()))?;
+        add_provider_extension(
+            &out_dir,
+            &spec,
+            spec.validators.as_ref().and_then(|v| v.first()),
+        )?;
         update_pack_manifest(&out_dir)?;
         verify_pack_dir(&out_dir, &spec, &flows)?;
     }
@@ -846,7 +850,8 @@ fn push_existing_dir(roots: &mut Vec<PathBuf>, candidate: PathBuf) {
 }
 
 fn parse_render_tiers_from_wit(path: &Path) -> Result<BTreeSet<String>> {
-    let contents = fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let contents =
+        fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let mut tiers = BTreeSet::new();
     let mut in_enum = false;
     for line in contents.lines() {

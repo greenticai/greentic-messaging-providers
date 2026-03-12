@@ -430,6 +430,13 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     comp_id="$(jq -r '.id' <<<"${comp_json}")"
     wasm_path="$(jq -r '.wasm' <<<"${comp_json}")"
     fname="$(basename "${wasm_path}")"
+    src_target_basename="${ROOT_DIR}/target/components/${fname}"
+    src_target_rel="${ROOT_DIR}/target/components/${wasm_path#components/}"
+    src_pack_local="${dir}/${wasm_path}"
+    uses_flat_components_path=0
+    if [ "${wasm_path}" = "components/${fname}" ]; then
+      uses_flat_components_path=1
+    fi
     is_templates_component=0
     if [ "${comp_id}" = "templates" ] || [ "${comp_id}" = "ai.greentic.component-templates" ] || [ "${fname}" = "templates.wasm" ]; then
       is_templates_component=1
@@ -437,9 +444,18 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     if [ -z "${oci_image}" ] && [ "${is_templates_component}" -eq 1 ]; then
       oci_image="${DEFAULT_TEMPLATES_IMAGE}"
     fi
-    if [ -z "${oci_image}" ] && [ ! -f "${ROOT_DIR}/target/components/${fname}" ]; then
-      missing_local=1
-      break
+    if [ -z "${oci_image}" ]; then
+      if [ "${uses_flat_components_path}" -eq 1 ]; then
+        if [ ! -f "${src_target_basename}" ] && [ ! -f "${src_target_rel}" ] && [ ! -f "${src_pack_local}" ]; then
+          missing_local=1
+          break
+        fi
+      else
+        if [ ! -f "${src_target_rel}" ] && [ ! -f "${src_pack_local}" ]; then
+          missing_local=1
+          break
+        fi
+      fi
     fi
   done
   if [ "${missing_local}" -eq 1 ]; then
@@ -485,7 +501,14 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
       manifest_dest="${dir}/${manifest_rel}"
     fi
 
-    src="${ROOT_DIR}/target/components/${fname}"
+    src_target_basename="${ROOT_DIR}/target/components/${fname}"
+    src_target_rel="${ROOT_DIR}/target/components/${wasm_path#components/}"
+    src="${src_target_basename}"
+    if [ "${wasm_path}" != "components/${fname}" ]; then
+      src="${src_target_rel}"
+    elif [ -f "${src_target_rel}" ]; then
+      src="${src_target_rel}"
+    fi
     dest="${dir}/${wasm_path}"
     if [ ! -f "${src}" ] || { [ -n "${manifest_rel}" ] && [ ! -f "${manifest_src}" ]; }; then
       if [ -n "${oci_image}" ] && [ -n "${oci_artifact}" ]; then
