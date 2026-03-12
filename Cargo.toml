@@ -7,7 +7,6 @@ default-members = [
     "crates/messaging-core",
     "crates/provider-common",
     "crates/provider-runtime-config",
-    "crates/provider-tests",
     "crates/greentic-messaging-tester",
 ]
 exclude = [
@@ -64,5 +63,5 @@ ureq = "3"
 http = "1"
 assert_cmd = "2"
 predicates = "3"
-wasmtime = { version = "41", features = ["component-model", "cache"] }
-wasmtime-wasi = "41"
+wasmtime = { version = "42", features = ["component-model", "cache"] }
+wasmtime-wasi = "42"
