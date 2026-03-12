@@ -296,12 +296,7 @@ fn generate(spec_path: &Path, out_dir: &Path, write_default_spec: Option<&Path>)
 
         pack_update(&out_dir)?;
         update_pack_yaml(&out_dir, &spec, None, false)?;
-        add_provider_extension(
-            &out_dir,
-            &spec.provider.provider_type,
-            "messaging",
-            spec.validators.as_ref().and_then(|v| v.first()),
-        )?;
+        add_provider_extension(&out_dir, &spec, spec.validators.as_ref().and_then(|v| v.first()))?;
         update_pack_manifest(&out_dir)?;
         verify_pack_dir(&out_dir, &spec, &flows)?;
     }
@@ -1184,42 +1179,139 @@ fn pack_update(out_dir: &Path) -> Result<()> {
 
 fn add_provider_extension(
     pack_dir: &Path,
-    provider_id: &str,
-    kind: &str,
+    spec: &Spec,
     validator: Option<&ValidatorSpec>,
 ) -> Result<()> {
-    let mut cmd = Command::new(greentic_pack_bin());
-    cmd.args([
-        "add-extension",
-        "provider",
-        "--pack-dir",
-        pack_dir
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("invalid pack dir"))?,
-        "--id",
-        provider_id,
-        "--kind",
-        kind,
-        "--route",
-        provider_id,
-        "--flow",
-        "setup_default",
-    ]);
+    let pack_yaml_path = pack_dir.join("pack.yaml");
+    let contents = fs::read_to_string(&pack_yaml_path)
+        .with_context(|| format!("reading {}", pack_yaml_path.display()))?;
+    let mut pack: serde_yaml::Value =
+        serde_yaml::from_str(&contents).context("parsing pack.yaml")?;
+    let root = pack
+        .as_mapping_mut()
+        .ok_or_else(|| anyhow::anyhow!("pack.yaml is not a mapping"))?;
+
+    let adapter_id = component_id(&spec.components.adapter, Some(Path::new(".")))?;
+    let adapter_export = spec
+        .components
+        .adapter
+        .export
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("components.adapter.export must be set"))?;
+    let capabilities = spec
+        .provider
+        .capabilities
+        .get("capabilities")
+        .and_then(|value| value.as_array())
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(|value| value.as_str().map(|s| s.to_string()))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_else(|| vec!["messaging".to_string()]);
+
+    let mut provider_entry = serde_yaml::Mapping::new();
+    provider_entry.insert(
+        ystr("provider_type".to_string()),
+        ystr(spec.provider.provider_type.clone()),
+    );
+    provider_entry.insert(
+        ystr("capabilities".to_string()),
+        yseq(capabilities.into_iter().map(ystr).collect()),
+    );
+    provider_entry.insert(
+        ystr("ops".to_string()),
+        yseq(
+            spec.provider
+                .ops
+                .iter()
+                .cloned()
+                .map(ystr)
+                .collect::<Vec<_>>(),
+        ),
+    );
+    provider_entry.insert(
+        ystr("config_schema_ref".to_string()),
+        ystr(config_schema_ref(spec).to_string()),
+    );
+    let mut runtime = serde_yaml::Mapping::new();
+    runtime.insert(ystr("component_ref".to_string()), ystr(adapter_id));
+    runtime.insert(ystr("export".to_string()), ystr(adapter_export));
+    runtime.insert(
+        ystr("world".to_string()),
+        ystr(spec.components.adapter.world.clone()),
+    );
+    provider_entry.insert(
+        ystr("runtime".to_string()),
+        serde_yaml::Value::Mapping(runtime),
+    );
+    if let Some(id) = &spec.provider.provider_id {
+        provider_entry.insert(ystr("id".to_string()), ystr(id.clone()));
+    }
     if let Some(validator) = validator {
-        cmd.args(["--validator-ref", &validator.component_ref]);
+        provider_entry.insert(
+            ystr("validator_ref".to_string()),
+            ystr(validator.component_ref.clone()),
+        );
     }
-    let status = cmd.status().with_context(|| {
-        format!(
-            "running greentic-pack add-extension in {}",
-            pack_dir.display()
-        )
-    })?;
-    if !status.success() {
-        return Err(anyhow::anyhow!(
-            "greentic-pack add-extension failed for {}",
-            pack_dir.display()
-        ));
+
+    let extensions = root
+        .entry(ystr("extensions".to_string()))
+        .or_insert_with(|| serde_yaml::Value::Mapping(serde_yaml::Mapping::new()));
+    let extensions = extensions
+        .as_mapping_mut()
+        .ok_or_else(|| anyhow::anyhow!("pack.yaml extensions is not a mapping"))?;
+
+    let provider_extension = extensions
+        .entry(ystr(PROVIDER_EXTENSION_ID.to_string()))
+        .or_insert_with(|| serde_yaml::Value::Mapping(serde_yaml::Mapping::new()));
+    let provider_extension = provider_extension
+        .as_mapping_mut()
+        .ok_or_else(|| anyhow::anyhow!("{} is not a mapping", PROVIDER_EXTENSION_ID))?;
+    provider_extension.insert(
+        ystr("kind".to_string()),
+        ystr(PROVIDER_EXTENSION_ID.to_string()),
+    );
+    provider_extension.insert(ystr("version".to_string()), ystr(spec.pack.version.clone()));
+
+    let inline = provider_extension
+        .entry(ystr("inline".to_string()))
+        .or_insert_with(|| serde_yaml::Value::Mapping(serde_yaml::Mapping::new()));
+    let inline = inline
+        .as_mapping_mut()
+        .ok_or_else(|| anyhow::anyhow!("{} inline must be a mapping", PROVIDER_EXTENSION_ID))?;
+    let providers = inline
+        .entry(ystr("providers".to_string()))
+        .or_insert_with(|| serde_yaml::Value::Sequence(serde_yaml::Sequence::new()));
+    let providers = providers
+        .as_sequence_mut()
+        .ok_or_else(|| anyhow::anyhow!("{} providers must be a sequence", PROVIDER_EXTENSION_ID))?;
+
+    let mut replaced = false;
+    for provider in providers.iter_mut() {
+        let Some(map) = provider.as_mapping_mut() else {
+            continue;
+        };
+        let Some(existing_type) = map
+            .get(ystr("provider_type".to_string()))
+            .and_then(|value| value.as_str())
+        else {
+            continue;
+        };
+        if provider_type_matches(existing_type, &spec.provider.provider_type) {
+            *provider = serde_yaml::Value::Mapping(provider_entry.clone());
+            replaced = true;
+            break;
+        }
     }
+    if !replaced {
+        providers.push(serde_yaml::Value::Mapping(provider_entry));
+    }
+
+    let updated = serde_yaml::to_string(&pack)?;
+    fs::write(&pack_yaml_path, updated)
+        .with_context(|| format!("writing {}", pack_yaml_path.display()))?;
     Ok(())
 }
 
@@ -1311,12 +1403,7 @@ fn generate_from_source(
         .and_then(|v| v.first())
         .cloned()
         .or_else(|| validator_from_source(&source_pack));
-    add_provider_extension(
-        out_dir,
-        &spec.provider.provider_type,
-        "messaging",
-        validator.as_ref(),
-    )?;
+    add_provider_extension(out_dir, spec, validator.as_ref())?;
 
     update_pack_yaml(out_dir, spec, Some(&source_pack_yaml), false)?;
     update_pack_manifest(out_dir)?;

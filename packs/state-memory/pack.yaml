@@ -1,5 +1,5 @@
 pack_id: state-memory
-version: 0.4.35
+version: 0.4.36
 kind: capability
 publisher: Greentic
 name: In-Memory State Provider

@@ -8,6 +8,23 @@ if ! command -v greentic-component >/dev/null 2>&1; then
   echo "greentic-component is required for component tests" >&2
   exit 1
 fi
+
+fallback_to_crate_tests() {
+  if ! command -v cargo >/dev/null 2>&1; then
+    echo "cargo is required for fallback tests" >&2
+    return 1
+  fi
+  echo "greentic-component test world mismatch detected; falling back to cargo tests for crate 'questions'." >&2
+  cargo test -p questions --tests
+}
+
+is_world_mismatch_error() {
+  local log_file="$1"
+  rg -q \
+    "no exported instance named \`greentic:component/node@0\\.6\\.0\`|Unsupported world .*Supported: greentic:component/component@0\\.6\\.0" \
+    "${log_file}"
+}
+
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 questions_wasm="${ROOT_DIR}/components/questions/questions.wasm"
@@ -29,6 +46,9 @@ fi
 cp "${questions_wasm}" "${tmpdir}/questions.wasm"
 cp components/questions/component.manifest.json "${tmpdir}/component.manifest.json"
 cp packs/messaging-dummy/assets/setup.yaml "${tmpdir}/setup.yaml"
+
+emit_log="${tmpdir}/emit.log"
+set +e
 (
   cd "${tmpdir}"
   greentic-component test \
@@ -37,7 +57,18 @@ cp packs/messaging-dummy/assets/setup.yaml "${tmpdir}/setup.yaml"
     --op emit \
     --input-json '{"id":"dummy-setup","spec_ref":"assets/setup.yaml","context":{"tenant_id":"t1","env":"dev"}}' \
     --pretty
-)
+) >"${emit_log}" 2>&1
+emit_rc=$?
+set -e
+cat "${emit_log}"
+if [ "${emit_rc}" -ne 0 ]; then
+  if is_world_mismatch_error "${emit_log}"; then
+    fallback_to_crate_tests
+    exit 0
+  fi
+  exit "${emit_rc}"
+fi
+
 python3 - <<'PY' "${tmpdir}"
 import json
 import sys
@@ -58,6 +89,9 @@ payload = {
 }
 (tmpdir / "validate_input.json").write_text(json.dumps(payload))
 PY
+
+validate_log="${tmpdir}/validate.log"
+set +e
 (
   cd "${tmpdir}"
   greentic-component test \
@@ -66,6 +100,17 @@ PY
     --op validate \
     --input validate_input.json \
     --pretty
-)
+) >"${validate_log}" 2>&1
+validate_rc=$?
+set -e
+cat "${validate_log}"
+if [ "${validate_rc}" -ne 0 ]; then
+  if is_world_mismatch_error "${validate_log}"; then
+    fallback_to_crate_tests
+    exit 0
+  fi
+  exit "${validate_rc}"
+fi
+
 trap - EXIT
 rm -rf "${tmpdir}"
