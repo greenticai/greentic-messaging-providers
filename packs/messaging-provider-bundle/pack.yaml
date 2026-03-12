@@ -1,5 +1,5 @@
 pack_id: messaging-provider-bundle
-version: 0.4.35
+version: 0.4.36
 kind: application
 publisher: Greentic
 components:

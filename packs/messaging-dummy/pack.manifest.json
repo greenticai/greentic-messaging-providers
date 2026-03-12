@@ -1,9 +1,20 @@
 {
-  "capabilities_cache": [],
+  "capabilities_cache": [
+    {
+      "component": "ai.greentic.component-templates",
+      "version": "v1",
+      "path": "components/ai.greentic.component-templates-capabilities_v1.json"
+    },
+    {
+      "component": "templates",
+      "version": "v1",
+      "path": "components/templates-capabilities_v1.json"
+    }
+  ],
   "component_sources": [
     {
       "id": "ai.greentic.component-provision",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "greentic:component/component@0.5.0",
       "supports": [
         "messaging"
@@ -25,7 +36,7 @@
     },
     {
       "id": "ai.greentic.component-qa",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "greentic:component/component@0.5.0",
       "supports": [
         "messaging"
@@ -47,7 +58,7 @@
     },
     {
       "id": "ai.greentic.component-questions",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -69,7 +80,7 @@
     },
     {
       "id": "ai.greentic.component-templates",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -91,7 +102,7 @@
     },
     {
       "id": "ai.greentic.component-templates",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -113,7 +124,7 @@
     },
     {
       "id": "diagnostics___summary",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -135,7 +146,7 @@
     },
     {
       "id": "messaging-provider-dummy",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "greentic:component/component-v0-v6-v0@0.6.1",
       "supports": [
         "messaging"
@@ -157,7 +168,7 @@
     },
     {
       "id": "messaging-provider-dummy",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -179,7 +190,7 @@
     },
     {
       "id": "provision",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -201,7 +212,7 @@
     },
     {
       "id": "questions",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -223,7 +234,7 @@
     },
     {
       "id": "requirements___summary",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -245,7 +256,7 @@
     },
     {
       "id": "setup_custom___setup_custom__apply",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -267,7 +278,7 @@
     },
     {
       "id": "setup_custom___setup_custom__collect",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -289,7 +300,7 @@
     },
     {
       "id": "setup_custom___setup_custom__emit_questions",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -311,7 +322,7 @@
     },
     {
       "id": "setup_custom___setup_custom__summary",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -333,7 +344,7 @@
     },
     {
       "id": "setup_custom___setup_custom__validate",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -355,7 +366,7 @@
     },
     {
       "id": "setup_custom___summarize",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -377,7 +388,7 @@
     },
     {
       "id": "setup_default___setup_default__apply",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -399,7 +410,7 @@
     },
     {
       "id": "setup_default___setup_default__collect",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -421,7 +432,7 @@
     },
     {
       "id": "setup_default___setup_default__emit_questions",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -443,7 +454,7 @@
     },
     {
       "id": "setup_default___setup_default__summary",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -465,7 +476,7 @@
     },
     {
       "id": "setup_default___setup_default__validate",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -487,7 +498,7 @@
     },
     {
       "id": "setup_default___summarize",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -509,7 +520,7 @@
     },
     {
       "id": "sync_subscriptions___summary",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -531,7 +542,7 @@
     },
     {
       "id": "sync_subscriptions___sync_subscriptions__summary",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -553,7 +564,7 @@
     },
     {
       "id": "templates",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -591,7 +602,7 @@
   "extensions": {
     "greentic.ext.capabilities.v1": {
       "kind": "greentic.ext.capabilities.v1",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "inline": {
         "offers": [
           {
@@ -606,7 +617,7 @@
             "setup": {
               "qa_ref": "setup.yaml"
             },
-            "version": "0.4.35"
+            "version": "0.4.36"
           }
         ],
         "schema_version": 1
@@ -614,7 +625,7 @@
     },
     "greentic.messaging.validators.v1": {
       "kind": "greentic.messaging.validators.v1",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "inline": {
         "validators": [
           {
@@ -627,7 +638,7 @@
     },
     "greentic.provider-extension.v1": {
       "kind": "greentic.provider-extension.v1",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "inline": {
         "providers": [
           {
@@ -653,7 +664,7 @@
     },
     "messaging.provider_flow_hints": {
       "kind": "messaging.provider_flow_hints",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "inline": {
         "messaging.dummy": {
           "default": "default",

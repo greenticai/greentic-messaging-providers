@@ -3,7 +3,7 @@
   "component_sources": [
     {
       "id": "messaging-provider-email",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "world": "greentic:component/component-v0-v6-v0@0.6.1",
       "supports": [
         "messaging"
@@ -28,7 +28,7 @@
     },
     {
       "id": "ai.greentic.component-provision",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "manifest": "components/provision/component.manifest.json",
       "wasm": "components/provision/provision.wasm",
       "world": "greentic:component/component@0.5.0",
@@ -64,7 +64,7 @@
     },
     {
       "id": "ai.greentic.component-qa",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "manifest": "components/qa/component.manifest.json",
       "wasm": "components/qa/qa.wasm",
       "world": "greentic:component/component@0.5.0",
@@ -117,14 +117,14 @@
   "extensions": {
     "greentic.ext.capabilities.v1": {
       "kind": "greentic.ext.capabilities.v1",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "inline": {
         "schema_version": 1,
         "offers": [
           {
             "offer_id": "messaging-email-v1",
             "cap_id": "greentic.cap.messaging.provider.v1",
-            "version": "0.4.35",
+            "version": "0.4.36",
             "provider": {
               "component_ref": "messaging-provider-email",
               "op": "messaging.configure"
@@ -140,7 +140,7 @@
     },
     "greentic.messaging.validators.v1": {
       "kind": "greentic.messaging.validators.v1",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "inline": {
         "validators": [
           {
@@ -153,7 +153,7 @@
     },
     "greentic.provider-extension.v1": {
       "kind": "greentic.provider-extension.v1",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "inline": {
         "providers": [
           {
@@ -180,7 +180,7 @@
     },
     "messaging.provider_flow_hints": {
       "kind": "messaging.provider_flow_hints",
-      "version": "0.4.35",
+      "version": "0.4.36",
       "inline": {
         "messaging.email.smtp": {
           "default": "default",
