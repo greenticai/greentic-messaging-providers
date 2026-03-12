@@ -756,13 +756,16 @@ fn validate_contract(spec: &Spec, contract: &ContractSpec, flows: &[String]) -> 
 }
 
 fn known_worlds_from_interfaces() -> Result<BTreeSet<String>> {
-    let crate_dir = find_registry_crate_dir("greentic-interfaces")?;
-    let wit_root = crate_dir.join("wit");
-    let mut packages = Vec::new();
-    collect_package_wits(&wit_root, &mut packages)?;
+    let wit_roots = discover_interface_wit_roots()?;
+    let mut wit_files = Vec::new();
+    for wit_root in wit_roots {
+        collect_wit_files(&wit_root, &mut wit_files)?;
+    }
     let mut worlds = BTreeSet::new();
-    for package_wit in packages {
-        let (package_id, world_names) = parse_package_wit(&package_wit)?;
+    for wit_file in wit_files {
+        let Some((package_id, world_names)) = parse_wit_package_and_worlds(&wit_file)? else {
+            continue;
+        };
         for world in world_names {
             let full = format!("{}/{}", package_id, world);
             worlds.insert(full);
@@ -773,8 +776,7 @@ fn known_worlds_from_interfaces() -> Result<BTreeSet<String>> {
     }
     if worlds.is_empty() {
         return Err(anyhow::anyhow!(
-            "no WIT worlds found under {}",
-            wit_root.display()
+            "no WIT worlds found in discovered WIT files"
         ));
     }
     Ok(worlds)
@@ -794,13 +796,62 @@ fn provider_schema_core_alias(package_id: &str, world: &str) -> Option<String> {
 }
 
 fn known_render_tiers_from_interfaces() -> Result<BTreeSet<String>> {
-    let crate_dir = find_registry_crate_dir("greentic-interfaces")?;
-    let world_wit = crate_dir
-        .join("wit")
-        .join("provider-common")
-        .join("world.wit");
-    let contents = fs::read_to_string(&world_wit)
-        .with_context(|| format!("reading {}", world_wit.display()))?;
+    let wit_roots = discover_interface_wit_roots()?;
+    let mut wit_files = Vec::new();
+    for wit_root in wit_roots {
+        collect_wit_files(&wit_root, &mut wit_files)?;
+    }
+    for wit_file in wit_files {
+        let tiers = parse_render_tiers_from_wit(&wit_file)?;
+        if !tiers.is_empty() {
+            return Ok(tiers);
+        }
+    }
+    Err(anyhow::anyhow!(
+        "render-tier enum not found in discovered WIT files"
+    ))
+}
+
+fn discover_interface_wit_roots() -> Result<Vec<PathBuf>> {
+    let mut roots = Vec::new();
+    if let Ok(crate_dir) = find_registry_crate_dir("greentic-interfaces") {
+        push_existing_dir(&mut roots, crate_dir.join("wit"));
+    }
+
+    if let Ok(root) = workspace_root() {
+        push_existing_dir(&mut roots, root.join("wit"));
+        push_existing_dir(&mut roots, root.join("components"));
+
+        if let Some(parent) = root.parent() {
+            push_existing_dir(&mut roots, parent.join("greentic-interfaces").join("wit"));
+            push_existing_dir(
+                &mut roots,
+                parent
+                    .join("greentic-interfaces")
+                    .join("crates")
+                    .join("greentic-interfaces")
+                    .join("wit"),
+            );
+        }
+    }
+
+    if roots.is_empty() {
+        return Err(anyhow::anyhow!(
+            "could not discover any WIT roots from cargo registry or local workspace"
+        ));
+    }
+
+    Ok(roots)
+}
+
+fn push_existing_dir(roots: &mut Vec<PathBuf>, candidate: PathBuf) {
+    if candidate.is_dir() && !roots.iter().any(|existing| existing == &candidate) {
+        roots.push(candidate);
+    }
+}
+
+fn parse_render_tiers_from_wit(path: &Path) -> Result<BTreeSet<String>> {
+    let contents = fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let mut tiers = BTreeSet::new();
     let mut in_enum = false;
     for line in contents.lines() {
@@ -818,12 +869,6 @@ fn known_render_tiers_from_interfaces() -> Result<BTreeSet<String>> {
                 tiers.insert(value.to_string());
             }
         }
-    }
-    if tiers.is_empty() {
-        return Err(anyhow::anyhow!(
-            "render-tier enum not found in {}",
-            world_wit.display()
-        ));
     }
     Ok(tiers)
 }
@@ -880,7 +925,7 @@ fn find_registry_crate_dir(crate_name: &str) -> Result<PathBuf> {
     })
 }
 
-fn collect_package_wits(dir: &Path, output: &mut Vec<PathBuf>) -> Result<()> {
+fn collect_wit_files(dir: &Path, output: &mut Vec<PathBuf>) -> Result<()> {
     if !dir.exists() {
         return Ok(());
     }
@@ -888,15 +933,15 @@ fn collect_package_wits(dir: &Path, output: &mut Vec<PathBuf>) -> Result<()> {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            collect_package_wits(&path, output)?;
-        } else if path.file_name().and_then(|f| f.to_str()) == Some("package.wit") {
+            collect_wit_files(&path, output)?;
+        } else if path.extension().and_then(|f| f.to_str()) == Some("wit") {
             output.push(path);
         }
     }
     Ok(())
 }
 
-fn parse_package_wit(path: &Path) -> Result<(String, Vec<String>)> {
+fn parse_wit_package_and_worlds(path: &Path) -> Result<Option<(String, Vec<String>)>> {
     let contents =
         fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let mut package_id = None;
@@ -923,9 +968,13 @@ fn parse_package_wit(path: &Path) -> Result<(String, Vec<String>)> {
             }
         }
     }
-    let package_id =
-        package_id.ok_or_else(|| anyhow::anyhow!("missing package id in {}", path.display()))?;
-    Ok((package_id, worlds))
+    let Some(package_id) = package_id else {
+        return Ok(None);
+    };
+    if worlds.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some((package_id, worlds)))
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
