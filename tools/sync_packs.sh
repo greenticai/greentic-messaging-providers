@@ -186,6 +186,37 @@ ensure_secret_requirements_asset() {
   fi
 }
 
+ensure_secret_requirements_asset_entry() {
+  local pack_dir="$1"
+  local yaml_path="${pack_dir}/pack.yaml"
+  [ -f "${yaml_path}" ] || return 0
+  python3 - "${yaml_path}" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+lines = path.read_text().splitlines()
+asset_line = "- path: secret-requirements.json"
+if any(line.strip() == asset_line for line in lines):
+    raise SystemExit(0)
+
+insert_at = None
+for idx, line in enumerate(lines):
+    if line.startswith("assets:"):
+        insert_at = idx + 1
+        break
+
+if insert_at is None:
+    if lines and lines[-1].strip():
+        lines.append("")
+    lines.extend(["assets:", asset_line])
+else:
+    lines.insert(insert_at, asset_line)
+
+path.write_text("\n".join(lines) + "\n")
+PY
+}
+
 fetch_oci_component() {
   local image="$1"
   local digest="$2"
@@ -332,6 +363,7 @@ for dir in "${PACKS_DIR}"/*; do
     --secrets-out "${dir}/.secret_requirements.json" \
     --include-capabilities-cache
   ensure_secret_requirements_asset "${dir}" "${dir}/.secret_requirements.json"
+  ensure_secret_requirements_asset_entry "${dir}"
 
   mkdir -p "${dir}/components"
   rm -f "${dir}/components/component.manifest.json"

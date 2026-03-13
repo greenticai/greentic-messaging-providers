@@ -140,6 +140,7 @@ flows:
   entrypoints:
   - verify_webhooks
 assets:
+- path: secret-requirements.json
 - path: setup.yaml
 - path: schemas/messaging/whatsapp/public.config.schema.json
 - path: fixtures/requirements.expected.json

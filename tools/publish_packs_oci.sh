@@ -158,7 +158,7 @@ ensure_secret_requirements_asset() {
   fi
 }
 
-strip_secret_requirements_asset_entry() {
+ensure_secret_requirements_asset_entry() {
   local pack_dir="$1"
   local yaml_path="${pack_dir}/pack.yaml"
   [ -f "${yaml_path}" ] || return 0
@@ -168,9 +168,24 @@ import sys
 
 path = Path(sys.argv[1])
 lines = path.read_text().splitlines()
-filtered = [line for line in lines if line.strip() != "- path: secret-requirements.json"]
-if filtered != lines:
-    path.write_text("\n".join(filtered) + "\n")
+asset_line = "- path: secret-requirements.json"
+if any(line.strip() == asset_line for line in lines):
+    raise SystemExit(0)
+
+insert_at = None
+for idx, line in enumerate(lines):
+    if line.startswith("assets:"):
+        insert_at = idx + 1
+        break
+
+if insert_at is None:
+    if lines and lines[-1].strip():
+        lines.append("")
+    lines.extend(["assets:", asset_line])
+else:
+    lines.insert(insert_at, asset_line)
+
+path.write_text("\n".join(lines) + "\n")
 PY
 }
 
@@ -337,9 +352,9 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
 
   generate_pack_manifest "${dir}" "${secrets_out}"
   ensure_secret_requirements_asset "${dir}" "${secrets_out}"
+  ensure_secret_requirements_asset_entry "${dir}"
   ensure_pack_readme "${dir}"
   update_pack_yaml_version "${dir}"
-  strip_secret_requirements_asset_entry "${dir}"
   (cd "${dir}" && "${PACKC_BIN}" config)
   (cd "${dir}" && "${PACKC_BIN}" resolve)
 
