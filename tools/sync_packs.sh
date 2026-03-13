@@ -19,6 +19,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKS_DIR="${PACKS_DIR:-${ROOT_DIR}/packs}"
 TARGET_COMPONENTS="${ROOT_DIR}/target/components"
 VERSION="${PACK_VERSION:-}"
+PACK_FILTER="${PACK_FILTER:-}"
 
 if [ -f "${ROOT_DIR}/.env" ]; then
   set -a
@@ -39,6 +40,21 @@ fi
 
 echo "Using version: ${VERSION}"
 
+pack_selected() {
+  local pack_name="$1"
+  if [ -z "${PACK_FILTER}" ]; then
+    return 0
+  fi
+  python3 - <<'PY' "${PACK_FILTER}" "${pack_name}"
+import sys
+
+raw = sys.argv[1]
+name = sys.argv[2]
+items = [part.strip() for chunk in raw.split(",") for part in chunk.split() if part.strip()]
+raise SystemExit(0 if name in items else 1)
+PY
+}
+
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 command -v python3 >/dev/null 2>&1 || { echo "python3 is required" >&2; exit 1; }
 command -v oras >/dev/null 2>&1 || { echo "oras is required for fetching OCI components" >&2; exit 1; }
@@ -54,6 +70,7 @@ DEFAULT_TEMPLATES_IMAGE="${TEMPLATES_IMAGE:-${TEMPLATES_REGISTRY}/${TEMPLATES_NA
 DEFAULT_TEMPLATES_DIGEST=""
 DEFAULT_TEMPLATES_ARTIFACT="component_templates.wasm"
 DEFAULT_TEMPLATES_MANIFEST="component.publish.manifest.json"
+ALLOW_REMOTE_COMPONENT_FETCH="${ALLOW_REMOTE_COMPONENT_FETCH:-1}"
 echo "Using templates image: ${DEFAULT_TEMPLATES_IMAGE}"
 
 if [ ! -d "${TARGET_COMPONENTS}" ]; then
@@ -227,6 +244,11 @@ fetch_oci_component() {
   local manifest_name="$5"
   local dest_manifest="$6"
 
+  if [ "${ALLOW_REMOTE_COMPONENT_FETCH}" != "1" ]; then
+    echo "Remote component fetch disabled (ALLOW_REMOTE_COMPONENT_FETCH=${ALLOW_REMOTE_COMPONENT_FETCH}) for ${image}" >&2
+    exit 1
+  fi
+
   local ref="${image}"
   if [ -n "${digest}" ]; then
     ref="${image}@${digest}"
@@ -303,6 +325,11 @@ fetch_locked_component() {
     return
   fi
 
+  if [ "${ALLOW_REMOTE_COMPONENT_FETCH}" != "1" ]; then
+    echo "Remote locked component fetch disabled (ALLOW_REMOTE_COMPONENT_FETCH=${ALLOW_REMOTE_COMPONENT_FETCH}) for ${ref}" >&2
+    exit 1
+  fi
+
   local ref_clean="${ref#oci://}"
   local cache_key="${digest:-${ref_clean}}"
   local tmpdir=""
@@ -350,12 +377,17 @@ oras_pull() {
 
 for dir in "${PACKS_DIR}"/*; do
   [ -d "${dir}" ] || continue
+  pack_name="$(basename "${dir}")"
+  if ! pack_selected "${pack_name}"; then
+    echo "Skipping filtered-out pack ${pack_name}"
+    continue
+  fi
   if [ ! -f "${dir}/pack.manifest.json" ]; then
     echo "Skipping ${dir}: no pack.manifest.json"
     continue
   fi
 
-  echo "Syncing $(basename "${dir}")..."
+  echo "Syncing ${pack_name}..."
   update_pack_yaml_version "${dir}/pack.yaml"
   ensure_helper_components_in_pack_yaml "${dir}/pack.yaml"
   python3 "${ROOT_DIR}/tools/generate_pack_metadata.py" \

@@ -25,4 +25,6 @@ if ! command -v greentic-flow >/dev/null 2>&1; then
   echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH:-/dev/null}" || true
 fi
 
+"${ROOT_DIR}/ci/lib/stage_local_components.sh"
+
 ./ci/gen_flows.sh

@@ -44,6 +44,22 @@ case "${run_publish_packs}" in
   1|true|TRUE|yes|YES) run_publish_packs=1 ;;
   *) run_publish_packs=0 ;;
 esac
+PACK_FILTER="${PACK_FILTER:-}"
+
+pack_selected() {
+  local pack_name="$1"
+  if [ -z "${PACK_FILTER}" ]; then
+    return 0
+  fi
+  python3 - <<'PY' "${PACK_FILTER}" "${pack_name}"
+import sys
+
+raw = sys.argv[1]
+name = sys.argv[2]
+items = [part.strip() for chunk in raw.split(",") for part in chunk.split() if part.strip()]
+raise SystemExit(0 if name in items else 1)
+PY
+}
 
 pack_doctor_supports_validate() {
   local output
@@ -134,6 +150,10 @@ if [ "${run_publish_packs}" -eq 1 ]; then
   DRY_RUN=1 PACK_VERSION="${PACK_VERSION}" PACKC_BUILD_FLAGS="${PACKC_BUILD_FLAGS:-}" ./tools/build_packs_only.sh
   if compgen -G "dist/packs/messaging-*.gtpack" >/dev/null; then
     for p in dist/packs/messaging-*.gtpack; do
+      pack_name="$(basename "${p}" .gtpack)"
+      if ! pack_selected "${pack_name}"; then
+        continue
+      fi
       if [ -f "${validator_wasm}" ]; then
         run_pack_doctor "$p" "${validator_wasm}"
       else

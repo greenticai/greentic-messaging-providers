@@ -1797,9 +1797,9 @@ checksum = "44951881c763069e14624cf8cf1dddff706ad4d8132570dc299af0b855cf4458"
 
 [[package]]
 name = "greentic-i18n-translator"
-version = "0.4.7"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ce272e02d54c11eb2eb8ccd13638d17584f7d4f664a0009288594f5356d8989"
+checksum = "97624c97fceeaaed4d78fe556721d13bd18ca0350b49119cea9eb638dbc7553f"
 dependencies = [
  "blake3",
  "clap",
@@ -1868,7 +1868,7 @@ dependencies = [
 
 [[package]]
 name = "greentic-messaging-cardkit"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "anyhow",
  "clap",
@@ -1878,7 +1878,7 @@ dependencies = [
 
 [[package]]
 name = "greentic-messaging-packgen"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "anyhow",
  "clap",
@@ -1905,7 +1905,7 @@ dependencies = [
 
 [[package]]
 name = "greentic-messaging-renderer"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "greentic-types",
  "serde",
@@ -1915,7 +1915,7 @@ dependencies = [
 
 [[package]]
 name = "greentic-messaging-tester"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -1944,9 +1944,9 @@ dependencies = [
 
 [[package]]
 name = "greentic-pack-lib"
-version = "0.4.110"
+version = "0.4.112"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "475dc27009a8fb4df4a62a13533e158f870c82e0a7f4292243ebe48796e5ba1d"
+checksum = "919fe0c7e503709516770172b0de8d26e20cf444a0dd6240f79bc9c5209a21c1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -3082,7 +3082,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-cardkit-bin"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "anyhow",
  "axum",
@@ -3095,14 +3095,14 @@ dependencies = [
 
 [[package]]
 name = "messaging-core"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "messaging-ingress-slack"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "hmac",
  "serde",
@@ -3113,7 +3113,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-teams"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "serde",
  "serde_json",
@@ -3123,7 +3123,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-telegram"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "serde",
  "serde_json",
@@ -3132,7 +3132,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-whatsapp"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "serde",
  "serde_json",
@@ -3141,7 +3141,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-dummy"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "base64 0.22.1",
  "greentic-types",
@@ -3154,7 +3154,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-email"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3169,7 +3169,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-slack"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "base64 0.22.1",
  "greentic-types",
@@ -3181,7 +3181,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-teams"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3195,7 +3195,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-telegram"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "base64 0.22.1",
  "greentic-types",
@@ -3207,7 +3207,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webchat"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3225,7 +3225,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webchat-gui"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3243,7 +3243,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webex"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "base64 0.22.1",
  "greentic-types",
@@ -3255,7 +3255,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-whatsapp"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "base64 0.22.1",
  "greentic-types",
@@ -3867,7 +3867,7 @@ dependencies = [
 
 [[package]]
 name = "provider-common"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -3889,7 +3889,7 @@ dependencies = [
 
 [[package]]
 name = "provider-runtime-config"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "serde",
  "serde_json",
@@ -3897,7 +3897,7 @@ dependencies = [
 
 [[package]]
 name = "provider-tests"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -3915,7 +3915,7 @@ dependencies = [
 
 [[package]]
 name = "provision"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "greentic-interfaces",
  "greentic-interfaces-guest",
@@ -3964,7 +3964,7 @@ dependencies = [
 
 [[package]]
 name = "questions"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "anyhow",
  "greentic-interfaces",
@@ -3979,7 +3979,7 @@ dependencies = [
 
 [[package]]
 name = "questions-cli"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "anyhow",
  "rpassword",
@@ -4699,7 +4699,7 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "secrets-probe"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "wit-bindgen 0.53.1",
 ]
@@ -4996,7 +4996,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slack"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "hmac",
  "provider-common",
@@ -5044,7 +5044,7 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
 name = "state-provider-memory"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "base64 0.22.1",
  "greentic-types",
@@ -5057,7 +5057,7 @@ dependencies = [
 
 [[package]]
 name = "state-provider-redis"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "base64 0.22.1",
  "greentic-types",
@@ -5144,7 +5144,7 @@ checksum = "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
 
 [[package]]
 name = "teams"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -5157,7 +5157,7 @@ dependencies = [
 
 [[package]]
 name = "telegram"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "htmlescape",
  "provider-common",
@@ -5169,7 +5169,7 @@ dependencies = [
 
 [[package]]
 name = "telegram-webhook"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "greentic-interfaces",
  "greentic-interfaces-guest",
@@ -5593,9 +5593,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-subscriber"
-version = "0.3.22"
+version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f30143827ddab0d256fd843b7a66d164e9f271cfa0dde49142c5ca0ca291f1e"
+checksum = "cb7f578e5945fb242538965c2d0b04418d38ec25c79d160cd279bf0731c8d319"
 dependencies = [
  "matchers",
  "nu-ansi-term",
@@ -6392,7 +6392,7 @@ dependencies = [
 
 [[package]]
 name = "webchat"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -6403,7 +6403,7 @@ dependencies = [
 
 [[package]]
 name = "webchat-directline-core"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -6419,7 +6419,7 @@ dependencies = [
 
 [[package]]
 name = "webex"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "provider-common",
  "provider-runtime-config",
@@ -6430,7 +6430,7 @@ dependencies = [
 
 [[package]]
 name = "webex-webhook"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "greentic-interfaces",
  "greentic-interfaces-guest",
@@ -6459,7 +6459,7 @@ dependencies = [
 
 [[package]]
 name = "whatsapp"
-version = "0.4.37"
+version = "0.4.38"
 dependencies = [
  "provider-common",
  "provider-runtime-config",

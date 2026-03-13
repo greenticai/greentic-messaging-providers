@@ -229,22 +229,12 @@ jobs:
           path: target/components
           merge-multiple: true
 
-      - name: Stage provision/questions wasm for packgen
-        run: |
-          mkdir -p components/provision components/questions
-          if [ -f target/components/provision.wasm ]; then
-            cp target/components/provision.wasm components/provision/provision.wasm
-          fi
-          if [ -f target/components/questions.wasm ]; then
-            cp target/components/questions.wasm components/questions/questions.wasm
-          fi
-
       - name: Step 06 - Generate flows
         run: ./ci/steps/06_gen_flows.sh
 
   sync-packs:
     runs-on: ubuntu-latest
-    needs: [build-components, ensure-templates, gen-flows]
+    needs: validate-pack-inputs
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -284,6 +274,86 @@ jobs:
 
       - name: Step 07 - Sync packs
         run: ./ci/steps/07_sync_packs.sh
+
+  validate-pack-inputs:
+    runs-on: ubuntu-latest
+    needs: [build-components, ensure-templates, gen-flows]
+    strategy:
+      fail-fast: false
+      matrix:
+        pack:
+          - messaging-dummy
+          - messaging-email
+          - messaging-slack
+          - messaging-teams
+          - messaging-telegram
+          - messaging-webchat
+          - messaging-webchat-gui
+          - messaging-webex
+          - messaging-whatsapp
+          - state-memory
+          - state-redis
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: build-test-publish
+
+      - name: Cache cargo bin tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+          key: cargo-bin-tools-${{ runner.os }}-v1
+
+      - name: Install cargo-binstall
+        run: |
+          if ! command -v cargo-binstall >/dev/null 2>&1; then
+            cargo install cargo-binstall --locked
+          fi
+
+      - name: Install greentic-pack
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+        run: |
+          cargo binstall greentic-pack --version 0.4.111 --force --no-confirm --locked || cargo install greentic-pack --version 0.4.111 --force --locked
+          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+          greentic-pack --version
+
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+
+      - name: Download component artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: components-wasm-*
+          path: target/components
+          merge-multiple: true
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Step 07a - Validate pack inputs early
+        env:
+          PACK_FILTER: ${{ matrix.pack }}
+        run: ./ci/steps/07a_validate_pack_inputs.sh
+
+      - name: Upload early pack validation artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: early-pack-validation-report-${{ matrix.pack }}
+          path: |
+            dist/packs/*.gtpack
+            dist/pack_validation_report.json
+            dist/pack_validation.log
+            packs.lock.json
+          if-no-files-found: ignore
 
   flow-doctor:
     runs-on: ubuntu-latest
@@ -369,6 +439,21 @@ jobs:
   build-packs:
     runs-on: ubuntu-latest
     needs: [sync-packs, flow-doctor, component-doctor, questions-component-test]
+    strategy:
+      fail-fast: false
+      matrix:
+        pack:
+          - messaging-dummy
+          - messaging-email
+          - messaging-slack
+          - messaging-teams
+          - messaging-telegram
+          - messaging-webchat
+          - messaging-webchat-gui
+          - messaging-webex
+          - messaging-whatsapp
+          - state-memory
+          - state-redis
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -419,24 +504,26 @@ jobs:
           merge-multiple: true
 
       - name: Step 11 - Build packs
+        env:
+          PACK_FILTER: ${{ matrix.pack }}
         run: ./ci/steps/11_build_packs.sh
 
       - name: Upload packs + fixtures report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: packs-and-fixtures
+          name: packs-and-fixtures-${{ matrix.pack }}
           path: |
             dist/packs/*.gtpack
             dist/fixtures_report.json
           if-no-files-found: error
 
-      - name: Upload packs lockfile (dry-run)
+      - name: Upload built pack artifact (dry-run)
         uses: actions/upload-artifact@v4
         with:
-          name: packs-lockfile-dryrun
-          path: packs.lock.json
-          if-no-files-found: error
+          name: gtpack-dryrun-${{ matrix.pack }}
+          path: dist/packs/${{ matrix.pack }}.gtpack
+          if-no-files-found: ignore
 
   cargo-test:
     runs-on: ubuntu-latest
@@ -581,10 +668,34 @@ jobs:
           path: components.lock.json
           if-no-files-found: error
 
+      - name: Resolve templates OCI digest from components lockfile
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          lock = json.loads(Path("components.lock.json").read_text())
+          templates = next(
+              (entry for entry in lock.get("components", []) if entry.get("name") == "templates"),
+              None,
+          )
+          if not templates:
+              raise SystemExit("templates entry not found in components.lock.json")
+
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
+              handle.write(f"TEMPLATES_IMAGE={templates['reference']}\n")
+              handle.write(f"TEMPLATES_DIGEST={templates['digest']}\n")
+
+          print(f"Using templates reference: {templates['reference']}@{templates['digest']}")
+          PY
+
       - name: Publish packs
         env:
           PACK_VERSION: ${{ env.PUBLISH_VERSION }}
           PUBLISH_LATEST: "1"
+          TEMPLATES_IMAGE: ${{ env.TEMPLATES_IMAGE }}
+          TEMPLATES_DIGEST: ${{ env.TEMPLATES_DIGEST }}
         run: ./tools/publish_packs_oci.sh
 
       - name: Upload built packs

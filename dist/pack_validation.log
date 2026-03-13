@@ -1,0 +1,6 @@
+staged /projects/ai/greentic-ng/greentic-messaging-providers/target/components/provision.wasm -> /projects/ai/greentic-ng/greentic-messaging-providers/components/provision/provision.wasm
+staged /projects/ai/greentic-ng/greentic-messaging-providers/target/components/questions.wasm -> /projects/ai/greentic-ng/greentic-messaging-providers/components/questions/questions.wasm
+Using version: 0.4.37
+Using templates image: ghcr.io/greenticai/components/templates:latest
+Syncing messaging-dummy...
+Remote component fetch disabled (ALLOW_REMOTE_COMPONENT_FETCH=0) for ghcr.io/greenticai/components/templates:latest
