@@ -50,6 +50,14 @@ pub enum InvokeStrategy {
 
 pub type SharedStateStore = Arc<Mutex<HashMap<String, Vec<u8>>>>;
 
+pub(crate) struct InvokeOptions<'a> {
+    pub(crate) secrets: &'a HashMap<String, Vec<u8>>,
+    pub(crate) http_mode: HttpMode,
+    pub(crate) history: HttpHistory,
+    pub(crate) mock_responses: Option<HttpResponseQueue>,
+    pub(crate) shared_state_store: Option<SharedStateStore>,
+}
+
 pub struct WasmHarness {
     engine: Engine,
     component: Component,
@@ -102,38 +110,28 @@ impl WasmHarness {
         history: HttpHistory,
         mock_responses: Option<HttpResponseQueue>,
     ) -> Result<Vec<u8>> {
-        self.invoke_with_shared_state(op, input, secrets, http_mode, history, mock_responses, None)
+        self.invoke_with_shared_state(
+            op,
+            input,
+            InvokeOptions {
+                secrets,
+                http_mode,
+                history,
+                mock_responses,
+                shared_state_store: None,
+            },
+        )
     }
 
     pub fn invoke_with_shared_state(
         &self,
         op: &str,
         input: Vec<u8>,
-        secrets: &HashMap<String, Vec<u8>>,
-        http_mode: HttpMode,
-        history: HttpHistory,
-        mock_responses: Option<HttpResponseQueue>,
-        shared_state_store: Option<SharedStateStore>,
+        options: InvokeOptions<'_>,
     ) -> Result<Vec<u8>> {
         match self.invoke_strategy {
-            InvokeStrategy::Node => self.invoke_node_world(
-                op,
-                input,
-                secrets,
-                http_mode,
-                history,
-                mock_responses.clone(),
-                shared_state_store.clone(),
-            ),
-            InvokeStrategy::SchemaCore => self.invoke_schema_core(
-                op,
-                input,
-                secrets,
-                http_mode,
-                history,
-                mock_responses,
-                shared_state_store,
-            ),
+            InvokeStrategy::Node => self.invoke_node_world(op, input, &options),
+            InvokeStrategy::SchemaCore => self.invoke_schema_core(op, input, options),
         }
     }
 
@@ -142,23 +140,14 @@ impl WasmHarness {
         self.invoke_strategy
     }
 
-    fn invoke_node_world(
-        &self,
-        op: &str,
-        input: Vec<u8>,
-        secrets: &HashMap<String, Vec<u8>>,
-        http_mode: HttpMode,
-        history: HttpHistory,
-        mock_responses: Option<HttpResponseQueue>,
-        shared_state_store: Option<SharedStateStore>,
-    ) -> Result<Vec<u8>> {
+    fn invoke_node_world(&self, op: &str, input: Vec<u8>, options: &InvokeOptions<'_>) -> Result<Vec<u8>> {
         let input_str = String::from_utf8(input).map_err(|err| anyhow!(err))?;
         let state = TesterHostState::new_with_shared_state(
-            secrets.clone(),
-            http_mode,
-            history,
-            mock_responses,
-            shared_state_store,
+            options.secrets.clone(),
+            options.http_mode,
+            options.history.clone(),
+            options.mock_responses.clone(),
+            options.shared_state_store.clone(),
         );
         execute_with_state(&self.engine, &self.component, state, |store, instance| {
             let node_world = node_world_version(&mut *store, instance)
@@ -201,22 +190,13 @@ impl WasmHarness {
         })
     }
 
-    fn invoke_schema_core(
-        &self,
-        op: &str,
-        input: Vec<u8>,
-        secrets: &HashMap<String, Vec<u8>>,
-        http_mode: HttpMode,
-        history: HttpHistory,
-        mock_responses: Option<HttpResponseQueue>,
-        shared_state_store: Option<SharedStateStore>,
-    ) -> Result<Vec<u8>> {
+    fn invoke_schema_core(&self, op: &str, input: Vec<u8>, options: InvokeOptions<'_>) -> Result<Vec<u8>> {
         let state = TesterHostState::new_with_shared_state(
-            secrets.clone(),
-            http_mode,
-            history,
-            mock_responses,
-            shared_state_store,
+            options.secrets.clone(),
+            options.http_mode,
+            options.history,
+            options.mock_responses,
+            options.shared_state_store,
         );
         execute_with_state(&self.engine, &self.component, state, |store, instance| {
             let input_cbor = match serde_json::from_slice::<serde_json::Value>(&input) {

@@ -44,7 +44,7 @@ use crate::http_mock::{HttpHistory, HttpMode, new_history};
 use crate::requirements::ValidationReport;
 use crate::values::Values;
 use crate::wasm_harness::{
-    ComponentHarness, SharedStateStore, WasmHarness, find_component_wasm_path,
+    ComponentHarness, InvokeOptions, SharedStateStore, WasmHarness, find_component_wasm_path,
 };
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -736,7 +736,7 @@ fn serve_webchat_asset(state: &WebchatState, tenant: &str, asset_path: &str) -> 
                 .insert(header::CONTENT_TYPE, HeaderValue::from_static(mime));
             response.headers_mut().insert(
                 "x-greentic-tenant",
-                HeaderValue::from_str(&tenant)
+                HeaderValue::from_str(tenant)
                     .unwrap_or_else(|_| HeaderValue::from_static("default")),
             );
             response
@@ -878,11 +878,13 @@ fn invoke_webchat_ingest(state: &WebchatState, http_in: &HttpInV1) -> Result<Htt
         .invoke_with_shared_state(
             "ingest_http",
             http_bytes,
-            state.secrets.as_ref(),
-            state.http_mode,
-            history,
-            None,
-            Some(state.shared_state_store.clone()),
+            InvokeOptions {
+                secrets: state.secrets.as_ref(),
+                http_mode: state.http_mode,
+                history,
+                mock_responses: None,
+                shared_state_store: Some(state.shared_state_store.clone()),
+            },
         )
         .map_err(map_invoke_error)?;
     serde_json::from_slice(&out_bytes).map_err(|err| CliError::ProviderOp(err.into()))
@@ -1018,11 +1020,13 @@ fn invoke_send_pipeline(
         .invoke_with_shared_state(
             "send_payload",
             send_input,
-            &secrets,
-            http_mode,
-            history,
-            None,
-            Some(shared_state_store),
+            InvokeOptions {
+                secrets: &secrets,
+                http_mode,
+                history,
+                mock_responses: None,
+                shared_state_store: Some(shared_state_store),
+            },
         )
         .map_err(map_invoke_error)?;
     let send_result: SendPayloadResultV1 =
