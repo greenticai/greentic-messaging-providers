@@ -71,6 +71,24 @@ components:
   wasm: components/qa/qa.wasm
 dependencies: []
 flows:
+- id: default
+  file: flows/default.ygtc
+  tags:
+  - default
+  entrypoints:
+  - default
+- id: diagnostics
+  file: flows/diagnostics.ygtc
+  tags:
+  - default
+  entrypoints:
+  - diagnostics
+- id: remove
+  file: flows/remove.ygtc
+  tags:
+  - default
+  entrypoints:
+  - remove
 - id: requirements
   file: flows/requirements.ygtc
   tags:
@@ -83,6 +101,18 @@ flows:
   - default
   entrypoints:
   - setup
+- id: sync_subscriptions
+  file: flows/sync_subscriptions.ygtc
+  tags:
+  - default
+  entrypoints:
+  - subscriptions
+- id: update
+  file: flows/update.ygtc
+  tags:
+  - default
+  entrypoints:
+  - update
 assets:
 - path: setup.yaml
 - path: schemas/messaging/dummy/public.config.schema.json

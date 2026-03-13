@@ -257,6 +257,36 @@
   },
   "flows": [
     {
+      "id": "default",
+      "file": "flows/default.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "default"
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "file": "flows/diagnostics.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "remove",
+      "file": "flows/remove.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "remove"
+      ]
+    },
+    {
       "id": "setup_default",
       "file": "flows/setup_default.ygtc",
       "tags": [
@@ -274,6 +304,46 @@
       ],
       "entrypoints": [
         "requirements"
+      ]
+    },
+    {
+      "id": "rotate_credentials",
+      "file": "flows/rotate_credentials.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "rotate_credentials"
+      ]
+    },
+    {
+      "id": "sync_subscriptions",
+      "file": "flows/sync_subscriptions.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "subscriptions"
+      ]
+    },
+    {
+      "id": "update",
+      "file": "flows/update.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "update"
+      ]
+    },
+    {
+      "id": "verify_webhooks",
+      "file": "flows/verify_webhooks.ygtc",
+      "tags": [
+        "default"
+      ],
+      "entrypoints": [
+        "verify_webhooks"
       ]
     }
   ],
