@@ -92,6 +92,15 @@ if current < required:
     sys.exit(1)
 PY
 
+# Generated flow helper components are still in the migration window where
+# some metadata is sourced from pack.yaml instead of sibling manifests.
+# Keep the pack build on the compatible path until those components are
+# fully materialized with component.manifest.json files.
+case " ${PACKC_BUILD_FLAGS} " in
+  *" --allow-pack-schema "*) ;;
+  *) PACKC_BUILD_FLAGS="--allow-pack-schema ${PACKC_BUILD_FLAGS}" ;;
+esac
+
 if [ ! -d "${ROOT_DIR}/${PACKS_DIR}" ]; then
   echo "Packs directory ${PACKS_DIR} not found" >&2
   exit 1
@@ -125,13 +134,25 @@ run_pack_doctor_json_tolerant() {
   local doctor_rc=0
   local filtered_content
   local has_errors
+  local filter_rc=0
   raw_json="$(mktemp)"
   filtered_json="$(mktemp)"
   raw_stderr="$(mktemp)"
   if ! "${PACKC_BIN}" doctor --json "$@" >"${raw_json}" 2>"${raw_stderr}"; then
     doctor_rc=$?
   fi
-  python3 "${ROOT_DIR}/tools/filter_pack_doctor_json.py" "${raw_json}" >"${filtered_json}"
+  if ! python3 "${ROOT_DIR}/tools/filter_pack_doctor_json.py" "${raw_json}" >"${filtered_json}"; then
+    filter_rc=$?
+  fi
+  if [ "${filter_rc}" -ne 0 ]; then
+    echo "greentic-pack doctor did not return valid JSON for ${pack_path:-pack}" >&2
+    cat "${raw_stderr}" >&2
+    rm -f "${raw_json}" "${filtered_json}" "${raw_stderr}"
+    if [ "${doctor_rc}" -ne 0 ]; then
+      return "${doctor_rc}"
+    fi
+    return "${filter_rc}"
+  fi
   local raw_errors
   local filtered_errors
   raw_errors="$(jq '(.validation.diagnostics // []) | map(select(.severity == "error")) | length' "${raw_json}")"
@@ -151,6 +172,33 @@ run_pack_doctor_json_tolerant() {
     return 1
   fi
   rm -f "${raw_json}" "${filtered_json}" "${raw_stderr}"
+  return 0
+}
+
+doctor_supports_validator_pack() {
+  local output
+  output="$("${PACKC_BIN}" doctor --validator-pack oci://example.invalid/validator:latest --pack /nonexistent 2>&1 || true)"
+  if printf '%s' "${output}" | grep -Fq "unexpected argument '--validator-pack'"; then
+    return 1
+  fi
+  return 0
+}
+
+doctor_supports_validator_wasm() {
+  local output
+  output="$("${PACKC_BIN}" doctor --validator-wasm greentic.validators.messaging=/nonexistent --pack /nonexistent 2>&1 || true)"
+  if printf '%s' "${output}" | grep -Fq "unexpected argument '--validator-wasm'"; then
+    return 1
+  fi
+  return 0
+}
+
+doctor_supports_validate() {
+  local output
+  output="$("${PACKC_BIN}" doctor --validate --pack /nonexistent 2>&1 || true)"
+  if printf '%s' "${output}" | grep -Fq "unexpected argument '--validate'"; then
+    return 1
+  fi
   return 0
 }
 
@@ -184,6 +232,8 @@ insert_at = None
 for idx, line in enumerate(lines):
     if line.startswith("assets:"):
         insert_at = idx + 1
+        if line.strip() == "assets: []":
+            lines[idx] = "assets:"
         break
 
 if insert_at is None:
@@ -460,8 +510,10 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     exit 1
   fi
 
-  local_out_dir="${dir}/build"
+  local_out_dir="${ROOT_DIR}/.tmp/packs"
   mkdir -p "${local_out_dir}"
+  tmp_pack_out="${local_out_dir}/${pack_name}.gtpack"
+  rm -f "${tmp_pack_out}"
   declare -a packc_flags=()
   if [ -n "${PACKC_BUILD_FLAGS:-}" ]; then
     IFS=' ' read -r -a packc_flags <<< "${PACKC_BUILD_FLAGS}"
@@ -470,14 +522,14 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   packc_flags+=("--no-update")
   (cd "${dir}" && "${PACKC_BIN}" build "${packc_flags[@]}" \
     --in "." \
-    --gtpack-out "build/${pack_name}.gtpack" \
+    --gtpack-out "${tmp_pack_out}" \
     --secrets-req ".secret_requirements.json")
-  mv "${local_out_dir}/${pack_name}.gtpack" "${pack_out}"
+  mv "${tmp_pack_out}" "${pack_out}"
 
   python3 "${ROOT_DIR}/tools/validate_pack_extensions.py" "${pack_out}"
 
   doctor_json="$(run_pack_doctor_json_tolerant --pack "${pack_out}")"
-  pack_version="$(jq -r '.meta.packVersion // ""' <<<"${doctor_json}")"
+  pack_version="$(jq -r '.manifest.meta.packVersion // ""' <<<"${doctor_json}")"
   if [ "${pack_version}" = "1" ] || [ -z "${pack_version}" ]; then
     echo "warning: greentic-pack produced pack-v1 manifest for ${pack_name}; proceed anyway (upgrade greentic-pack for newer schema) " >&2
   fi
@@ -574,29 +626,51 @@ if [ -f "${bundle_pack}" ]; then
 fi
 
 if compgen -G "${ROOT_DIR}/${OUT_DIR}/messaging-*.gtpack" >/dev/null; then
-  validator_pack_ref="${VALIDATOR_PACK_REF:-oci://ghcr.io/greentic-ai/validators/messaging:latest}"
-  if "${PACKC_BIN}" doctor --help 2>&1 | rg -q -- '--validate'; then
+  validator_ref="${VALIDATOR_PACK_REF:-oci://ghcr.io/greenticai/validators/messaging:latest}"
+  validator_root="${ROOT_DIR}/.greentic/validators"
+  validator_wasm="${VALIDATOR_WASM:-${validator_root}/greentic.validators.messaging.wasm}"
+  mkdir -p "${validator_root}"
+  if [ ! -f "${validator_wasm}" ] && command -v greentic-dev >/dev/null 2>&1; then
+    if greentic-dev store fetch "${validator_ref}" --out "${validator_wasm}" >/dev/null 2>&1; then
+      echo "Validator cached at ${validator_wasm}" >&2
+    else
+      echo "warning: validator fetch skipped; using validator ref/path if already available" >&2
+    fi
+  fi
+
+  if doctor_supports_validate; then
     doctor_supports_validate=1
   else
     doctor_supports_validate=0
   fi
-  if "${PACKC_BIN}" doctor --help 2>&1 | rg -q -- '--validator-pack'; then
+  if doctor_supports_validator_wasm; then
+    doctor_supports_validator_wasm=1
+  else
+    doctor_supports_validator_wasm=0
+  fi
+  if doctor_supports_validator_pack; then
     doctor_supports_validator_pack=1
   else
     doctor_supports_validator_pack=0
   fi
-  validator_pack_warning_printed=0
+  validator_warning_printed=0
   for pack in "${ROOT_DIR}/${OUT_DIR}"/messaging-*.gtpack; do
-    if [ "${doctor_supports_validator_pack}" -eq 1 ]; then
+    if [ -f "${validator_wasm}" ] && [ "${doctor_supports_validator_wasm}" -eq 1 ]; then
       if [ "${doctor_supports_validate}" -eq 1 ]; then
-        run_pack_doctor_json_tolerant --validate --validator-pack "${validator_pack_ref}" --pack "${pack}" >/dev/null
+        run_pack_doctor_json_tolerant --validate --validator-wasm "greentic.validators.messaging=${validator_wasm}" --validator-policy required --pack "${pack}" >/dev/null
       else
-        run_pack_doctor_json_tolerant --validator-pack "${validator_pack_ref}" --pack "${pack}" >/dev/null
+        run_pack_doctor_json_tolerant --validator-wasm "greentic.validators.messaging=${validator_wasm}" --validator-policy required --pack "${pack}" >/dev/null
+      fi
+    elif [ "${doctor_supports_validator_pack}" -eq 1 ]; then
+      if [ "${doctor_supports_validate}" -eq 1 ]; then
+        run_pack_doctor_json_tolerant --validate --validator-pack "${validator_ref}" --pack "${pack}" >/dev/null
+      else
+        run_pack_doctor_json_tolerant --validator-pack "${validator_ref}" --pack "${pack}" >/dev/null
       fi
     else
-      if [ "${validator_pack_warning_printed}" -eq 0 ]; then
-        echo "warning: ${PACKC_BIN} doctor lacks --validator-pack; running basic doctor only" >&2
-        validator_pack_warning_printed=1
+      if [ "${validator_warning_printed}" -eq 0 ]; then
+        echo "warning: ${PACKC_BIN} doctor lacks validator flags; running basic doctor only" >&2
+        validator_warning_printed=1
       fi
       if [ "${doctor_supports_validate}" -eq 1 ]; then
         run_pack_doctor_json_tolerant --validate --pack "${pack}" >/dev/null

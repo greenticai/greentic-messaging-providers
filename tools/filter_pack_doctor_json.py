@@ -30,7 +30,16 @@ def main() -> int:
         print("usage: filter_pack_doctor_json.py <doctor-json>", file=sys.stderr)
         return 2
 
-    data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    raw = Path(sys.argv[1]).read_text(encoding="utf-8")
+    if not raw.strip():
+        print("doctor JSON was empty", file=sys.stderr)
+        return 1
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        print(f"doctor JSON was invalid: {exc}", file=sys.stderr)
+        return 1
     validation = data.get("validation")
     if isinstance(validation, dict):
         diagnostics = validation.get("diagnostics") or []

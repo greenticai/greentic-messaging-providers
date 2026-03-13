@@ -92,7 +92,8 @@ flows:
   - remove
   entrypoints:
   - default
-assets: []
+assets:
+- path: secret-requirements.json
 extensions:
   greentic.ext.capabilities.v1:
     kind: greentic.ext.capabilities.v1
