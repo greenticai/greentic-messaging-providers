@@ -37,7 +37,7 @@ jobs:
         with:
           path: |
             ~/.cargo/bin
-          key: cargo-bin-tools-${{ runner.os }}-v1
+          key: cargo-bin-tools-${{ runner.os }}-v2
 
       - name: Step 01 - Cargo fmt
         run: ./ci/steps/01_fmt.sh
@@ -63,7 +63,7 @@ jobs:
         with:
           path: |
             ~/.cargo/bin
-          key: cargo-bin-tools-${{ runner.os }}-v1
+          key: cargo-bin-tools-${{ runner.os }}-v2
 
       - name: Step 02 - Cargo clippy
         run: ./ci/steps/02_clippy.sh
@@ -89,7 +89,7 @@ jobs:
         with:
           path: |
             ~/.cargo/bin
-          key: cargo-bin-tools-${{ runner.os }}-v1
+          key: cargo-bin-tools-${{ runner.os }}-v2
 
       - name: Step 05 - Check component operation schemas
         run: ./ci/steps/05_check_op_schemas.sh
@@ -151,7 +151,7 @@ jobs:
         with:
           path: |
             ~/.cargo/bin
-          key: cargo-bin-tools-${{ runner.os }}-v1
+          key: cargo-bin-tools-${{ runner.os }}-v2
 
       - name: Install cargo-binstall
         run: |
@@ -220,7 +220,7 @@ jobs:
         with:
           path: |
             ~/.cargo/bin
-          key: cargo-bin-tools-${{ runner.os }}-v1
+          key: cargo-bin-tools-${{ runner.os }}-v2
 
       - name: Download component artifacts
         uses: actions/download-artifact@v4
@@ -259,7 +259,7 @@ jobs:
         with:
           path: |
             ~/.cargo/bin
-          key: cargo-bin-tools-${{ runner.os }}-v1
+          key: cargo-bin-tools-${{ runner.os }}-v2
 
       - name: Install cargo-binstall
         run: |
@@ -297,7 +297,7 @@ jobs:
         with:
           path: |
             ~/.cargo/bin
-          key: cargo-bin-tools-${{ runner.os }}-v1
+          key: cargo-bin-tools-${{ runner.os }}-v2
 
       - name: Install cargo-binstall
         run: |
@@ -324,7 +324,7 @@ jobs:
         with:
           path: |
             ~/.cargo/bin
-          key: cargo-bin-tools-${{ runner.os }}-v1
+          key: cargo-bin-tools-${{ runner.os }}-v2
 
       - name: Install cargo-binstall
         run: |
@@ -351,7 +351,7 @@ jobs:
         with:
           path: |
             ~/.cargo/bin
-          key: cargo-bin-tools-${{ runner.os }}-v1
+          key: cargo-bin-tools-${{ runner.os }}-v2
 
       - name: Install cargo-binstall
         run: |
@@ -378,7 +378,7 @@ jobs:
         with:
           path: |
             ~/.cargo/bin
-          key: cargo-bin-tools-${{ runner.os }}-v1
+          key: cargo-bin-tools-${{ runner.os }}-v2
 
       - name: Install cargo-binstall
         run: |
@@ -461,7 +461,7 @@ jobs:
         with:
           path: |
             ~/.cargo/bin
-          key: cargo-bin-tools-${{ runner.os }}-v1
+          key: cargo-bin-tools-${{ runner.os }}-v2
 
       - name: Install cargo-binstall
         run: |
@@ -523,7 +523,7 @@ jobs:
         with:
           path: |
             ~/.cargo/bin
-          key: cargo-bin-tools-${{ runner.os }}-v1
+          key: cargo-bin-tools-${{ runner.os }}-v2
 
       - name: Install cargo-binstall
         run: |
