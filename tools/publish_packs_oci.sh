@@ -5,7 +5,15 @@ set -euo pipefail
 # DRY_RUN=1 builds packs and writes the lockfile but does not push.
 
 OCI_REGISTRY="${OCI_REGISTRY:-ghcr.io}"
-OCI_ORG="${OCI_ORG:-${GITHUB_REPOSITORY_OWNER:-greentic}}"
+OCI_NAMESPACE="${OCI_NAMESPACE:-}"
+if [ -z "${OCI_NAMESPACE}" ] && [ -n "${OCI_ORG:-}" ]; then
+  OCI_NAMESPACE="${OCI_ORG}"
+fi
+if [ -z "${OCI_NAMESPACE}" ] && [ -n "${GITHUB_REPOSITORY_OWNER:-}" ]; then
+  OCI_NAMESPACE="${GITHUB_REPOSITORY_OWNER}/greentic-messaging-providers"
+fi
+OCI_NAMESPACE="${OCI_NAMESPACE:-greenticai/greentic-messaging-providers}"
+OCI_ORG="${OCI_ORG:-${OCI_NAMESPACE%%/*}}"
 OCI_REPO="${OCI_REPO:-greentic-packs}"
 PACK_VERSION="${PACK_VERSION:-}"
 if [ -z "${PACK_VERSION}" ]; then
@@ -47,7 +55,7 @@ git_sha="$(cd "${ROOT_DIR}" && git rev-parse --short HEAD 2>/dev/null || echo "u
 
 # Default OCI location for the shared templates component used by many packs.
 TEMPLATES_REGISTRY="${TEMPLATES_REGISTRY:-${OCI_REGISTRY:-ghcr.io}}"
-TEMPLATES_NAMESPACE="${TEMPLATES_NAMESPACE:-${GHCR_NAMESPACE:-${OCI_ORG:-greentic-ai-org}}}"
+TEMPLATES_NAMESPACE="${TEMPLATES_NAMESPACE:-${GHCR_NAMESPACE:-${OCI_ORG:-greenticai}}}"
 DEFAULT_TEMPLATES_IMAGE="${TEMPLATES_IMAGE:-${TEMPLATES_REGISTRY}/${TEMPLATES_NAMESPACE}/components/templates:latest}"
 DEFAULT_TEMPLATES_DIGEST=""
 DEFAULT_TEMPLATES_ARTIFACT="component_templates.wasm"

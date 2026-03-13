@@ -106,6 +106,8 @@ run_pack_doctor() {
   filtered_content="$(cat "${filtered_json}")"
   has_errors="$(jq -r '.validation.has_errors // false' <<<"${filtered_content}")"
   if [ "${has_errors}" = "true" ]; then
+    echo "Filtered pack doctor diagnostics for ${pack_path}:" >&2
+    jq '.validation.diagnostics // []' <<<"${filtered_content}" >&2 || printf '%s\n' "${filtered_content}" >&2
     cat "${raw_stderr}" >&2
     rm -f "${raw_json}" "${filtered_json}" "${raw_stderr}"
     if [ "${doctor_rc}" -ne 0 ]; then
