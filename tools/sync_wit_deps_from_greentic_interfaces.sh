@@ -71,6 +71,16 @@ checked=0
 skipped=0
 missing=0
 
+find_source_file_for_package() {
+  local pkg="$1"
+
+  if command -v rg >/dev/null 2>&1; then
+    rg -l -F "package ${pkg};" "${SRC_WIT_ROOT}" -g 'package.wit' | head -n1 || true
+  else
+    grep -R -F -l --include='package.wit' "package ${pkg};" "${SRC_WIT_ROOT}" 2>/dev/null | head -n1 || true
+  fi
+}
+
 for target in "${TARGET_FILES[@]}"; do
   pkg="$(sed -n 's/^package \(.*\);$/\1/p' "${target}" | head -n1)"
   if [ -z "${pkg}" ]; then
@@ -79,7 +89,7 @@ for target in "${TARGET_FILES[@]}"; do
     continue
   fi
 
-  source_file="$(rg -l -F "package ${pkg};" "${SRC_WIT_ROOT}" -g 'package.wit' | head -n1 || true)"
+  source_file="$(find_source_file_for_package "${pkg}")"
   if [ -z "${source_file}" ]; then
     # Some dependency packages are local-only (for example provider:common).
     skipped=$((skipped + 1))
