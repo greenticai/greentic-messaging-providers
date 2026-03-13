@@ -24,4 +24,6 @@ PY
 )}"
 export PACK_VERSION
 
+"${ROOT_DIR}/ci/lib/stage_local_components.sh"
+
 ./tools/sync_packs.sh

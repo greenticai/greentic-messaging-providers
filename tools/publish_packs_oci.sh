@@ -34,6 +34,7 @@ DRY_RUN="${DRY_RUN:-0}"
 PUBLISH_LATEST="${PUBLISH_LATEST:-0}"
 PACKC_BIN="${PACKC_BIN:-greentic-pack}"
 PACKC_BUILD_FLAGS="${PACKC_BUILD_FLAGS:-}"
+PACK_FILTER="${PACK_FILTER:-}"
 MEDIA_TYPE="${MEDIA_TYPE:-application/vnd.greentic.gtpack.v1+zip}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -57,9 +58,21 @@ git_sha="$(cd "${ROOT_DIR}" && git rev-parse --short HEAD 2>/dev/null || echo "u
 TEMPLATES_REGISTRY="${TEMPLATES_REGISTRY:-${OCI_REGISTRY:-ghcr.io}}"
 TEMPLATES_NAMESPACE="${TEMPLATES_NAMESPACE:-${GHCR_NAMESPACE:-${OCI_ORG:-greenticai}}}"
 DEFAULT_TEMPLATES_IMAGE="${TEMPLATES_IMAGE:-${TEMPLATES_REGISTRY}/${TEMPLATES_NAMESPACE}/components/templates:latest}"
-DEFAULT_TEMPLATES_DIGEST=""
+DEFAULT_TEMPLATES_DIGEST="${TEMPLATES_DIGEST:-}"
 DEFAULT_TEMPLATES_ARTIFACT="component_templates.wasm"
 DEFAULT_TEMPLATES_MANIFEST="component.publish.manifest.json"
+
+components_lockfile="${ROOT_DIR}/components.lock.json"
+if [ -f "${components_lockfile}" ] && { [ -z "${TEMPLATES_IMAGE:-}" ] || [ -z "${TEMPLATES_DIGEST:-}" ]; }; then
+  locked_templates_ref="$(jq -r '.components[]? | select(.name=="templates") | .reference // empty' "${components_lockfile}" | head -n1)"
+  locked_templates_digest="$(jq -r '.components[]? | select(.name=="templates") | .digest // empty' "${components_lockfile}" | head -n1)"
+  if [ -n "${locked_templates_ref}" ] && [ -z "${TEMPLATES_IMAGE:-}" ]; then
+    DEFAULT_TEMPLATES_IMAGE="${locked_templates_ref}"
+  fi
+  if [ -n "${locked_templates_digest}" ] && [ -z "${TEMPLATES_DIGEST:-}" ]; then
+    DEFAULT_TEMPLATES_DIGEST="${locked_templates_digest}"
+  fi
+fi
 echo "Using templates image: ${DEFAULT_TEMPLATES_IMAGE}"
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required"; exit 1; }
@@ -107,6 +120,21 @@ if [ ! -d "${ROOT_DIR}/${PACKS_DIR}" ]; then
 fi
 
 packs_json="[]"
+
+pack_selected() {
+  local pack_name="$1"
+  if [ -z "${PACK_FILTER}" ]; then
+    return 0
+  fi
+  python3 - <<'PY' "${PACK_FILTER}" "${pack_name}"
+import sys
+
+raw = sys.argv[1]
+name = sys.argv[2]
+items = [part.strip() for chunk in raw.split(",") for part in chunk.split() if part.strip()]
+raise SystemExit(0 if name in items else 1)
+PY
+}
 
 generate_pack_manifest() {
   local pack_dir="$1"
@@ -406,6 +434,10 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     echo "Skipping deprecated pack ${pack_name}"
     continue
   fi
+  if ! pack_selected "${pack_name}"; then
+    echo "Skipping filtered-out pack ${pack_name}"
+    continue
+  fi
   pack_out_rel="${OUT_DIR}/${pack_name}.gtpack"
   pack_out="${ROOT_DIR}/${pack_out_rel}"
   secrets_out="${dir}/.secret_requirements.json"
@@ -660,6 +692,10 @@ if compgen -G "${ROOT_DIR}/${OUT_DIR}/messaging-*.gtpack" >/dev/null; then
   fi
   validator_warning_printed=0
   for pack in "${ROOT_DIR}/${OUT_DIR}"/messaging-*.gtpack; do
+    pack_name="$(basename "${pack}" .gtpack)"
+    if ! pack_selected "${pack_name}"; then
+      continue
+    fi
     if [ -f "${validator_wasm}" ] && [ "${doctor_supports_validator_wasm}" -eq 1 ]; then
       if [ "${doctor_supports_validate}" -eq 1 ]; then
         run_pack_doctor_json_tolerant --validate --validator-wasm "greentic.validators.messaging=${validator_wasm}" --validator-policy required --pack "${pack}" >/dev/null
