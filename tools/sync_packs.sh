@@ -204,6 +204,8 @@ insert_at = None
 for idx, line in enumerate(lines):
     if line.startswith("assets:"):
         insert_at = idx + 1
+        if line.strip() == "assets: []":
+            lines[idx] = "assets:"
         break
 
 if insert_at is None:
