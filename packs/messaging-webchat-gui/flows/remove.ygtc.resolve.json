@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "flow": "remove.ygtc",
+  "nodes": {
+    "remove__apply": {
+      "source": {
+        "kind": "local",
+        "path": "file://../components/provision/provision.wasm"
+      }
+    },
+    "remove__check_state": {
+      "source": {
+        "kind": "local",
+        "path": "file://../components/qa/qa.wasm"
+      }
+    },
+    "remove__summary": {
+      "source": {
+        "kind": "local",
+        "path": "file://../components/qa/qa.wasm"
+      }
+    }
+  }
+}

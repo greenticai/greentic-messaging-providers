@@ -91,7 +91,7 @@ pub const PROVIDERS: &[ProviderSpec] = &[
     },
     ProviderSpec {
         id: ProviderId::Teams,
-        provider_type: "messaging.teams.graph",
+        provider_type: "messaging.teams.bot",
         fixture: "teams.json",
         ingest_supported: true,
         challenge_fixture: None,
@@ -193,7 +193,8 @@ impl ProviderHarness {
         let engine = new_engine();
         let component_file = component_path(spec.id.component_name());
         log_component_artifact(&component_file);
-        let component = Component::from_file(&engine, &component_file).context("load component")?;
+        let component = Component::from_file(&engine, &component_file)
+            .map_err(|err| Error::msg(format!("load component: {err}")))?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
         add_wasmtime_hosts(&mut linker)?;
@@ -209,7 +210,7 @@ impl ProviderHarness {
             .context("invoke export index")?;
         let invoke = instance
             .get_typed_func(&mut store, invoke_index)
-            .context("typed invoke func")?;
+            .map_err(|err| Error::msg(format!("typed invoke func: {err}")))?;
         Ok(Self {
             _instance: instance,
             store,
@@ -221,7 +222,8 @@ impl ProviderHarness {
         let engine = new_engine();
         let component_file = component_path(spec.id.component_name());
         log_component_artifact(&component_file);
-        let component = Component::from_file(&engine, &component_file).context("load component")?;
+        let component = Component::from_file(&engine, &component_file)
+            .map_err(|err| Error::msg(format!("load component: {err}")))?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
         add_wasmtime_hosts(&mut linker)?;
@@ -237,7 +239,7 @@ impl ProviderHarness {
             .context("invoke export index")?;
         let invoke = instance
             .get_typed_func(&mut store, invoke_index)
-            .context("typed invoke func")?;
+            .map_err(|err| Error::msg(format!("typed invoke func: {err}")))?;
         Ok(Self {
             _instance: instance,
             store,
@@ -258,10 +260,7 @@ impl ProviderHarness {
                     eprintln!("trap trace: {:?}", trap);
                 }
             })
-            .context(format!("invoke {op}"))?;
-        self.invoke
-            .post_return(&mut self.store)
-            .context("post return")?;
+            .map_err(|err| Error::msg(format!("invoke {op}: {err}")))?;
         let value: Value = decode_cbor(&result).map_err(|err| Error::msg(err.to_string()))?;
         serde_json::to_vec(&value).context("serialize runtime output")
     }
@@ -509,7 +508,8 @@ impl SchemaCoreHarness {
         let engine = new_engine();
         let component_file = component_path(spec.id.component_name());
         log_component_artifact(&component_file);
-        let component = Component::from_file(&engine, &component_file).context("load component")?;
+        let component = Component::from_file(&engine, &component_file)
+            .map_err(|err| Error::msg(format!("load component: {err}")))?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
         add_wasmtime_hosts(&mut linker)?;
@@ -529,7 +529,7 @@ impl SchemaCoreHarness {
             .context("schema-core-api invoke export index")?;
         let invoke = instance
             .get_typed_func(&mut store, invoke_index)
-            .context("typed schema-core-api invoke func")?;
+            .map_err(|err| Error::msg(format!("typed schema-core-api invoke func: {err}")))?;
         Ok(Self {
             _instance: instance,
             store,
@@ -547,10 +547,7 @@ impl SchemaCoreHarness {
                     eprintln!("trap trace: {:?}", trap);
                 }
             })
-            .context(format!("schema-core-api invoke {op}"))?;
-        self.invoke
-            .post_return(&mut self.store)
-            .context("post return")?;
+            .map_err(|err| Error::msg(format!("schema-core-api invoke {op}: {err}")))?;
         Ok(result)
     }
 }

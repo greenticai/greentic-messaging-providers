@@ -21,8 +21,9 @@ pub fn instantiate_provider(engine: &Engine, wasm_path: &Path) -> Result<()> {
         mtime,
     );
 
-    let component = Component::from_file(engine, &canonical)
-        .with_context(|| format!("failed to load component: {}", canonical.display()))?;
+    let component = Component::from_file(engine, &canonical).map_err(|err| {
+        anyhow::anyhow!("failed to load component {}: {err}", canonical.display())
+    })?;
 
     let mut store = Store::new(engine, TestHostState::with_default_secrets());
     let mut linker = Linker::new(engine);
@@ -30,9 +31,9 @@ pub fn instantiate_provider(engine: &Engine, wasm_path: &Path) -> Result<()> {
     add_wasmtime_hosts(&mut linker)
         .context("failed to register greentic:http/client@1.1.0 hosts")?;
 
-    linker
-        .instantiate(&mut store, &component)
-        .context("component instantiation failed (missing imports?)")?;
+    linker.instantiate(&mut store, &component).map_err(|err| {
+        anyhow::anyhow!("component instantiation failed (missing imports?): {err}")
+    })?;
 
     Ok(())
 }

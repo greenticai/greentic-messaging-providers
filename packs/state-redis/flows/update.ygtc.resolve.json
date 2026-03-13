@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "flow": "update.ygtc",
+  "nodes": {
+    "update__apply": {
+      "source": {
+        "kind": "local",
+        "path": "file://../components/provision/provision.wasm"
+      }
+    },
+    "update__collect": {
+      "source": {
+        "kind": "local",
+        "path": "file://../components/qa/qa.wasm"
+      }
+    },
+    "update__complete": {
+      "source": {
+        "kind": "local",
+        "path": "file://../components/qa/qa.wasm"
+      }
+    }
+  }
+}

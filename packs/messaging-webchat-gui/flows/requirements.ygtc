@@ -1,0 +1,34 @@
+id: requirements
+type: job
+start: summary
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
+nodes:
+  summary:
+    routing: out
+    render_text:
+      msg:
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
+        message:
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.webchat-gui
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: '{"examples":[{"args":{},"text":""}],"notes":"","optional_args":[],"required_args":[]}'
+      wrap: true
+x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/webchat-gui.yaml
+  spec-hash: sha256:86a463761754dd77cf3af4d98ab52c4ad01267b0970ac8d7f4338c1cea2fb40a
+  manifest-hash: sha256:d049d69937963ab2d24180117ce3ec0a9094c591b25e121a11b3bd50a6697199
+  schemas-hash: sha256:1cba3c11e481dca5de6b398499258b58a4ebd20675164e815dc2d4a3928f1edd

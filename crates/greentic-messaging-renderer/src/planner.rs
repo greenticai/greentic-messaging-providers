@@ -306,7 +306,7 @@ mod tests {
     fn truncate_bytes_cuts() {
         let (result, truncated) = truncate_bytes("hello world this is long", 10);
         assert!(truncated);
-        assert!(result.as_bytes().len() <= 13); // some room for ellipsis
+        assert!(result.len() <= 13); // some room for ellipsis
     }
 
     #[test]

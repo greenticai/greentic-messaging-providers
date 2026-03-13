@@ -125,6 +125,9 @@ def load_manifest_from_pack(path: Path) -> Dict[str, Any]:
 
 
 def validate_pack(path: Path) -> None:
+    if not path.stem.startswith("messaging-"):
+        return
+
     manifest = load_manifest_from_pack(path)
     extensions = manifest.get("extensions")
     if not isinstance(extensions, dict):

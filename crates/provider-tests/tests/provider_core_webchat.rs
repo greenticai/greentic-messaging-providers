@@ -1,14 +1,16 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Context, Result};
+use greentic_interfaces_wasmtime::host_helpers::v1::{
+    HostFns, add_all_v1_to_linker, secrets_store, state_store,
+};
 use greentic_types::provider::PROVIDER_EXTENSION_ID;
 use provider_common::component_v0_6::{DescribePayload, canonical_cbor_bytes, decode_cbor};
 use serde_json::{Value, json};
-use wasmtime::component::{
-    Component, ComponentExportIndex, HasSelf, Linker, ResourceTable, TypedFunc,
-};
+use wasmtime::component::{Component, ComponentExportIndex, Linker, ResourceTable, TypedFunc};
 use wasmtime::{Config, Engine, Store};
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 
@@ -93,6 +95,8 @@ fn new_engine() -> Engine {
 struct HostState {
     table: ResourceTable,
     wasi_ctx: WasiCtx,
+    secrets: HashMap<String, Vec<u8>>,
+    state: HashMap<String, Vec<u8>>,
 }
 
 impl WasiView for HostState {
@@ -109,22 +113,71 @@ impl HostState {
         Self {
             table: ResourceTable::new(),
             wasi_ctx: WasiCtxBuilder::new().inherit_stdio().build(),
+            secrets: HashMap::new(),
+            state: HashMap::new(),
         }
     }
 }
 
-impl bindings::greentic::secrets_store::secrets_store::Host for HostState {
-    fn get(
+impl secrets_store::SecretsStoreHostV1_1 for HostState {
+    fn get(&mut self, key: String) -> Result<Option<Vec<u8>>, secrets_store::SecretsErrorV1_1> {
+        Ok(self.secrets.get(&key).cloned())
+    }
+
+    fn put(&mut self, key: String, value: Vec<u8>) {
+        self.secrets.insert(key, value);
+    }
+}
+
+impl state_store::StateStoreHost for HostState {
+    fn read(
         &mut self,
-        _key: String,
-    ) -> Result<Option<Vec<u8>>, bindings::greentic::secrets_store::secrets_store::SecretsError>
-    {
-        Ok(None)
+        key: state_store::StateKey,
+        _ctx: Option<state_store::TenantCtx>,
+    ) -> Result<Vec<u8>, state_store::StateStoreError> {
+        self.state
+            .get(&key)
+            .cloned()
+            .ok_or_else(|| state_store::StateStoreError {
+                code: "not_found".into(),
+                message: format!("state key not found: {key}"),
+            })
+    }
+
+    fn write(
+        &mut self,
+        key: state_store::StateKey,
+        bytes: Vec<u8>,
+        _ctx: Option<state_store::TenantCtx>,
+    ) -> Result<state_store::OpAck, state_store::StateStoreError> {
+        self.state.insert(key, bytes);
+        Ok(state_store::OpAck::Ok)
+    }
+
+    fn delete(
+        &mut self,
+        key: state_store::StateKey,
+        _ctx: Option<state_store::TenantCtx>,
+    ) -> Result<state_store::OpAck, state_store::StateStoreError> {
+        self.state.remove(&key);
+        Ok(state_store::OpAck::Ok)
     }
 }
 
 fn add_wasi_to_linker(linker: &mut Linker<HostState>) {
     wasmtime_wasi::p2::add_to_linker_sync(linker).expect("add wasi");
+}
+
+fn add_greentic_hosts(linker: &mut Linker<HostState>) {
+    add_all_v1_to_linker(
+        linker,
+        HostFns {
+            secrets_store_v1_1: Some(|state| state as &mut dyn secrets_store::SecretsStoreHostV1_1),
+            state_store: Some(|state| state as &mut dyn state_store::StateStoreHost),
+            ..Default::default()
+        },
+    )
+    .expect("add greentic hosts");
 }
 
 #[test]
@@ -203,19 +256,16 @@ fn pack_has_extension_and_schema() -> Result<()> {
 fn invoke_send_and_ingest_smoke_test() -> Result<()> {
     let component_path = ensure_component_artifact()?;
     let engine = new_engine();
-    let component = Component::from_file(&engine, &component_path).context("loading component")?;
+    let component = Component::from_file(&engine, &component_path)
+        .map_err(|err| anyhow::anyhow!("loading component: {err}"))?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
-    bindings::greentic::secrets_store::secrets_store::add_to_linker::<HostState, HasSelf<HostState>>(
-        &mut linker,
-        |state: &mut HostState| state,
-    )
-    .expect("link secrets");
+    add_greentic_hosts(&mut linker);
 
     let mut describe_store = Store::new(&engine, HostState::new());
     let instance = linker
         .instantiate(&mut describe_store, &component)
-        .context("instantiate for describe")?;
+        .map_err(|err| anyhow::anyhow!("instantiate for describe: {err}"))?;
 
     let api_index: ComponentExportIndex = instance
         .get_export_index(
@@ -230,10 +280,10 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
         .context("get describe export index")?;
     let describe: TypedFunc<(), (Vec<u8>,)> = instance
         .get_typed_func(&mut describe_store, describe_index)
-        .context("get describe func")?;
+        .map_err(|err| anyhow::anyhow!("get describe func: {err}"))?;
     let (described,) = describe
         .call(&mut describe_store, ())
-        .context("call describe")?;
+        .map_err(|err| anyhow::anyhow!("call describe: {err}"))?;
     let described: DescribePayload = decode_cbor(&described).map_err(anyhow::Error::msg)?;
     assert_eq!(described.provider, "messaging-provider-webchat");
     assert!(described.operations.iter().any(|op| op.name == "run"));
@@ -243,7 +293,7 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
     let mut store = Store::new(&engine, HostState::new());
     let instance = linker
         .instantiate(&mut store, &component)
-        .context("instantiate for invoke")?;
+        .map_err(|err| anyhow::anyhow!("instantiate for invoke: {err}"))?;
 
     let api_index: ComponentExportIndex = instance
         .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
@@ -253,7 +303,7 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
         .context("get invoke export index")?;
     let invoke: TypedFunc<(String, Vec<u8>), (Vec<u8>,)> = instance
         .get_typed_func(&mut store, invoke_index)
-        .context("get invoke func")?;
+        .map_err(|err| anyhow::anyhow!("get invoke func: {err}"))?;
 
     let input = json!({
         "route": "chat:abc",
@@ -267,7 +317,7 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
     let input_bytes = canonical_cbor_bytes(&input);
     let (resp,) = invoke
         .call(&mut store, ("send".to_string(), input_bytes))
-        .context("call invoke send")?;
+        .map_err(|err| anyhow::anyhow!("call invoke send: {err}"))?;
     let resp_json: Value = decode_cbor(&resp).map_err(anyhow::Error::msg)?;
     assert_eq!(resp_json.get("status"), Some(&Value::String("sent".into())));
     assert_eq!(
@@ -282,7 +332,7 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
     let mut store = Store::new(&engine, HostState::new());
     let instance = linker
         .instantiate(&mut store, &component)
-        .context("instantiate for ingest")?;
+        .map_err(|err| anyhow::anyhow!("instantiate for ingest: {err}"))?;
     let api_index: ComponentExportIndex = instance
         .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
         .context("get runtime export index for ingest")?;
@@ -291,7 +341,7 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
         .context("get invoke export index for ingest")?;
     let invoke: TypedFunc<(String, Vec<u8>), (Vec<u8>,)> = instance
         .get_typed_func(&mut store, invoke_index)
-        .context("get invoke func for ingest")?;
+        .map_err(|err| anyhow::anyhow!("get invoke func for ingest: {err}"))?;
 
     let ingest_input = json!({"user_id":"u1","text":"hi"});
     let (ingest_resp,) = invoke
@@ -299,7 +349,7 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
             &mut store,
             ("ingest".to_string(), canonical_cbor_bytes(&ingest_input)),
         )
-        .context("call invoke ingest")?;
+        .map_err(|err| anyhow::anyhow!("call invoke ingest: {err}"))?;
     let ingest_json: Value = decode_cbor(&ingest_resp).map_err(anyhow::Error::msg)?;
     assert_eq!(ingest_json.get("ok"), Some(&Value::Bool(true)));
 

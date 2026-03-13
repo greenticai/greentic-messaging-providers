@@ -1,5 +1,5 @@
 {
-  "provider": "messaging.teams.graph",
+  "provider": "messaging.teams.bot",
   "config_required": [
     "tenant_id",
     "client_id",

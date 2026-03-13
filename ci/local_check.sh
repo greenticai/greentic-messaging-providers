@@ -126,12 +126,16 @@ if [ "${pack_build_rc}" -ne 0 ]; then
 fi
 rm -f "${pack_build_log}"
 
-GREENTIC_PACK_TEST_VERSION="${GREENTIC_PACK_TEST_VERSION:-0.4}"
-if ! command -v cargo-binstall >/dev/null 2>&1; then
-  cargo install cargo-binstall --locked
+GREENTIC_PACK_TEST_VERSION="${GREENTIC_PACK_TEST_VERSION:-^0.4}"
+if command -v greentic-pack >/dev/null 2>&1; then
+  echo "Using existing greentic-pack: $(greentic-pack --version)"
+else
+  if ! command -v cargo-binstall >/dev/null 2>&1; then
+    cargo install cargo-binstall --locked
+  fi
+  cargo binstall greentic-pack --version "${GREENTIC_PACK_TEST_VERSION}" --force --no-confirm --locked || \
+    cargo install greentic-pack --version "${GREENTIC_PACK_TEST_VERSION}" --force --locked
 fi
-cargo binstall greentic-pack --version "${GREENTIC_PACK_TEST_VERSION}" --force --no-confirm --locked || \
-  cargo install greentic-pack --version "${GREENTIC_PACK_TEST_VERSION}" --force --locked
 
 echo "==> cargo test --workspace"
 # If this fails, re-run only:

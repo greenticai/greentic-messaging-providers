@@ -235,7 +235,8 @@ fn pack_has_extension_and_schema() -> Result<()> {
 fn invoke_send_smoke_test() -> Result<()> {
     let component_path = ensure_component_artifact()?;
     let engine = new_engine();
-    let component = Component::from_file(&engine, &component_path).context("loading component")?;
+    let component = Component::from_file(&engine, &component_path)
+        .map_err(|err| anyhow::anyhow!("loading component: {err}"))?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
     bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
@@ -257,7 +258,7 @@ fn invoke_send_smoke_test() -> Result<()> {
     let mut describe_store = Store::new(&engine, HostState::new("token-secret"));
     let instance = linker
         .instantiate(&mut describe_store, &component)
-        .context("instantiate for describe")?;
+        .map_err(|err| anyhow::anyhow!("instantiate for describe: {err}"))?;
 
     let api_index: ComponentExportIndex = instance
         .get_export_index(
@@ -272,10 +273,10 @@ fn invoke_send_smoke_test() -> Result<()> {
         .context("get describe export index")?;
     let describe: TypedFunc<(), (Vec<u8>,)> = instance
         .get_typed_func(&mut describe_store, describe_index)
-        .context("get describe func")?;
+        .map_err(|err| anyhow::anyhow!("get describe func: {err}"))?;
     let (described,) = describe
         .call(&mut describe_store, ())
-        .context("call describe")?;
+        .map_err(|err| anyhow::anyhow!("call describe: {err}"))?;
     let described: DescribePayload = decode_cbor(&described).map_err(anyhow::Error::msg)?;
     assert_eq!(described.provider, "messaging-provider-webex");
     assert!(described.operations.iter().any(|op| op.name == "run"));
@@ -286,7 +287,7 @@ fn invoke_send_smoke_test() -> Result<()> {
     let mut store = Store::new(&engine, HostState::new("super-secret"));
     let instance = linker
         .instantiate(&mut store, &component)
-        .context("instantiate for invoke")?;
+        .map_err(|err| anyhow::anyhow!("instantiate for invoke: {err}"))?;
 
     let api_index: ComponentExportIndex = instance
         .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
@@ -296,7 +297,7 @@ fn invoke_send_smoke_test() -> Result<()> {
         .context("get invoke export index")?;
     let invoke: TypedFunc<(String, Vec<u8>), (Vec<u8>,)> = instance
         .get_typed_func(&mut store, invoke_index)
-        .context("get invoke func")?;
+        .map_err(|err| anyhow::anyhow!("get invoke func: {err}"))?;
 
     let input = json!({
         "to": {"kind": "room", "id": "room-1"},
@@ -309,7 +310,7 @@ fn invoke_send_smoke_test() -> Result<()> {
     let input_bytes = canonical_cbor_bytes(&input);
     let (resp,) = invoke
         .call(&mut store, ("send".to_string(), input_bytes))
-        .context("call invoke send")?;
+        .map_err(|err| anyhow::anyhow!("call invoke send: {err}"))?;
     let resp_json: Value = decode_cbor(&resp).map_err(anyhow::Error::msg)?;
     assert_eq!(resp_json.get("status"), Some(&Value::String("sent".into())));
     assert_eq!(
@@ -355,7 +356,8 @@ fn invoke_send_smoke_test() -> Result<()> {
 fn invoke_reply_smoke_test() -> Result<()> {
     let component_path = ensure_component_artifact()?;
     let engine = new_engine();
-    let component = Component::from_file(&engine, &component_path).context("loading component")?;
+    let component = Component::from_file(&engine, &component_path)
+        .map_err(|err| anyhow::anyhow!("loading component: {err}"))?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
     bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
@@ -377,7 +379,7 @@ fn invoke_reply_smoke_test() -> Result<()> {
     let mut store = Store::new(&engine, HostState::new("super-secret"));
     let instance = linker
         .instantiate(&mut store, &component)
-        .context("instantiate for invoke reply")?;
+        .map_err(|err| anyhow::anyhow!("instantiate for invoke reply: {err}"))?;
 
     let api_index: ComponentExportIndex = instance
         .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
@@ -387,7 +389,7 @@ fn invoke_reply_smoke_test() -> Result<()> {
         .context("get invoke export index")?;
     let invoke: TypedFunc<(String, Vec<u8>), (Vec<u8>,)> = instance
         .get_typed_func(&mut store, invoke_index)
-        .context("get invoke func")?;
+        .map_err(|err| anyhow::anyhow!("get invoke func: {err}"))?;
 
     let input = json!({
         "text": "reply webex",
@@ -402,7 +404,7 @@ fn invoke_reply_smoke_test() -> Result<()> {
             &mut store,
             ("reply".to_string(), canonical_cbor_bytes(&input)),
         )
-        .context("call invoke reply")?;
+        .map_err(|err| anyhow::anyhow!("call invoke reply: {err}"))?;
     let resp_json: Value = decode_cbor(&resp).map_err(anyhow::Error::msg)?;
     assert_eq!(
         resp_json.get("status"),
@@ -440,7 +442,8 @@ fn invoke_reply_smoke_test() -> Result<()> {
 fn reply_requires_parent_id() -> Result<()> {
     let component_path = ensure_component_artifact()?;
     let engine = new_engine();
-    let component = Component::from_file(&engine, &component_path).context("loading component")?;
+    let component = Component::from_file(&engine, &component_path)
+        .map_err(|err| anyhow::anyhow!("loading component: {err}"))?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
     bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
@@ -462,7 +465,7 @@ fn reply_requires_parent_id() -> Result<()> {
     let mut store = Store::new(&engine, HostState::new("super-secret"));
     let instance = linker
         .instantiate(&mut store, &component)
-        .context("instantiate for invoke reply failure")?;
+        .map_err(|err| anyhow::anyhow!("instantiate for invoke reply failure: {err}"))?;
 
     let api_index: ComponentExportIndex = instance
         .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
@@ -472,7 +475,7 @@ fn reply_requires_parent_id() -> Result<()> {
         .context("get invoke export index")?;
     let invoke: TypedFunc<(String, Vec<u8>), (Vec<u8>,)> = instance
         .get_typed_func(&mut store, invoke_index)
-        .context("get invoke func")?;
+        .map_err(|err| anyhow::anyhow!("get invoke func: {err}"))?;
 
     let input = json!({
         "text": "reply webex",
@@ -485,7 +488,7 @@ fn reply_requires_parent_id() -> Result<()> {
             &mut store,
             ("reply".to_string(), canonical_cbor_bytes(&input)),
         )
-        .context("call invoke reply failure")?;
+        .map_err(|err| anyhow::anyhow!("call invoke reply failure: {err}"))?;
     let resp_json: Value = decode_cbor(&resp).map_err(anyhow::Error::msg)?;
     assert_eq!(resp_json.get("ok"), Some(&Value::Bool(false)));
 

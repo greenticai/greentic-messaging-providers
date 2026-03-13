@@ -63,6 +63,7 @@ pub(crate) fn validate_config_out(config: &ProviderConfigOut) -> Result<(), Stri
 }
 
 #[cfg(test)]
+#[allow(dead_code)]
 pub(crate) fn parse_config_bytes(bytes: &[u8]) -> Result<ProviderConfig, String> {
     serde_json::from_slice::<ProviderConfig>(bytes).map_err(|e| format!("invalid config: {e}"))
 }

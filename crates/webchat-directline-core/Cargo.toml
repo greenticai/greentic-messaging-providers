@@ -1,0 +1,18 @@
+[package]
+name = "webchat-directline-core"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+greentic-types.workspace = true
+provider-common.workspace = true
+base64.workspace = true
+chrono.workspace = true
+hmac.workspace = true
+sha2.workspace = true
+uuid = { workspace = true, features = ["v4"] }
+urlencoding.workspace = true

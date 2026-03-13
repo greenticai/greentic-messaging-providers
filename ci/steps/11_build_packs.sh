@@ -4,13 +4,16 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT_DIR}"
 
-if ! command -v cargo-binstall >/dev/null 2>&1; then
-  cargo install cargo-binstall --locked
+GREENTIC_PACK_VERSION="${GREENTIC_PACK_VERSION:-^0.4}"
+if command -v greentic-pack >/dev/null 2>&1; then
+  echo "Using existing greentic-pack: $(greentic-pack --version)"
+else
+  if ! command -v cargo-binstall >/dev/null 2>&1; then
+    cargo install cargo-binstall --locked
+  fi
+  cargo binstall greentic-pack --version "${GREENTIC_PACK_VERSION}" --force --no-confirm --locked || \
+    cargo install greentic-pack --version "${GREENTIC_PACK_VERSION}" --force --locked
 fi
-
-GREENTIC_PACK_VERSION="${GREENTIC_PACK_VERSION:-0.4}"
-cargo binstall greentic-pack --version "${GREENTIC_PACK_VERSION}" --force --no-confirm --locked || \
-  cargo install greentic-pack --version "${GREENTIC_PACK_VERSION}" --force --locked
 
 PACK_VERSION="${PACK_VERSION:-$(python3 - <<'PY'
 from pathlib import Path
@@ -55,26 +58,62 @@ validator_flag_warning_printed=0
 run_pack_doctor() {
   local pack_path="$1"
   local validator_file="${2:-}"
+  local raw_json
+  local filtered_json
+  local raw_stderr
+  local doctor_rc=0
+  local filtered_content
+  local has_errors
+  local raw_errors
+  local filtered_errors
+  raw_json="$(mktemp)"
+  filtered_json="$(mktemp)"
+  raw_stderr="$(mktemp)"
 
   if [ -n "${validator_file}" ] && pack_doctor_supports_validator_wasm && pack_doctor_supports_validator_policy; then
     if pack_doctor_supports_validate; then
-      greentic-pack doctor --validate --validator-wasm "greentic.validators.messaging=${validator_file}" --validator-policy required --pack "${pack_path}"
+      if ! greentic-pack doctor --json --validate --validator-wasm "greentic.validators.messaging=${validator_file}" --validator-policy required --pack "${pack_path}" >"${raw_json}" 2>"${raw_stderr}"; then
+        doctor_rc=$?
+      fi
     else
-      greentic-pack doctor --validator-wasm "greentic.validators.messaging=${validator_file}" --validator-policy required --pack "${pack_path}"
+      if ! greentic-pack doctor --json --validator-wasm "greentic.validators.messaging=${validator_file}" --validator-policy required --pack "${pack_path}" >"${raw_json}" 2>"${raw_stderr}"; then
+        doctor_rc=$?
+      fi
     fi
-    return
-  fi
-
-  if [ -n "${validator_file}" ] && [ "${validator_flag_warning_printed}" -eq 0 ]; then
-    echo "warning: greentic-pack doctor lacks validator flags; running without external validator" >&2
-    validator_flag_warning_printed=1
-  fi
-
-  if pack_doctor_supports_validate; then
-    greentic-pack doctor --validate --pack "${pack_path}"
   else
-    greentic-pack doctor --pack "${pack_path}"
+    if [ -n "${validator_file}" ] && [ "${validator_flag_warning_printed}" -eq 0 ]; then
+      echo "warning: greentic-pack doctor lacks validator flags; running without external validator" >&2
+      validator_flag_warning_printed=1
+    fi
+
+    if pack_doctor_supports_validate; then
+      if ! greentic-pack doctor --json --validate --pack "${pack_path}" >"${raw_json}" 2>"${raw_stderr}"; then
+        doctor_rc=$?
+      fi
+    else
+      if ! greentic-pack doctor --json --pack "${pack_path}" >"${raw_json}" 2>"${raw_stderr}"; then
+        doctor_rc=$?
+      fi
+    fi
   fi
+
+  python3 "${ROOT_DIR}/tools/filter_pack_doctor_json.py" "${raw_json}" >"${filtered_json}"
+  raw_errors="$(jq '(.validation.diagnostics // []) | map(select(.severity == "error")) | length' "${raw_json}")"
+  filtered_errors="$(jq '(.validation.diagnostics // []) | map(select(.severity == "error")) | length' "${filtered_json}")"
+  if [ "${raw_errors}" -gt "${filtered_errors}" ]; then
+    echo "warning: ignored legacy helper doctor diagnostics for ${pack_path}" >&2
+  fi
+  filtered_content="$(cat "${filtered_json}")"
+  has_errors="$(jq -r '.validation.has_errors // false' <<<"${filtered_content}")"
+  if [ "${has_errors}" = "true" ]; then
+    cat "${raw_stderr}" >&2
+    rm -f "${raw_json}" "${filtered_json}" "${raw_stderr}"
+    if [ "${doctor_rc}" -ne 0 ]; then
+      return "${doctor_rc}"
+    fi
+    return 1
+  fi
+  rm -f "${raw_json}" "${filtered_json}" "${raw_stderr}"
 }
 
 if [ "${run_publish_packs}" -eq 1 ]; then

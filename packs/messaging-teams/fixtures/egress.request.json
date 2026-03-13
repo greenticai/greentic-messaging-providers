@@ -1,5 +1,5 @@
 {
-  "provider": "messaging.teams.graph",
+  "provider": "messaging.teams.bot",
   "message": {
     "text": "hello from egress",
     "id": "msg_egress_1"

@@ -1,5 +1,6 @@
 ---
 source: crates/provider-tests/tests/provider_harness.rs
+assertion_line: 356
 expression: value
 ---
 {
@@ -7,6 +8,8 @@ expression: value
     "channel": "teams",
     "id": "<FIXED>",
     "metadata": {
+      "activityId": "teams-adaptivecard_actions-id",
+      "reply_to_id": "teams-adaptivecard_actions-id",
       "universal": "true"
     },
     "session_id": "teams",
@@ -16,7 +19,7 @@ expression: value
       "tenant": "default",
       "tenant_id": "default"
     },
-    "text": ""
+    "text": "adaptivecard actions message from teams"
   },
   "ok": true
 }

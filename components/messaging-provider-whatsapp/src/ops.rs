@@ -686,7 +686,7 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
         .metadata
         .get("phone_number_id")
         .cloned()
-        .or_else(|| {
+        .or({
             // Fallback: read from secrets store so `demo send` works without --arg.
             #[cfg(target_arch = "wasm32")]
             {

@@ -1,7 +1,7 @@
 {
   "name": "state-redis",
-  "version": "0.4.0",
-  "kind": "capability",
+  "version": "0.4.37",
+  "kind": "application",
   "publisher": "Greentic",
   "description": "Persistent key-value state provider backed by Redis.",
   "components": [
@@ -66,14 +66,14 @@
   "extensions": {
     "greentic.ext.capabilities.v1": {
       "kind": "greentic.ext.capabilities.v1",
-      "version": "1.0.0",
+      "version": "0.4.37",
       "inline": {
         "schema_version": 1,
         "offers": [
           {
             "offer_id": "state.redis.kv.01",
             "cap_id": "greentic.cap.state.kv.v1",
-            "version": "v1",
+            "version": "0.4.37",
             "provider": {
               "component_ref": "state-provider-redis",
               "op": "state.dispatch"
@@ -89,13 +89,6 @@
             }
           }
         ]
-      }
-    },
-    "greentic.provider-extension.v1": {
-      "kind": "greentic.provider-extension.v1",
-      "version": "0.4.0",
-      "inline": {
-        "providers": []
       }
     }
   },

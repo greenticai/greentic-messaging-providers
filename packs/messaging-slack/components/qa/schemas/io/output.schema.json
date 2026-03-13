@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "component-qa operation output",
+  "type": "object",
+  "properties": {
+    "result": {
+      "description": "Operation result payload",
+      "type": ["object", "array", "string", "number", "boolean", "null"]
+    }
+  },
+  "additionalProperties": true
+}

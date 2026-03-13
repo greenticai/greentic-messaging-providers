@@ -7,7 +7,7 @@
 - `messaging.dummy`
 - `messaging.email.smtp`
 - `messaging.slack.api`
-- `messaging.teams.graph`
+- `messaging.teams.bot`
 - `messaging.telegram.bot`
 - `messaging.webchat`
 - `messaging.webex.bot`

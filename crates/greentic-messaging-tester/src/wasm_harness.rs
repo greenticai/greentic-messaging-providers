@@ -63,7 +63,7 @@ impl WasmHarness {
         let wasm_path = find_wasm_path(provider)?;
         let engine = new_engine();
         let component = Component::from_file(&engine, &wasm_path)
-            .context("failed to load provider component")?;
+            .map_err(|err| anyhow!("failed to load provider component: {err}"))?;
         let (manifest, invoke_strategy) = describe_manifest(&engine, &component, &wasm_path)?;
         Ok(Self {
             engine,
@@ -77,7 +77,7 @@ impl WasmHarness {
     pub fn new_with_path(component_path: &Path) -> Result<Self> {
         let engine = new_engine();
         let component = Component::from_file(&engine, component_path)
-            .context("failed to load provider component")?;
+            .map_err(|err| anyhow!("failed to load provider component: {err}"))?;
         let (manifest, invoke_strategy) = describe_manifest(&engine, &component, component_path)?;
         Ok(Self {
             engine,
@@ -214,8 +214,8 @@ pub struct ComponentHarness {
 impl ComponentHarness {
     pub fn new(component_path: &Path) -> Result<Self> {
         let engine = new_engine();
-        let component =
-            Component::from_file(&engine, component_path).context("failed to load component")?;
+        let component = Component::from_file(&engine, component_path)
+            .map_err(|err| anyhow!("failed to load component: {err}"))?;
         Ok(Self {
             engine,
             component,
@@ -479,7 +479,7 @@ fn describe_manifest_from_schema(
 fn provider_type_from_descriptor(provider: &str) -> String {
     match provider {
         "messaging-provider-slack" | "slack" => "messaging.slack.api".to_string(),
-        "messaging-provider-teams" | "teams" => "messaging.teams.graph".to_string(),
+        "messaging-provider-teams" | "teams" => "messaging.teams.bot".to_string(),
         "messaging-provider-telegram" | "telegram" => "messaging.telegram.bot".to_string(),
         "messaging-provider-webchat" | "webchat" => "messaging.webchat".to_string(),
         "messaging-provider-webex" | "webex" => "messaging.webex.bot".to_string(),
@@ -502,7 +502,7 @@ fn execute_with_state<R>(
     add_greentic_hosts(&mut linker)?;
     let instance = linker
         .instantiate(&mut store, component)
-        .context("failed to instantiate component")?;
+        .map_err(|err| anyhow!("failed to instantiate component: {err}"))?;
     action(&mut store, &instance)
 }
 

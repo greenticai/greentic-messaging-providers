@@ -79,5 +79,5 @@ x-generated-by: greentic-messaging-packgen
 x-generated-from:
   spec: specs/providers/slack.yaml
   spec-hash: sha256:12283bf45b3c13e5f72353dc8a77d9286a682136152008899d0f601b010756cc
-  manifest-hash: sha256:71033557a600c1238cc6fa98e11a6d2defe9087e1117ef6bff900e8950c7d13e
-  schemas-hash: sha256:943cb8c04251ec569ed1ad807cbd1279384b87948005a470f439256973a40dd6
+  manifest-hash: sha256:d049d69937963ab2d24180117ce3ec0a9094c591b25e121a11b3bd50a6697199
+  schemas-hash: sha256:1cba3c11e481dca5de6b398499258b58a4ebd20675164e815dc2d4a3928f1edd

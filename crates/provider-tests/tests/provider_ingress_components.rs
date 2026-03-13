@@ -226,7 +226,8 @@ mod slack {
     fn handles_webhook_without_secret() -> Result<()> {
         let path = ensure_component_artifact("messaging-ingress-slack", "messaging-ingress-slack")?;
         let engine = new_engine();
-        let component = Component::from_file(&engine, &path).context("loading component")?;
+        let component = Component::from_file(&engine, &path)
+            .map_err(|err| anyhow::anyhow!("loading component: {err}"))?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
         bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
@@ -258,7 +259,7 @@ mod slack {
         let mut store = Store::new(&engine, HostState::default());
         let instance = linker
             .instantiate(&mut store, &component)
-            .context("instantiate")?;
+            .map_err(|err| anyhow::anyhow!("instantiate: {err}"))?;
         let ingress_index: ComponentExportIndex = instance
             .get_export_index(&mut store, None, "provider:common/ingress@0.0.2")
             .context("get ingress export index")?;
@@ -267,12 +268,12 @@ mod slack {
             .context("get handle-webhook export index")?;
         let handle: TypedFunc<(String, String), (Result<String, String>,)> = instance
             .get_typed_func(&mut store, handle_index)
-            .context("get handle-webhook func")?;
+            .map_err(|err| anyhow::anyhow!("get handle-webhook func: {err}"))?;
         let headers = json!({});
         let body = json!({"event": {"type": "message"}});
         let (res,) = handle
             .call(&mut store, (headers.to_string(), body.to_string()))
-            .context("call handle_webhook")?;
+            .map_err(|err| anyhow::anyhow!("call handle_webhook: {err}"))?;
         assert!(res.is_ok(), "expected ok response");
         Ok(())
     }
@@ -281,7 +282,8 @@ mod slack {
     fn handles_webhook_with_secret() -> Result<()> {
         let path = ensure_component_artifact("messaging-ingress-slack", "messaging-ingress-slack")?;
         let engine = new_engine();
-        let component = Component::from_file(&engine, &path).context("loading component")?;
+        let component = Component::from_file(&engine, &path)
+            .map_err(|err| anyhow::anyhow!("loading component: {err}"))?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
         bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
@@ -326,7 +328,7 @@ mod slack {
         );
         let instance = linker
             .instantiate(&mut store, &component)
-            .context("instantiate")?;
+            .map_err(|err| anyhow::anyhow!("instantiate: {err}"))?;
         let ingress_index: ComponentExportIndex = instance
             .get_export_index(&mut store, None, "provider:common/ingress@0.0.2")
             .context("get ingress export index")?;
@@ -335,10 +337,10 @@ mod slack {
             .context("get handle-webhook export index")?;
         let handle: TypedFunc<(String, String), (Result<String, String>,)> = instance
             .get_typed_func(&mut store, handle_index)
-            .context("get handle-webhook func")?;
+            .map_err(|err| anyhow::anyhow!("get handle-webhook func: {err}"))?;
         let (res,) = handle
             .call(&mut store, (headers.to_string(), body.to_string()))
-            .context("call handle_webhook")?;
+            .map_err(|err| anyhow::anyhow!("call handle_webhook: {err}"))?;
         assert!(res.is_ok(), "expected ok response");
         Ok(())
     }
@@ -464,7 +466,8 @@ mod telegram {
         let path =
             ensure_component_artifact("messaging-ingress-telegram", "messaging-ingress-telegram")?;
         let engine = new_engine();
-        let component = Component::from_file(&engine, &path).context("loading component")?;
+        let component = Component::from_file(&engine, &path)
+            .map_err(|err| anyhow::anyhow!("loading component: {err}"))?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
         bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
@@ -496,7 +499,7 @@ mod telegram {
         let mut store = Store::new(&engine, HostState::default());
         let instance = linker
             .instantiate(&mut store, &component)
-            .context("instantiate")?;
+            .map_err(|err| anyhow::anyhow!("instantiate: {err}"))?;
         let ingress_index: ComponentExportIndex = instance
             .get_export_index(&mut store, None, "provider:common/ingress@0.0.2")
             .context("get ingress export index")?;
@@ -505,12 +508,12 @@ mod telegram {
             .context("get handle-webhook export index")?;
         let handle: TypedFunc<(String, String), (Result<String, String>,)> = instance
             .get_typed_func(&mut store, handle_index)
-            .context("get handle-webhook func")?;
+            .map_err(|err| anyhow::anyhow!("get handle-webhook func: {err}"))?;
         let headers = json!({});
         let body = json!({"update_id": 1});
         let (res,) = handle
             .call(&mut store, (headers.to_string(), body.to_string()))
-            .context("call handle_webhook")?;
+            .map_err(|err| anyhow::anyhow!("call handle_webhook: {err}"))?;
         assert!(res.is_ok(), "expected ok response");
         Ok(())
     }
@@ -636,7 +639,8 @@ mod whatsapp {
         let path =
             ensure_component_artifact("messaging-ingress-whatsapp", "messaging-ingress-whatsapp")?;
         let engine = new_engine();
-        let component = Component::from_file(&engine, &path).context("loading component")?;
+        let component = Component::from_file(&engine, &path)
+            .map_err(|err| anyhow::anyhow!("loading component: {err}"))?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
         bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
@@ -668,7 +672,7 @@ mod whatsapp {
         let mut store = Store::new(&engine, HostState::default());
         let instance = linker
             .instantiate(&mut store, &component)
-            .context("instantiate")?;
+            .map_err(|err| anyhow::anyhow!("instantiate: {err}"))?;
         let ingress_index: ComponentExportIndex = instance
             .get_export_index(&mut store, None, "provider:common/ingress@0.0.2")
             .context("get ingress export index")?;
@@ -677,12 +681,12 @@ mod whatsapp {
             .context("get handle-webhook export index")?;
         let handle: TypedFunc<(String, String), (Result<String, String>,)> = instance
             .get_typed_func(&mut store, handle_index)
-            .context("get handle-webhook func")?;
+            .map_err(|err| anyhow::anyhow!("get handle-webhook func: {err}"))?;
         let headers = json!({});
         let body = json!({"entry": []});
         let (res,) = handle
             .call(&mut store, (headers.to_string(), body.to_string()))
-            .context("call handle_webhook")?;
+            .map_err(|err| anyhow::anyhow!("call handle_webhook: {err}"))?;
         assert!(res.is_ok(), "expected ok response");
         Ok(())
     }
@@ -692,7 +696,8 @@ mod whatsapp {
         let path =
             ensure_component_artifact("messaging-ingress-whatsapp", "messaging-ingress-whatsapp")?;
         let engine = new_engine();
-        let component = Component::from_file(&engine, &path).context("loading component")?;
+        let component = Component::from_file(&engine, &path)
+            .map_err(|err| anyhow::anyhow!("loading component: {err}"))?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
         bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
@@ -727,7 +732,7 @@ mod whatsapp {
         );
         let instance = linker
             .instantiate(&mut store, &component)
-            .context("instantiate")?;
+            .map_err(|err| anyhow::anyhow!("instantiate: {err}"))?;
         let ingress_index: ComponentExportIndex = instance
             .get_export_index(&mut store, None, "provider:common/ingress@0.0.2")
             .context("get ingress export index")?;
@@ -736,12 +741,12 @@ mod whatsapp {
             .context("get handle-webhook export index")?;
         let handle: TypedFunc<(String, String), (Result<String, String>,)> = instance
             .get_typed_func(&mut store, handle_index)
-            .context("get handle-webhook func")?;
+            .map_err(|err| anyhow::anyhow!("get handle-webhook func: {err}"))?;
         let headers = json!({});
         let body = json!({"hub.verify_token": "bad"});
         let (res,) = handle
             .call(&mut store, (headers.to_string(), body.to_string()))
-            .context("call handle_webhook")?;
+            .map_err(|err| anyhow::anyhow!("call handle_webhook: {err}"))?;
         assert!(res.is_err(), "expected validation error");
         Ok(())
     }
@@ -875,7 +880,8 @@ mod teams {
     fn syncs_subscriptions() -> Result<()> {
         let path = ensure_component_artifact("messaging-ingress-teams", "messaging-ingress-teams")?;
         let engine = new_engine();
-        let component = Component::from_file(&engine, &path).context("loading component")?;
+        let component = Component::from_file(&engine, &path)
+            .map_err(|err| anyhow::anyhow!("loading component: {err}"))?;
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
         bindings::greentic::http::http_client::add_to_linker::<HostState, HasSelf<HostState>>(
@@ -953,7 +959,7 @@ mod teams {
         let mut store = Store::new(&engine, host);
         let instance = linker
             .instantiate(&mut store, &component)
-            .context("instantiate")?;
+            .map_err(|err| anyhow::anyhow!("instantiate: {err}"))?;
         let subs_index: ComponentExportIndex = instance
             .get_export_index(&mut store, None, "provider:common/subscriptions@0.0.2")
             .context("get subscriptions export index")?;
@@ -962,10 +968,10 @@ mod teams {
             .context("get sync-subscriptions export index")?;
         let sync: TypedFunc<(String, String), (Result<String, String>,)> = instance
             .get_typed_func(&mut store, sync_index)
-            .context("get sync-subscriptions func")?;
+            .map_err(|err| anyhow::anyhow!("get sync-subscriptions func: {err}"))?;
         let (res,) = sync
             .call(&mut store, (config_json, state_json))
-            .context("call sync_subscriptions")?;
+            .map_err(|err| anyhow::anyhow!("call sync_subscriptions: {err}"))?;
         assert!(res.is_ok(), "expected ok response");
         let (_, state_bytes) = store
             .data()

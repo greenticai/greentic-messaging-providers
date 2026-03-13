@@ -1,5 +1,5 @@
 {
   "status": "accepted",
-  "provider": "messaging.teams.graph",
+  "provider": "messaging.teams.bot",
   "message_id": "msg_egress_1"
 }

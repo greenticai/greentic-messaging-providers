@@ -1,0 +1,7 @@
+{
+  "provider": "messaging.webchat",
+  "message": {
+    "text": "hello from ingress",
+    "id": "msg_123"
+  }
+}

@@ -687,12 +687,12 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
                 .insert("ac_pending_inputs".to_string(), ij);
             // Store the submit action data so ingest_http can auto-submit
             // after all text inputs are collected.
-            if let Some(submit_action) = content.actions.iter().find(|a| a.get("data").is_some()) {
-                if let Some(data) = submit_action.get("data") {
-                    envelope
-                        .metadata
-                        .insert("ac_submit_data".to_string(), data.to_string());
-                }
+            if let Some(submit_action) = content.actions.iter().find(|a| a.get("data").is_some())
+                && let Some(data) = submit_action.get("data")
+            {
+                envelope
+                    .metadata
+                    .insert("ac_submit_data".to_string(), data.to_string());
             }
         }
     }
@@ -1546,12 +1546,11 @@ fn label_from_items(items: &[Value]) -> String {
             .get("weight")
             .and_then(Value::as_str)
             .is_some_and(|w| w.eq_ignore_ascii_case("bolder"))
+            && let Some(text) = tb.get("text").and_then(Value::as_str)
         {
-            if let Some(text) = tb.get("text").and_then(Value::as_str) {
-                let t = text.trim();
-                if !t.is_empty() {
-                    return t.chars().take(64).collect();
-                }
+            let t = text.trim();
+            if !t.is_empty() {
+                return t.chars().take(64).collect();
             }
         }
     }

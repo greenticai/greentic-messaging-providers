@@ -20,7 +20,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2024"
-version = "0.4.35"
+version = "0.4.37"
 license = "MIT"
 
 
@@ -59,9 +59,10 @@ htmlescape = "0.3"
 greentic-messaging-planned = { path = "crates/greentic-messaging-planned" }
 greentic-messaging-renderer = { path = "crates/greentic-messaging-renderer" }
 provider-common = { path = "crates/provider-common" }
+webchat-directline-core = { path = "crates/webchat-directline-core" }
 ureq = "3"
 http = "1"
 assert_cmd = "2"
 predicates = "3"
-wasmtime = { version = "41", features = ["component-model", "cache"] }
-wasmtime-wasi = "41"
+wasmtime = { version = "42", features = ["component-model", "cache"] }
+wasmtime-wasi = "42"

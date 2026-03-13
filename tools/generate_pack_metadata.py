@@ -67,8 +67,10 @@ def aggregate_requirements(pack_dir: Path, components_dir: Path) -> List[dict]:
     }
     reqs: List[dict] = []
     for component in components:
+        explicit_manifest: Optional[str] = None
         if isinstance(component, dict):
             comp_id = component.get("id")
+            explicit_manifest = component.get("manifest")
             # Skip remote/OCI components when we don't have a local manifest copy.
             if not comp_id or component.get("oci"):
                 continue
@@ -85,6 +87,8 @@ def aggregate_requirements(pack_dir: Path, components_dir: Path) -> List[dict]:
                 alt_manifest = components_dir / fallback / "component.manifest.json"
                 if alt_manifest.exists():
                     comp_manifest = alt_manifest
+        if not comp_manifest.exists() and not explicit_manifest:
+            continue
         if not comp_manifest.exists():
             if "__" in comp_id:
                 continue
@@ -208,6 +212,23 @@ def main() -> int:
         manifest["version"] = pack_yaml.get("version", manifest.get("version", "0.0.0"))
         if pack_yaml.get("extensions"):
             manifest["extensions"] = pack_yaml.get("extensions", {})
+            pack_version = pack_yaml.get("version")
+            if pack_version:
+                for ext_name, ext in manifest["extensions"].items():
+                    if not isinstance(ext, dict):
+                        continue
+                    ext["version"] = pack_version
+                    inline = ext.get("inline")
+                    if not isinstance(inline, dict):
+                        continue
+                    if ext_name == "greentic.static-routes.v1":
+                        inline["version"] = 1
+                        continue
+                    offers = inline.get("offers")
+                    if isinstance(offers, list):
+                        for offer in offers:
+                            if isinstance(offer, dict):
+                                offer["version"] = pack_version
 
         component_ids = []
         component_sources = []
@@ -219,6 +240,9 @@ def main() -> int:
                 continue
             comp_copy = dict(comp)
             comp_copy.setdefault("wasm", f"components/{comp_id}.wasm")
+            comp_copy["version"] = pack_yaml.get(
+                "version", comp_copy.get("version", manifest.get("version", "0.0.0"))
+            )
             component_sources.append(comp_copy)
             # Only include components without an OCI reference in the manifest's
             # top-level components list (legacy consumers expect local manifests).
@@ -227,6 +251,14 @@ def main() -> int:
                 if comp_manifest.exists():
                     component_ids.append(comp_id)
         if component_ids:
+            helper_components = []
+            if (components_dir / "provision" / "component.manifest.json").exists():
+                helper_components.append("ai.greentic.component-provision")
+            if (components_dir / "qa" / "component.manifest.json").exists():
+                helper_components.append("ai.greentic.component-qa")
+            for helper in helper_components:
+                if helper not in component_ids:
+                    component_ids.append(helper)
             manifest["components"] = component_ids
             manifest["component_sources"] = component_sources
 

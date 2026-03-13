@@ -1,0 +1,37 @@
+provider_id: webchat-gui
+version: 1
+title: Webchat GUI provider setup
+questions:
+  - name: public_base_url
+    title: Public base URL
+    kind: string
+    required: true
+    help: "Example: https://xxxx.trycloudflare.com"
+    validate:
+      regex: "^https://"
+  - name: mode
+    title: Mode
+    kind: string
+    required: true
+    help: "WebChat mode (e.g. directline, embedded)"
+  - name: route
+    title: Route
+    kind: string
+    required: false
+  - name: tenant_channel_id
+    title: Tenant channel ID
+    kind: string
+    required: false
+  - name: jwt_signing_key
+    title: JWT signing key
+    kind: string
+    required: true
+    secret: true
+    help: "Secret key used to sign Direct Line tokens. Use any random string (e.g. openssl rand -hex 32)."
+  - name: base_url
+    title: Base URL
+    kind: string
+    required: false
+    help: "Optional DirectLine or WebChat server base URL"
+    validate:
+      regex: "^https?://"

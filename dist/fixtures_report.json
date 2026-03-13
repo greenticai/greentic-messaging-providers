@@ -20,6 +20,9 @@
   "messaging-webchat": {
     "errors": []
   },
+  "messaging-webchat-gui": {
+    "errors": []
+  },
   "messaging-webex": {
     "errors": []
   },

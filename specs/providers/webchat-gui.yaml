@@ -1,0 +1,57 @@
+pack:
+  id: messaging-webchat-gui
+  name: Messaging Webchat GUI
+  version: 0.1.0
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.webchat-gui
+  provider_id: webchat-gui
+  ops:
+  - send
+  - ingest
+  - qa-spec
+  - apply-answers
+  - i18n-keys
+  capabilities:
+    render_tiers:
+    - tier-d
+components:
+  adapter:
+    id: messaging-provider-webchat-gui
+    component_ref: local:../../packs/messaging-webchat-gui/components/messaging-provider-webchat-gui.wasm
+    world: greentic:provider/schema-core@1.0.0
+    export: schema-core-api
+flows:
+  include:
+  - setup_default
+  - update
+  - remove
+  - default
+  - diagnostics
+  - requirements
+  - verify_webhooks
+source:
+  pack_dir: ../../packs/messaging-webchat-gui
+  extensions:
+    include:
+    - greentic.provider-extension.v1
+    - greentic.messaging.validators.v1
+    - messaging.provider_flow_hints
+    - messaging.provider_ingress.v1
+    - messaging.provider_routes.v1
+    - greentic.static-routes.v1
+contract:
+  ingress:
+    mode: default
+  webhooks:
+    required: false
+  subscriptions:
+    required: false
+requirements:
+  required_args: []
+  optional_args: []
+  examples:
+  - args: {}
+    text: ''
+  notes: ''

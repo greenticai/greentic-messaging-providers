@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "flow": "setup_default.ygtc",
+  "nodes": {
+    "setup_default__apply": {
+      "component_id": "ai.greentic.component-provision",
+      "source": {
+        "kind": "local",
+        "path": "../components/provision/provision.wasm"
+      },
+      "digest": "sha256:8708e333d0005020ec97ab5b282e61d955ea86093b0b30ed3ae6ff8cca18795c",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.1.0"
+      }
+    },
+    "setup_default__collect": {
+      "component_id": "ai.greentic.component-qa",
+      "source": {
+        "kind": "local",
+        "path": "../components/qa/qa.wasm"
+      },
+      "digest": "sha256:d0b9dc48122d081250bf8bb1cf06a309995c318ac9b0b3e6804ce8fd3639d655",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.4.1"
+      }
+    },
+    "setup_default__emit_questions": {
+      "component_id": "ai.greentic.component-qa",
+      "source": {
+        "kind": "local",
+        "path": "../components/qa/qa.wasm"
+      },
+      "digest": "sha256:d0b9dc48122d081250bf8bb1cf06a309995c318ac9b0b3e6804ce8fd3639d655",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.4.1"
+      }
+    },
+    "setup_default__summary": {
+      "component_id": "ai.greentic.component-qa",
+      "source": {
+        "kind": "local",
+        "path": "../components/qa/qa.wasm"
+      },
+      "digest": "sha256:d0b9dc48122d081250bf8bb1cf06a309995c318ac9b0b3e6804ce8fd3639d655",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.4.1"
+      }
+    },
+    "setup_default__validate": {
+      "component_id": "ai.greentic.component-qa",
+      "source": {
+        "kind": "local",
+        "path": "../components/qa/qa.wasm"
+      },
+      "digest": "sha256:d0b9dc48122d081250bf8bb1cf06a309995c318ac9b0b3e6804ce8fd3639d655",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.4.1"
+      }
+    }
+  }
+}

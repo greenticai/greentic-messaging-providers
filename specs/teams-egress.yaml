@@ -5,7 +5,7 @@ pack:
   publisher: Greentic
   kind: application
 provider:
-  provider_type: messaging.teams.graph
+  provider_type: messaging.teams.bot
   provider_id: teams
   ops:
     - send

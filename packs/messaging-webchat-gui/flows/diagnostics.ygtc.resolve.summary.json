@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "flow": "diagnostics.ygtc",
+  "nodes": {
+    "summary": {
+      "component_id": "ai.greentic.component-qa",
+      "source": {
+        "kind": "local",
+        "path": "../components/qa/qa.wasm"
+      },
+      "digest": "sha256:d0b9dc48122d081250bf8bb1cf06a309995c318ac9b0b3e6804ce8fd3639d655",
+      "manifest": {
+        "world": "greentic:component/component@0.5.0",
+        "version": "0.4.1"
+      }
+    }
+  }
+}

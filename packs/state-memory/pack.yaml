@@ -1,11 +1,11 @@
 pack_id: state-memory
-version: 0.4.0
-kind: capability
+version: 0.4.37
+kind: application
 publisher: Greentic
 name: In-Memory State Provider
 components:
 - id: state-provider-memory
-  version: 0.4.0
+  version: 0.4.37
   world: greentic:component/component-v0-v6-v0
   supports:
   - component_config
@@ -18,7 +18,58 @@ components:
       random: false
       clocks: false
     host: {}
-  wasm: components/state-provider-memory.wasm
+  wasm: components/state-provider-memory/state-provider-memory.wasm
+- id: ai.greentic.component-provision
+  version: 0.4.37
+  world: greentic:component/component@0.5.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    host:
+      state:
+        delete: false
+        read: false
+        write: true
+      telemetry:
+        scope: node
+    wasi:
+      clocks: false
+      filesystem:
+        mode: none
+        mounts: []
+      random: false
+  wasm: components/provision/provision.wasm
+- id: ai.greentic.component-qa
+  version: 0.4.37
+  world: greentic:component/component@0.5.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    host:
+      messaging:
+        inbound: true
+        outbound: true
+      qa:
+        process: true
+      secrets:
+        required: []
+      telemetry:
+        scope: node
+    wasi:
+      clocks: true
+      filesystem:
+        mode: none
+        mounts: []
+      random: true
+  wasm: components/qa/qa.wasm
 dependencies: []
 flows:
 - id: setup_default
@@ -31,7 +82,7 @@ assets: []
 extensions:
   greentic.ext.capabilities.v1:
     kind: greentic.ext.capabilities.v1
-    version: 1.0.0
+    version: 0.4.37
     inline:
       offers:
       - cap_id: greentic.cap.state.kv.v1
@@ -44,5 +95,5 @@ extensions:
           component_ref: state-provider-memory
           op: state.dispatch
         requires_setup: false
-        version: v1
+        version: 0.4.37
       schema_version: 1

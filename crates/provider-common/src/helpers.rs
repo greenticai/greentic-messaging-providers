@@ -776,7 +776,7 @@ mod tests {
         let result = render_plan_common(&input, &config);
         let plan = parse_plan(&result);
         assert_eq!(plan["tier"], "TierA");
-        assert!(plan["attachments"].as_array().unwrap().len() > 0);
+        assert!(!plan["attachments"].as_array().unwrap().is_empty());
     }
 
     #[test]

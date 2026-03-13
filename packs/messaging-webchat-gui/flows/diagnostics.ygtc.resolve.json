@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "flow": "diagnostics.ygtc",
+  "nodes": {
+    "summary": {
+      "source": {
+        "kind": "local",
+        "path": "file://../components/qa/qa.wasm"
+      }
+    }
+  }
+}

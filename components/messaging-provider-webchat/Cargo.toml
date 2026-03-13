@@ -20,6 +20,7 @@ hmac.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 urlencoding.workspace = true
 provider-common.workspace = true
+webchat-directline-core.workspace = true
 
 [package.metadata.component]
 package = "greentic:messaging-provider-webchat-core"

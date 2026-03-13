@@ -6,7 +6,7 @@ Ingress and subscription lifecycle component for Microsoft Teams.
 - `messaging-ingress-teams`
 
 ## Provider types
-- `messaging.teams.graph`
+- `messaging.teams.bot`
 
 ## Secrets
 - `MS_GRAPH_CLIENT_SECRET` (tenant): Client secret used for Graph token acquisition.

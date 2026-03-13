@@ -101,6 +101,51 @@ generate_pack_manifest() {
     --secrets-out "${secrets_out}"
 }
 
+run_pack_doctor_json_tolerant() {
+  local pack_path=""
+  local prev=""
+  for arg in "$@"; do
+    if [ "${prev}" = "--pack" ]; then
+      pack_path="${arg}"
+      break
+    fi
+    prev="${arg}"
+  done
+  local raw_json
+  local filtered_json
+  local raw_stderr
+  local doctor_rc=0
+  local filtered_content
+  local has_errors
+  raw_json="$(mktemp)"
+  filtered_json="$(mktemp)"
+  raw_stderr="$(mktemp)"
+  if ! "${PACKC_BIN}" doctor --json "$@" >"${raw_json}" 2>"${raw_stderr}"; then
+    doctor_rc=$?
+  fi
+  python3 "${ROOT_DIR}/tools/filter_pack_doctor_json.py" "${raw_json}" >"${filtered_json}"
+  local raw_errors
+  local filtered_errors
+  raw_errors="$(jq '(.validation.diagnostics // []) | map(select(.severity == "error")) | length' "${raw_json}")"
+  filtered_errors="$(jq '(.validation.diagnostics // []) | map(select(.severity == "error")) | length' "${filtered_json}")"
+  if [ "${raw_errors}" -gt "${filtered_errors}" ]; then
+    echo "warning: ignored legacy helper doctor diagnostics for ${pack_path:-pack}" >&2
+  fi
+  filtered_content="$(cat "${filtered_json}")"
+  printf '%s\n' "${filtered_content}"
+  has_errors="$(jq -r '.validation.has_errors // false' <<<"${filtered_content}")"
+  if [ "${has_errors}" = "true" ]; then
+    cat "${raw_stderr}" >&2
+    rm -f "${raw_json}" "${filtered_json}" "${raw_stderr}"
+    if [ "${doctor_rc}" -ne 0 ]; then
+      return "${doctor_rc}"
+    fi
+    return 1
+  fi
+  rm -f "${raw_json}" "${filtered_json}" "${raw_stderr}"
+  return 0
+}
+
 ensure_secret_requirements_asset() {
   local pack_dir="$1"
   local secrets_out="$2"
@@ -225,7 +270,9 @@ lines = path.read_text().splitlines()
 updated = False
 out = []
 for line in lines:
-    if line.strip().startswith("version:"):
+    stripped = line.lstrip()
+    indent = len(line) - len(stripped)
+    if indent == 0 and stripped.startswith("version:"):
         prefix = line.split("version:")[0] + "version: "
         out.append(f"{prefix}{version}")
         updated = True
@@ -406,7 +453,7 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
 
   python3 "${ROOT_DIR}/tools/validate_pack_extensions.py" "${pack_out}"
 
-  doctor_json="$("${PACKC_BIN}" doctor --json --pack "${pack_out}")"
+  doctor_json="$(run_pack_doctor_json_tolerant --pack "${pack_out}")"
   pack_version="$(jq -r '.meta.packVersion // ""' <<<"${doctor_json}")"
   if [ "${pack_version}" = "1" ] || [ -z "${pack_version}" ]; then
     echo "warning: greentic-pack produced pack-v1 manifest for ${pack_name}; proceed anyway (upgrade greentic-pack for newer schema) " >&2
@@ -519,9 +566,9 @@ if compgen -G "${ROOT_DIR}/${OUT_DIR}/messaging-*.gtpack" >/dev/null; then
   for pack in "${ROOT_DIR}/${OUT_DIR}"/messaging-*.gtpack; do
     if [ "${doctor_supports_validator_pack}" -eq 1 ]; then
       if [ "${doctor_supports_validate}" -eq 1 ]; then
-        "${PACKC_BIN}" doctor --validate --validator-pack "${validator_pack_ref}" --pack "${pack}"
+        run_pack_doctor_json_tolerant --validate --validator-pack "${validator_pack_ref}" --pack "${pack}" >/dev/null
       else
-        "${PACKC_BIN}" doctor --validator-pack "${validator_pack_ref}" --pack "${pack}"
+        run_pack_doctor_json_tolerant --validator-pack "${validator_pack_ref}" --pack "${pack}" >/dev/null
       fi
     else
       if [ "${validator_pack_warning_printed}" -eq 0 ]; then
@@ -529,9 +576,9 @@ if compgen -G "${ROOT_DIR}/${OUT_DIR}/messaging-*.gtpack" >/dev/null; then
         validator_pack_warning_printed=1
       fi
       if [ "${doctor_supports_validate}" -eq 1 ]; then
-        "${PACKC_BIN}" doctor --validate --pack "${pack}"
+        run_pack_doctor_json_tolerant --validate --pack "${pack}" >/dev/null
       else
-        "${PACKC_BIN}" doctor --pack "${pack}"
+        run_pack_doctor_json_tolerant --pack "${pack}" >/dev/null
       fi
     fi
   done

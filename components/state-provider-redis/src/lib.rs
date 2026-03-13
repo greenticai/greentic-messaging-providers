@@ -517,23 +517,21 @@ fn apply_answers_impl(mode: &str, answers_cbor: Vec<u8>) -> Vec<u8> {
         if has("key_prefix") {
             merged.key_prefix = string_or_default(&answers, "key_prefix", &merged.key_prefix);
         }
-        if has("default_ttl_seconds") {
-            if let Some(v) = answers
+        if has("default_ttl_seconds")
+            && let Some(v) = answers
                 .get("default_ttl_seconds")
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse::<u32>().ok())
-            {
-                merged.default_ttl_seconds = v;
-            }
+        {
+            merged.default_ttl_seconds = v;
         }
-        if has("connection_pool_size") {
-            if let Some(v) = answers
+        if has("connection_pool_size")
+            && let Some(v) = answers
                 .get("connection_pool_size")
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse::<u32>().ok())
-            {
-                merged.connection_pool_size = v;
-            }
+        {
+            merged.connection_pool_size = v;
         }
     }
 

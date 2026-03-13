@@ -4,6 +4,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKS_DIR="${ROOT_DIR}/packs"
 
+if [ -x "${ROOT_DIR}/tools/import_webchat_gui_assets.sh" ]; then
+  "${ROOT_DIR}/tools/import_webchat_gui_assets.sh"
+fi
+
 for dir in "${PACKS_DIR}"/messaging-*; do
   [ -d "${dir}" ] || continue
   secrets_out="${dir}/.secret_requirements.json"

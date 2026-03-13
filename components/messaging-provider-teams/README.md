@@ -1,12 +1,12 @@
 # Messaging Provider Teams Component
 
-Provider-core Microsoft Teams messaging provider (Graph API send).
+Provider-core Microsoft Teams messaging provider.
 
 ## Component ID
 - `messaging-provider-teams`
 
 ## Provider types
-- `messaging.teams.graph`
+- `messaging.teams.bot`
 
 ## Secrets
 

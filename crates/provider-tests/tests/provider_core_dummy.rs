@@ -123,7 +123,7 @@ fn invoke_run(
     let mut store = Store::new(engine, HostState::default());
     let instance = linker
         .instantiate(&mut store, component)
-        .context("instantiate for invoke")?;
+        .map_err(|err| anyhow::anyhow!("instantiate for invoke: {err}"))?;
     let api_index: ComponentExportIndex = instance
         .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
         .context("get runtime export index for invoke")?;
@@ -132,10 +132,10 @@ fn invoke_run(
         .context("get invoke export index")?;
     let invoke: TypedFunc<(String, Vec<u8>), (Vec<u8>,)> = instance
         .get_typed_func(&mut store, invoke_index)
-        .context("get invoke func")?;
+        .map_err(|err| anyhow::anyhow!("get invoke func: {err}"))?;
     let (bytes,) = invoke
         .call(&mut store, ("run".to_string(), input_bytes))
-        .context("call invoke run")?;
+        .map_err(|err| anyhow::anyhow!("call invoke run: {err}"))?;
     let json: Value = decode_cbor(&bytes).map_err(anyhow::Error::msg)?;
     Ok(json)
 }
@@ -216,13 +216,14 @@ fn pack_has_extension_and_schema() -> Result<()> {
 fn invoke_send_smoke_test() -> Result<()> {
     let component_path = ensure_component_artifact()?;
     let engine = new_engine();
-    let component = Component::from_file(&engine, &component_path).context("loading component")?;
+    let component = Component::from_file(&engine, &component_path)
+        .map_err(|err| anyhow::anyhow!("loading component: {err}"))?;
     let mut linker = Linker::new(&engine);
     add_wasi_to_linker(&mut linker);
     let mut store = Store::new(&engine, HostState::default());
     let instance = linker
         .instantiate(&mut store, &component)
-        .context("instantiate for describe")?;
+        .map_err(|err| anyhow::anyhow!("instantiate for describe: {err}"))?;
 
     let api_index: ComponentExportIndex = instance
         .get_export_index(&mut store, None, "greentic:component/descriptor@0.6.0")
@@ -231,10 +232,13 @@ fn invoke_send_smoke_test() -> Result<()> {
     let describe_index = instance
         .get_export_index(&mut store, Some(&api_index), "describe")
         .context("get describe export index")?;
-    let describe: TypedFunc<(), (Vec<u8>,)> = instance
-        .get_typed_func(&mut store, describe_index)
-        .context("get describe func")?;
-    let (described,) = describe.call(&mut store, ()).context("call describe")?;
+    let describe: TypedFunc<(), (Vec<u8>,)> =
+        instance
+            .get_typed_func(&mut store, describe_index)
+            .map_err(|err| anyhow::anyhow!("get describe func: {err}"))?;
+    let (described,) = describe
+        .call(&mut store, ())
+        .map_err(|err| anyhow::anyhow!("call describe: {err}"))?;
     let described: DescribePayload = decode_cbor(&described).map_err(anyhow::Error::msg)?;
     assert_eq!(described.provider, "messaging-provider-dummy");
     assert_eq!(described.world, "component-v0-v6-v0");
@@ -245,7 +249,7 @@ fn invoke_send_smoke_test() -> Result<()> {
     let mut store = Store::new(&engine, HostState::default());
     let instance = linker
         .instantiate(&mut store, &component)
-        .context("instantiate for invoke")?;
+        .map_err(|err| anyhow::anyhow!("instantiate for invoke: {err}"))?;
 
     let api_index: ComponentExportIndex = instance
         .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
@@ -255,12 +259,12 @@ fn invoke_send_smoke_test() -> Result<()> {
         .context("get invoke export index")?;
     let invoke: TypedFunc<(String, Vec<u8>), (Vec<u8>,)> = instance
         .get_typed_func(&mut store, invoke_index)
-        .context("get invoke func")?;
+        .map_err(|err| anyhow::anyhow!("get invoke func: {err}"))?;
     let input = json!({"message":"hello"});
     let input_bytes = canonical_cbor_bytes(&input);
     let (first,) = invoke
         .call(&mut store, ("run".to_string(), input_bytes.clone()))
-        .context("call invoke run")?;
+        .map_err(|err| anyhow::anyhow!("call invoke run: {err}"))?;
     let first_json: Value = decode_cbor(&first).map_err(anyhow::Error::msg)?;
 
     // Re-instantiate to check determinism without re-entry traps.

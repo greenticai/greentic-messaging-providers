@@ -1,0 +1,83 @@
+id: update
+type: job
+start: update__emit_questions
+parameters: {}
+tags: []
+schema_version: 2
+entrypoints: {}
+nodes:
+  update__emit_questions:
+    routing:
+    - to: update__collect
+    describe:
+      id: webchat-gui-update
+      spec_ref: assets/setup.yaml
+  update__collect:
+    routing:
+    - to: update__validate
+    text:
+      msg:
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
+        message:
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.webchat-gui
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: Collect inputs for update. Only missing answers are requested.
+      wrap: true
+  update__validate:
+    routing:
+    - to: update__apply
+    validate_answers:
+      answers_json: '{{ state.input.answers_json }}'
+      spec_json: '{{ node.update__emit_questions }}'
+  update__apply:
+    routing:
+    - to: update__summary
+    apply:
+      dry_run: '{{ state.input.dry_run }}'
+      plan:
+        actions:
+        - key: config
+          scope: provider
+          type: update_config
+        - key: bot_token
+          scope: provider
+          type: update_secret
+        - key: status
+          scope: provider
+          type: verify_connectivity
+  update__summary:
+    routing: out
+    text:
+      msg:
+        channel: '{{ state.input.msg.channel }}'
+        correlation_id: '{{ state.input.msg.correlation_id }}'
+        id: '{{ state.input.msg.id }}'
+        message:
+          id: '{{ state.input.msg.message.id }}'
+          text: '{{ state.input.msg.message.text }}'
+        metadata: '{{ state.input.msg.metadata }}'
+        provider: messaging.webchat-gui
+        reply_scope: '{{ state.input.msg.reply_scope }}'
+        session_id: '{{ state.input.msg.session_id }}'
+        tenant_id: '{{ state.input.msg.tenant_id }}'
+        text: '{{ state.input.msg.text }}'
+        user_id: '{{ state.input.msg.user_id }}'
+      output_path: text
+      template: messaging.webchat-gui update complete.
+      wrap: true
+x-generated-by: greentic-messaging-packgen
+x-generated-from:
+  spec: specs/providers/webchat-gui.yaml
+  spec-hash: sha256:86a463761754dd77cf3af4d98ab52c4ad01267b0970ac8d7f4338c1cea2fb40a
+  manifest-hash: sha256:d049d69937963ab2d24180117ce3ec0a9094c591b25e121a11b3bd50a6697199
+  schemas-hash: sha256:1cba3c11e481dca5de6b398499258b58a4ebd20675164e815dc2d4a3928f1edd

@@ -7,7 +7,7 @@ Microsoft Teams provider component supporting egress, ingress, and formatting.
 
 ## Provider types
 - `messaging.slack.api`
-- `messaging.teams.graph`
+- `messaging.teams.bot`
 - `messaging.telegram.bot`
 - `messaging.webchat`
 - `messaging.webex.bot`

@@ -88,6 +88,79 @@ path.write_text("\n".join(out) + "\n")
 PY
 }
 
+ensure_helper_components_in_pack_yaml() {
+  local yaml_path="$1"
+  [ -f "${yaml_path}" ] || return 0
+  python3 - "$yaml_path" "${ROOT_DIR}" "$VERSION" <<'PY'
+from pathlib import Path
+import json
+import sys
+import yaml
+
+yaml_path = Path(sys.argv[1])
+root = Path(sys.argv[2])
+version = sys.argv[3]
+data = yaml.safe_load(yaml_path.read_text()) or {}
+components = data.setdefault("components", [])
+if not isinstance(components, list):
+    sys.exit(0)
+
+helper_specs = [
+    (
+        root / "components" / "provision" / "component.manifest.json",
+        "components/provision/provision.wasm",
+    ),
+    (
+        root / "components" / "qa" / "component.manifest.json",
+        "components/qa/qa.wasm",
+    ),
+]
+
+existing_ids = {
+    comp.get("id")
+    for comp in components
+    if isinstance(comp, dict) and comp.get("id")
+}
+
+for manifest_path, wasm_path in helper_specs:
+    if not manifest_path.exists():
+        continue
+    manifest = json.loads(manifest_path.read_text())
+    comp_id = manifest.get("id")
+    if not comp_id or comp_id in existing_ids:
+        continue
+    components.append(
+        {
+            "id": comp_id,
+            "version": version,
+            "world": manifest.get("world"),
+            "supports": manifest.get("supports", []),
+            "profiles": manifest.get("profiles", {"default": "stateless", "supported": ["stateless"]}),
+            "capabilities": manifest.get("capabilities", {}),
+            "wasm": wasm_path,
+        }
+    )
+
+yaml_path.write_text(yaml.safe_dump(data, sort_keys=False))
+PY
+}
+
+stamp_manifest_version() {
+  local manifest_path="$1"
+  [ -f "${manifest_path}" ] || return 0
+  python3 - "$manifest_path" "$VERSION" <<'PY'
+from pathlib import Path
+import json
+import sys
+
+path = Path(sys.argv[1])
+version = sys.argv[2]
+data = json.loads(path.read_text())
+data["version"] = version
+path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+}
+
 copy_schema() {
   local pack_dir="$1"
   local schema_path="$2"
@@ -251,6 +324,7 @@ for dir in "${PACKS_DIR}"/*; do
 
   echo "Syncing $(basename "${dir}")..."
   update_pack_yaml_version "${dir}/pack.yaml"
+  ensure_helper_components_in_pack_yaml "${dir}/pack.yaml"
   python3 "${ROOT_DIR}/tools/generate_pack_metadata.py" \
     --pack-dir "${dir}" \
     --components-dir "${ROOT_DIR}/components" \
@@ -260,6 +334,7 @@ for dir in "${PACKS_DIR}"/*; do
   ensure_secret_requirements_asset "${dir}" "${dir}/.secret_requirements.json"
 
   mkdir -p "${dir}/components"
+  rm -f "${dir}/components/component.manifest.json"
   while IFS=$'\t' read -r comp wasm_path oci_image oci_digest oci_artifact manifest_rel oci_manifest; do
     [ -z "${comp}" ] && continue
     wasm_rel="${wasm_path:-components/${comp}.wasm}"
@@ -311,8 +386,22 @@ for dir in "${PACKS_DIR}"/*; do
     if [ -n "${manifest_rel}" ] && [ -f "${manifest_src}" ]; then
       mkdir -p "$(dirname "${manifest_dest}")"
       cp "${manifest_src}" "${manifest_dest}"
+      case "${comp}" in
+        messaging-provider-*|messaging-ingress-*|state-provider-*|secrets-probe)
+          stamp_manifest_version "${manifest_dest}"
+          ;;
+      esac
     fi
   done < <(jq -r '(.component_sources // .components // [])[] | if type=="string" then {id: ., wasm: ("components/" + . + ".wasm")} else {id: .id, wasm: (.wasm // ("components/" + .id + ".wasm")), manifest: (.manifest // ""), oci: (.oci // {})} end | [.id, .wasm, (.oci.image // ""), (.oci.digest // ""), (.oci.artifact // ""), (.manifest // ""), (.oci.manifest // "")] | @tsv' "${dir}/pack.manifest.json")
+
+  while IFS= read -r comp; do
+    [ -z "${comp}" ] && continue
+    case "${comp}" in
+      messaging-provider-*|messaging-ingress-*|state-provider-*|secrets-probe)
+        stamp_manifest_version "${dir}/components/${comp}/component.manifest.json"
+        ;;
+    esac
+  done < <(jq -r '(.component_sources // .components // [])[] | if type=="string" then . else (.id // "") end' "${dir}/pack.manifest.json")
 
   while IFS= read -r schema; do
     [ -z "${schema}" ] && continue
@@ -337,6 +426,37 @@ for dir in "${PACKS_DIR}"/*; do
         fi
       fi
     done < <(jq -r '.components[]? | [.name, .ref, .digest] | @tsv' "${lock_file}")
+  fi
+
+  # Flow sidecars emitted by packgen still reference the legacy qa helper path.
+  # Keep it materialized in synced packs until flows are migrated to questions.
+  if [ -f "${ROOT_DIR}/components/qa/qa.wasm" ]; then
+    qa_dir="${dir}/components/qa"
+    mkdir -p "${qa_dir}"
+    cp "${ROOT_DIR}/components/qa/qa.wasm" "${qa_dir}/qa.wasm"
+    if [ -f "${ROOT_DIR}/components/qa/component.manifest.json" ]; then
+      cp "${ROOT_DIR}/components/qa/component.manifest.json" "${qa_dir}/component.manifest.json"
+      stamp_manifest_version "${qa_dir}/component.manifest.json"
+    fi
+    if [ -d "${ROOT_DIR}/components/qa/schemas" ]; then
+      rm -rf "${qa_dir}/schemas"
+      cp -R "${ROOT_DIR}/components/qa/schemas" "${qa_dir}/schemas"
+    fi
+  fi
+
+  # Generated setup/update/remove flows still reference the provision helper path.
+  if [ -f "${ROOT_DIR}/components/provision/provision.wasm" ]; then
+    provision_dir="${dir}/components/provision"
+    mkdir -p "${provision_dir}"
+    cp "${ROOT_DIR}/components/provision/provision.wasm" "${provision_dir}/provision.wasm"
+    if [ -f "${ROOT_DIR}/components/provision/component.manifest.json" ]; then
+      cp "${ROOT_DIR}/components/provision/component.manifest.json" "${provision_dir}/component.manifest.json"
+      stamp_manifest_version "${provision_dir}/component.manifest.json"
+    fi
+    if [ -d "${ROOT_DIR}/components/provision/schemas" ]; then
+      rm -rf "${provision_dir}/schemas"
+      cp -R "${ROOT_DIR}/components/provision/schemas" "${provision_dir}/schemas"
+    fi
   fi
 done
 

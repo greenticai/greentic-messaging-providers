@@ -218,8 +218,8 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         } else {
             // Try URL-encoded: body may be "payload=%7B..." raw text.
             let body_str = String::from_utf8(body_bytes.clone()).unwrap_or_default();
-            if body_str.starts_with("payload=") {
-                let decoded = urldecode(&body_str[8..]);
+            if let Some(payload) = body_str.strip_prefix("payload=") {
+                let decoded = urldecode(payload);
                 serde_json::from_str::<Value>(&decoded)
                     .ok()
                     .filter(|v| v.get("type").and_then(Value::as_str) == Some("block_actions"))
@@ -234,8 +234,8 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             Some(body_val.clone())
         } else {
             let body_str = String::from_utf8(body_bytes.clone()).unwrap_or_default();
-            if body_str.starts_with("payload=") {
-                let decoded = urldecode(&body_str[8..]);
+            if let Some(payload) = body_str.strip_prefix("payload=") {
+                let decoded = urldecode(payload);
                 serde_json::from_str::<Value>(&decoded)
                     .ok()
                     .filter(|v| v.get("type").and_then(Value::as_str) == Some("view_submission"))
@@ -301,9 +301,9 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
                     .unwrap_or(json!([]));
                 // Merge: action data + input specs for the modal builder.
                 let mut modal_data = parsed_action_val.clone().unwrap_or(json!({}));
-                modal_data.as_object_mut().map(|obj| {
+                if let Some(obj) = modal_data.as_object_mut() {
                     obj.insert("ac_modal_inputs".into(), msg_metadata_inputs);
-                });
+                }
                 return open_slack_modal(trigger_id, &modal_data, channel.as_deref());
             }
         }
@@ -339,15 +339,15 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
 
         let mut envelope = build_slack_envelope(action_text, channel.clone(), sender);
         // Forward ALL Action.Submit data fields to metadata for MCP routing.
-        if let Ok(val) = serde_json::from_str::<Value>(action_value_str) {
-            if let Some(obj) = val.as_object() {
-                for (k, v) in obj {
-                    let s = match v {
-                        Value::String(s) => s.clone(),
-                        _ => v.to_string(),
-                    };
-                    envelope.metadata.insert(k.clone(), s);
-                }
+        if let Ok(val) = serde_json::from_str::<Value>(action_value_str)
+            && let Some(obj) = val.as_object()
+        {
+            for (k, v) in obj {
+                let s = match v {
+                    Value::String(s) => s.clone(),
+                    _ => v.to_string(),
+                };
+                envelope.metadata.insert(k.clone(), s);
             }
         }
         envelope
@@ -729,7 +729,7 @@ fn build_slack_envelope(
 /// - ActionSet + top-level actions → `actions` block with buttons
 /// - Table → `section` with preformatted code block
 /// - Input.Text → collected for Slack modal (opened on Action.Submit click)
-/// Result of converting an AC card to Slack blocks.
+///   Result of converting an AC card to Slack blocks.
 struct SlackBlocksResult {
     blocks: Vec<Value>,
     /// Input field specs for modal rendering (empty if no inputs).
@@ -892,12 +892,12 @@ fn inject_modal_metadata(actions: &mut [Value]) {
         }
         let existing_value = action.get("value").and_then(Value::as_str).unwrap_or("{}");
         let mut val: Value = serde_json::from_str(existing_value).unwrap_or(json!({}));
-        val.as_object_mut().map(|obj| {
+        if let Some(obj) = val.as_object_mut() {
             obj.insert("ac_modal".into(), json!(true));
-        });
-        action.as_object_mut().map(|obj| {
+        }
+        if let Some(obj) = action.as_object_mut() {
             obj.insert("value".into(), Value::String(val.to_string()));
-        });
+        }
     }
 }
 
@@ -908,36 +908,38 @@ fn ac_markdown_to_slack(text: &str) -> String {
     let mut i = 0;
     while i < chars.len() {
         // **bold** → *bold*
-        if i + 1 < chars.len() && chars[i] == '*' && chars[i + 1] == '*' {
-            if let Some(end) = chars[i + 2..]
+        if i + 1 < chars.len()
+            && chars[i] == '*'
+            && chars[i + 1] == '*'
+            && let Some(end) = chars[i + 2..]
                 .windows(2)
                 .position(|w| w[0] == '*' && w[1] == '*')
-            {
-                let inner: String = chars[i + 2..i + 2 + end].iter().collect();
-                out.push('*');
-                out.push_str(&inner);
-                out.push('*');
-                i += 4 + end;
-                continue;
-            }
+        {
+            let inner: String = chars[i + 2..i + 2 + end].iter().collect();
+            out.push('*');
+            out.push_str(&inner);
+            out.push('*');
+            i += 4 + end;
+            continue;
         }
         // [text](url) → <url|text>
-        if chars[i] == '[' {
-            if let Some(close_bracket) = chars[i + 1..].iter().position(|&c| c == ']') {
-                let cb = i + 1 + close_bracket;
-                if cb + 1 < chars.len() && chars[cb + 1] == '(' {
-                    if let Some(close_paren) = chars[cb + 2..].iter().position(|&c| c == ')') {
-                        let link_text: String = chars[i + 1..cb].iter().collect();
-                        let url: String = chars[cb + 2..cb + 2 + close_paren].iter().collect();
-                        out.push('<');
-                        out.push_str(&url);
-                        out.push('|');
-                        out.push_str(&link_text);
-                        out.push('>');
-                        i = cb + 3 + close_paren;
-                        continue;
-                    }
-                }
+        if chars[i] == '['
+            && let Some(close_bracket) = chars[i + 1..].iter().position(|&c| c == ']')
+        {
+            let cb = i + 1 + close_bracket;
+            if cb + 1 < chars.len()
+                && chars[cb + 1] == '('
+                && let Some(close_paren) = chars[cb + 2..].iter().position(|&c| c == ')')
+            {
+                let link_text: String = chars[i + 1..cb].iter().collect();
+                let url: String = chars[cb + 2..cb + 2 + close_paren].iter().collect();
+                out.push('<');
+                out.push_str(&url);
+                out.push('|');
+                out.push_str(&link_text);
+                out.push('>');
+                i = cb + 3 + close_paren;
+                continue;
             }
         }
         out.push(chars[i]);
@@ -975,10 +977,10 @@ fn extract_texts_from_items(items: &[Value]) -> Vec<String> {
                 }
             }
             _ => {
-                if let Some(t) = item.get("text").and_then(Value::as_str) {
-                    if !t.trim().is_empty() {
-                        texts.push(ac_markdown_to_slack(t.trim()));
-                    }
+                if let Some(t) = item.get("text").and_then(Value::as_str)
+                    && !t.trim().is_empty()
+                {
+                    texts.push(ac_markdown_to_slack(t.trim()));
                 }
             }
         }
@@ -1430,29 +1432,27 @@ fn ac_element_to_blocks(
 fn label_from_items(items: &[Value]) -> String {
     // First try: bold TextBlock at this level
     for item in items {
-        if item.get("type").and_then(Value::as_str) == Some("TextBlock") {
-            if item
+        if item.get("type").and_then(Value::as_str) == Some("TextBlock")
+            && item
                 .get("weight")
                 .and_then(Value::as_str)
                 .is_some_and(|w| w.eq_ignore_ascii_case("bolder"))
-            {
-                if let Some(text) = item.get("text").and_then(Value::as_str) {
-                    let t = text.trim();
-                    if !t.is_empty() {
-                        return t.chars().take(75).collect();
-                    }
-                }
+            && let Some(text) = item.get("text").and_then(Value::as_str)
+        {
+            let t = text.trim();
+            if !t.is_empty() {
+                return t.chars().take(75).collect();
             }
         }
     }
     // Fallback: first non-empty TextBlock at this level
     for item in items {
-        if item.get("type").and_then(Value::as_str) == Some("TextBlock") {
-            if let Some(text) = item.get("text").and_then(Value::as_str) {
-                let t = text.trim();
-                if !t.is_empty() {
-                    return t.chars().take(75).collect();
-                }
+        if item.get("type").and_then(Value::as_str) == Some("TextBlock")
+            && let Some(text) = item.get("text").and_then(Value::as_str)
+        {
+            let t = text.trim();
+            if !t.is_empty() {
+                return t.chars().take(75).collect();
             }
         }
     }

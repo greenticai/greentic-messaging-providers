@@ -66,6 +66,7 @@ pub(crate) fn parse_config_value(val: &Value) -> Result<ProviderConfig, String> 
 }
 
 #[cfg(test)]
+#[allow(dead_code)]
 pub(crate) fn parse_config_bytes(bytes: &[u8]) -> Result<ProviderConfig, String> {
     let cfg = serde_json::from_slice::<ProviderConfig>(bytes)
         .map_err(|e| format!("invalid config: {e}"))?;

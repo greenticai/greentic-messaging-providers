@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "flow": "default.ygtc",
+  "nodes": {
+    "default__config": {
+      "source": {
+        "kind": "local",
+        "path": "file://../components/qa/qa.wasm"
+      }
+    }
+  }
+}

@@ -111,6 +111,17 @@ const I18N_PAIRS: &[(&str, &str)] = &[
     ("dummy.qa.setup.enabled", "Enable provider"),
     ("dummy.qa.setup.api_token", "API token"),
     ("dummy.qa.setup.endpoint_url", "Endpoint URL"),
+    ("dummy.flow.default.title", "Default setup"),
+    (
+        "dummy.flow.default.config_summary",
+        "Review the generated dummy configuration",
+    ),
+    ("dummy.flow.update.title", "Update configuration"),
+    ("dummy.flow.update.collect", "Collect updated dummy settings"),
+    ("dummy.flow.update.complete", "Update complete"),
+    ("dummy.flow.remove.title", "Remove provider"),
+    ("dummy.flow.remove.check_state", "Check current state"),
+    ("dummy.flow.remove.complete", "Removal complete"),
 ];
 
 struct Component;

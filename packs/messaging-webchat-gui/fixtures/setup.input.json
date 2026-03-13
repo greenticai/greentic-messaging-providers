@@ -1,0 +1,7 @@
+{
+  "mode": "local_queue",
+  "config": {
+    "public_base_url": "<value>"
+  },
+  "secrets": {}
+}

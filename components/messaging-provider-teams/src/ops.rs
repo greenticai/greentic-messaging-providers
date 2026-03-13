@@ -389,13 +389,13 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
     let parsed_input: Value = serde_json::from_slice(input_json).unwrap_or(Value::Null);
     let cfg = load_config(&parsed_input).ok();
 
-    if let (Some(auth), Some(config)) = (auth_header, &cfg) {
-        if let Some(token) = extract_bearer_token(auth) {
-            // Validate JWT (Phase 1: decode-only, no signature verification)
-            if let Err(err) = validate_jwt(&token, &config.ms_bot_app_id) {
-                // Log warning but don't fail - allow dev/testing without full validation
-                eprintln!("JWT validation warning: {}", err);
-            }
+    if let (Some(auth), Some(config)) = (auth_header, &cfg)
+        && let Some(token) = extract_bearer_token(auth)
+    {
+        // Validate JWT (Phase 1: decode-only, no signature verification)
+        if let Err(err) = validate_jwt(&token, &config.ms_bot_app_id) {
+            // Log warning but don't fail - allow dev/testing without full validation
+            eprintln!("JWT validation warning: {}", err);
         }
     }
 
@@ -662,7 +662,7 @@ pub(crate) fn send_payload(input_json: &[u8]) -> Vec<u8> {
             return send_payload_error(&format!("invalid send_payload input: {err}"), false);
         }
     };
-    // Accept both messaging.teams.bot and messaging.teams.graph (manifest.cbor mismatch).
+    // Accept the historical messaging.teams.graph alias for backward compatibility.
     if !send_in.provider_type.starts_with("messaging.teams") {
         return send_payload_error("provider type mismatch", false);
     }

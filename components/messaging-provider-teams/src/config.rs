@@ -85,14 +85,14 @@ pub(crate) fn validate_config_out(config: &ProviderConfigOut) -> Result<(), Stri
             "config validation failed: public_base_url must be an absolute URL".to_string(),
         );
     }
-    if let Some(ref service_url) = config.default_service_url {
-        if !service_url.is_empty()
-            && !(service_url.starts_with("http://") || service_url.starts_with("https://"))
-        {
-            return Err(
-                "config validation failed: default_service_url must be an absolute URL".to_string(),
-            );
-        }
+    if let Some(ref service_url) = config.default_service_url
+        && !(service_url.is_empty()
+            || service_url.starts_with("http://")
+            || service_url.starts_with("https://"))
+    {
+        return Err(
+            "config validation failed: default_service_url must be an absolute URL".to_string(),
+        );
     }
     Ok(())
 }

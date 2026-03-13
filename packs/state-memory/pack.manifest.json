@@ -1,7 +1,7 @@
 {
   "name": "state-memory",
-  "version": "0.4.0",
-  "kind": "capability",
+  "version": "0.4.37",
+  "kind": "application",
   "publisher": "Greentic",
   "description": "Ephemeral in-memory key-value state provider for development and testing.",
   "components": [
@@ -46,33 +46,26 @@
   "extensions": {
     "greentic.ext.capabilities.v1": {
       "kind": "greentic.ext.capabilities.v1",
-      "version": "1.0.0",
+      "version": "0.4.37",
       "inline": {
-        "schema_version": 1,
         "offers": [
           {
-            "offer_id": "state.memory.kv.01",
             "cap_id": "greentic.cap.state.kv.v1",
-            "version": "v1",
+            "metadata": {
+              "backend": "memory",
+              "ephemeral": true
+            },
+            "offer_id": "state.memory.kv.01",
+            "priority": 100,
             "provider": {
               "component_ref": "state-provider-memory",
               "op": "state.dispatch"
             },
-            "priority": 100,
             "requires_setup": false,
-            "metadata": {
-              "backend": "memory",
-              "ephemeral": true
-            }
+            "version": "0.4.37"
           }
-        ]
-      }
-    },
-    "greentic.provider-extension.v1": {
-      "kind": "greentic.provider-extension.v1",
-      "version": "0.4.0",
-      "inline": {
-        "providers": []
+        ],
+        "schema_version": 1
       }
     }
   },

@@ -218,7 +218,7 @@ Webchat does NOT make external HTTP calls. It uses the host's state store as the
 | Dummy | `messaging.dummy` | Full (mock) | None | No | No | No | Complete |
 | Telegram | `messaging.telegram.bot` | Full | Custom WASM | Yes | Yes | No | Near-complete |
 | Slack | `messaging.slack.api` | Full | Custom + HMAC | Yes + OAuth | Yes | No | Complete |
-| Teams | `messaging.teams.graph` | Full | Custom | Yes + OAuth | Yes | Yes | Complete |
+| Teams | `messaging.teams.bot` | Full | Custom | Yes + OAuth | Yes | Yes | Complete |
 | WhatsApp | `messaging.whatsapp.cloud` | Full | Custom | Yes | Yes | No | Complete |
 | Webex | `messaging.webex.bot` | Full | Default | Yes | Yes | No | Needs fixes |
 | Email | `messaging.email.smtp` | Stub | None | No | No | No | Simulated only |

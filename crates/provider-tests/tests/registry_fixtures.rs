@@ -92,7 +92,7 @@ impl ComponentHarness {
     fn new(component_name: &str) -> Result<Self> {
         let engine = new_engine();
         let component = Component::from_file(&engine, component_path(component_name))
-            .context("load component")?;
+            .map_err(|err| anyhow!("load component: {err}"))?;
 
         let mut linker = Linker::new(&engine);
         add_wasi_to_linker(&mut linker);
@@ -101,7 +101,7 @@ impl ComponentHarness {
         let mut store = Store::new(&engine, TestHostState::with_default_secrets());
         let instance = linker
             .instantiate(&mut store, &component)
-            .context("instantiate component")?;
+            .map_err(|err| anyhow!("instantiate component: {err}"))?;
 
         let descriptor_idx: ComponentExportIndex = instance
             .get_export_index(&mut store, None, "greentic:component/descriptor@0.6.0")
@@ -111,7 +111,7 @@ impl ComponentHarness {
             .context("describe export index")?;
         let describe = instance
             .get_typed_func(&mut store, describe_idx)
-            .context("describe typed func")?;
+            .map_err(|err| anyhow!("describe typed func: {err}"))?;
 
         let qa_idx: ComponentExportIndex = instance
             .get_export_index(&mut store, None, "greentic:component/qa@0.6.0")
@@ -124,10 +124,10 @@ impl ComponentHarness {
             .context("apply-answers export index")?;
         let qa_spec = instance
             .get_typed_func(&mut store, qa_spec_idx)
-            .context("qa-spec typed func")?;
+            .map_err(|err| anyhow!("qa-spec typed func: {err}"))?;
         let apply_answers = instance
             .get_typed_func(&mut store, apply_answers_idx)
-            .context("apply-answers typed func")?;
+            .map_err(|err| anyhow!("apply-answers typed func: {err}"))?;
 
         let i18n_idx: ComponentExportIndex = instance
             .get_export_index(&mut store, None, "greentic:component/component-i18n@0.6.0")
@@ -140,10 +140,10 @@ impl ComponentHarness {
             .context("i18n-bundle export index")?;
         let i18n_keys = instance
             .get_typed_func(&mut store, i18n_keys_idx)
-            .context("i18n-keys typed func")?;
+            .map_err(|err| anyhow!("i18n-keys typed func: {err}"))?;
         let i18n_bundle = instance
             .get_typed_func(&mut store, i18n_bundle_idx)
-            .context("i18n-bundle typed func")?;
+            .map_err(|err| anyhow!("i18n-bundle typed func: {err}"))?;
 
         Ok(Self {
             _instance: instance,
@@ -158,7 +158,6 @@ impl ComponentHarness {
 
     fn call_describe(&mut self) -> Result<Vec<u8>> {
         let (bytes,) = self.describe.call(&mut self.store, ())?;
-        self.describe.post_return(&mut self.store)?;
         Ok(bytes)
     }
 
@@ -168,7 +167,6 @@ impl ComponentHarness {
 
     fn call_qa(&mut self, mode: QaMode) -> Result<Vec<u8>> {
         let (bytes,) = self.qa_spec.call(&mut self.store, (mode,))?;
-        self.qa_spec.post_return(&mut self.store)?;
         Ok(bytes)
     }
 
@@ -181,14 +179,12 @@ impl ComponentHarness {
         let (bytes,) = self
             .apply_answers
             .call(&mut self.store, (mode, answers_cbor))
-            .context("call apply-answers")?;
-        self.apply_answers.post_return(&mut self.store)?;
+            .map_err(|err| anyhow::anyhow!("call apply-answers: {err}"))?;
         Ok(bytes)
     }
 
     fn call_i18n_keys(&mut self) -> Result<Vec<String>> {
         let (keys,) = self.i18n_keys.call(&mut self.store, ())?;
-        self.i18n_keys.post_return(&mut self.store)?;
         Ok(keys)
     }
 
@@ -196,8 +192,7 @@ impl ComponentHarness {
         let (bundle_bytes,) = self
             .i18n_bundle
             .call(&mut self.store, (locale.to_string(),))
-            .context("call i18n-bundle")?;
-        self.i18n_bundle.post_return(&mut self.store)?;
+            .map_err(|err| anyhow::anyhow!("call i18n-bundle: {err}"))?;
         decode_cbor(&bundle_bytes).map_err(anyhow::Error::msg)
     }
 }

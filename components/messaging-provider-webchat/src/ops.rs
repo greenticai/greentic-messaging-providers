@@ -187,15 +187,15 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
                     build_webchat_envelope(effective_text, user, conv_id.clone(), None);
                 // Forward ALL Action.Submit data fields to metadata so the
                 // operator can handle MCP actions, token saves, card routing, etc.
-                if let Some(val) = action_value {
-                    if let Some(obj) = val.as_object() {
-                        for (k, v) in obj {
-                            let s = match v {
-                                Value::String(s) => s.clone(),
-                                _ => v.to_string(),
-                            };
-                            envelope.metadata.insert(k.clone(), s);
-                        }
+                if let Some(val) = action_value
+                    && let Some(obj) = val.as_object()
+                {
+                    for (k, v) in obj {
+                        let s = match v {
+                            Value::String(s) => s.clone(),
+                            _ => v.to_string(),
+                        };
+                        envelope.metadata.insert(k.clone(), s);
                     }
                 }
                 out.events.push(envelope);
@@ -384,13 +384,13 @@ fn append_bot_activity_to_conversation(
         raw["text"] = Value::String(text.to_string());
     }
     // Include Adaptive Card as a Direct Line attachment if present.
-    if let Some(ac_json) = adaptive_card_json {
-        if let Ok(ac_value) = serde_json::from_str::<Value>(ac_json) {
-            raw["attachments"] = json!([{
-                "contentType": "application/vnd.microsoft.card.adaptive",
-                "content": ac_value,
-            }]);
-        }
+    if let Some(ac_json) = adaptive_card_json
+        && let Ok(ac_value) = serde_json::from_str::<Value>(ac_json)
+    {
+        raw["attachments"] = json!([{
+            "contentType": "application/vnd.microsoft.card.adaptive",
+            "content": ac_value,
+        }]);
     }
     let activity = StoredActivity {
         id: format!("bot-{watermark}"),

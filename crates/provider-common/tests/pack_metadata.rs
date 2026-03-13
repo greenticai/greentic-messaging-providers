@@ -67,16 +67,6 @@ fn read_from_gtpack(gtpack: &Path, file: &str) -> Result<Vec<u8>> {
     Ok(buf)
 }
 
-fn list_flow_json_entries(gtpack: &Path) -> Result<Vec<String>> {
-    let archive = fs::File::open(gtpack)?;
-    let zip = zip::ZipArchive::new(archive)?;
-    Ok(zip
-        .file_names()
-        .filter(|name| name.starts_with("flows/") && name.ends_with("/flow.json"))
-        .map(|name| name.to_string())
-        .collect())
-}
-
 fn run_metadata_generator(workspace_root: &Path, pack_dir: &Path) {
     let status = Command::new("python3")
         .arg(workspace_root.join("tools/generate_pack_metadata.py"))
@@ -322,5 +312,162 @@ fn packs_lock_has_digest() -> Result<()> {
     hasher.update(&bytes);
     let hex = format!("{:x}", hasher.finalize());
     assert_eq!(digest, format!("sha256:{hex}"));
+    Ok(())
+}
+
+#[test]
+fn webchat_gui_pack_declares_provider_routes_and_static_assets() -> Result<()> {
+    let root = workspace_root();
+    let pack_dir = root.join("packs").join("messaging-webchat-gui");
+    let manifest_path = pack_dir.join("pack.manifest.json");
+    let manifest: Value = serde_json::from_slice(&fs::read(&manifest_path)?)?;
+
+    let provider = manifest
+        .get("extensions")
+        .and_then(|ext| ext.get("greentic.provider-extension.v1"))
+        .and_then(|ext| ext.get("inline"))
+        .and_then(|inline| inline.get("providers"))
+        .and_then(Value::as_array)
+        .and_then(|providers| providers.first())
+        .ok_or_else(|| anyhow!("webchat-gui manifest missing provider extension entry"))?;
+    assert_eq!(
+        provider.get("provider_type").and_then(Value::as_str),
+        Some("messaging.webchat-gui")
+    );
+    assert_eq!(
+        provider
+            .get("runtime")
+            .and_then(|rt| rt.get("component_ref"))
+            .and_then(Value::as_str),
+        Some("messaging-provider-webchat-gui")
+    );
+    assert_eq!(
+        provider.get("config_schema_ref").and_then(Value::as_str),
+        Some("schemas/messaging/webchat-gui/public.config.schema.json")
+    );
+
+    let provider_routes = manifest
+        .get("extensions")
+        .and_then(|ext| ext.get("messaging.provider_routes.v1"))
+        .and_then(|ext| ext.get("inline"))
+        .ok_or_else(|| anyhow!("webchat-gui manifest missing provider routes"))?;
+    assert_eq!(
+        provider_routes
+            .get("backend_base_path")
+            .and_then(Value::as_str),
+        Some("/v1/messaging/webchat/{tenant}")
+    );
+    let routes = provider_routes
+        .get("routes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("webchat-gui manifest missing backend routes array"))?;
+    assert!(
+        routes.iter().any(|route| {
+            route.get("path").and_then(Value::as_str)
+                == Some("/v1/messaging/webchat/{tenant}/token")
+        }),
+        "expected token route in provider routes"
+    );
+    assert!(
+        routes.iter().any(|route| {
+            route.get("path").and_then(Value::as_str)
+                == Some("/v1/messaging/webchat/{tenant}/v3/directline/{*path}")
+        }),
+        "expected directline route prefix in provider routes"
+    );
+
+    let static_route = manifest
+        .get("extensions")
+        .and_then(|ext| ext.get("greentic.static-routes.v1"))
+        .and_then(|ext| ext.get("inline"))
+        .and_then(|inline| inline.get("routes"))
+        .and_then(Value::as_array)
+        .and_then(|routes| routes.first())
+        .ok_or_else(|| anyhow!("webchat-gui manifest missing static route"))?;
+    assert_eq!(
+        static_route.get("public_path").and_then(Value::as_str),
+        Some("/v1/web/webchat/{tenant}")
+    );
+    assert_eq!(
+        static_route.get("source_root").and_then(Value::as_str),
+        Some("assets/webchat-gui")
+    );
+    assert_eq!(
+        static_route
+            .get("scope")
+            .and_then(|scope| scope.get("tenant"))
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        static_route
+            .get("scope")
+            .and_then(|scope| scope.get("team"))
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        static_route.get("index_file").and_then(Value::as_str),
+        Some("index.html")
+    );
+    assert_eq!(
+        static_route.get("spa_fallback").and_then(Value::as_str),
+        Some("index.html")
+    );
+
+    let staged_component = pack_dir.join("components/messaging-provider-webchat-gui.wasm");
+    assert!(
+        staged_component.exists(),
+        "expected staged component artifact at {}",
+        staged_component.display()
+    );
+
+    Ok(())
+}
+
+#[test]
+fn webchat_gui_pack_contains_runtime_bootstrap_and_bundled_assets() -> Result<()> {
+    let root = workspace_root();
+    let asset_root = root
+        .join("packs")
+        .join("messaging-webchat-gui")
+        .join("assets/webchat-gui");
+
+    for rel in [
+        "index.html",
+        "404.html",
+        "runtime-bootstrap.js",
+        "config/product.json",
+    ] {
+        let path = asset_root.join(rel);
+        assert!(path.exists(), "missing asset {}", path.display());
+    }
+
+    let bootstrap = fs::read_to_string(asset_root.join("runtime-bootstrap.js"))?;
+    assert!(
+        bootstrap.contains("/v1/web/webchat/"),
+        "runtime bootstrap should resolve tenant from the GUI path"
+    );
+    assert!(
+        bootstrap.contains("/v1/messaging/webchat/"),
+        "runtime bootstrap should point to provider-scoped backend routes"
+    );
+    assert!(
+        bootstrap.contains("__WEBCHAT_BACKEND_BASE__"),
+        "runtime bootstrap should expose the backend base"
+    );
+
+    let mut has_js_bundle = false;
+    let mut has_css_bundle = false;
+    for entry in fs::read_dir(asset_root.join("assets"))? {
+        let path = entry?.path();
+        if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+            has_js_bundle |= name.ends_with(".js");
+            has_css_bundle |= name.ends_with(".css");
+        }
+    }
+    assert!(has_js_bundle, "expected packaged JS bundle");
+    assert!(has_css_bundle, "expected packaged CSS bundle");
+
     Ok(())
 }

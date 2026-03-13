@@ -1,16 +1,18 @@
 {
   "name": "messaging-provider-bundle",
   "publisher": "Greentic",
-  "version": "0.4.34",
+  "version": "0.4.37",
   "kind": "application",
   "components": [
     "templates",
-    "messaging-provider-dummy"
+    "messaging-provider-dummy",
+    "ai.greentic.component-provision",
+    "ai.greentic.component-qa"
   ],
   "component_sources": [
     {
       "id": "templates",
-      "version": "0.4.33",
+      "version": "0.4.37",
       "world": "greentic:component/component@0.5.0",
       "supports": [
         "messaging"
@@ -28,11 +30,11 @@
         },
         "host": {}
       },
-      "wasm": "components/templates.wasm"
+      "wasm": "components/templates/component.wasm"
     },
     {
       "id": "messaging-provider-dummy",
-      "version": "0.4.33",
+      "version": "0.4.37",
       "world": "greentic:provider/schema-core@1.0.0",
       "supports": [
         "messaging"
@@ -50,13 +52,88 @@
         },
         "host": {}
       },
-      "wasm": "components/messaging-provider-dummy.wasm"
+      "wasm": "components/messaging-provider-dummy/component.wasm"
+    },
+    {
+      "id": "ai.greentic.component-provision",
+      "version": "0.4.37",
+      "world": "greentic:component/component@0.5.0",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "stateless",
+        "supported": [
+          "stateless"
+        ]
+      },
+      "capabilities": {
+        "host": {
+          "state": {
+            "delete": false,
+            "read": false,
+            "write": true
+          },
+          "telemetry": {
+            "scope": "node"
+          }
+        },
+        "wasi": {
+          "clocks": false,
+          "filesystem": {
+            "mode": "none",
+            "mounts": []
+          },
+          "random": false
+        }
+      },
+      "wasm": "components/provision/provision.wasm"
+    },
+    {
+      "id": "ai.greentic.component-qa",
+      "version": "0.4.37",
+      "world": "greentic:component/component@0.5.0",
+      "supports": [
+        "messaging"
+      ],
+      "profiles": {
+        "default": "stateless",
+        "supported": [
+          "stateless"
+        ]
+      },
+      "capabilities": {
+        "host": {
+          "messaging": {
+            "inbound": true,
+            "outbound": true
+          },
+          "qa": {
+            "process": true
+          },
+          "secrets": {
+            "required": []
+          },
+          "telemetry": {
+            "scope": "node"
+          }
+        },
+        "wasi": {
+          "clocks": true,
+          "filesystem": {
+            "mode": "none",
+            "mounts": []
+          },
+          "random": true
+        }
+      },
+      "wasm": "components/qa/qa.wasm"
     }
   ],
   "extensions": {
     "greentic.provider-extension.v1": {
       "kind": "greentic.provider-extension.v1",
-      "version": "0.4.33",
+      "version": "0.4.37",
       "inline": {
         "providers": [
           {

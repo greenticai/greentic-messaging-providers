@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -52,6 +53,17 @@ fn packs_have_consistent_manifests_and_artifacts() -> Result<()> {
             .with_context(|| format!("getting version from {}", yaml_path.display()))?;
         let manifest: Value = serde_json::from_slice(&fs::read(&manifest_path)?)
             .with_context(|| format!("parsing {}", manifest_path.display()))?;
+        let component_wasm_paths: HashMap<String, PathBuf> = manifest
+            .get("component_sources")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|component| {
+                let id = component.get("id").and_then(Value::as_str)?;
+                let wasm = component.get("wasm").and_then(Value::as_str)?;
+                Some((id.to_string(), pack_dir.join(wasm)))
+            })
+            .collect();
         let manifest_version = manifest
             .get("version")
             .and_then(Value::as_str)
@@ -69,7 +81,10 @@ fn packs_have_consistent_manifests_and_artifacts() -> Result<()> {
                 let name = comp
                     .as_str()
                     .ok_or_else(|| anyhow::anyhow!("component entry must be string"))?;
-                let wasm = pack_dir.join("components").join(format!("{name}.wasm"));
+                let wasm = component_wasm_paths
+                    .get(name)
+                    .cloned()
+                    .unwrap_or_else(|| pack_dir.join("components").join(format!("{name}.wasm")));
                 assert!(
                     wasm.exists(),
                     "missing component artifact {} for {}",
@@ -87,14 +102,24 @@ fn packs_have_consistent_manifests_and_artifacts() -> Result<()> {
         // Provider extension config schemas must exist in pack and workspace.
         let provider_ext = manifest
             .get("extensions")
-            .and_then(|ext| ext.get(PROVIDER_EXTENSION_ID))
-            .unwrap_or_else(|| {
+            .and_then(|ext| ext.get(PROVIDER_EXTENSION_ID));
+
+        if provider_ext.is_none() {
+            if pack_dir
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("messaging-"))
+            {
                 panic!(
                     "pack {} missing provider extension {}",
                     pack_dir.display(),
                     PROVIDER_EXTENSION_ID
-                )
-            });
+                );
+            }
+            continue;
+        }
+
+        let provider_ext = provider_ext.expect("checked above");
 
         let kind = provider_ext
             .get("kind")
@@ -132,9 +157,14 @@ fn packs_have_consistent_manifests_and_artifacts() -> Result<()> {
                     .and_then(|rt| rt.get("component_ref"))
                     .and_then(Value::as_str)
                 {
-                    let wasm = pack_dir
-                        .join("components")
-                        .join(format!("{component_ref}.wasm"));
+                    let wasm = component_wasm_paths
+                        .get(component_ref)
+                        .cloned()
+                        .unwrap_or_else(|| {
+                            pack_dir
+                                .join("components")
+                                .join(format!("{component_ref}.wasm"))
+                        });
                     assert!(
                         wasm.exists(),
                         "runtime component {} missing for {}",

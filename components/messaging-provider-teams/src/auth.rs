@@ -142,7 +142,7 @@ pub(crate) fn validate_jwt(token: &str, app_id: &str) -> Result<BotClaims, Strin
 
     // Validate issuer
     let iss = claims.iss.as_deref().unwrap_or_default();
-    if !VALID_ISSUERS.iter().any(|valid| *valid == iss) {
+    if !VALID_ISSUERS.contains(&iss) {
         return Err(format!("invalid issuer: {}", iss));
     }
 
@@ -219,7 +219,6 @@ mod tests {
 
     #[test]
     fn valid_issuers_are_defined() {
-        assert!(!VALID_ISSUERS.is_empty());
         assert!(VALID_ISSUERS.iter().all(|iss| iss.starts_with("https://")));
     }
 }

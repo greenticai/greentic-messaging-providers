@@ -353,23 +353,21 @@ fn apply_answers_impl(mode: &str, answers_cbor: Vec<u8>) -> Vec<u8> {
     }
 
     if mode == "upgrade" {
-        if has("max_entries") {
-            if let Some(v) = answers
+        if has("max_entries")
+            && let Some(v) = answers
                 .get("max_entries")
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse::<u32>().ok())
-            {
-                merged.max_entries = v;
-            }
+        {
+            merged.max_entries = v;
         }
-        if has("default_ttl_seconds") {
-            if let Some(v) = answers
+        if has("default_ttl_seconds")
+            && let Some(v) = answers
                 .get("default_ttl_seconds")
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse::<u32>().ok())
-            {
-                merged.default_ttl_seconds = v;
-            }
+        {
+            merged.default_ttl_seconds = v;
         }
     }
 

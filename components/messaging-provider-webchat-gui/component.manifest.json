@@ -1,0 +1,11 @@
+{
+  "name": "messaging-provider-webchat-gui",
+  "description": "Provider-core WebChat GUI messaging provider (Direct Line backend + hosted GUI metadata).",
+  "config_schema": {
+    "provider_config": {
+      "format": "json",
+      "path": "schemas/messaging/webchat-gui/public.config.schema.json"
+    }
+  },
+  "secret_requirements": []
+}

@@ -1,68 +1,115 @@
 pack_id: state-redis
-version: 0.4.0
-kind: capability
+version: 0.4.37
+kind: application
 publisher: Greentic
-name: "Redis State Provider"
-description: "Persistent key-value state provider backed by Redis. Suitable for production environments with distributed state requirements."
-
+name: Redis State Provider
+description: Persistent key-value state provider backed by Redis. Suitable for production
+  environments with distributed state requirements.
 components:
-  - id: state-provider-redis
-    version: 0.4.0
-    world: greentic:component/component-v0-v6-v0
-    supports:
-      - component_config
-    profiles:
-      default: default
-      supported:
-        - default
-    capabilities:
-      wasi:
-        random: false
-        clocks: false
-      host: {}
-    wasm: components/state-provider-redis.wasm
-
+- id: state-provider-redis
+  version: 0.4.37
+  world: greentic:component/component-v0-v6-v0
+  supports:
+  - component_config
+  profiles:
+    default: default
+    supported:
+    - default
+  capabilities:
+    wasi:
+      random: false
+      clocks: false
+    host: {}
+  wasm: components/state-provider-redis/state-provider-redis.wasm
+- id: ai.greentic.component-provision
+  version: 0.4.37
+  world: greentic:component/component@0.5.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    host:
+      state:
+        delete: false
+        read: false
+        write: true
+      telemetry:
+        scope: node
+    wasi:
+      clocks: false
+      filesystem:
+        mode: none
+        mounts: []
+      random: false
+  wasm: components/provision/provision.wasm
+- id: ai.greentic.component-qa
+  version: 0.4.37
+  world: greentic:component/component@0.5.0
+  supports:
+  - messaging
+  profiles:
+    default: stateless
+    supported:
+    - stateless
+  capabilities:
+    host:
+      messaging:
+        inbound: true
+        outbound: true
+      qa:
+        process: true
+      secrets:
+        required: []
+      telemetry:
+        scope: node
+    wasi:
+      clocks: true
+      filesystem:
+        mode: none
+        mounts: []
+      random: true
+  wasm: components/qa/qa.wasm
 dependencies: []
-
 flows:
-  - id: setup_default
-    file: flows/setup_default.ygtc
-    tags:
-      - default
-    entrypoints:
-      - default
-  - id: update
-    file: flows/update.ygtc
-    tags:
-      - update
-    entrypoints:
-      - default
-  - id: remove
-    file: flows/remove.ygtc
-    tags:
-      - remove
-    entrypoints:
-      - default
-
+- id: setup_default
+  file: flows/setup_default.ygtc
+  tags:
+  - default
+  entrypoints:
+  - default
+- id: update
+  file: flows/update.ygtc
+  tags:
+  - update
+  entrypoints:
+  - default
+- id: remove
+  file: flows/remove.ygtc
+  tags:
+  - remove
+  entrypoints:
+  - default
 assets: []
-
 extensions:
   greentic.ext.capabilities.v1:
     kind: greentic.ext.capabilities.v1
-    version: 1.0.0
+    version: 0.4.37
     inline:
       schema_version: 1
       offers:
-        - offer_id: state.redis.kv.01
-          cap_id: greentic.cap.state.kv.v1
-          version: v1
-          provider:
-            component_ref: state-provider-redis
-            op: state.dispatch
-          priority: 50
-          requires_setup: true
-          setup:
-            qa_ref: qa/state-redis-setup.json
-          metadata:
-            ephemeral: false
-            backend: redis
+      - offer_id: state.redis.kv.01
+        cap_id: greentic.cap.state.kv.v1
+        version: 0.4.37
+        provider:
+          component_ref: state-provider-redis
+          op: state.dispatch
+        priority: 50
+        requires_setup: true
+        setup:
+          qa_ref: qa/state-redis-setup.json
+        metadata:
+          ephemeral: false
+          backend: redis

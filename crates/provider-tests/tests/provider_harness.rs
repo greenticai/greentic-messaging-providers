@@ -227,9 +227,6 @@ impl ProviderHarness {
             .invoke
             .call(&mut self.store, (op.to_string(), input_cbor))
             .expect("invoke");
-        self.invoke
-            .post_return(&mut self.store)
-            .expect("post return");
         decode_cbor::<Value>(&out_cbor).expect("decode cbor")
     }
 

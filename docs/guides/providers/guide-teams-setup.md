@@ -266,7 +266,7 @@ Expected output on success:
 {
   "ok": true,
   "status": "sent",
-  "provider_type": "messaging.teams.graph",
+  "provider_type": "messaging.teams.bot",
   "message_id": "1234567890",
   "provider_message_id": "teams:1234567890"
 }

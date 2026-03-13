@@ -157,18 +157,17 @@ fn unwrap_envelope(input: &str) -> String {
         return input.to_string();
     };
     // Detect envelope: must have both "ctx" and "payload" fields
-    if v.get("ctx").is_some() {
-        if let Some(payload) = v.get("payload") {
-            if let Some(arr) = payload.as_array() {
-                // payload is a byte array — decode to UTF-8 string
-                let bytes: Vec<u8> = arr
-                    .iter()
-                    .filter_map(|v| v.as_u64().map(|n| n as u8))
-                    .collect();
-                if let Ok(s) = String::from_utf8(bytes) {
-                    return s;
-                }
-            }
+    if v.get("ctx").is_some()
+        && let Some(payload) = v.get("payload")
+        && let Some(arr) = payload.as_array()
+    {
+        // payload is a byte array — decode to UTF-8 string
+        let bytes: Vec<u8> = arr
+            .iter()
+            .filter_map(|v| v.as_u64().map(|n| n as u8))
+            .collect();
+        if let Ok(s) = String::from_utf8(bytes) {
+            return s;
         }
     }
     input.to_string()
