@@ -4,10 +4,13 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT_DIR}"
 
-GREENTIC_PACK_VERSION="${GREENTIC_PACK_VERSION:-^0.4}"
+GREENTIC_PACK_VERSION="${GREENTIC_PACK_VERSION:-0.4.111}"
+installed_pack_version=""
 if command -v greentic-pack >/dev/null 2>&1; then
+  installed_pack_version="$(greentic-pack --version | awk '{print $2}')"
   echo "Using existing greentic-pack: $(greentic-pack --version)"
-else
+fi
+if [ -z "${installed_pack_version}" ] || [ "${installed_pack_version}" != "${GREENTIC_PACK_VERSION}" ]; then
   if ! command -v cargo-binstall >/dev/null 2>&1; then
     cargo install cargo-binstall --locked
   fi
@@ -43,15 +46,21 @@ case "${run_publish_packs}" in
 esac
 
 pack_doctor_supports_validate() {
-  greentic-pack doctor --help 2>&1 | rg -q -- '--validate'
+  local output
+  output="$(greentic-pack doctor --validate --pack /nonexistent 2>&1 || true)"
+  ! printf '%s' "${output}" | grep -Fq "unexpected argument '--validate'"
 }
 
 pack_doctor_supports_validator_wasm() {
-  greentic-pack doctor --help 2>&1 | rg -q -- '--validator-wasm'
+  local output
+  output="$(greentic-pack doctor --validator-wasm greentic.validators.messaging=/nonexistent --pack /nonexistent 2>&1 || true)"
+  ! printf '%s' "${output}" | grep -Fq "unexpected argument '--validator-wasm'"
 }
 
 pack_doctor_supports_validator_policy() {
-  greentic-pack doctor --help 2>&1 | rg -q -- '--validator-policy'
+  local output
+  output="$(greentic-pack doctor --validator-wasm greentic.validators.messaging=/nonexistent --validator-policy required --pack /nonexistent 2>&1 || true)"
+  ! printf '%s' "${output}" | grep -Fq "unexpected argument '--validator-policy'"
 }
 
 validator_flag_warning_printed=0
