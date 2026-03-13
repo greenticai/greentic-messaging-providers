@@ -164,6 +164,8 @@ run_pack_doctor_json_tolerant() {
   printf '%s\n' "${filtered_content}"
   has_errors="$(jq -r '.validation.has_errors // false' <<<"${filtered_content}")"
   if [ "${has_errors}" = "true" ]; then
+    echo "Filtered pack doctor diagnostics for ${pack_path:-pack}:" >&2
+    jq '.validation.diagnostics // []' <<<"${filtered_content}" >&2 || printf '%s\n' "${filtered_content}" >&2
     cat "${raw_stderr}" >&2
     rm -f "${raw_json}" "${filtered_json}" "${raw_stderr}"
     if [ "${doctor_rc}" -ne 0 ]; then
