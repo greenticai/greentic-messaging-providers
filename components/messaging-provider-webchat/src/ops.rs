@@ -271,6 +271,7 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
     let route_value = route.clone().unwrap_or_else(|| "webchat".to_string());
     // Pass through adaptive_card from envelope metadata (set by app flow for AC output).
     let adaptive_card = encode_message.metadata.get("adaptive_card").cloned();
+    let tenant = encode_message.metadata.get("tenant").cloned();
     let mut payload_body = json!({
         "text": text,
         "route": route_value.clone(),
@@ -283,6 +284,9 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
     let mut metadata = BTreeMap::new();
     metadata.insert("route".to_string(), Value::String(route_value.clone()));
     metadata.insert("method".to_string(), Value::String("POST".to_string()));
+    if let Some(tenant) = tenant {
+        metadata.insert("tenant".to_string(), Value::String(tenant));
+    }
     let payload = ProviderPayloadV1 {
         content_type: "application/json".to_string(),
         body_b64: general_purpose::STANDARD.encode(&body_bytes),
@@ -333,8 +337,13 @@ fn persist_send_payload(payload: &Value) -> Result<(), String> {
     // If session_id is present, try to append the bot response as a Direct Line
     // activity so that GET /activities polling returns it to the frontend.
     if let Some(session_id) = value_as_trimmed_string(payload.get("session_id")) {
-        let _ =
-            append_bot_activity_to_conversation(&session_id, &text, adaptive_card_json.as_deref());
+        let tenant = value_as_trimmed_string(payload.get("tenant"));
+        let _ = append_bot_activity_to_conversation(
+            &session_id,
+            &text,
+            adaptive_card_json.as_deref(),
+            tenant.as_deref(),
+        );
     }
 
     let public_base_url = public_base_url_from_value(payload);
@@ -358,10 +367,11 @@ fn append_bot_activity_to_conversation(
     conversation_id: &str,
     text: &str,
     adaptive_card_json: Option<&str>,
+    tenant: Option<&str>,
 ) -> Result<(), String> {
     let ctx = DirectLineContext {
         env: "default".into(),
-        tenant: "default".into(),
+        tenant: tenant.unwrap_or("default").to_string(),
         team: None,
     };
     let conv_key = conversation_key(&ctx, conversation_id);

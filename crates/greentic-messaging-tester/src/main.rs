@@ -5,6 +5,7 @@ mod wasm_harness;
 
 use std::{
     collections::{BTreeMap, HashMap},
+    fs,
     fs::File,
     io::{self, Write},
     path::{Path, PathBuf},
@@ -16,9 +17,10 @@ use anyhow::anyhow;
 use axum::{
     Router,
     body::{Body, to_bytes},
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
+    extract::{Path as AxumPath, State},
+    http::{HeaderValue, Method, StatusCode, header},
+    response::{IntoResponse, Redirect, Response},
+    routing::{any, get},
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use clap::{ArgGroup, Parser, Subcommand};
@@ -41,7 +43,9 @@ use tokio::signal;
 use crate::http_mock::{HttpHistory, HttpMode, new_history};
 use crate::requirements::ValidationReport;
 use crate::values::Values;
-use crate::wasm_harness::{ComponentHarness, WasmHarness, find_component_wasm_path};
+use crate::wasm_harness::{
+    ComponentHarness, SharedStateStore, WasmHarness, find_component_wasm_path,
+};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 
@@ -126,6 +130,20 @@ enum Command {
         #[arg(long)]
         dry_run: bool,
     },
+    Webchat {
+        #[arg(long, default_value = "webchat-gui")]
+        provider: String,
+        #[arg(long, value_name = "VALUES_JSON")]
+        values: Option<PathBuf>,
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+        #[arg(long, default_value_t = 8080)]
+        port: u16,
+        #[arg(long, default_value = "default")]
+        tenant: String,
+        #[arg(long, value_name = "PUBLIC_BASE_URL")]
+        public_base_url: Option<String>,
+    },
 }
 
 struct ListenParams {
@@ -141,6 +159,26 @@ struct ListenParams {
     http_body_file: Option<PathBuf>,
     http_header: Vec<String>,
     public_base_url: String,
+}
+
+struct WebchatParams {
+    provider: String,
+    values_path: Option<PathBuf>,
+    host: String,
+    port: u16,
+    tenant: String,
+    public_base_url: Option<String>,
+}
+
+#[derive(Clone)]
+struct WebchatState {
+    provider: String,
+    values: Values,
+    secrets: Arc<HashMap<String, Vec<u8>>>,
+    shared_state_store: SharedStateStore,
+    http_mode: HttpMode,
+    asset_root: PathBuf,
+    default_tenant: String,
 }
 
 fn main() {
@@ -208,6 +246,21 @@ fn run(cli: Cli) -> Result<(), CliError> {
             public_base_url,
             dry_run,
         } => handle_webhook(provider, values, secret_token, public_base_url, dry_run),
+        Command::Webchat {
+            provider,
+            values,
+            host,
+            port,
+            tenant,
+            public_base_url,
+        } => handle_webchat(WebchatParams {
+            provider,
+            values_path: values,
+            host,
+            port,
+            tenant,
+            public_base_url,
+        }),
     }
 }
 
@@ -521,11 +574,500 @@ fn handle_webhook(
     Ok(())
 }
 
+fn handle_webchat(params: WebchatParams) -> Result<(), CliError> {
+    let WebchatParams {
+        provider,
+        values_path,
+        host,
+        port,
+        tenant,
+        public_base_url,
+    } = params;
+    if provider != "webchat-gui" {
+        return Err(CliError::Listen(format!(
+            "webchat host only supports --provider webchat-gui (got {provider})"
+        )));
+    }
+    let public_base_url = public_base_url.unwrap_or_else(|| format!("http://localhost:{port}"));
+    let mut values = load_values_or_sample(values_path.as_deref(), &provider)?;
+    inject_public_base_url(&mut values, &public_base_url);
+    let requirements = requirements::Requirements::load(&provider)
+        .map_err(|_| CliError::RequirementsMissing(provider.clone()))?;
+    let report = requirements.validate(&values);
+    if !report.is_empty() {
+        print_missing(&report);
+        return Err(CliError::Validation { report });
+    }
+
+    let asset_root = webchat_asset_root(&provider)?;
+    let bind_addr = format!("{host}:{port}");
+    let state = WebchatState {
+        provider,
+        secrets: Arc::new(values.secret_bytes()),
+        shared_state_store: Arc::new(std::sync::Mutex::new(HashMap::new())),
+        http_mode: values.http_mode(),
+        values,
+        asset_root,
+        default_tenant: tenant.clone(),
+    };
+    println!("webchat tester listening on http://{bind_addr}");
+    println!("redirecting / -> /v1/web/webchat/{tenant}/");
+
+    let runtime = Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|err: io::Error| CliError::Listen(err.to_string()))?;
+    runtime.block_on(async move {
+        let listener = TcpListener::bind(bind_addr)
+            .await
+            .map_err(|err| CliError::Listen(err.to_string()))?;
+        let app = Router::new()
+            .route("/", get(handle_webchat_root))
+            .route(
+                "/v1/web/webchat/{tenant}",
+                get(handle_webchat_gui_index_redirect),
+            )
+            .route("/v1/web/webchat/{tenant}/", get(handle_webchat_gui_index))
+            .route(
+                "/v1/web/webchat/{tenant}/{*asset_path}",
+                get(handle_webchat_gui_asset),
+            )
+            .route(
+                "/v1/messaging/webchat/{tenant}/token",
+                any(handle_webchat_backend_token),
+            )
+            .route(
+                "/v1/messaging/webchat/{tenant}/v3/directline",
+                any(handle_webchat_backend_directline_root),
+            )
+            .route(
+                "/v1/messaging/webchat/{tenant}/v3/directline/{*tail}",
+                any(handle_webchat_backend_directline_tail),
+            )
+            .with_state(state);
+        axum::serve(listener, app)
+            .with_graceful_shutdown(wait_for_shutdown())
+            .await
+            .map_err(|err| CliError::Listen(err.to_string()))
+    })
+}
+
 fn inject_public_base_url(values: &mut Values, public_base_url: &str) {
     values.config.insert(
         "public_base_url".to_string(),
         Value::String(public_base_url.to_string()),
     );
+}
+
+fn load_values_or_sample(values_path: Option<&Path>, provider: &str) -> Result<Values, CliError> {
+    if let Some(path) = values_path {
+        return Values::load(path).map_err(|err| CliError::ValuesLoad(path.to_path_buf(), err));
+    }
+    let (requirements, _) = requirements::Requirements::load_with_raw(provider)
+        .map_err(|_| CliError::RequirementsMissing(provider.to_string()))?;
+    requirements.values.ok_or_else(|| {
+        CliError::Listen(format!(
+            "provider {provider} has no sample values in requirements fixture"
+        ))
+    })
+}
+
+fn webchat_asset_root(provider: &str) -> Result<PathBuf, CliError> {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .expect("workspace root")
+        .join("packs")
+        .join(format!("messaging-{provider}"))
+        .join("assets")
+        .join("webchat-gui");
+    if root.exists() {
+        Ok(root)
+    } else {
+        Err(CliError::Listen(format!(
+            "webchat asset root not found: {}",
+            root.display()
+        )))
+    }
+}
+
+async fn handle_webchat_root(State(state): State<WebchatState>) -> Redirect {
+    Redirect::temporary(&format!("/v1/web/webchat/{}/", state.default_tenant))
+}
+
+async fn handle_webchat_gui_index_redirect(AxumPath((tenant,)): AxumPath<(String,)>) -> Redirect {
+    Redirect::temporary(&format!("/v1/web/webchat/{tenant}/"))
+}
+
+async fn handle_webchat_gui_index(
+    State(state): State<WebchatState>,
+    AxumPath((tenant,)): AxumPath<(String,)>,
+) -> Response {
+    serve_webchat_asset(&state, &tenant, "")
+}
+
+async fn handle_webchat_gui_asset(
+    State(state): State<WebchatState>,
+    AxumPath((tenant, asset_path)): AxumPath<(String, String)>,
+) -> Response {
+    serve_webchat_asset(&state, &tenant, &asset_path)
+}
+
+fn serve_webchat_asset(state: &WebchatState, tenant: &str, asset_path: &str) -> Response {
+    let relative = if asset_path.is_empty() {
+        "index.html".to_string()
+    } else {
+        asset_path.to_string()
+    };
+    let full_path = state.asset_root.join(&relative);
+    let chosen = if full_path.is_file() {
+        full_path
+    } else {
+        state.asset_root.join("index.html")
+    };
+
+    match fs::read(&chosen) {
+        Ok(bytes) => {
+            let mime = content_type_for_path(&chosen);
+            let mut response = Response::new(Body::from(bytes));
+            *response.status_mut() = StatusCode::OK;
+            response
+                .headers_mut()
+                .insert(header::CONTENT_TYPE, HeaderValue::from_static(mime));
+            response.headers_mut().insert(
+                "x-greentic-tenant",
+                HeaderValue::from_str(&tenant)
+                    .unwrap_or_else(|_| HeaderValue::from_static("default")),
+            );
+            response
+        }
+        Err(err) => (
+            StatusCode::NOT_FOUND,
+            format!("asset not found: {} ({err})", chosen.display()),
+        )
+            .into_response(),
+    }
+}
+
+async fn handle_webchat_backend_token(
+    State(state): State<WebchatState>,
+    AxumPath((tenant,)): AxumPath<(String,)>,
+    req: Request<Body>,
+) -> Response {
+    handle_webchat_backend_request(state, tenant, Some("tokens/generate".to_string()), req).await
+}
+
+async fn handle_webchat_backend_directline_root(
+    State(state): State<WebchatState>,
+    AxumPath((tenant,)): AxumPath<(String,)>,
+    req: Request<Body>,
+) -> Response {
+    handle_webchat_backend_request(state, tenant, None, req).await
+}
+
+async fn handle_webchat_backend_directline_tail(
+    State(state): State<WebchatState>,
+    AxumPath((tenant, tail)): AxumPath<(String, String)>,
+    req: Request<Body>,
+) -> Response {
+    handle_webchat_backend_request(state, tenant, Some(tail), req).await
+}
+
+async fn handle_webchat_backend_request(
+    state: WebchatState,
+    tenant: String,
+    tail: Option<String>,
+    req: Request<Body>,
+) -> Response {
+    let method = req.method().clone();
+    let headers = req.headers().clone();
+    let query = req.uri().query().map(|value| value.to_string());
+    let body_bytes = match to_bytes(req.into_body(), usize::MAX).await {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                format!("failed to read request body: {err}"),
+            )
+                .into_response();
+        }
+    };
+
+    let (provider_path, provider_query) = webchat_provider_path(&tenant, tail.as_deref(), query);
+    let http_in = HttpInV1 {
+        method: method.to_string(),
+        path: provider_path,
+        query: provider_query,
+        headers: headers
+            .iter()
+            .map(|(name, value)| Header {
+                name: name.as_str().to_string(),
+                value: value.to_str().unwrap_or_default().to_string(),
+            })
+            .collect(),
+        body_b64: STANDARD.encode(&body_bytes),
+        route_hint: None,
+        binding_id: None,
+        config: None,
+    };
+
+    match invoke_webchat_ingest(&state, &http_in) {
+        Ok(http_out) => {
+            if should_echo_message(&method, tail.as_deref())
+                && let Err(err) = echo_http_out_events(&state, &tenant, &http_out.events)
+            {
+                eprintln!("echo send failed: {err}");
+            }
+            http_out_to_response(http_out)
+        }
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
+    }
+}
+
+fn webchat_provider_path(
+    tenant: &str,
+    tail: Option<&str>,
+    query: Option<String>,
+) -> (String, Option<String>) {
+    let directline_tail = tail.unwrap_or_default();
+    let mut path = if directline_tail.is_empty() {
+        "/v3/directline".to_string()
+    } else {
+        format!("/v3/directline/{directline_tail}")
+    };
+    if directline_tail == "tokens/generate" {
+        path = "/v3/directline/tokens/generate".to_string();
+    }
+    if path == "/v3/directline/tokens/generate" {
+        let mut params = query.as_deref().map(parse_query_pairs).unwrap_or_default();
+        if !params.iter().any(|(key, _)| key == "tenant") {
+            params.push(("tenant".to_string(), tenant.to_string()));
+        }
+        let encoded = params
+            .into_iter()
+            .map(|(key, value)| {
+                format!(
+                    "{}={}",
+                    urlencoding::encode(&key),
+                    urlencoding::encode(&value)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("&");
+        return (path, (!encoded.is_empty()).then_some(encoded));
+    }
+    (path, query)
+}
+
+fn parse_query_pairs(query: &str) -> Vec<(String, String)> {
+    query
+        .split('&')
+        .filter(|segment| !segment.is_empty())
+        .map(|segment| {
+            let (key, value) = segment.split_once('=').unwrap_or((segment, ""));
+            (key.to_string(), value.to_string())
+        })
+        .collect()
+}
+
+fn invoke_webchat_ingest(state: &WebchatState, http_in: &HttpInV1) -> Result<HttpOutV1, CliError> {
+    let harness = WasmHarness::new(&state.provider).map_err(CliError::WasmLoad)?;
+    let history = new_history();
+    let http_bytes = serde_json::to_vec(http_in).map_err(|err| CliError::ProviderOp(err.into()))?;
+    let out_bytes = harness
+        .invoke_with_shared_state(
+            "ingest_http",
+            http_bytes,
+            state.secrets.as_ref(),
+            state.http_mode,
+            history,
+            None,
+            Some(state.shared_state_store.clone()),
+        )
+        .map_err(map_invoke_error)?;
+    serde_json::from_slice(&out_bytes).map_err(|err| CliError::ProviderOp(err.into()))
+}
+
+fn should_echo_message(method: &Method, tail: Option<&str>) -> bool {
+    method == Method::POST
+        && tail
+            .map(|value| value.contains("/activities"))
+            .unwrap_or(false)
+}
+
+fn echo_http_out_events(
+    state: &WebchatState,
+    tenant: &str,
+    envelopes: &[ChannelMessageEnvelope],
+) -> Result<(), CliError> {
+    for envelope in envelopes {
+        let text = envelope
+            .text
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned);
+        let Some(text) = text else {
+            continue;
+        };
+        let echo = build_echo_envelope(envelope, tenant, text)?;
+        invoke_send_pipeline(
+            &state.provider,
+            &state.values,
+            state.shared_state_store.clone(),
+            echo,
+        )?;
+    }
+    Ok(())
+}
+
+fn build_echo_envelope(
+    inbound: &ChannelMessageEnvelope,
+    tenant: &str,
+    text: String,
+) -> Result<ChannelMessageEnvelope, CliError> {
+    let env = EnvId::try_from("default").expect("default env");
+    let tenant_id = TenantId::try_from(tenant.to_string())
+        .map_err(|err| CliError::Listen(format!("invalid tenant '{tenant}': {err}")))?;
+    let mut metadata = inbound.metadata.clone();
+    metadata.insert("tenant".to_string(), tenant.to_string());
+    if !metadata.contains_key("route") {
+        metadata.insert("route".to_string(), inbound.session_id.clone());
+    }
+    Ok(ChannelMessageEnvelope {
+        id: format!("echo-{}", inbound.session_id),
+        tenant: TenantCtx::new(env, tenant_id),
+        channel: inbound.channel.clone(),
+        session_id: inbound.session_id.clone(),
+        reply_scope: None,
+        from: None,
+        to: Vec::new(),
+        correlation_id: None,
+        text: Some(text),
+        attachments: Vec::new(),
+        metadata,
+    })
+}
+
+fn invoke_send_pipeline(
+    provider: &str,
+    values: &Values,
+    shared_state_store: SharedStateStore,
+    message: ChannelMessageEnvelope,
+) -> Result<(), CliError> {
+    let harness = WasmHarness::new(provider).map_err(CliError::WasmLoad)?;
+    let history = new_history();
+    let secrets = values.secret_bytes();
+    let http_mode = values.http_mode();
+    let text = message
+        .text
+        .clone()
+        .ok_or_else(|| CliError::ProviderOp(anyhow!("echo message missing text")))?;
+    let route = message
+        .metadata
+        .get("route")
+        .cloned()
+        .unwrap_or_else(|| message.session_id.clone());
+    let tenant = message.metadata.get("tenant").cloned();
+    let mut payload_body = json!({
+        "text": text,
+        "route": route,
+        "session_id": message.session_id,
+    });
+    if let Some(tenant) = tenant.clone() {
+        payload_body["tenant"] = Value::String(tenant);
+    }
+    if let Some(value) = values.config.get("public_base_url") {
+        payload_body["public_base_url"] = value.clone();
+    }
+    if let Some(value) = values.config.get("mode") {
+        payload_body["mode"] = value.clone();
+    }
+    if let Some(value) = values.config.get("base_url") {
+        payload_body["base_url"] = value.clone();
+    }
+    let provider_payload = ProviderPayloadV1 {
+        content_type: "application/json".to_string(),
+        body_b64: STANDARD.encode(
+            serde_json::to_vec(&payload_body).map_err(|err| CliError::ProviderOp(err.into()))?,
+        ),
+        metadata: {
+            let mut metadata = BTreeMap::new();
+            metadata.insert("route".to_string(), Value::String(route));
+            metadata.insert("method".to_string(), Value::String("POST".to_string()));
+            if let Some(tenant) = tenant {
+                metadata.insert("tenant".to_string(), Value::String(tenant));
+            }
+            metadata
+        },
+    };
+    let payload = ProviderPayloadV1 {
+        content_type: provider_payload.content_type.clone(),
+        body_b64: provider_payload.body_b64.clone(),
+        metadata: provider_payload.metadata.clone(),
+    };
+    let send_in = SendPayloadInV1 {
+        provider_type: harness.provider_type().to_string(),
+        tenant_id: None,
+        auth_user: None,
+        payload,
+    };
+    let send_input =
+        serde_json::to_vec(&send_in).map_err(|err| CliError::ProviderOp(err.into()))?;
+    let send_output = harness
+        .invoke_with_shared_state(
+            "send_payload",
+            send_input,
+            &secrets,
+            http_mode,
+            history,
+            None,
+            Some(shared_state_store),
+        )
+        .map_err(map_invoke_error)?;
+    let send_result: SendPayloadResultV1 =
+        serde_json::from_slice(&send_output).map_err(|err| CliError::ProviderOp(err.into()))?;
+    if !send_result.ok {
+        return Err(CliError::ProviderOp(anyhow!(
+            "send_payload failed: {}",
+            send_result
+                .message
+                .unwrap_or_else(|| "unknown error".to_string())
+        )));
+    }
+    Ok(())
+}
+
+fn http_out_to_response(http_out: HttpOutV1) -> Response {
+    let status = StatusCode::from_u16(http_out.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    let body = STANDARD.decode(http_out.body_b64).unwrap_or_default();
+    let mut response = Response::new(Body::from(body));
+    *response.status_mut() = status;
+    for header_entry in http_out.headers {
+        if let Ok(name) = header::HeaderName::from_bytes(header_entry.name.as_bytes())
+            && let Ok(value) = HeaderValue::from_str(&header_entry.value)
+        {
+            response.headers_mut().append(name, value);
+        }
+    }
+    response
+}
+
+fn content_type_for_path(path: &Path) -> &'static str {
+    match path.extension().and_then(|ext| ext.to_str()).unwrap_or("") {
+        "html" => "text/html; charset=utf-8",
+        "js" => "application/javascript; charset=utf-8",
+        "css" => "text/css; charset=utf-8",
+        "json" => "application/json; charset=utf-8",
+        "svg" => "image/svg+xml",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "ico" => "image/x-icon",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+        _ => "application/octet-stream",
+    }
 }
 
 fn webhook_component_for(provider: &str) -> Option<&'static str> {

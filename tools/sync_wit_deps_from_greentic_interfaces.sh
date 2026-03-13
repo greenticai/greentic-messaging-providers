@@ -30,17 +30,29 @@ if [ -z "${GREENTIC_INTERFACES_VERSION}" ]; then
 fi
 
 SRC_WIT_ROOT=""
-for registry_src in "${HOME}/.cargo/registry/src"/*; do
-  candidate="${registry_src}/greentic-interfaces-${GREENTIC_INTERFACES_VERSION}/wit/greentic"
-  if [ -d "${candidate}" ]; then
-    SRC_WIT_ROOT="${candidate}"
-    break
-  fi
-done
+find_registry_wit_root() {
+  local registry_src candidate
+  for registry_src in "${HOME}/.cargo/registry/src"/*; do
+    [ -d "${registry_src}" ] || continue
+    candidate="${registry_src}/greentic-interfaces-${GREENTIC_INTERFACES_VERSION}/wit/greentic"
+    if [ -d "${candidate}" ]; then
+      echo "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
 
+SRC_WIT_ROOT="$(find_registry_wit_root || true)"
 if [ -z "${SRC_WIT_ROOT}" ]; then
   echo "greentic-interfaces-${GREENTIC_INTERFACES_VERSION} WIT not found in ~/.cargo/registry/src" >&2
-  echo "hint: run 'cargo fetch --locked' first" >&2
+  echo "running 'cargo fetch --locked' to populate registry sources..." >&2
+  cargo fetch --locked >&2
+  SRC_WIT_ROOT="$(find_registry_wit_root || true)"
+fi
+
+if [ -z "${SRC_WIT_ROOT}" ]; then
+  echo "greentic-interfaces-${GREENTIC_INTERFACES_VERSION} WIT still not found in ~/.cargo/registry/src after cargo fetch" >&2
   exit 1
 fi
 

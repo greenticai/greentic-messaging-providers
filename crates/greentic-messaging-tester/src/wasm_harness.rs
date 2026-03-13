@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
-    sync::{Mutex, OnceLock},
+    sync::{Arc, Mutex, OnceLock},
     time::SystemTime,
 };
 
@@ -47,6 +47,8 @@ pub enum InvokeStrategy {
     Node,
     SchemaCore,
 }
+
+pub type SharedStateStore = Arc<Mutex<HashMap<String, Vec<u8>>>>;
 
 pub struct WasmHarness {
     engine: Engine,
@@ -100,6 +102,19 @@ impl WasmHarness {
         history: HttpHistory,
         mock_responses: Option<HttpResponseQueue>,
     ) -> Result<Vec<u8>> {
+        self.invoke_with_shared_state(op, input, secrets, http_mode, history, mock_responses, None)
+    }
+
+    pub fn invoke_with_shared_state(
+        &self,
+        op: &str,
+        input: Vec<u8>,
+        secrets: &HashMap<String, Vec<u8>>,
+        http_mode: HttpMode,
+        history: HttpHistory,
+        mock_responses: Option<HttpResponseQueue>,
+        shared_state_store: Option<SharedStateStore>,
+    ) -> Result<Vec<u8>> {
         match self.invoke_strategy {
             InvokeStrategy::Node => self.invoke_node_world(
                 op,
@@ -108,10 +123,17 @@ impl WasmHarness {
                 http_mode,
                 history,
                 mock_responses.clone(),
+                shared_state_store.clone(),
             ),
-            InvokeStrategy::SchemaCore => {
-                self.invoke_schema_core(op, input, secrets, http_mode, history, mock_responses)
-            }
+            InvokeStrategy::SchemaCore => self.invoke_schema_core(
+                op,
+                input,
+                secrets,
+                http_mode,
+                history,
+                mock_responses,
+                shared_state_store,
+            ),
         }
     }
 
@@ -128,9 +150,16 @@ impl WasmHarness {
         http_mode: HttpMode,
         history: HttpHistory,
         mock_responses: Option<HttpResponseQueue>,
+        shared_state_store: Option<SharedStateStore>,
     ) -> Result<Vec<u8>> {
         let input_str = String::from_utf8(input).map_err(|err| anyhow!(err))?;
-        let state = TesterHostState::new(secrets.clone(), http_mode, history, mock_responses);
+        let state = TesterHostState::new_with_shared_state(
+            secrets.clone(),
+            http_mode,
+            history,
+            mock_responses,
+            shared_state_store,
+        );
         execute_with_state(&self.engine, &self.component, state, |store, instance| {
             let node_world = node_world_version(&mut *store, instance)
                 .ok_or_else(|| anyhow!("missing node world export"))?;
@@ -180,8 +209,15 @@ impl WasmHarness {
         http_mode: HttpMode,
         history: HttpHistory,
         mock_responses: Option<HttpResponseQueue>,
+        shared_state_store: Option<SharedStateStore>,
     ) -> Result<Vec<u8>> {
-        let state = TesterHostState::new(secrets.clone(), http_mode, history, mock_responses);
+        let state = TesterHostState::new_with_shared_state(
+            secrets.clone(),
+            http_mode,
+            history,
+            mock_responses,
+            shared_state_store,
+        );
         execute_with_state(&self.engine, &self.component, state, |store, instance| {
             let input_cbor = match serde_json::from_slice::<serde_json::Value>(&input) {
                 Ok(value) => canonical_cbor_bytes(&value),
@@ -482,6 +518,7 @@ fn provider_type_from_descriptor(provider: &str) -> String {
         "messaging-provider-teams" | "teams" => "messaging.teams.bot".to_string(),
         "messaging-provider-telegram" | "telegram" => "messaging.telegram.bot".to_string(),
         "messaging-provider-webchat" | "webchat" => "messaging.webchat".to_string(),
+        "messaging-provider-webchat-gui" | "webchat-gui" => "messaging.webchat-gui".to_string(),
         "messaging-provider-webex" | "webex" => "messaging.webex.bot".to_string(),
         "messaging-provider-whatsapp" | "whatsapp" => "messaging.whatsapp.cloud".to_string(),
         "messaging-provider-email" | "email" => "messaging.email.smtp".to_string(),
@@ -686,7 +723,7 @@ pub struct TesterHostState {
     table: ResourceTable,
     wasi_ctx: WasiCtx,
     secrets: HashMap<String, Vec<u8>>,
-    state_store: HashMap<String, Vec<u8>>,
+    state_store: SharedStateStore,
     http_mode: HttpMode,
     http_history: HttpHistory,
     mock_responses: Option<HttpResponseQueue>,
@@ -710,11 +747,21 @@ impl TesterHostState {
         http_history: HttpHistory,
         mock_responses: Option<HttpResponseQueue>,
     ) -> Self {
+        Self::new_with_shared_state(secrets, http_mode, http_history, mock_responses, None)
+    }
+
+    pub fn new_with_shared_state(
+        secrets: HashMap<String, Vec<u8>>,
+        http_mode: HttpMode,
+        http_history: HttpHistory,
+        mock_responses: Option<HttpResponseQueue>,
+        shared_state_store: Option<SharedStateStore>,
+    ) -> Self {
         Self {
             table: ResourceTable::new(),
             wasi_ctx: WasiCtxBuilder::new().inherit_stdio().build(),
             secrets,
-            state_store: HashMap::new(),
+            state_store: shared_state_store.unwrap_or_else(|| Arc::new(Mutex::new(HashMap::new()))),
             http_mode,
             http_history,
             mock_responses,
@@ -769,7 +816,14 @@ impl state_store::StateStoreHost for TesterHostState {
         key: state_store::StateKey,
         _ctx: Option<state_store::TenantCtx>,
     ) -> Result<Vec<u8>, state_store::StateStoreError> {
-        match self.state_store.get(&key) {
+        let state_store = self
+            .state_store
+            .lock()
+            .map_err(|_| state_store::StateStoreError {
+                code: "poisoned".into(),
+                message: "state store lock poisoned".into(),
+            })?;
+        match state_store.get(&key) {
             Some(value) => Ok(value.clone()),
             None => Err(state_store::StateStoreError {
                 code: "not_found".into(),
@@ -781,10 +835,17 @@ impl state_store::StateStoreHost for TesterHostState {
     fn write(
         &mut self,
         key: state_store::StateKey,
-        _bytes: Vec<u8>,
+        bytes: Vec<u8>,
         _ctx: Option<state_store::TenantCtx>,
     ) -> Result<state_store::OpAck, state_store::StateStoreError> {
-        self.state_store.insert(key, _bytes);
+        let mut state_store =
+            self.state_store
+                .lock()
+                .map_err(|_| state_store::StateStoreError {
+                    code: "poisoned".into(),
+                    message: "state store lock poisoned".into(),
+                })?;
+        state_store.insert(key, bytes);
         Ok(state_store::OpAck::Ok)
     }
 
@@ -793,7 +854,14 @@ impl state_store::StateStoreHost for TesterHostState {
         key: state_store::StateKey,
         _ctx: Option<state_store::TenantCtx>,
     ) -> Result<state_store::OpAck, state_store::StateStoreError> {
-        self.state_store.remove(&key);
+        let mut state_store =
+            self.state_store
+                .lock()
+                .map_err(|_| state_store::StateStoreError {
+                    code: "poisoned".into(),
+                    message: "state store lock poisoned".into(),
+                })?;
+        state_store.remove(&key);
         Ok(state_store::OpAck::Ok)
     }
 }
@@ -849,10 +917,7 @@ fn find_wasm_path(provider: &str) -> Result<PathBuf> {
         }
     }
     let targets = ["wasm32-wasip2", "wasm32-wasip1"];
-    for wasm_name in [
-        format!("messaging-provider-{provider}"),
-        format!("messaging_provider_{provider}"),
-    ] {
+    for wasm_name in wasm_name_variants(&format!("messaging-provider-{provider}")) {
         let builtin = root
             .join("target/components")
             .join(format!("{wasm_name}.wasm"));
@@ -882,10 +947,7 @@ fn find_wasm_path(provider: &str) -> Result<PathBuf> {
             .current_dir(&root)
             .args(["component", "build", "-p", &package])
             .status();
-        for wasm_name in [
-            format!("messaging-provider-{provider}"),
-            format!("messaging_provider_{provider}"),
-        ] {
+        for wasm_name in wasm_name_variants(&format!("messaging-provider-{provider}")) {
             let builtin = root
                 .join("target/components")
                 .join(format!("{wasm_name}.wasm"));
