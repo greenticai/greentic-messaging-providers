@@ -140,7 +140,12 @@ impl WasmHarness {
         self.invoke_strategy
     }
 
-    fn invoke_node_world(&self, op: &str, input: Vec<u8>, options: &InvokeOptions<'_>) -> Result<Vec<u8>> {
+    fn invoke_node_world(
+        &self,
+        op: &str,
+        input: Vec<u8>,
+        options: &InvokeOptions<'_>,
+    ) -> Result<Vec<u8>> {
         let input_str = String::from_utf8(input).map_err(|err| anyhow!(err))?;
         let state = TesterHostState::new_with_shared_state(
             options.secrets.clone(),
@@ -190,7 +195,12 @@ impl WasmHarness {
         })
     }
 
-    fn invoke_schema_core(&self, op: &str, input: Vec<u8>, options: InvokeOptions<'_>) -> Result<Vec<u8>> {
+    fn invoke_schema_core(
+        &self,
+        op: &str,
+        input: Vec<u8>,
+        options: InvokeOptions<'_>,
+    ) -> Result<Vec<u8>> {
         let state = TesterHostState::new_with_shared_state(
             options.secrets.clone(),
             options.http_mode,
