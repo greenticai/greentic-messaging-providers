@@ -3,7 +3,7 @@
   "component_sources": [
     {
       "id": "messaging-provider-webchat",
-      "version": "0.4.37",
+      "version": "0.4.38",
       "world": "greentic:component/component-v0-v6-v0@0.6.1",
       "supports": [
         "messaging"
@@ -28,7 +28,7 @@
     },
     {
       "id": "ai.greentic.component-provision",
-      "version": "0.4.37",
+      "version": "0.4.38",
       "world": "greentic:component/component@0.5.0",
       "supports": [
         "messaging"
@@ -63,7 +63,7 @@
     },
     {
       "id": "ai.greentic.component-qa",
-      "version": "0.4.37",
+      "version": "0.4.38",
       "world": "greentic:component/component@0.5.0",
       "supports": [
         "messaging"
@@ -117,14 +117,14 @@
   "extensions": {
     "greentic.ext.capabilities.v1": {
       "kind": "greentic.ext.capabilities.v1",
-      "version": "0.4.37",
+      "version": "0.4.38",
       "inline": {
         "schema_version": 1,
         "offers": [
           {
             "offer_id": "messaging-webchat-v1",
             "cap_id": "greentic.cap.messaging.provider.v1",
-            "version": "0.4.37",
+            "version": "0.4.38",
             "provider": {
               "component_ref": "messaging-provider-webchat",
               "op": "messaging.configure"
@@ -140,7 +140,7 @@
     },
     "greentic.messaging.validators.v1": {
       "kind": "greentic.messaging.validators.v1",
-      "version": "0.4.37",
+      "version": "0.4.38",
       "inline": {
         "validators": [
           {
@@ -153,7 +153,7 @@
     },
     "greentic.provider-extension.v1": {
       "kind": "greentic.provider-extension.v1",
-      "version": "0.4.37",
+      "version": "0.4.38",
       "inline": {
         "providers": [
           {
@@ -180,7 +180,7 @@
     },
     "messaging.provider_flow_hints": {
       "kind": "messaging.provider_flow_hints",
-      "version": "0.4.37",
+      "version": "0.4.38",
       "inline": {
         "messaging.webchat": {
           "default": "default",
@@ -194,7 +194,7 @@
     },
     "messaging.provider_ingress.v1": {
       "kind": "messaging.provider_ingress.v1",
-      "version": "0.4.37",
+      "version": "0.4.38",
       "inline": {
         "capabilities": {
           "content_types": [
@@ -309,5 +309,5 @@
       "description": "Optional token used for webchat setup validation and conformance checks."
     }
   ],
-  "version": "0.4.37"
+  "version": "0.4.38"
 }

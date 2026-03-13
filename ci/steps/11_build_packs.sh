@@ -61,6 +61,27 @@ raise SystemExit(0 if name in items else 1)
 PY
 }
 
+refresh_flow_resolve_sidecars() {
+  if ! command -v greentic-flow >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local pack_dir flow_file pack_name
+  for pack_dir in packs/*; do
+    [ -d "${pack_dir}" ] || continue
+    pack_name="$(basename "${pack_dir}")"
+    if ! pack_selected "${pack_name}"; then
+      continue
+    fi
+    [ -d "${pack_dir}/flows" ] || continue
+    find "${pack_dir}/flows" -maxdepth 1 -type f -name '*.resolve.summary.json' -delete
+    for flow_file in "${pack_dir}"/flows/*.ygtc; do
+      [ -f "${flow_file}" ] || continue
+      greentic-flow doctor "${flow_file}" >/dev/null
+    done
+  done
+}
+
 pack_doctor_supports_validate() {
   local output
   output="$(greentic-pack doctor --validate --pack /nonexistent 2>&1 || true)"
@@ -163,5 +184,6 @@ if [ "${run_publish_packs}" -eq 1 ]; then
   fi
 else
   PACKC_BUILD_FLAGS="${PACKC_BUILD_FLAGS:-}"
+  refresh_flow_resolve_sidecars
   PACKC_BUILD_FLAGS="${PACKC_BUILD_FLAGS}" ./tools/build_packs_only.sh
 fi

@@ -2,7 +2,7 @@
   "$schema": "https://greentic-ai.github.io/greentic-component/schemas/v1/component.manifest.schema.json",
   "id": "ai.greentic.component-qa",
   "name": "component-qa",
-  "version": "0.4.37",
+  "version": "0.4.38",
   "world": "greentic:component/component@0.5.0",
   "describe_export": "describe",
   "default_operation": "render_text",
