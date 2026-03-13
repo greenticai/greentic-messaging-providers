@@ -12,11 +12,11 @@ fi
 
 mkdir -p "${DEST_DIR}" "${DEST_DIR}/config" "${DEST_DIR}/i18n" "${DEST_DIR}/js" "${DEST_DIR}/skins"
 
-cp -R "${SRC_DIR}/assets" "${DEST_DIR}/"
-cp -R "${SRC_DIR}/config/." "${DEST_DIR}/config/"
-cp -R "${SRC_DIR}/i18n/." "${DEST_DIR}/i18n/"
-cp -R "${SRC_DIR}/js/." "${DEST_DIR}/js/"
-cp -R "${SRC_DIR}/skins/." "${DEST_DIR}/skins/"
+rsync -a --delete "${SRC_DIR}/assets/" "${DEST_DIR}/assets/"
+rsync -a --delete "${SRC_DIR}/config/" "${DEST_DIR}/config/"
+rsync -a --delete "${SRC_DIR}/i18n/" "${DEST_DIR}/i18n/"
+rsync -a --delete "${SRC_DIR}/js/" "${DEST_DIR}/js/"
+rsync -a --delete "${SRC_DIR}/skins/" "${DEST_DIR}/skins/"
 
 js_bundle="$(basename "$(find "${DEST_DIR}/assets" -maxdepth 1 -type f -name 'index-*.js' | sort | head -n 1)")"
 css_bundle="$(basename "$(find "${DEST_DIR}/assets" -maxdepth 1 -type f -name 'index-*.css' | sort | head -n 1)")"
@@ -77,6 +77,16 @@ cat > "${DEST_DIR}/runtime-bootstrap.js" <<'EOF'
             domain: `${window.location.origin}/v1/messaging/webchat/${encodeURIComponent(tenantId)}/v3/directline`
           },
           locale: 'en-US'
+        },
+        auth: {
+          providers: [
+            {
+              id: `${tenantId}-demo`,
+              label: 'Demo Login',
+              type: 'dummy',
+              enabled: true
+            }
+          ]
         }
       };
       return Promise.resolve(
