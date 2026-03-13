@@ -117,7 +117,10 @@ const I18N_PAIRS: &[(&str, &str)] = &[
         "Review the generated dummy configuration",
     ),
     ("dummy.flow.update.title", "Update configuration"),
-    ("dummy.flow.update.collect", "Collect updated dummy settings"),
+    (
+        "dummy.flow.update.collect",
+        "Collect updated dummy settings",
+    ),
     ("dummy.flow.update.complete", "Update complete"),
     ("dummy.flow.remove.title", "Remove provider"),
     ("dummy.flow.remove.check_state", "Check current state"),
