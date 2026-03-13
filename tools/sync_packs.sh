@@ -448,6 +448,7 @@ for dir in "${PACKS_DIR}"/*; do
 
   mkdir -p "${dir}/components"
   rm -f "${dir}/components/component.manifest.json"
+  rm -f "${dir}/components/provision.wasm" "${dir}/components/qa.wasm"
   while IFS=$'\t' read -r comp wasm_path oci_image oci_digest oci_artifact manifest_rel oci_manifest; do
     [ -z "${comp}" ] && continue
     wasm_rel="${wasm_path:-components/${comp}.wasm}"

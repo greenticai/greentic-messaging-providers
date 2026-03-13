@@ -479,6 +479,7 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   fi
 
   mkdir -p "${dir}/components"
+  rm -f "${dir}/components/provision.wasm" "${dir}/components/qa.wasm"
   for comp_json in "${components[@]}"; do
     comp_id="$(jq -r '.id' <<<"${comp_json}")"
     wasm_path="$(jq -r '.wasm' <<<"${comp_json}")"
