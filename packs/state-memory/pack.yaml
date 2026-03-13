@@ -1,11 +1,11 @@
 pack_id: state-memory
-version: 0.4.37
+version: 0.4.38
 kind: application
 publisher: Greentic
 name: In-Memory State Provider
 components:
 - id: state-provider-memory
-  version: 0.4.37
+  version: 0.4.38
   world: greentic:component/component-v0-v6-v0
   supports:
   - component_config
@@ -20,7 +20,7 @@ components:
     host: {}
   wasm: components/state-provider-memory/state-provider-memory.wasm
 - id: ai.greentic.component-provision
-  version: 0.4.37
+  version: 0.4.38
   world: greentic:component/component@0.5.0
   supports:
   - messaging
@@ -44,7 +44,7 @@ components:
       random: false
   wasm: components/provision/provision.wasm
 - id: ai.greentic.component-qa
-  version: 0.4.37
+  version: 0.4.38
   world: greentic:component/component@0.5.0
   supports:
   - messaging

@@ -178,6 +178,53 @@ path.write_text(json.dumps(data, indent=2) + "\n")
 PY
 }
 
+sync_pack_yaml_component_versions() {
+  local pack_dir="$1"
+  local yaml_path="${pack_dir}/pack.yaml"
+  [ -f "${yaml_path}" ] || return 0
+  python3 - "$pack_dir" "$yaml_path" <<'PY'
+from pathlib import Path
+import json
+import sys
+import yaml
+
+pack_dir = Path(sys.argv[1])
+yaml_path = Path(sys.argv[2])
+
+manifest_versions = {}
+for manifest_path in sorted((pack_dir / "components").rglob("component.manifest.json")):
+    try:
+        data = json.loads(manifest_path.read_text())
+    except Exception:
+        continue
+    comp_id = data.get("id")
+    version = data.get("version")
+    if comp_id and version:
+        manifest_versions[comp_id] = version
+
+if not manifest_versions:
+    raise SystemExit(0)
+
+data = yaml.safe_load(yaml_path.read_text()) or {}
+components = data.get("components")
+if not isinstance(components, list):
+    raise SystemExit(0)
+
+updated = False
+for component in components:
+    if not isinstance(component, dict):
+        continue
+    comp_id = component.get("id")
+    manifest_version = manifest_versions.get(comp_id)
+    if manifest_version and component.get("version") != manifest_version:
+        component["version"] = manifest_version
+        updated = True
+
+if updated:
+    yaml_path.write_text(yaml.safe_dump(data, sort_keys=False))
+PY
+}
+
 copy_schema() {
   local pack_dir="$1"
   local schema_path="$2"
@@ -524,6 +571,8 @@ for dir in "${PACKS_DIR}"/*; do
       cp -R "${ROOT_DIR}/components/provision/schemas" "${provision_dir}/schemas"
     fi
   fi
+
+  sync_pack_yaml_component_versions "${dir}"
 done
 
 echo "Pack sync complete."

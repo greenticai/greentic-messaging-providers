@@ -1,6 +1,49 @@
 staged /projects/ai/greentic-ng/greentic-messaging-providers/target/components/provision.wasm -> /projects/ai/greentic-ng/greentic-messaging-providers/components/provision/provision.wasm
 staged /projects/ai/greentic-ng/greentic-messaging-providers/target/components/questions.wasm -> /projects/ai/greentic-ng/greentic-messaging-providers/components/questions/questions.wasm
-Using version: 0.4.37
+staged /projects/ai/greentic-ng/greentic-messaging-providers/target/components/templates.wasm -> /projects/ai/greentic-ng/greentic-messaging-providers/components/templates/templates.wasm
+Using version: 0.4.38
 Using templates image: ghcr.io/greenticai/components/templates:latest
-Syncing messaging-dummy...
-Remote component fetch disabled (ALLOW_REMOTE_COMPONENT_FETCH=0) for ghcr.io/greenticai/components/templates:latest
+Skipping filtered-out pack messaging-dummy
+Skipping filtered-out pack messaging-email
+Skipping filtered-out pack messaging-provider-bundle
+Skipping filtered-out pack messaging-slack
+Skipping filtered-out pack messaging-teams
+Skipping filtered-out pack messaging-telegram
+Skipping filtered-out pack messaging-webchat
+Skipping filtered-out pack messaging-webchat-gui
+Skipping filtered-out pack messaging-webex
+Syncing messaging-whatsapp...
+Skipping filtered-out pack state-memory
+Skipping filtered-out pack state-redis
+Pack sync complete.
+Using templates image: ghcr.io/greenticai/components/templates:latest
+Using greentic-pack: greentic-pack 0.4.111
+Skipping filtered-out pack messaging-dummy
+Skipping filtered-out pack messaging-email
+Skipping deprecated pack messaging-provider-bundle
+Skipping filtered-out pack messaging-slack
+Skipping filtered-out pack messaging-teams
+Skipping filtered-out pack messaging-telegram
+Skipping filtered-out pack messaging-webchat
+Skipping filtered-out pack messaging-webchat-gui
+Skipping filtered-out pack messaging-webex
+Configuration:
+- schema_version: 1
+- environment.env_id: EnvId("dev") (default)
+- paths.state_dir: /projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-whatsapp/.greentic (default)
+- telemetry.exporter: None (default)
+- network.tls_mode: System (default)
+- deployer.base_domain: deploy.greentic.ai (default)
+- events.backoff.initial_ms: Some(250) (default)
+- events.reconnect.enabled: Some(true) (default)
+Warnings:
+  - telemetry.enabled=true but exporter=none; telemetry will be disabled
+wrote /projects/ai/greentic-ng/greentic-messaging-providers/packs/messaging-whatsapp/pack.lock.cbor
+wrote /projects/ai/greentic-ng/greentic-messaging-providers/.tmp/packs/messaging-whatsapp.gtpack
+warning: ignored legacy helper doctor diagnostics for /projects/ai/greentic-ng/greentic-messaging-providers/dist/packs/messaging-whatsapp.gtpack
+warning: greentic-pack produced pack-v1 manifest for messaging-whatsapp; proceed anyway (upgrade greentic-pack for newer schema) 
+[DRY RUN] Would push /projects/ai/greentic-ng/greentic-messaging-providers/dist/packs/messaging-whatsapp.gtpack to ghcr.io/greenticai/greentic-packs/messaging-whatsapp:0.4.38
+Skipping filtered-out pack state-memory
+Skipping filtered-out pack state-redis
+warning: ignored legacy helper doctor diagnostics for /projects/ai/greentic-ng/greentic-messaging-providers/dist/packs/messaging-whatsapp.gtpack
+Wrote packs.lock.json

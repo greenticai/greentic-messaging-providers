@@ -198,6 +198,15 @@ jobs:
       - name: Step 04 - Ensure templates are staged in packs
         run: ./ci/steps/04_ensure_templates.sh
 
+      - name: Upload templates artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: component-templates-local
+          path: |
+            target/components/templates.wasm
+            target/components/ai.greentic.component-templates.wasm
+          if-no-files-found: error
+
   gen-flows:
     runs-on: ubuntu-latest
     needs: [ensure-templates, build-components]
@@ -228,6 +237,12 @@ jobs:
           pattern: components-wasm-*
           path: target/components
           merge-multiple: true
+
+      - name: Download templates artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: component-templates-local
+          path: target/components
 
       - name: Step 06 - Generate flows
         run: ./ci/steps/06_gen_flows.sh
@@ -268,6 +283,12 @@ jobs:
           pattern: components-wasm-*
           path: target/components
           merge-multiple: true
+
+      - name: Download templates artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: component-templates-local
+          path: target/components
 
       - name: Login to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
@@ -334,6 +355,12 @@ jobs:
           pattern: components-wasm-*
           path: target/components
           merge-multiple: true
+
+      - name: Download templates artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: component-templates-local
+          path: target/components
 
       - name: Login to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
@@ -502,6 +529,12 @@ jobs:
           pattern: components-wasm-*
           path: target/components
           merge-multiple: true
+
+      - name: Download templates artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: component-templates-local
+          path: target/components
 
       - name: Step 11 - Build packs
         env:

@@ -8,10 +8,10 @@
         "kind": "local",
         "path": "../components/provision/provision.wasm"
       },
-      "digest": "sha256:8708e333d0005020ec97ab5b282e61d955ea86093b0b30ed3ae6ff8cca18795c",
+      "digest": "sha256:26e40f4f0c10070df791cbf61fe84d8093e077ed8188a800c238f1f86a300170",
       "manifest": {
         "world": "greentic:component/component@0.5.0",
-        "version": "0.1.0"
+        "version": "0.4.38"
       }
     },
     "update__collect": {
@@ -23,7 +23,7 @@
       "digest": "sha256:d0b9dc48122d081250bf8bb1cf06a309995c318ac9b0b3e6804ce8fd3639d655",
       "manifest": {
         "world": "greentic:component/component@0.5.0",
-        "version": "0.4.1"
+        "version": "0.4.38"
       }
     },
     "update__emit_questions": {
@@ -35,7 +35,7 @@
       "digest": "sha256:d0b9dc48122d081250bf8bb1cf06a309995c318ac9b0b3e6804ce8fd3639d655",
       "manifest": {
         "world": "greentic:component/component@0.5.0",
-        "version": "0.4.1"
+        "version": "0.4.38"
       }
     },
     "update__summary": {
@@ -47,7 +47,7 @@
       "digest": "sha256:d0b9dc48122d081250bf8bb1cf06a309995c318ac9b0b3e6804ce8fd3639d655",
       "manifest": {
         "world": "greentic:component/component@0.5.0",
-        "version": "0.4.1"
+        "version": "0.4.38"
       }
     },
     "update__validate": {
@@ -59,7 +59,7 @@
       "digest": "sha256:d0b9dc48122d081250bf8bb1cf06a309995c318ac9b0b3e6804ce8fd3639d655",
       "manifest": {
         "world": "greentic:component/component@0.5.0",
-        "version": "0.4.1"
+        "version": "0.4.38"
       }
     }
   }
