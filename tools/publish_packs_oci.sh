@@ -416,7 +416,6 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
   ensure_pack_readme "${dir}"
   update_pack_yaml_version "${dir}"
   (cd "${dir}" && "${PACKC_BIN}" config)
-  (cd "${dir}" && "${PACKC_BIN}" resolve)
 
   components=()
   while IFS= read -r comp_line; do
@@ -511,6 +510,10 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     echo "Missing pack.yaml in ${dir}; greentic-pack requires pack.yaml inputs" >&2
     exit 1
   fi
+
+  # Resolve after staging component artifacts so pack.lock digests match the
+  # exact bytes that will be packaged into the final gtpack.
+  (cd "${dir}" && "${PACKC_BIN}" resolve)
 
   local_out_dir="${ROOT_DIR}/.tmp/packs"
   mkdir -p "${local_out_dir}"
