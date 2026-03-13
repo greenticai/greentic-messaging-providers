@@ -90,6 +90,7 @@ jobs:
 
       - name: Validate components
         run: |
+          shopt -s nullglob
           for c in packs/*/components/*.manifest.json; do
             greentic-component doctor "$c"
           done
