@@ -17,7 +17,7 @@ fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKS_DIR="${PACKS_DIR:-${ROOT_DIR}/packs}"
-TARGET_COMPONENTS="${ROOT_DIR}/target/components"
+TARGET_COMPONENTS="${TARGET_COMPONENTS:-${ROOT_DIR}/target/components}"
 VERSION="${PACK_VERSION:-}"
 PACK_FILTER="${PACK_FILTER:-}"
 

@@ -38,6 +38,7 @@ PACK_FILTER="${PACK_FILTER:-}"
 MEDIA_TYPE="${MEDIA_TYPE:-application/vnd.greentic.gtpack.v1+zip}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TARGET_COMPONENTS="${TARGET_COMPONENTS:-${ROOT_DIR}/target/components}"
 mkdir -p "${ROOT_DIR}/${OUT_DIR}"
 
 if [ -f "${ROOT_DIR}/.env" ]; then
@@ -468,7 +469,7 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     if [ -z "${oci_image}" ] && [ "${is_templates_component}" -eq 1 ]; then
       oci_image="${DEFAULT_TEMPLATES_IMAGE}"
     fi
-    if [ -z "${oci_image}" ] && [ ! -f "${ROOT_DIR}/target/components/${fname}" ]; then
+    if [ -z "${oci_image}" ] && [ ! -f "${TARGET_COMPONENTS}/${fname}" ]; then
       missing_local=1
       break
     fi
@@ -510,11 +511,11 @@ for dir in "${ROOT_DIR}/${PACKS_DIR}/"*; do
     manifest_src=""
     manifest_dest=""
     if [ -n "${manifest_rel}" ]; then
-      manifest_src="${ROOT_DIR}/target/components/$(basename "${manifest_rel}")"
+      manifest_src="${TARGET_COMPONENTS}/$(basename "${manifest_rel}")"
       manifest_dest="${dir}/${manifest_rel}"
     fi
 
-    src="${ROOT_DIR}/target/components/${fname}"
+    src="${TARGET_COMPONENTS}/${fname}"
     dest="${dir}/${wasm_path}"
     if [ ! -f "${src}" ] || { [ -n "${manifest_rel}" ] && [ ! -f "${manifest_src}" ]; }; then
       if [ -n "${oci_image}" ] && [ -n "${oci_artifact}" ]; then

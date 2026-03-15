@@ -3,18 +3,20 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
+GENERATED_PROVIDERS_DIR="${GENERATED_PROVIDERS_DIR:-${ROOT_DIR}/target/generated/providers}"
+PACKS_DIR="${PACKS_DIR:-${ROOT_DIR}/packs}"
 
-rm -rf "${ROOT_DIR}/target/generated/providers"
+rm -rf "${GENERATED_PROVIDERS_DIR}"
 
 cargo run -p greentic-messaging-packgen -- generate-all \
   --spec-dir specs/providers \
-  --out target/generated/providers
+  --out "${GENERATED_PROVIDERS_DIR}"
 
-for dir in "${ROOT_DIR}"/target/generated/providers/*; do
+for dir in "${GENERATED_PROVIDERS_DIR}"/*; do
   [ -d "${dir}" ] || continue
   pack_id="$(basename "${dir}")"
   src_flows="${dir}/flows"
-  dest_flows="${ROOT_DIR}/packs/${pack_id}/flows"
+  dest_flows="${PACKS_DIR}/${pack_id}/flows"
   if [ ! -d "${src_flows}" ]; then
     echo "No flows found for ${pack_id} under ${src_flows}" >&2
     continue

@@ -290,10 +290,21 @@ pub fn ensure_components_built() {
         if !script.exists() {
             return;
         }
-        let status = Command::new("bash")
+        let mut command = Command::new("bash");
+        command
             .arg(&script)
             .env("SKIP_WASM_TOOLS_VALIDATION", "1")
-            .current_dir(workspace_root())
+            .current_dir(workspace_root());
+        if let Ok(target_dir) = std::env::var("TARGET_DIR") {
+            command.env("TARGET_DIR", target_dir);
+        }
+        if let Ok(target_dir_override) = std::env::var("TARGET_DIR_OVERRIDE") {
+            command.env("TARGET_DIR_OVERRIDE", target_dir_override);
+        }
+        if let Ok(cargo_target_dir) = std::env::var("CARGO_TARGET_DIR") {
+            command.env("CARGO_TARGET_DIR", cargo_target_dir);
+        }
+        let status = command
             .status()
             .expect("failed to run tools/build_components.sh");
         assert!(status.success(), "tools/build_components.sh failed");
@@ -303,7 +314,28 @@ pub fn ensure_components_built() {
 pub fn component_path(name: &str) -> PathBuf {
     ensure_components_built();
     let root = workspace_root();
-    let candidates = [
+    let mut candidates = Vec::new();
+    if let Ok(target_dir) = std::env::var("TARGET_DIR") {
+        candidates.push(PathBuf::from(target_dir).join(format!("{name}.wasm")));
+    }
+    if let Ok(target_dir_override) = std::env::var("TARGET_DIR_OVERRIDE") {
+        let override_root = PathBuf::from(target_dir_override);
+        candidates.push(override_root.join("release").join(format!("{name}.wasm")));
+        candidates.push(override_root.join("debug").join(format!("{name}.wasm")));
+        candidates.push(
+            override_root
+                .join("wasm32-wasip2")
+                .join("release")
+                .join(format!("{name}.wasm")),
+        );
+        candidates.push(
+            override_root
+                .join("wasm32-wasip2")
+                .join("debug")
+                .join(format!("{name}.wasm")),
+        );
+    }
+    candidates.extend([
         root.join(format!("target/components/{name}.wasm")),
         root.join(format!("target/wasm32-wasip2/release/{name}.wasm")),
         root.join(format!("target/wasm32-wasip2/debug/{name}.wasm")),
@@ -319,7 +351,7 @@ pub fn component_path(name: &str) -> PathBuf {
         root.join(format!(
             "components/{name}/target/wasm32-wasip2/debug/{name}.wasm"
         )),
-    ];
+    ]);
     for path in candidates {
         if path.exists() {
             return path;
