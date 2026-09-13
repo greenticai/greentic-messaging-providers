@@ -179,9 +179,38 @@ template.innerHTML = `
       transform: rotate(-45deg) scale(0.7);
     }
 
+    /* Short viewport, still wide enough to stay docked: a phone in landscape,
+       or a small desktop window. "min(680px, 80vh)" measured up from a 92px
+       bottom offset is 312px on a 390px-tall viewport, which puts the panel's
+       top 14px off-screen -- the start of the transcript becomes unreachable. */
+    @media (max-height: 520px) and (min-width: 521px) {
+      .dock {
+        bottom: 12px;
+      }
+
+      .dock .surface {
+        height: calc(100vh - 24px);
+        height: calc(100dvh - 24px);
+      }
+    }
+
     @media (max-width: 520px) {
       .dock {
         inset: 0;
+        /* "100vh" on iOS Safari and Android Chrome measures the viewport with
+           the URL bar RETRACTED, so the bottom 60-100px of a fullscreen panel
+           -- exactly where the composer lives -- sits below the fold until the
+           user scrolls the host page. "dvh" tracks the bar as it moves; the
+           "vh" line above it stays as the fallback for browsers without it.
+           Both lines are needed -- a lone "dvh" is dropped silently.
+           Setting a height over-constrains the "inset: 0" bottom, which is
+           what we want: top wins, bottom is ignored. */
+        height: 100vh;
+        height: 100dvh;
+        /* Nothing in this file sets box-sizing, so without this the safe-area
+           padding is ADDED to the height above and the panel overflows by the
+           inset. */
+        box-sizing: border-box;
         padding-top: env(safe-area-inset-top);
         padding-bottom: env(safe-area-inset-bottom);
         padding-left: env(safe-area-inset-left);
@@ -199,9 +228,16 @@ template.innerHTML = `
         border-radius: 0;
       }
 
-      /* The panel is fullscreen here, so the launcher would land on the composer. */
+      /* The panel is fullscreen here, so at its usual anchor the launcher would
+         land on the composer. It is MOVED rather than hidden: it carries the
+         close icon (see .icon-close above), so hiding it leaves the fullscreen
+         chat with no way out at all -- the only other close path is the Escape
+         key, and a phone has no Escape key. Widget mode renders just the chat
+         surface, no app header, so the top-right corner is free. */
       button.launcher[data-open="true"] {
-        display: none;
+        top: calc(12px + env(safe-area-inset-top, 0px));
+        right: calc(12px + env(safe-area-inset-right, 0px));
+        bottom: auto;
       }
     }
 

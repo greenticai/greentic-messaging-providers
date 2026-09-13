@@ -89,7 +89,16 @@ body {
 .fullpage-shell {
   display: flex;
   flex-direction: column;
+  /* "100vh" on iOS Safari and Android Chrome measures the viewport with the
+     URL bar RETRACTED, so the send box -- the last thing in this flex column
+     -- sits below the fold until the user scrolls. "dvh" tracks the bar as it
+     moves. Both lines are needed: a lone "dvh" is dropped silently by browsers
+     that do not know the unit. */
   height: 100vh;
+  height: 100dvh;
+  /* Keeps the send box clear of the iPhone home indicator. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing: border-box;
   overflow: hidden;
   background: var(--bg-base);
 }

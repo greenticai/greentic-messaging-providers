@@ -104,4 +104,13 @@ export class WebChatGuiPage {
   launcherButton(): Locator {
     return this.embeddedElement().locator('button.launcher');
   }
+
+  dock(): Locator {
+    return this.embeddedElement().locator('.dock');
+  }
+
+  /** The sized wrapper inside the dock; `.frame` fills it. */
+  dockSurface(): Locator {
+    return this.embeddedElement().locator('.dock .surface');
+  }
 }
