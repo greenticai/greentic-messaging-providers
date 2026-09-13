@@ -112,106 +112,23 @@ template.innerHTML = `
       fill: currentColor;
     }
 
-    /* The dock's own close control. Hidden until the mobile fullscreen state
-       below reveals it: on desktop the launcher sits clear of the panel and
-       already doubles as the close affordance. Widget mode renders only the
-       chat surface -- no app header -- so the top-right corner is free. */
-    .dock .close {
-      position: absolute;
-      top: calc(8px + env(safe-area-inset-top, 0px));
-      right: calc(8px + env(safe-area-inset-right, 0px));
-      z-index: 1;
-      display: none;
-      place-items: center;
-      width: 40px;
-      height: 40px;
-      border: 0;
-      border-radius: 50%;
-      color: #0f172a;
-      background: rgba(255, 255, 255, 0.92);
-      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.22);
-      cursor: pointer;
-    }
-
-    .dock .close:focus-visible {
-      outline: 3px solid rgba(16, 185, 129, 0.35);
-      outline-offset: 2px;
-    }
-
-    .close-icon {
-      width: 20px;
-      height: 20px;
-      fill: currentColor;
-    }
-
-    /* Short viewport, still wide enough to stay docked: a phone in landscape,
-       or a small desktop window. "min(680px, 80vh)" measured from a 92px
-       bottom offset leaves roughly 230px of panel on a 390px-tall viewport,
-       which is not a usable transcript. */
-    @media (max-height: 520px) and (min-width: 521px) {
-      .dock[data-render="iframe"] {
-        bottom: 12px;
-      }
-
-      .dock[data-render="iframe"] .frame {
-        height: calc(100vh - 24px);
-        height: calc(100dvh - 24px);
-      }
-    }
-
     @media (max-width: 520px) {
-      .dock[data-render="iframe"] {
-        top: 0;
-        right: 0;
+      .dock {
+        inset: 0;
         bottom: 0;
-        left: 0;
-        box-sizing: border-box;
-        width: 100%;
-        /* "100vh" on iOS Safari and Android Chrome measures the viewport with
-           the URL bar RETRACTED, so the bottom 60-100px of the panel -- which
-           is exactly where the composer lives -- sits below the fold until the
-           user scrolls the host page. "dvh" tracks the bar as it moves; the
-           "vh" line above it stays as the fallback for browsers without it.
-           Both lines are needed -- a lone "dvh" is dropped silently. */
+        right: 0;
+      }
+
+      .dock .frame {
+        width: 100vw;
         height: 100vh;
-        height: 100dvh;
-        /* Keeps the composer clear of the iPhone home indicator. */
-        padding-bottom: env(safe-area-inset-bottom, 0px);
-        background: #fff;
-      }
-
-      .dock[data-render="iframe"] .frame {
-        /* NOT "100vw", which counts the classic scrollbar gutter and overflows
-           the host page horizontally. The dock is already edge-to-edge. */
-        width: 100%;
-        height: 100%;
         border-radius: 0;
-        box-shadow: none;
-      }
-
-      /* The launcher is fixed-positioned at the SAME z-index as the dock and
-         comes later in this template, so while the dock is fullscreen the
-         launcher paints on top of it -- a 56px circle sitting directly over
-         the send button. It is also the only way to close the chat, which is
-         why it could not simply be dropped: ".close" above replaces it here. */
-      .dock[data-render="iframe"][data-open="true"] ~ button.launcher {
-        display: none !important;
-      }
-
-      .dock[data-render="iframe"][data-open="true"] .close {
-        display: grid;
       }
     }
   </style>
   <div class="inline" part="inline" hidden></div>
   <slot name="native"></slot>
-  <div class="dock" part="dock">
-    <button class="close" part="close" type="button" aria-label="Close chat">
-      <svg class="close-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6 6.4 5Z"/>
-      </svg>
-    </button>
-  </div>
+  <div class="dock" part="dock"></div>
   <button class="launcher" part="launcher" type="button" aria-expanded="false">
     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M4 4h16v12H7.4L4 19.4V4Zm2 2v8.6l.6-.6H18V6H6Zm2 3h8v1.8H8V9Zm0 3h5v1.8H8V12Z"/>
@@ -394,7 +311,6 @@ class GreenticWebchatElement extends HTMLElement {
       "disable-text-input",
       "adaptive-card-width",
       "title",
-      "close-title",
     ];
   }
 
@@ -405,7 +321,6 @@ class GreenticWebchatElement extends HTMLElement {
     this._dock = this.shadowRoot.querySelector(".dock");
     this._inline = this.shadowRoot.querySelector(".inline");
     this._launcher = this.shadowRoot.querySelector(".launcher");
-    this._close = this.shadowRoot.querySelector(".close");
     this._iframe = null;
     this._native = null;
     this._nativeMount = null;
@@ -413,7 +328,6 @@ class GreenticWebchatElement extends HTMLElement {
     this._iframeToken = 0;
     this._ready = false;
     this._launcher.addEventListener("click", () => this.toggle());
-    this._close.addEventListener("click", () => this.close());
   }
 
   connectedCallback() {
@@ -523,12 +437,10 @@ class GreenticWebchatElement extends HTMLElement {
       this._launcher.hidden = !useLauncher;
       this._launcher.setAttribute("aria-expanded", String(this.open));
       this._launcher.setAttribute("aria-label", this.getAttribute("title") || "Open chat");
-      this._close.setAttribute("aria-label", this.getAttribute("close-title") || "Close chat");
 
       const target = useLauncher ? this._dock : this._inline;
       this._inline.hidden = useLauncher || renderMode === "native";
       this._dock.dataset.open = String(useLauncher && this.open);
-      this._dock.dataset.render = renderMode;
 
       if (renderMode === "native") {
         this._iframeToken++;
