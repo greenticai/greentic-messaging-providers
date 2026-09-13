@@ -96,4 +96,17 @@ export class WebChatGuiPage {
   launcherButton(): Locator {
     return this.embeddedElement().locator('button.launcher');
   }
+
+  /** The dock's own close control, shown only in the mobile fullscreen state. */
+  closeButton(): Locator {
+    return this.embeddedElement().locator('.dock .close');
+  }
+
+  dock(): Locator {
+    return this.embeddedElement().locator('.dock');
+  }
+
+  dockFrame(): Locator {
+    return this.embeddedElement().locator('.dock .frame');
+  }
 }
