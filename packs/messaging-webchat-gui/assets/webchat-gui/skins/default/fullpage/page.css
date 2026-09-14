@@ -5,16 +5,16 @@
 :root {
   color-scheme: light;
   --font: 'Poppins', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --brand: #059669;
-  --brand-light: #ecfdf5;
+  --brand: #0b7f5b;
+  --brand-light: #eef8f3;
   --brand-dark: #064e3b;
-  --brand-border: rgba(5,150,105,0.35);
+  --brand-border: rgba(11,127,91,0.35);
   --surface: #ffffff;
-  --bg: #f8fafb;
-  --border: #e5e7eb;
+  --bg: #d2dbd6;
+  --border: #b3c2b9;
   --text: #1f2937;
-  --text-muted: #6b7280;
-  --text-light: #9ca3af;
+  --text-muted: #41504a;
+  --text-light: #5b6b64;
   --radius: 12px;
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
@@ -354,7 +354,7 @@ button[data-action="logout"]:hover,
 
 .ac-actionSet button:hover,
 .ac-pushButton:hover {
-  background-color: rgba(5, 150, 105, 0.14) !important;
+  background-color: rgba(11, 127, 91, 0.14) !important;
   border-color: var(--brand) !important;
   color: var(--brand-dark) !important;
 }
@@ -922,10 +922,13 @@ button[data-action="logout"]:hover,
 
 .welcome__btn {
   padding: 0.5rem 1rem;
-  border: 1px solid #d1fae5;
+  /* Was three hardcoded greens from the pre-unification palette; they are the
+     only place in this file that still named the old brand after the variables
+     moved, so a token here is what stops the two drifting apart again. */
+  border: 1px solid var(--brand-border);
   border-radius: 20px;
-  background: #ecfdf5;
-  color: #059669;
+  background: var(--brand-light);
+  color: var(--brand);
   font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
@@ -934,7 +937,9 @@ button[data-action="logout"]:hover,
 }
 
 .welcome__btn:hover {
-  background: #d1fae5;
+  /* Sibling of the rule above; left hardcoded it would out-green the token. */
+  background: var(--brand-light);
+  border-color: var(--brand);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -998,7 +1003,7 @@ button[data-action="logout"]:hover,
   border-color: var(--brand);
   color: var(--brand);
   background: var(--brand-light);
-  box-shadow: 0 0 0 1px rgba(5, 150, 105, 0.12);
+  box-shadow: 0 0 0 1px rgba(11, 127, 91, 0.12);
 }
 .topbar-nav__link:focus-visible {
   outline: 2px solid var(--brand);
