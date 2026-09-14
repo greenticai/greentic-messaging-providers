@@ -2453,5 +2453,130 @@ console.log('[runtime-bootstrap] loaded');
     observer.observe(document.documentElement, { childList: true, subtree: true });
   }
 
+  // While the app resolves the tenant it renders one line of text on an empty
+  // full-height card -- and for the first moment of that, the line is the raw
+  // key `status.loadingExperience`, because its i18n catalog has not arrived
+  // either. On a 4G profile that screen holds from ~1.7s to ~4.1s.
+  //
+  // Cover it with a skeleton of the chat that is coming. The overlay is a child
+  // of <body>, NEVER of #root: #root belongs to React, and mutating a subtree
+  // it owns is how a placeholder survives the render that was supposed to
+  // replace it.
+  var SKELETON_ID = 'greentic-webchat-boot-skeleton';
+  var SKELETON_STYLE_ID = 'greentic-webchat-boot-skeleton-style';
+
+  var SKELETON_CSS = [
+    '#' + SKELETON_ID + '{position:fixed;inset:0;z-index:2147483000;display:flex;',
+    // Decoration must never be the thing standing between a user and a
+    // control. Nothing behind it is interactive while it is up, so this
+    // costs nothing and keeps a mis-mounted overlay cosmetic.
+    'pointer-events:none;',
+    'flex-direction:column;background:#f4f6f8;padding:0;overflow:hidden;',
+    '-webkit-font-smoothing:antialiased}',
+    '#' + SKELETON_ID + ' .gtc-sk-bar{background:#e2e7ec;border-radius:999px}',
+    '#' + SKELETON_ID + ' .gtc-sk-head{display:flex;align-items:center;gap:12px;',
+    'padding:16px;border-bottom:1px solid #e2e7ec;background:#fff}',
+    '#' + SKELETON_ID + ' .gtc-sk-avatar{width:32px;height:32px;border-radius:50%;',
+    'background:#e2e7ec;flex:none}',
+    '#' + SKELETON_ID + ' .gtc-sk-body{flex:1;display:flex;flex-direction:column;',
+    'gap:14px;padding:20px 16px;min-height:0}',
+    '#' + SKELETON_ID + ' .gtc-sk-bubble{max-width:70%;height:46px;border-radius:14px;',
+    'background:#e2e7ec}',
+    '#' + SKELETON_ID + ' .gtc-sk-bubble.gtc-sk-me{align-self:flex-end;max-width:55%;height:34px}',
+    '#' + SKELETON_ID + ' .gtc-sk-foot{padding:12px 16px;border-top:1px solid #e2e7ec;background:#fff}',
+    '#' + SKELETON_ID + ' .gtc-sk-foot .gtc-sk-bar{height:40px;border-radius:12px}',
+    '#' + SKELETON_ID + ' .gtc-sk-bar,#' + SKELETON_ID + ' .gtc-sk-avatar,',
+    '#' + SKELETON_ID + ' .gtc-sk-bubble{background-image:linear-gradient(90deg,',
+    'rgba(255,255,255,0) 0%,rgba(255,255,255,.7) 50%,rgba(255,255,255,0) 100%);',
+    'background-size:200% 100%;background-repeat:no-repeat;',
+    'animation:gtc-sk-shimmer 1.4s ease-in-out infinite}',
+    '@keyframes gtc-sk-shimmer{0%{background-position:150% 0}100%{background-position:-50% 0}}',
+    '@media (prefers-reduced-motion:reduce){#' + SKELETON_ID + ' *{animation:none!important}}',
+    '@media (prefers-color-scheme:dark){',
+    '#' + SKELETON_ID + '{background:#11161b}',
+    '#' + SKELETON_ID + ' .gtc-sk-head,#' + SKELETON_ID + ' .gtc-sk-foot{background:#161d24;',
+    'border-color:#232c35}',
+    '#' + SKELETON_ID + ' .gtc-sk-bar,#' + SKELETON_ID + ' .gtc-sk-avatar,',
+    '#' + SKELETON_ID + ' .gtc-sk-bubble{background-color:#232c35;',
+    'background-image:linear-gradient(90deg,rgba(255,255,255,0) 0%,',
+    'rgba(255,255,255,.08) 50%,rgba(255,255,255,0) 100%)}}',
+  ].join('');
+
+  var SKELETON_HTML = [
+    '<div class="gtc-sk-head"><div class="gtc-sk-avatar"></div>',
+    '<div class="gtc-sk-bar" style="width:40%;height:12px"></div></div>',
+    '<div class="gtc-sk-body">',
+    '<div class="gtc-sk-bubble" style="width:62%"></div>',
+    '<div class="gtc-sk-bubble gtc-sk-me" style="width:44%"></div>',
+    '<div class="gtc-sk-bubble" style="width:70%"></div>',
+    '</div>',
+    '<div class="gtc-sk-foot"><div class="gtc-sk-bar"></div></div>',
+  ].join('');
+
+  function removeBootSkeleton() {
+    var node = document.getElementById(SKELETON_ID);
+    if (node && node.parentNode) node.parentNode.removeChild(node);
+  }
+
+  function mountBootSkeleton() {
+    if (!document.body || document.getElementById(SKELETON_ID)) return;
+    if (!document.getElementById(SKELETON_STYLE_ID)) {
+      var style = document.createElement('style');
+      style.id = SKELETON_STYLE_ID;
+      style.textContent = SKELETON_CSS;
+      (document.head || document.documentElement).appendChild(style);
+    }
+    var overlay = document.createElement('div');
+    overlay.id = SKELETON_ID;
+    // Decorative: the status card behind it already carries the real text, so
+    // a screen reader still hears "Loading tenant experience" rather than a
+    // description of some bars.
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = SKELETON_HTML;
+    document.body.appendChild(overlay);
+  }
+
+  function showBootSkeletonUntilAppPaints() {
+    // Without an observer nothing can tell us when to take the overlay away
+    // again, and a skeleton that outlives the chat is worse than no skeleton.
+    // Checked before anything is mounted, not after.
+    if (typeof MutationObserver === 'undefined') return;
+    if (rootShowsSomethingReal()) return;
+
+    var done = false;
+    var observer = new MutationObserver(function () {
+      if (!rootShowsSomethingReal()) return;
+      done = true;
+      observer.disconnect();
+      removeBootSkeleton();
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    var onBodyReady = function () {
+      // The app can reach its first real render before <body> is parsed on a
+      // warm cache; the observer has then already fired and there is nothing
+      // left to cover.
+      if (done || rootShowsSomethingReal()) return;
+      // Only the app's own page, which is the one that ships a `#root`. A
+      // NATIVE embed loads this same bundle into the customer's page, where
+      // there is no `#root` and so nothing that could ever satisfy
+      // rootShowsSomethingReal -- a full-screen overlay there would cover the
+      // customer's site permanently. Caught by embedded.spec.ts, which timed
+      // out clicking the composer through it.
+      if (!document.getElementById('root')) return;
+      // Mounted straight away, with no hold-back. The usual argument for
+      // delaying a loader -- do not flash one for work that finishes quickly
+      // -- does not apply when the thing being covered is ALREADY a loader:
+      // waiting would show the card's text, then swap it for a skeleton, then
+      // show the chat. One transition beats three, and the text it replaces is
+      // a raw i18n key for its first moments anyway.
+      mountBootSkeleton();
+    };
+
+    if (document.body) onBodyReady();
+    else document.addEventListener('DOMContentLoaded', onBodyReady, { once: true });
+  }
+
   notifyHostWhenChatIsVisible();
+  showBootSkeletonUntilAppPaints();
 })();
