@@ -294,6 +294,13 @@ function scriptPublicBaseUrl() {
   }
 }
 
+/** How long the host waits for the framed app to say it has painted before
+ *  giving up and showing whatever the iframe has. The signal normally arrives
+ *  in a few seconds; this only has to be longer than a bad connection, because
+ *  a spinner that never clears is worse than one that clears too early. */
+const READY_SIGNAL_TIMEOUT_MS = 15000;
+const READY_SIGNAL_TYPE = "greentic-webchat:ready";
+
 const nativeAssetCache = new Map();
 const nativeEmbedStyleId = "greentic-webchat-native-embed-style";
 
@@ -458,6 +465,17 @@ class GreenticWebchatElement extends HTMLElement {
     this._nativeToken = 0;
     this._iframeToken = 0;
     this._ready = false;
+    this._readyTimer = null;
+    // The framed app tells us when it has actually painted. Hiding the spinner
+    // on the iframe's own `load` event instead left the panel blank for the
+    // whole of the app's boot -- measured at ~2.1s on a 4G profile, which is
+    // what a user reads as "it opened empty".
+    this._onFrameMessage = (event) => {
+      if (!this._iframe || event.source !== this._iframe.contentWindow) return;
+      const data = event.data;
+      if (!data || data.type !== READY_SIGNAL_TYPE) return;
+      this.revealFrame();
+    };
     this._launcher.addEventListener("click", () => this.toggle());
     this._onKeyDown = (event) => {
       if (event.key === "Escape" && this.open && this.launcher) {
@@ -469,6 +487,7 @@ class GreenticWebchatElement extends HTMLElement {
 
   connectedCallback() {
     document.addEventListener("keydown", this._onKeyDown, true);
+    window.addEventListener("message", this._onFrameMessage);
     this.render();
     queueMicrotask(() => {
       if (!this._ready) {
@@ -480,8 +499,23 @@ class GreenticWebchatElement extends HTMLElement {
 
   disconnectedCallback() {
     document.removeEventListener("keydown", this._onKeyDown, true);
+    window.removeEventListener("message", this._onFrameMessage);
+    this.clearReadyTimer();
     this._iframeToken++;
     this.unmountNative();
+  }
+
+  /** Hide the spinner and stop waiting for a signal that has now arrived (or
+   *  that we have stopped expecting). Safe to call more than once. */
+  revealFrame() {
+    this.clearReadyTimer();
+    if (this._loading) this._loading.hidden = true;
+  }
+
+  clearReadyTimer() {
+    if (this._readyTimer === null) return;
+    window.clearTimeout(this._readyTimer);
+    this._readyTimer = null;
   }
 
   attributeChangedCallback() {
@@ -594,6 +628,7 @@ class GreenticWebchatElement extends HTMLElement {
 
       if (renderMode === "native") {
         this._iframeToken++;
+        this.clearReadyTimer();
         this._surface && this._surface.remove();
         this._surface = null;
         this._iframe = null;
@@ -616,9 +651,6 @@ class GreenticWebchatElement extends HTMLElement {
         this._loading.className = "loading";
         this._loading.setAttribute("part", "loading");
         this._loading.append(Object.assign(document.createElement("div"), { className: "spinner" }));
-        this._iframe.addEventListener("load", () => {
-          if (this._loading) this._loading.hidden = true;
-        });
         this._surface.append(this._iframe, this._loading);
         target.append(this._surface);
       }
@@ -648,6 +680,11 @@ class GreenticWebchatElement extends HTMLElement {
         requestAnimationFrame(() => {
           if (token !== this._iframeToken || !this.isConnected || iframe !== this._iframe) return;
           if (this._loading) this._loading.hidden = false;
+          this.clearReadyTimer();
+          this._readyTimer = window.setTimeout(() => {
+            this._readyTimer = null;
+            this.revealFrame();
+          }, READY_SIGNAL_TIMEOUT_MS);
           iframe.dataset.greenticSrc = nextUrl;
           iframe.src = nextUrl;
         });

@@ -101,6 +101,12 @@ export class WebChatGuiPage {
     return this.embeddedElement().frameLocator('iframe');
   }
 
+  /** The host-side spinner painted over the iframe until the framed app says
+   *  it has something on screen. */
+  loadingOverlay(): Locator {
+    return this.embeddedElement().locator('.loading');
+  }
+
   launcherButton(): Locator {
     return this.embeddedElement().locator('button.launcher');
   }

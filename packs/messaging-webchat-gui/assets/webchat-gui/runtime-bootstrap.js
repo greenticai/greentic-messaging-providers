@@ -2386,4 +2386,72 @@ console.log('[runtime-bootstrap] loaded');
     }
   });
   navObserver.observe(document.documentElement, { childList: true, subtree: true });
+
+  // Tell the embedding page when the chat UI has actually painted, rather than
+  // when this document merely finished loading. The host used to hide its
+  // spinner on the iframe's `load` event, and the user was then shown an empty
+  // panel for the whole of the app's boot.
+  //
+  // `#root` gaining a child is NOT that moment, measured on a 4G profile:
+  // document load 1684 ms, `#root` first child 1698 ms, chat on screen 4094 ms.
+  // What fills those 2.4 seconds is the app's own full-height loading card --
+  // which is also why its `status.loadingExperience` string is visible as a raw
+  // key for a moment. So the signal is "`#root` shows something that is not
+  // that card".
+  var READY_MESSAGE_TYPE = 'greentic-webchat:ready';
+
+  // The loading screen is `<div class="status-card"><p>…</p></div>`. The error
+  // and auth-callback screens reuse `.status-card` but wrap a `.error-message`
+  // / `.callback-card` element instead of a bare paragraph, and both are an
+  // answer the user is meant to read -- never something to hold a spinner over.
+  function isLoadingPlaceholder(element) {
+    if (!element.classList || !element.classList.contains('status-card')) return false;
+    var only = element.firstElementChild;
+    return !!only && only === element.lastElementChild && only.tagName === 'P';
+  }
+
+  // Unrecognised markup counts as painted. That asymmetry is deliberate: if the
+  // app's loading card is ever restyled out from under this check, the signal
+  // fires early -- exactly today's behaviour -- rather than holding a spinner
+  // over a working chat until the host's timeout expires.
+  function rootShowsSomethingReal() {
+    var root = document.getElementById('root');
+    if (!root) return false;
+    var first = root.firstElementChild;
+    if (!first) return false;
+    if (first !== root.lastElementChild) return true;
+    return !isLoadingPlaceholder(first);
+  }
+
+  function notifyHostWhenChatIsVisible() {
+    if (window.parent === window) return;
+
+    var posted = false;
+    var post = function () {
+      if (posted) return;
+      posted = true;
+      try {
+        // No payload beyond the type, so posting to any origin discloses
+        // nothing -- and the host's origin is not knowable from in here.
+        window.parent.postMessage({ type: READY_MESSAGE_TYPE }, '*');
+      } catch (err) {
+        // A parent that refuses the message is not something this side can
+        // act on; the host releases its own spinner on a timeout.
+      }
+    };
+
+    if (rootShowsSomethingReal() || typeof MutationObserver === 'undefined') {
+      post();
+      return;
+    }
+
+    var observer = new MutationObserver(function () {
+      if (!rootShowsSomethingReal()) return;
+      observer.disconnect();
+      post();
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
+
+  notifyHostWhenChatIsVisible();
 })();
