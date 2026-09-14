@@ -2552,29 +2552,39 @@ console.log('[runtime-bootstrap] loaded');
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });
 
-    var onBodyReady = function () {
-      // The app can reach its first real render before <body> is parsed on a
-      // warm cache; the observer has then already fired and there is nothing
-      // left to cover.
+    var onWindowLoaded = function () {
+      // The app can reach its first real render before this fires on a warm
+      // cache; the observer has then already run and there is nothing left to
+      // cover.
       if (done || rootShowsSomethingReal()) return;
       // Only the app's own page, which is the one that ships a `#root`. A
       // NATIVE embed loads this same bundle into the customer's page, where
-      // there is no `#root` and so nothing that could ever satisfy
+      // there is no `#root` and so nothing could ever satisfy
       // rootShowsSomethingReal -- a full-screen overlay there would cover the
       // customer's site permanently. Caught by embedded.spec.ts, which timed
       // out clicking the composer through it.
       if (!document.getElementById('root')) return;
-      // Mounted straight away, with no hold-back. The usual argument for
-      // delaying a loader -- do not flash one for work that finishes quickly
-      // -- does not apply when the thing being covered is ALREADY a loader:
-      // waiting would show the card's text, then swap it for a skeleton, then
-      // show the chat. One transition beats three, and the text it replaces is
-      // a raw i18n key for its first moments anyway.
       mountBootSkeleton();
     };
 
-    if (document.body) onBodyReady();
-    else document.addEventListener('DOMContentLoaded', onBodyReady, { once: true });
+    // Deliberately `load`, not `DOMContentLoaded`, and this is load-bearing.
+    //
+    // The app gates its Web Chat init on `document.readyState === 'complete'`,
+    // seeded into React state at first render and otherwise only ever set by a
+    // `window.load` listener that is attached in an effect. So a first commit
+    // that lands AFTER `load` has already fired attaches that listener too
+    // late, the flag stays false, and Web Chat never mounts at all -- an
+    // existing race in the SPA bundle, which this repo cannot edit.
+    //
+    // Mounting at DOMContentLoaded put enough work on the main thread to push
+    // React's first commit into exactly that window: under 4x CPU throttling
+    // the chat went from ready in ~1.2s to never ready, and CI failed 15 tests
+    // that pass locally. Mounting at `load` cannot reach the race, because by
+    // then the flag has already been decided one way or the other.
+    //
+    // It costs nothing: the gap this covers runs from ~1.7s (load) to ~4.1s.
+    if (document.readyState === 'complete') onWindowLoaded();
+    else window.addEventListener('load', onWindowLoaded, { once: true });
   }
 
   notifyHostWhenChatIsVisible();

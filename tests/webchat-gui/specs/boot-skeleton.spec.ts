@@ -9,9 +9,9 @@
  *
  * `runtime-bootstrap.js` covers it with a skeleton of the chat that is coming.
  * The overlay is a child of <body> and never of `#root`, which belongs to
- * React -- so these tests care most about it being REMOVED: a placeholder that
- * outlives the content it stood in for is the failure that mechanism exists to
- * avoid.
+ * React -- so these tests care most about what it must NOT do: outlive the
+ * content it stood in for, appear on a page that is not the app's own, or
+ * disturb the app's boot.
  *
  * The embedded widget has its own host-side spinner (`frame-ready-signal.spec.ts`);
  * this is the surface with no host to hide anything.
@@ -21,7 +21,7 @@ import { WebChatGuiPage } from '../pages/webchatGuiPage';
 
 const SKELETON = '#greentic-webchat-boot-skeleton';
 
-/** Long enough to outlast the 250 ms hold-back the overlay is mounted behind. */
+/** Long enough to hold the loading card open across the whole assertion. */
 const TENANT_CONFIG_DELAY_MS = 2_500;
 
 test.beforeEach(async ({ page }) => {
@@ -48,21 +48,29 @@ test.describe('full-page boot skeleton', () => {
     await expect(page.locator(SKELETON)).toHaveCount(0);
   });
 
-  test('it goes up before the loading card can flash a raw i18n key', async ({ page }) => {
-    // Nothing is slowed down here: this is the ordinary boot. The overlay is
-    // mounted with no hold-back, because the thing it covers is ALREADY a
-    // loader -- delaying would show the card's text, swap it for a skeleton,
-    // then show the chat. What the text says for its first moments is
-    // `status.loadingExperience` verbatim, which is the strongest reason not
-    // to let it show at all.
+  test('the chat still boots when the machine is slow', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'CPU throttling is a CDP-only control');
+
+    // The SPA gates its Web Chat init on `document.readyState === "complete"`,
+    // seeded into React state at first render and otherwise only ever set by a
+    // `window.load` listener attached in an effect -- so a first commit that
+    // lands AFTER `load` attaches that listener too late and Web Chat never
+    // mounts. That race is in the bundle and not editable from this repo.
+    //
+    // Mounting the overlay at DOMContentLoaded put enough work on the main
+    // thread to push React's first commit into exactly that window: chat went
+    // from ready in ~1.2s to never ready, and 15 CI tests failed while every
+    // one of them passed on an unthrottled laptop. It is mounted at `load`
+    // instead, which cannot reach the race.
+    //
+    // Throttling is what makes this reproducible off a busy CI runner. Without
+    // it the regression is invisible locally, which is how it shipped.
+    const session = await page.context().newCDPSession(page);
+    await session.send('Emulation.setCPUThrottlingRate', { rate: 6 });
+
     const webchat = new WebChatGuiPage(page);
-    await webchat.openFullscreen({ skin: 'default', variant: 'skeleton-fast' });
-
-    await expect(page.locator(SKELETON)).toBeVisible();
-    await expect(page.getByText('status.loadingExperience')).toHaveCount(0);
-
+    await webchat.openFullscreen({ skin: 'default', variant: 'skeleton-slow' });
     await webchat.expectChatReady();
-    await expect(page.locator(SKELETON)).toHaveCount(0);
   });
 
   test('a native embed never mounts one into the customer page', async ({ page }) => {
