@@ -153,15 +153,28 @@ test.describe('full-screen WebChat', () => {
     await expect(action).toBeVisible();
     const styles = await action.evaluate((element) => {
       const computed = window.getComputedStyle(element);
+      // Resolve the skin's own `--brand` through the same engine, so this
+      // asserts the RELATIONSHIP the test name claims — the action follows the
+      // brand — rather than one particular green. A literal here is what let
+      // `page.css` drift to #059669 while `skin.json` and `styleOptions.json`
+      // both said #0b7f5b: the literal pinned the outlier, so the disagreement
+      // was green in CI for as long as it existed.
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--brand)';
+      document.documentElement.append(probe);
+      const brand = window.getComputedStyle(probe).color;
+      probe.remove();
       return {
         backgroundColor: computed.backgroundColor,
         borderColor: computed.borderTopColor,
         color: computed.color,
+        brand,
       };
     });
     expect(styles.backgroundColor).toBe('rgba(0, 0, 0, 0)');
-    expect(styles.borderColor).toBe('rgb(5, 150, 105)');
-    expect(styles.color).toBe('rgb(5, 150, 105)');
+    expect(styles.brand).not.toBe('');
+    expect(styles.borderColor).toBe(styles.brand);
+    expect(styles.color).toBe(styles.brand);
   });
 
   for (const skin of skins) {
