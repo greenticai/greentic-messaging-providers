@@ -350,6 +350,79 @@ console.log('[runtime-bootstrap] loaded');
     return ['ar', 'he', 'fa', 'ur'].indexOf(base) >= 0;
   }
 
+  /**
+   * Translate the tenant shell's own words.
+   *
+   * The full-page shell is skin-authored HTML, not part of the SPA bundle, so
+   * nothing in it reaches the bundle's own translation. Every word a skin
+   * writes — the status pill, the footer, the document links, the nav
+   * landmark's accessible name — stayed in the language the skin was authored
+   * in however the visitor set the locale picker. It reached an operator as a
+   * Spanish conversation sitting inside an English page.
+   *
+   * A skin opts in by marking an element `data-i18n="<key>"`, or
+   * `data-i18n-aria-label="<key>"` for an accessible name, and keeping the
+   * authored English as the content. That English is the fallback `uiT`
+   * returns when the key is missing, so an unmarked or untranslated skin
+   * renders exactly as it did before.
+   *
+   * An element with child elements is SKIPPED. Replacing `textContent` would
+   * delete them, and the shapes a skin naturally writes have children — the
+   * status pill wraps its own dot, the footer line wraps the brand. Eating one
+   * silently would be a worse bug than the untranslated string it replaced, so
+   * a skin must wrap the words in their own element instead.
+   */
+  function applyShellI18n() {
+    var marked = document.querySelectorAll('[data-i18n]');
+    for (var i = 0; i < marked.length; i += 1) {
+      var el = marked[i];
+      var key = el.getAttribute('data-i18n');
+      if (!key) continue;
+      if (el.childElementCount > 0) {
+        console.warn(
+          '[shell-i18n] "' + key + '" marks an element with child elements; ' +
+          'wrap the words in their own element so translating them cannot delete the children.'
+        );
+        continue;
+      }
+      var text = uiT(key, el.textContent);
+      if (el.textContent !== text) el.textContent = text;
+    }
+
+    var labelled = document.querySelectorAll('[data-i18n-aria-label]');
+    for (var j = 0; j < labelled.length; j += 1) {
+      var target = labelled[j];
+      var labelKey = target.getAttribute('data-i18n-aria-label');
+      if (!labelKey) continue;
+      target.setAttribute('aria-label', uiT(labelKey, target.getAttribute('aria-label') || labelKey));
+    }
+  }
+
+  /**
+   * The shell is injected by the SPA after this script runs, so translating
+   * once on load would find nothing. Mirrors the logout button's observer:
+   * coalesce bursts of mutations behind one short timer rather than
+   * re-walking the DOM on every node insertion.
+   */
+  var shellI18nObserverStarted = false;
+  var shellI18nTimer = null;
+
+  function startShellI18nObserver() {
+    if (shellI18nObserverStarted || typeof MutationObserver === 'undefined') return;
+    if (!document.body) {
+      window.addEventListener('DOMContentLoaded', startShellI18nObserver, { once: true });
+      return;
+    }
+    shellI18nObserverStarted = true;
+    new MutationObserver(function () {
+      if (shellI18nTimer) return;
+      shellI18nTimer = setTimeout(function () {
+        shellI18nTimer = null;
+        applyShellI18n();
+      }, 50);
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+
   function applyUiTranslations() {
     // Set topbar title from skin brand.name, fall back to i18n, then 'AI Assistant'
     var titleEl = document.querySelector('.topbar__title');
@@ -357,6 +430,9 @@ console.log('[runtime-bootstrap] loaded');
       var brandName = (window.__SKIN__ && window.__SKIN__.brand && window.__SKIN__.brand.name) || '';
       titleEl.textContent = brandName || uiT('product.greentic.long', 'AI Assistant');
     }
+    applyShellI18n();
+    startShellI18nObserver();
+
     // Translate logout button if already injected
     var logoutBtn = document.getElementById('greentic-logout-btn');
     if (logoutBtn) {
