@@ -133,12 +133,43 @@ console.log('[runtime-bootstrap] loaded');
     return document.documentElement?.dataset?.env || 'default';
   }
 
+  // The SPA chooses Web Chat's locale from its own saved choice under this
+  // key, then the browser's languages — it never reads `?lang=`. Web Chat
+  // stamps that locale onto every activity it sends, and the server honours a
+  // per-turn stamp over the conversation's language, so a page opened with
+  // `?lang=es` in an English browser rendered its welcome card in Spanish
+  // (conversation-create carries X-Greentic-Locale) and every card after it,
+  // plus the send box, in English. Writing the choice here, before the SPA
+  // bundle loads, makes the two halves agree.
+  var SPA_LOCALE_STORAGE_KEY = 'app_locale';
+
+  function readSavedLocale() {
+    try {
+      var saved = window.localStorage.getItem(SPA_LOCALE_STORAGE_KEY);
+      return saved && SUPPORTED_LOCALES[saved] ? saved : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function saveLocale(locale) {
+    try {
+      window.localStorage.setItem(SPA_LOCALE_STORAGE_KEY, locale);
+    } catch (_) {
+      // Storage blocked (private mode): this load still passes `?lang=` on
+      // the conversation header; only the SPA half falls back to the browser.
+    }
+  }
+
   function resolveLocale() {
     var queryLang = new URLSearchParams(window.location.search).get('lang');
     if (queryLang && SUPPORTED_LOCALES[queryLang]) {
+      saveLocale(queryLang);
       return queryLang;
     }
-    return null;
+    // Without `?lang=`, a saved choice is still the language the SPA will use,
+    // so the picker and the conversation header must use it too.
+    return readSavedLocale();
   }
 
   // Segments after {tenant} that are reserved API prefixes and must never be
