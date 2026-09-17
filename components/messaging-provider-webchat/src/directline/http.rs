@@ -8,7 +8,8 @@ use uuid::Uuid;
 
 use greentic_types::messaging::universal_dto::{Header, HttpInV1, HttpOutV1};
 
-use super::jwt::{DirectLineContext, TTL_SECONDS, issue_token, verify_token};
+use super::caller::caller_header;
+use super::jwt::{DirectLineContext, TTL_SECONDS, issue_token, reissue_token, verify_token};
 use super::oidc::{OidcError, verify_access_token};
 use super::state::{ConversationState, StoredActivity, conversation_key, sanitize_team};
 use super::store::{JwksFetcher, NoJwksFetcher, RateLimitState, SecretStore, StateStore};
@@ -319,13 +320,7 @@ where
         return resp;
     }
 
-    let (token, _exp) = match issue_token(
-        &signing_key,
-        ctx.clone(),
-        &claims.sub,
-        Some(conversation_id.clone()),
-        claims.verified,
-    ) {
+    let (token, _exp) = match reissue_token(&signing_key, &claims, Some(conversation_id.clone())) {
         Ok(pair) => pair,
         Err(err) => {
             return respond_error(
@@ -354,6 +349,9 @@ where
         name: "X-Greentic-User-Verified".to_string(),
         value: claims.verified.to_string(),
     });
+    // The verified caller block for `extensions.caller`; consumed and removed
+    // by ingest before the response leaves the provider (see `caller`).
+    headers.push(caller_header(&claims));
     headers.push(Header {
         name: "X-Greentic-ConversationId".to_string(),
         value: conversation_id.clone(),
@@ -408,13 +406,7 @@ where
         }
     }
 
-    let (token, _exp) = match issue_token(
-        &signing_key,
-        claims.ctx.clone(),
-        &claims.sub,
-        claims.conv.clone(),
-        claims.verified,
-    ) {
+    let (token, _exp) = match reissue_token(&signing_key, &claims, claims.conv.clone()) {
         Ok(pair) => pair,
         Err(err) => {
             return respond_error(
@@ -480,25 +472,20 @@ where
         Err(resp) => return resp,
     };
 
-    // Issue a new token bound to this conversation. Clone ctx because we still
-    // need its tenant after the move into `issue_token` to build the streamUrl.
+    // Issue a new token bound to this conversation, carrying the caller's
+    // verified claims (see `reissue_token`).
     let tenant_for_stream = ctx.tenant.clone();
-    let (token, _exp) = match issue_token(
-        &signing_key,
-        ctx,
-        &claims.sub,
-        Some(conversation_id.to_string()),
-        claims.verified,
-    ) {
-        Ok(pair) => pair,
-        Err(err) => {
-            return respond_error(
-                500,
-                "token_issue_failed",
-                format!("failed to mint reconnect token: {err:?}"),
-            );
-        }
-    };
+    let (token, _exp) =
+        match reissue_token(&signing_key, &claims, Some(conversation_id.to_string())) {
+            Ok(pair) => pair,
+            Err(err) => {
+                return respond_error(
+                    500,
+                    "token_issue_failed",
+                    format!("failed to mint reconnect token: {err:?}"),
+                );
+            }
+        };
 
     let stream_url = build_stream_url(&tenant_for_stream, conversation_id, &token);
     respond_json(
@@ -608,6 +595,9 @@ where
         name: "X-Greentic-User-Verified".to_string(),
         value: claims.verified.to_string(),
     });
+    // The verified caller block for `extensions.caller`; consumed and removed
+    // by ingest before the response leaves the provider (see `caller`).
+    headers.push(caller_header(&claims));
     if let Some(ref flow) = conversation.flow_binding {
         headers.push(Header {
             name: FLOW_HINT_HEADER.to_string(),
@@ -2563,6 +2553,95 @@ mod tests {
         assert_eq!(
             header_value(&activity_response, "X-Greentic-User"),
             Some("guest-abc")
+        );
+    }
+
+    /// A token carrying an identity provider's claims (as greentic-start's
+    /// re-mint delivers it) must reach BOTH hops' caller blocks: the
+    /// conversation create that re-issues the token, and the activity posted
+    /// with that re-issued token. Before `reissue_token`, the first hop
+    /// dropped every extra claim, so no activity could ever see a group.
+    #[test]
+    fn extra_claims_survive_conversation_create_into_the_activity_caller_block() {
+        use super::super::caller::{CALLER_HEADER, decode_caller_header};
+        use super::super::jwt::TokenClaims;
+
+        let mut state = InMemoryStateStore::new();
+        let mut secrets = TestSecretStore::new();
+        secrets.insert(TOKEN_SECRET_KEY, b"test-signing-key");
+        let template = TokenClaims {
+            iss: String::new(),
+            aud: String::new(),
+            sub: "acme:users:7".into(),
+            iat: 0,
+            nbf: 0,
+            exp: 0,
+            ctx: DirectLineContext {
+                env: "default".into(),
+                tenant: "default".into(),
+                team: Some("ops".into()),
+            },
+            conv: None,
+            verified: true,
+            extra: json!({"groups": ["hr"], "role": "manager"})
+                .as_object()
+                .cloned()
+                .expect("object"),
+        };
+        let (user_token, _) =
+            reissue_token(b"test-signing-key", &template, None).expect("user token");
+
+        let conv_response = handle_directline_request(
+            &build_request(
+                "POST",
+                "/v3/directline/conversations",
+                None,
+                None,
+                vec![Header {
+                    name: "Authorization".into(),
+                    value: format!("Bearer {user_token}"),
+                }],
+            )
+            .expect("request"),
+            &mut state,
+            &secrets,
+        );
+        assert_eq!(conv_response.status, 201);
+        let expected = json!({
+            "user_verified": true, "sub": "acme:users:7", "team": "ops",
+            "groups": ["hr"], "role": "manager",
+        });
+        assert_eq!(
+            header_value(&conv_response, CALLER_HEADER).and_then(decode_caller_header),
+            Some(expected.clone())
+        );
+        let conv_body = decode_body(&conv_response).expect("json body");
+        let conversation_id = conv_body["conversationId"].as_str().expect("id");
+        let conv_token = conv_body["token"].as_str().expect("conv token").to_string();
+
+        let activity_response = handle_directline_request(
+            &build_request(
+                "POST",
+                &format!("/v3/directline/conversations/{conversation_id}/activities"),
+                None,
+                Some(&json!({
+                    "type": "message",
+                    "text": "hi",
+                    "channelData": {"caller": {"user_verified": true, "groups": ["admins"]}},
+                })),
+                vec![Header {
+                    name: "Authorization".into(),
+                    value: format!("Bearer {conv_token}"),
+                }],
+            )
+            .expect("request"),
+            &mut state,
+            &secrets,
+        );
+        assert_eq!(activity_response.status, 201);
+        assert_eq!(
+            header_value(&activity_response, CALLER_HEADER).and_then(decode_caller_header),
+            Some(expected)
         );
     }
 
