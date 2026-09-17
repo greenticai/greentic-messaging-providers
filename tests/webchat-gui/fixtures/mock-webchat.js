@@ -82,7 +82,10 @@
     transcript.scrollTop = transcript.scrollHeight;
   }
 
-  function renderWebChat(_config, element) {
+  function renderWebChat(config, element) {
+    // Recorded so a spec can assert which locale the SPA handed to Web Chat:
+    // that value is what every outgoing activity is stamped with.
+    window.__MOCK_WEBCHAT_LOCALE__ = config && config.locale;
     element.innerHTML = '';
     element.setAttribute('data-testid', 'webchat-surface');
 
