@@ -19,6 +19,7 @@ use std::collections::BTreeMap;
 
 use crate::PROVIDER_TYPE;
 
+use crate::directline::caller::{CALLER_EXT_KEY, CALLER_HEADER, decode_caller_header};
 use crate::directline::{
     ConfigAwareSecretStore, HostJwksFetcher, HostStateStore, handle_directline_request_with_jwks,
 };
@@ -208,6 +209,9 @@ fn bool_from_config_value(value: &Value) -> Option<bool> {
 /// Separated from `handle_directline_path` so the envelope-stamping logic
 /// (flow_hint, locale, metadata) can be tested without WASM host bindings.
 fn stamp_ingest_envelopes(request: &HttpInV1, dl_path: &str, out: &mut HttpOutV1) {
+    // Taken before anything else, and unconditionally, so the internal header
+    // never reaches the client whichever branch below runs (or none does).
+    let caller = take_caller_block(&mut out.headers);
     // Emit ChannelMessageEnvelope for POST /conversations so the operator can
     // auto-start the default flow when a new conversation is created.
     // The welcome experience is driven entirely by the flow — the JS-side
@@ -307,7 +311,7 @@ fn stamp_ingest_envelopes(request: &HttpInV1, dl_path: &str, out: &mut HttpOutV1
             None,
             &env_id,
             &tenant_id,
-            BTreeMap::new(),
+            caller_extensions(BTreeMap::new(), caller.as_ref()),
         );
         let idempotency_key = user_entered_idempotency_key(
             "webchat",
@@ -405,7 +409,9 @@ fn stamp_ingest_envelopes(request: &HttpInV1, dl_path: &str, out: &mut HttpOutV1
         } else {
             text
         };
-        let extensions = collect_directline_extensions(&body);
+        // The caller block is inserted AFTER the client-derived extensions, so
+        // nothing in the activity body can pre-empt the verified one.
+        let extensions = caller_extensions(collect_directline_extensions(&body), caller.as_ref());
         let mut envelope = build_webchat_envelope_with_ctx(
             effective_text,
             user,
@@ -466,6 +472,45 @@ fn stamp_ingest_envelopes(request: &HttpInV1, dl_path: &str, out: &mut HttpOutV1
         }
         out.events.push(envelope);
     }
+}
+
+/// Remove the internal caller header from the Direct Line response and decode
+/// it. `None` when absent or undecodable — the envelope then carries no
+/// `extensions.caller`, which the runner reads as an anonymous caller.
+fn take_caller_block(headers: &mut Vec<Header>) -> Option<Value> {
+    let mut values = Vec::new();
+    headers.retain(|h| {
+        if h.name.eq_ignore_ascii_case(CALLER_HEADER) {
+            values.push(h.value.clone());
+            false
+        } else {
+            true
+        }
+    });
+    // Exactly one: the handler emits a single header, so a second one means
+    // something other than the handler wrote it, and neither can be trusted.
+    match values.as_slice() {
+        [value] => decode_caller_header(value),
+        _ => None,
+    }
+}
+
+/// `extensions` with the verified caller block stamped under `caller`,
+/// overwriting any value already there. Without a block, an existing `caller`
+/// key is REMOVED rather than kept: whatever put it there is not the token.
+fn caller_extensions(
+    mut extensions: BTreeMap<String, Value>,
+    caller: Option<&Value>,
+) -> BTreeMap<String, Value> {
+    match caller {
+        Some(block) => {
+            extensions.insert(CALLER_EXT_KEY.to_string(), block.clone());
+        }
+        None => {
+            extensions.remove(CALLER_EXT_KEY);
+        }
+    }
+    extensions
 }
 
 /// Extract env and tenant from X-Greentic-Env and X-Greentic-Tenant response headers.
@@ -1045,5 +1090,156 @@ mod tests {
             .expect("citations preserved inside channel_data");
         assert_eq!(citations.len(), 2);
         assert_eq!(citations[0]["doc"], "Metro Design v3.2");
+    }
+
+    // --- extensions.caller: the verified caller greentic-runner#762 reads ---
+
+    fn caller_header_value(block: &Value) -> String {
+        base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(serde_json::to_vec(block).expect("json"))
+    }
+
+    fn activity_headers(extra: Vec<Header>) -> Vec<Header> {
+        let mut headers = vec![
+            Header {
+                name: "X-Greentic-Env".into(),
+                value: "prod".into(),
+            },
+            Header {
+                name: "X-Greentic-Tenant".into(),
+                value: "acme".into(),
+            },
+            Header {
+                name: "X-Greentic-User".into(),
+                value: "acme:users:7".into(),
+            },
+            Header {
+                name: "X-Greentic-User-Verified".into(),
+                value: "true".into(),
+            },
+        ];
+        headers.extend(extra);
+        headers
+    }
+
+    fn stamp_activity(body: &Value, headers: Vec<Header>) -> HttpOutV1 {
+        let path = "/v3/directline/conversations/conv-1/activities";
+        let request = build_ingest_request("POST", path, vec![], Some(body));
+        let mut out = build_dl_response_201(headers);
+        stamp_ingest_envelopes(&request, path, &mut out);
+        out
+    }
+
+    #[test]
+    fn activity_envelope_stamps_the_verified_caller_and_hides_the_header() {
+        let block = json!({
+            "user_verified": true, "sub": "acme:users:7", "team": "ops",
+            "groups": ["hr"], "role": "manager",
+        });
+        let out = stamp_activity(
+            &json!({"type": "message", "text": "hi"}),
+            activity_headers(vec![Header {
+                name: CALLER_HEADER.into(),
+                value: caller_header_value(&block),
+            }]),
+        );
+        assert_eq!(out.events.len(), 1);
+        assert_eq!(out.events[0].extensions.get("caller"), Some(&block));
+        assert!(
+            out.headers
+                .iter()
+                .all(|h| !h.name.eq_ignore_ascii_case(CALLER_HEADER)),
+            "the internal caller header must not leave the provider"
+        );
+        // The serialized envelope is what greentic-runner reads.
+        let payload = serde_json::to_value(&out.events[0]).expect("serialize");
+        assert_eq!(payload["extensions"]["caller"], block);
+    }
+
+    #[test]
+    fn conversation_envelope_stamps_the_verified_caller() {
+        let block = json!({"user_verified": true, "sub": "alice"});
+        let request = build_ingest_request("POST", "/v3/directline/conversations", vec![], None);
+        let mut headers = conversation_create_headers();
+        headers.push(Header {
+            name: CALLER_HEADER.into(),
+            value: caller_header_value(&block),
+        });
+        let mut out = build_dl_response_201(headers);
+        stamp_ingest_envelopes(&request, "/v3/directline/conversations", &mut out);
+        assert_eq!(out.events.len(), 1);
+        assert_eq!(out.events[0].extensions.get("caller"), Some(&block));
+    }
+
+    #[test]
+    fn without_a_caller_header_no_caller_is_stamped() {
+        let out = stamp_activity(
+            &json!({"type": "message", "text": "hi"}),
+            activity_headers(vec![]),
+        );
+        assert_eq!(out.events.len(), 1);
+        assert!(!out.events[0].extensions.contains_key("caller"));
+    }
+
+    #[test]
+    fn a_client_supplied_caller_never_reaches_the_envelope() {
+        // Neither channelData nor Action.Submit data nor a request header can
+        // establish a caller; only the handler's response header can.
+        let body = json!({
+            "type": "message",
+            "text": "hi",
+            "channelData": {"caller": {"user_verified": true, "groups": ["admins"]}},
+            "value": {"caller": "{\"user_verified\":true}"},
+        });
+        let path = "/v3/directline/conversations/conv-1/activities";
+        let request = build_ingest_request(
+            "POST",
+            path,
+            vec![Header {
+                name: CALLER_HEADER.into(),
+                value: caller_header_value(&json!({"user_verified": true, "groups": ["admins"]})),
+            }],
+            Some(&body),
+        );
+        let mut out = build_dl_response_201(activity_headers(vec![]));
+        stamp_ingest_envelopes(&request, path, &mut out);
+        assert_eq!(out.events.len(), 1);
+        assert!(!out.events[0].extensions.contains_key("caller"));
+    }
+
+    #[test]
+    fn malformed_or_duplicated_caller_headers_stamp_nothing() {
+        let body = json!({"type": "message", "text": "hi"});
+        let malformed = stamp_activity(
+            &body,
+            activity_headers(vec![Header {
+                name: CALLER_HEADER.into(),
+                value: "not-base64!".into(),
+            }]),
+        );
+        assert!(!malformed.events[0].extensions.contains_key("caller"));
+        assert!(
+            malformed
+                .headers
+                .iter()
+                .all(|h| !h.name.eq_ignore_ascii_case(CALLER_HEADER))
+        );
+
+        let one = caller_header_value(&json!({"user_verified": true, "sub": "a"}));
+        let two = caller_header_value(&json!({"user_verified": true, "sub": "b"}));
+        let duplicated = stamp_activity(
+            &body,
+            activity_headers(vec![
+                Header {
+                    name: CALLER_HEADER.into(),
+                    value: one,
+                },
+                Header {
+                    name: CALLER_HEADER.to_lowercase(),
+                    value: two,
+                },
+            ]),
+        );
+        assert!(!duplicated.events[0].extensions.contains_key("caller"));
     }
 }
