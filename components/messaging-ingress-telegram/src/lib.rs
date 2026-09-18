@@ -6,7 +6,8 @@ mod bindings {
     });
 }
 
-use bindings::exports::provider::common::ingress::Guest;
+use bindings::exports::provider::common0_0_2::ingress::Guest;
+use bindings::exports::provider::common0_0_3::ingress::Guest as ConfiguredIngressGuest;
 use serde_json::{Map, Value, json};
 
 struct Component;
@@ -141,8 +142,21 @@ fn envelope_from_parts(
     })
 }
 
-bindings::exports::provider::common::ingress::__export_provider_common_ingress_0_0_2_cabi!(
-    Component with_types_in bindings::exports::provider::common::ingress
+impl ConfiguredIngressGuest for Component {
+    fn handle_webhook(
+        headers_json: String,
+        body_json: String,
+        _config_json: String,
+    ) -> Result<String, String> {
+        <Component as Guest>::handle_webhook(headers_json, body_json)
+    }
+}
+
+bindings::exports::provider::common0_0_2::ingress::__export_provider_common_ingress_0_0_2_cabi!(
+    Component with_types_in bindings::exports::provider::common0_0_2::ingress
+);
+bindings::exports::provider::common0_0_3::ingress::__export_provider_common_ingress_0_0_3_cabi!(
+    Component with_types_in bindings::exports::provider::common0_0_3::ingress
 );
 
 #[cfg(test)]
@@ -153,6 +167,18 @@ mod tests {
         let out = <Component as Guest>::handle_webhook("{}".to_string(), body.to_string())
             .expect("normalized");
         serde_json::from_str(&out).expect("json")
+    }
+
+    #[test]
+    fn configured_export_matches_the_unconfigured_one() {
+        let body = r#"{"update_id":1,"message":{"text":"hi","chat":{"id":7}}}"#;
+        let plain = <Component as Guest>::handle_webhook("{}".into(), body.into());
+        let configured = <Component as ConfiguredIngressGuest>::handle_webhook(
+            "{}".into(),
+            body.into(),
+            r#"{"public_base_url":"https://example.com"}"#.into(),
+        );
+        assert_eq!(plain, configured);
     }
 
     #[test]

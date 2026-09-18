@@ -7,6 +7,7 @@ use greentic:secrets-store/secrets-store@1.0.0;
 use greentic:state/state-store@1.0.0;
 use greentic:telemetry/logger-api@1.0.0;
 use provider:common/ingress@0.0.2;
+use provider:common/ingress@0.0.3 as configured-ingress;
 
 world messaging-ingress-slack {
     import http-client;
@@ -15,4 +16,5 @@ world messaging-ingress-slack {
     import logger-api;
 
     export ingress;
+    export configured-ingress;
 }

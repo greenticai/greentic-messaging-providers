@@ -130,10 +130,10 @@ impl crate::bindings::exports::greentic::provider_schema_core::schema_core_api::
     }
 }
 
-impl crate::bindings::exports::provider::common::ingress::Guest for Component {
+impl crate::bindings::exports::provider::common0_0_2::ingress::Guest for Component {
     /// Inbound WebChat DirectLine ingress. The runtime (`greentic-start`)
     /// dispatches HTTP requests for `auth/config`, `/v3/directline/*` and the
-    /// `/token` shorthand through `provider:common/ingress@0.0.2#handle-webhook`.
+    /// `/token` shorthand through `provider:common/ingress#handle-webhook`.
     ///
     /// It packs `method`/`path`/`query` into the headers object and passes the
     /// raw request body separately. We rebuild the operator-format `HttpInV1`
@@ -141,41 +141,79 @@ impl crate::bindings::exports::provider::common::ingress::Guest for Component {
     /// `HttpOutV1` JSON straight back — the runtime's `parse_http_response`
     /// reads `status`/`headers`/`body_b64` from it verbatim.
     fn handle_webhook(headers_json: String, body_json: String) -> Result<String, String> {
-        let headers: serde_json::Map<String, Value> = serde_json::from_str(&headers_json)
-            .map_err(|err| format!("invalid ingress headers json: {err}"))?;
-
-        let header_str = |key: &str| {
-            headers
-                .get(key)
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_string()
-        };
-        let method = match header_str("method") {
-            m if m.is_empty() => "POST".to_string(),
-            m => m,
-        };
-        let path = header_str("path");
-        let query = header_str("query");
-        let header_pairs: Vec<Value> = headers
-            .iter()
-            .filter(|(key, _)| !matches!(key.as_str(), "method" | "path" | "query"))
-            .map(|(key, value)| json!([key, value.as_str().unwrap_or_default()]))
-            .collect();
-
-        let operator_input = json!({
-            "method": method,
-            "path": path,
-            "query": query,
-            "headers": header_pairs,
-            "body_b64": general_purpose::STANDARD.encode(body_json.as_bytes()),
-        });
-        let input_bytes = serde_json::to_vec(&operator_input)
-            .map_err(|err| format!("encode ingress request: {err}"))?;
-
-        let output = ingest_http(&input_bytes);
-        String::from_utf8(output).map_err(|err| format!("ingress response not utf-8: {err}"))
+        handle_ingress(&headers_json, &body_json, None)
     }
+}
+
+impl crate::bindings::exports::provider::common0_0_3::ingress::Guest for Component {
+    fn handle_webhook(
+        headers_json: String,
+        body_json: String,
+        config_json: String,
+    ) -> Result<String, String> {
+        handle_ingress(&headers_json, &body_json, ingress_config(&config_json))
+    }
+}
+
+/// `null` or unparseable config means "none", never a failed request.
+fn ingress_config(config_json: &str) -> Option<Value> {
+    match serde_json::from_str::<Value>(config_json) {
+        Ok(Value::Null) | Err(_) => None,
+        Ok(value) => Some(value),
+    }
+}
+
+fn handle_ingress(
+    headers_json: &str,
+    body_json: &str,
+    config: Option<Value>,
+) -> Result<String, String> {
+    let operator_input = ingress_operator_input(headers_json, body_json, config)?;
+    let input_bytes = serde_json::to_vec(&operator_input)
+        .map_err(|err| format!("encode ingress request: {err}"))?;
+
+    let output = ingest_http(&input_bytes);
+    String::from_utf8(output).map_err(|err| format!("ingress response not utf-8: {err}"))
+}
+
+fn ingress_operator_input(
+    headers_json: &str,
+    body_json: &str,
+    config: Option<Value>,
+) -> Result<Value, String> {
+    let headers: serde_json::Map<String, Value> = serde_json::from_str(headers_json)
+        .map_err(|err| format!("invalid ingress headers json: {err}"))?;
+
+    let header_str = |key: &str| {
+        headers
+            .get(key)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string()
+    };
+    let method = match header_str("method") {
+        m if m.is_empty() => "POST".to_string(),
+        m => m,
+    };
+    let path = header_str("path");
+    let query = header_str("query");
+    let header_pairs: Vec<Value> = headers
+        .iter()
+        .filter(|(key, _)| !matches!(key.as_str(), "method" | "path" | "query"))
+        .map(|(key, value)| json!([key, value.as_str().unwrap_or_default()]))
+        .collect();
+
+    let mut operator_input = json!({
+        "method": method,
+        "path": path,
+        "query": query,
+        "headers": header_pairs,
+        "body_b64": general_purpose::STANDARD.encode(body_json.as_bytes()),
+    });
+    if let Some(config) = config {
+        operator_input["config"] = config;
+    }
+    Ok(operator_input)
 }
 
 impl crate::bindings::exports::greentic::provider_instance_identity::instance_identity_api::Guest
@@ -758,6 +796,30 @@ mod tests {
             cbor,
         );
         decode_cbor(&out).expect("decode apply answers")
+    }
+
+    fn ingress_request(
+        config: Option<Value>,
+    ) -> greentic_types::messaging::universal_dto::HttpInV1 {
+        let headers = r#"{"method":"POST","path":"/v3/directline/conversations","query":"","content-type":"application/json"}"#;
+        let input = ingress_operator_input(headers, "{}", config).expect("operator input");
+        serde_json::from_value(input).expect("ingest_http accepts the operator input")
+    }
+
+    #[test]
+    fn configured_ingress_hands_config_to_ingest_http() {
+        let config = ingress_config(r#"{"auto_start_on_open":false}"#);
+        let request = ingress_request(config);
+        assert_eq!(request.config, Some(json!({"auto_start_on_open": false})));
+        assert_eq!(request.path, "/v3/directline/conversations");
+    }
+
+    #[test]
+    fn missing_or_unreadable_config_reaches_ingest_http_as_none() {
+        assert_eq!(ingress_config("null"), None);
+        assert_eq!(ingress_config("not json"), None);
+        assert_eq!(ingress_config(""), None);
+        assert_eq!(ingress_request(None).config, None);
     }
 
     fn error_text(value: &Value) -> String {

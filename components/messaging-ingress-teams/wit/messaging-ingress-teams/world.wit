@@ -8,6 +8,7 @@ use greentic:state/state-store@1.0.0;
 use greentic:telemetry/logger-api@1.0.0;
 use greentic:provider-schema-core/schema-core-api@1.0.0;
 use provider:common/ingress@0.0.2;
+use provider:common/ingress@0.0.3 as configured-ingress;
 use provider:common/subscriptions@0.0.2;
 
 world messaging-ingress-teams {
@@ -17,6 +18,7 @@ world messaging-ingress-teams {
     import logger-api;
 
     export ingress;
+    export configured-ingress;
     export subscriptions;
     export schema-core-api;
 }
