@@ -7,6 +7,7 @@ use greentic:provider-schema-core/schema-core-api@1.0.0;
 use greentic:provider-instance-identity/instance-identity-api@0.1.0;
 use greentic:provider-instance-identity/instance-identity-describe-api@0.1.0;
 use provider:common/ingress@0.0.2;
+use provider:common/ingress@0.0.3 as configured-ingress;
 
 world component-v0-v6-v0 {
   import http-client;
@@ -22,4 +23,5 @@ world component-v0-v6-v0 {
   // WebChat DirectLine ingress: the runtime dispatches inbound HTTP
   // (auth/config, /v3/directline/*, /token) through this interface.
   export ingress;
+  export configured-ingress;
 }

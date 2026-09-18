@@ -6,7 +6,8 @@ mod bindings {
     });
 }
 
-use bindings::exports::provider::common::ingress::Guest;
+use bindings::exports::provider::common0_0_2::ingress::Guest;
+use bindings::exports::provider::common0_0_3::ingress::Guest as ConfiguredIngressGuest;
 use bindings::greentic::secrets_store::secrets_store;
 use hmac::{Hmac, KeyInit, Mac};
 use serde_json::{Map, Value, json};
@@ -31,8 +32,21 @@ impl Guest for Component {
     }
 }
 
-bindings::exports::provider::common::ingress::__export_provider_common_ingress_0_0_2_cabi!(
-    Component with_types_in bindings::exports::provider::common::ingress
+impl ConfiguredIngressGuest for Component {
+    fn handle_webhook(
+        headers_json: String,
+        body_json: String,
+        _config_json: String,
+    ) -> Result<String, String> {
+        <Component as Guest>::handle_webhook(headers_json, body_json)
+    }
+}
+
+bindings::exports::provider::common0_0_2::ingress::__export_provider_common_ingress_0_0_2_cabi!(
+    Component with_types_in bindings::exports::provider::common0_0_2::ingress
+);
+bindings::exports::provider::common0_0_3::ingress::__export_provider_common_ingress_0_0_3_cabi!(
+    Component with_types_in bindings::exports::provider::common0_0_3::ingress
 );
 
 fn get_optional_secret(key: &str) -> Option<Result<String, String>> {

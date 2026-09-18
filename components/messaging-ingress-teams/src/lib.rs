@@ -14,8 +14,9 @@ mod teams_pkg;
 
 #[cfg(not(test))]
 use base64::{Engine as _, engine::general_purpose};
-use bindings::exports::provider::common::ingress::Guest as IngressGuest;
-use bindings::exports::provider::common::subscriptions::Guest as SubscriptionsGuest;
+use bindings::exports::provider::common0_0_2::ingress::Guest as IngressGuest;
+use bindings::exports::provider::common0_0_2::subscriptions::Guest as SubscriptionsGuest;
+use bindings::exports::provider::common0_0_3::ingress::Guest as ConfiguredIngressGuest;
 use bindings::greentic::http::http_client as client;
 use bindings::greentic::secrets_store::secrets_store;
 use bindings::greentic::state::state_store;
@@ -104,6 +105,16 @@ impl IngressGuest for Component {
         });
         serde_json::to_string(&normalized)
             .map_err(|_| "other error: serialization failed".to_string())
+    }
+}
+
+impl ConfiguredIngressGuest for Component {
+    fn handle_webhook(
+        headers_json: String,
+        body_json: String,
+        _config_json: String,
+    ) -> Result<String, String> {
+        <Component as IngressGuest>::handle_webhook(headers_json, body_json)
     }
 }
 
@@ -2254,6 +2265,18 @@ mod tests {
 
         assert!(err.contains("create subscription status 400"));
         assert!(err.contains("lifecycleNotificationUrl is required"));
+    }
+
+    #[test]
+    fn configured_export_matches_the_unconfigured_one() {
+        let headers = r#"{"query":"validationToken=hello%20graph"}"#;
+        let plain = <Component as IngressGuest>::handle_webhook(headers.into(), String::new());
+        let configured = <Component as ConfiguredIngressGuest>::handle_webhook(
+            headers.into(),
+            String::new(),
+            "null".into(),
+        );
+        assert_eq!(plain, configured);
     }
 
     #[test]
