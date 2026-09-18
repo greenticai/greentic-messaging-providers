@@ -576,6 +576,16 @@ fn apply_answers_impl(
         }
     }
 
+    // Same rule in every mode: an answered-but-empty brand field CLEARS the
+    // stored value, so an operator can hand the page back to the skin's own
+    // brand. An absent key keeps what was there.
+    if has("brand_name") {
+        merged.brand_name = optional_string_from(&answers, "brand_name");
+    }
+    if has("brand_logo_url") {
+        merged.brand_logo_url = optional_string_from(&answers, "brand_logo_url");
+    }
+
     if has("oauth_greentic_issuer") {
         merged.oidc_issuer = optional_string_from(&answers, "oauth_greentic_issuer");
     }
@@ -862,6 +872,101 @@ mod tests {
         }));
         assert_eq!(value["ok"], true);
         assert_eq!(value["config"]["auto_start_on_open"], false);
+    }
+
+    #[test]
+    fn apply_answers_round_trips_brand() {
+        let value = apply_setup(json!({
+            "public_base_url": "https://chat.example.com",
+            "route": "webchat",
+            "brand_name": "  Meridian Insurance  ",
+            "brand_logo_url": "https://cdn.example.com/meridian.png"
+        }));
+        assert_eq!(value["ok"], true);
+        assert_eq!(value["config"]["brand_name"], "Meridian Insurance");
+        assert_eq!(
+            value["config"]["brand_logo_url"],
+            "https://cdn.example.com/meridian.png"
+        );
+    }
+
+    #[test]
+    fn apply_answers_omits_brand_when_unanswered() {
+        let value = apply_setup(json!({
+            "public_base_url": "https://chat.example.com",
+            "route": "webchat"
+        }));
+        assert_eq!(value["ok"], true);
+        assert!(value["config"].get("brand_name").is_none());
+        assert!(value["config"].get("brand_logo_url").is_none());
+    }
+
+    #[test]
+    fn apply_answers_empty_brand_clears_the_stored_value() {
+        let value = apply_setup(json!({
+            "existing_config": {
+                "enabled": true,
+                "public_base_url": "https://chat.example.com",
+                "mode": "websocket",
+                "route": "webchat",
+                "skin": crate::DEFAULT_SKIN,
+                "brand_name": "Old Brand",
+                "brand_logo_url": "https://cdn.example.com/old.png"
+            },
+            "public_base_url": "https://chat.example.com",
+            "route": "webchat",
+            "brand_name": "",
+            "brand_logo_url": "   "
+        }));
+        assert_eq!(value["ok"], true);
+        assert!(value["config"].get("brand_name").is_none());
+        assert!(value["config"].get("brand_logo_url").is_none());
+    }
+
+    #[test]
+    fn apply_answers_keeps_brand_the_answers_do_not_mention() {
+        let value = apply_setup(json!({
+            "existing_config": {
+                "enabled": true,
+                "public_base_url": "https://chat.example.com",
+                "mode": "websocket",
+                "route": "webchat",
+                "skin": crate::DEFAULT_SKIN,
+                "brand_name": "Kept Brand"
+            },
+            "public_base_url": "https://chat.example.com",
+            "route": "webchat"
+        }));
+        assert_eq!(value["ok"], true);
+        assert_eq!(value["config"]["brand_name"], "Kept Brand");
+    }
+
+    #[test]
+    fn apply_answers_rejects_a_non_https_brand_logo() {
+        for url in [
+            "http://cdn.example.com/logo.png",
+            "/skins/default/assets/logo.svg",
+            "javascript:alert(1)",
+        ] {
+            let value = apply_setup(json!({
+                "public_base_url": "https://chat.example.com",
+                "route": "webchat",
+                "brand_logo_url": url
+            }));
+            assert_eq!(value["ok"], false, "{url} should be refused");
+            assert!(error_text(&value).contains("brand_logo_url"), "{url}");
+        }
+    }
+
+    #[test]
+    fn apply_answers_rejects_an_overlong_brand_name() {
+        let value = apply_setup(json!({
+            "public_base_url": "https://chat.example.com",
+            "route": "webchat",
+            "brand_name": "x".repeat(crate::config::BRAND_NAME_MAX_CHARS + 1)
+        }));
+        assert_eq!(value["ok"], false);
+        assert!(error_text(&value).contains("brand_name"));
     }
 
     #[test]

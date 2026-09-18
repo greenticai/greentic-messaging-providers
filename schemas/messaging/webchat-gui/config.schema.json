@@ -48,6 +48,16 @@
       "default": "default",
       "description": "Visual theme folder under assets/webchat-gui/skins."
     },
+    "brand_name": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "Operator-set brand name for the chat header, page title and footer. Empty keeps the skin's own name."
+    },
+    "brand_logo_url": {
+      "type": "string",
+      "pattern": "^https://",
+      "description": "Absolute https:// URL of the header logo. Empty keeps the skin's own logo."
+    },
     "text_input_enabled": {
       "type": "boolean",
       "default": true,

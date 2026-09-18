@@ -68,6 +68,10 @@ function tenantScenario(tenant) {
     // static auth block or takes /auth/config away, so this disagreement was
     // the one shape nothing modelled.
     staleAuthProvider: normalized.includes('stale-auth'),
+    // What greentic-setup writes from the pack's brand_name / brand_logo_url
+    // answers. `brand-http` carries a logo the page must refuse to render.
+    brand: normalized.includes('brand'),
+    brandInsecureLogo: normalized.includes('brand-http'),
   };
 }
 
@@ -90,6 +94,14 @@ function tenantConfig(tenant) {
       ? '/skins/3aigent/assets/3point-jewel-round.png'
       : '/skins/default/assets/logo.svg',
   };
+  if (scenario.brand) {
+    base.brand = {
+      name: 'Meridian Insurance',
+      logo_url: scenario.brandInsecureLogo
+        ? 'http://brand.example.test/logo.svg'
+        : 'https://brand.example.test/logo.svg',
+    };
+  }
   base.navigation = scenario.nav ? { menu: demoLinks } : { menu: [] };
   base.nav_links = scenario.nav ? demoLinks : [];
   delete base.auth;
