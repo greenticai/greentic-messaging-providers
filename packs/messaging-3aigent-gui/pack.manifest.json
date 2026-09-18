@@ -1,13 +1,13 @@
 {
   "name": "messaging-3aigent-gui",
-  "version": "0.5.30",
+  "version": "0.5.31",
   "kind": "application",
   "publisher": "Greentic",
   "description": "Hosted 3AIgent GUI messaging pack with Direct Line backend, 3AIgent skin and SSO enabled by default.",
   "component_sources": [
     {
       "id": "ai.greentic.component-provision",
-      "version": "0.5.30",
+      "version": "0.5.31",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -29,7 +29,7 @@
     },
     {
       "id": "ai.greentic.component-qa",
-      "version": "0.5.30",
+      "version": "0.5.31",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -51,7 +51,7 @@
     },
     {
       "id": "ai.greentic.component-templates",
-      "version": "0.5.30",
+      "version": "0.5.31",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -73,7 +73,7 @@
     },
     {
       "id": "messaging-provider-3aigent-gui",
-      "version": "0.5.30",
+      "version": "0.5.31",
       "world": "root:component/root",
       "supports": [
         "messaging"
@@ -136,7 +136,7 @@
   "extensions": {
     "greentic.generated-secrets.v1": {
       "kind": "greentic.generated-secrets.v1",
-      "version": "0.5.30",
+      "version": "0.5.31",
       "inline": {
         "secrets": [
           {
@@ -160,7 +160,7 @@
     },
     "greentic.ext.capabilities.v1": {
       "kind": "greentic.ext.capabilities.v1",
-      "version": "0.5.30",
+      "version": "0.5.31",
       "inline": {
         "offers": [
           {
@@ -175,7 +175,7 @@
             "setup": {
               "qa_ref": "components/messaging-provider-3aigent-gui"
             },
-            "version": "0.5.30"
+            "version": "0.5.31"
           }
         ],
         "schema_version": 1
@@ -183,7 +183,7 @@
     },
     "greentic.http-routes.v1": {
       "kind": "greentic.http-routes.v1",
-      "version": "0.5.30",
+      "version": "0.5.31",
       "inline": {
         "routes": [
           {
@@ -262,7 +262,7 @@
     },
     "greentic.messaging.validators.v1": {
       "kind": "greentic.messaging.validators.v1",
-      "version": "0.5.30",
+      "version": "0.5.31",
       "inline": {
         "validators": [
           {
@@ -275,7 +275,7 @@
     },
     "greentic.provider-extension.v1": {
       "kind": "greentic.provider-extension.v1",
-      "version": "0.5.30",
+      "version": "0.5.31",
       "inline": {
         "providers": [
           {
@@ -306,7 +306,7 @@
     },
     "greentic.static-routes.v1": {
       "kind": "greentic.static-routes.v1",
-      "version": "0.5.30",
+      "version": "0.5.31",
       "inline": {
         "routes": [
           {
@@ -326,7 +326,7 @@
     },
     "messaging.provider_ingress.v1": {
       "kind": "messaging.provider_ingress.v1",
-      "version": "0.5.30",
+      "version": "0.5.31",
       "inline": {
         "capabilities": {
           "content_types": [
