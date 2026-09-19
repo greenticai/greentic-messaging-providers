@@ -264,6 +264,24 @@ questions:
     help: "Visual skin/theme. Must match a skins/<name>/ folder shipped in the messaging-webchat-gui pack. Use 'default' for the Greentic look or '3aigent' for the 3Point Training brand."
     group: Branding
 
+  - name: brand_name
+    title: Brand name
+    kind: string
+    required: false
+    placeholder: "Meridian Insurance"
+    help: "Name shown in the chat header, the page title and the footer. Leave empty to use the skin's own name."
+    group: Branding
+
+  - name: brand_logo_url
+    title: Brand logo URL
+    kind: string
+    required: false
+    placeholder: "https://cdn.example.com/logo.png"
+    help: "Absolute https:// URL of a square logo for the chat header. Leave empty to use the skin's own logo."
+    group: Branding
+    validate:
+      regex: "^https://"
+
   - name: presentation_mode
     title: Presentation mode
     kind: enum

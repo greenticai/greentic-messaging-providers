@@ -48,6 +48,10 @@ pub(crate) struct ProviderConfig {
     pub(crate) presentation_mode: PresentationMode,
     #[serde(default = "default_skin")]
     pub(crate) skin: String,
+    #[serde(default)]
+    pub(crate) brand_name: Option<String>,
+    #[serde(default)]
+    pub(crate) brand_logo_url: Option<String>,
     #[serde(default = "default_text_input_enabled")]
     pub(crate) text_input_enabled: bool,
     #[serde(default = "default_auto_start_on_open")]
@@ -78,6 +82,13 @@ pub(crate) struct ProviderConfigOut {
     pub(crate) presentation_mode: PresentationMode,
     #[serde(default = "default_skin")]
     pub(crate) skin: String,
+    /// Operator-set brand for the hosted page. greentic-setup copies both
+    /// into `brand: { name, logo_url }` in the tenant config, where
+    /// runtime-bootstrap.js lays them over the skin's own brand.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) brand_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) brand_logo_url: Option<String>,
     #[serde(default = "default_text_input_enabled")]
     pub(crate) text_input_enabled: bool,
     #[serde(default = "default_auto_start_on_open")]
@@ -119,6 +130,8 @@ pub(crate) fn default_config_out() -> ProviderConfigOut {
         base_url: None,
         presentation_mode: PresentationMode::Standalone,
         skin: default_skin(),
+        brand_name: None,
+        brand_logo_url: None,
         text_input_enabled: default_text_input_enabled(),
         auto_start_on_open: default_auto_start_on_open(),
         nav_links: Vec::new(),
@@ -152,6 +165,36 @@ fn has_greentic_provider(config: &ProviderConfigOut) -> bool {
         .any(|p| p.get("type").and_then(Value::as_str) == Some("greentic"))
 }
 
+/// Longest brand name the hosted page renders; runtime-bootstrap.js truncates
+/// at the same length, so a longer value would be silently cut there.
+pub(crate) const BRAND_NAME_MAX_CHARS: usize = 80;
+
+/// The brand fields are rendered on a public page. The logo must be an
+/// absolute https URL: a relative path resolves against whichever mount
+/// prefix serves the GUI, and any other scheme is unsafe or blocked as mixed
+/// content, so the page would show a broken image instead of the skin's logo.
+fn validate_brand(
+    brand_name: Option<&str>,
+    brand_logo_url: Option<&str>,
+    prefix: &str,
+) -> Result<(), String> {
+    if let Some(name) = brand_name
+        && name.chars().count() > BRAND_NAME_MAX_CHARS
+    {
+        return Err(format!(
+            "{prefix}: brand_name must be at most {BRAND_NAME_MAX_CHARS} characters"
+        ));
+    }
+    if let Some(url) = brand_logo_url
+        && !url.starts_with("https://")
+    {
+        return Err(format!(
+            "{prefix}: brand_logo_url must be an absolute https:// URL"
+        ));
+    }
+    Ok(())
+}
+
 pub(crate) fn validate_config_out(config: &ProviderConfigOut) -> Result<(), String> {
     if config.public_base_url.trim().is_empty() {
         return Err("config validation failed: public_base_url is required".to_string());
@@ -169,6 +212,11 @@ pub(crate) fn validate_config_out(config: &ProviderConfigOut) -> Result<(), Stri
     if config.skin.trim().is_empty() {
         return Err("config validation failed: skin is required".to_string());
     }
+    validate_brand(
+        config.brand_name.as_deref(),
+        config.brand_logo_url.as_deref(),
+        "config validation failed",
+    )?;
     if has_greentic_provider(config)
         && !config
             .oidc_issuer
@@ -198,6 +246,11 @@ pub(crate) fn validate_provider_config(mut cfg: ProviderConfig) -> Result<Provid
     if cfg.skin.trim().is_empty() {
         return Err("invalid config: skin cannot be empty".to_string());
     }
+    validate_brand(
+        cfg.brand_name.as_deref(),
+        cfg.brand_logo_url.as_deref(),
+        "invalid config",
+    )?;
     if cfg.presentation_mode == PresentationMode::EmbedWebcomponent {
         cfg.nav_links.clear();
     }
@@ -249,6 +302,8 @@ pub(crate) fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         "base_url",
         "presentation_mode",
         "skin",
+        "brand_name",
+        "brand_logo_url",
         "text_input_enabled",
         "auto_start_on_open",
         "nav_links",
@@ -274,6 +329,8 @@ pub(crate) fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         "base_url",
         "presentation_mode",
         "skin",
+        "brand_name",
+        "brand_logo_url",
         "text_input_enabled",
         "auto_start_on_open",
         "nav_links",

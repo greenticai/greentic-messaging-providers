@@ -492,6 +492,8 @@ console.log('[runtime-bootstrap] loaded');
       if (!labelKey) continue;
       target.setAttribute('aria-label', uiT(labelKey, target.getAttribute('aria-label') || labelKey));
     }
+
+    applyTenantBrand();
   }
 
   /**
@@ -517,6 +519,93 @@ console.log('[runtime-bootstrap] loaded');
         applyShellI18n();
       }, 50);
     }).observe(document.body, { childList: true, subtree: true });
+  }
+
+  /**
+   * Operator-set tenant brand: `brand: { name, logo_url }` in
+   * tenants/<tenant>.json, written by greentic-setup from the pack's
+   * `brand_name` / `brand_logo_url` answers.
+   *
+   * Deliberately NOT `branding.*`. Every tenant config is scaffolded from
+   * default.json, which already carries the Greentic logo under
+   * `branding.logo`, so honouring that field would paint the Greentic mark
+   * over any non-default skin (3aigent included) that never asked for it.
+   * `brand` is written by nothing but the operator's own answers.
+   *
+   * Absent or empty fields leave the skin's own brand untouched, so a tenant
+   * that answered nothing renders exactly as before.
+   */
+  var tenantBrand = null;
+  var BRAND_NAME_MAX = 80;
+
+  // Only an absolute https URL. A relative path would resolve against
+  // whichever mount prefix serves the GUI, and any other scheme (javascript:,
+  // data:, http: on an https page) is either unsafe or blocked as mixed
+  // content -- a broken image is a worse result than the skin's own logo.
+  function safeBrandLogoUrl(raw) {
+    if (typeof raw !== 'string') return '';
+    var trimmed = raw.trim();
+    if (!trimmed) return '';
+    try {
+      var parsed = new URL(trimmed);
+      return parsed.protocol === 'https:' ? parsed.toString() : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function readTenantBrand(tenantCfg) {
+    var raw = tenantCfg && tenantCfg.brand;
+    if (!raw || typeof raw !== 'object') return null;
+    var name = typeof raw.name === 'string' ? raw.name.trim().slice(0, BRAND_NAME_MAX) : '';
+    var logo = safeBrandLogoUrl(raw.logo_url);
+    if (typeof raw.logo_url === 'string' && raw.logo_url.trim() && !logo) {
+      console.warn('[bootstrap] tenant brand logo_url ignored: only absolute https:// URLs are allowed');
+    }
+    if (!name && !logo) return null;
+    return { name: name, logo: logo };
+  }
+
+  function applyTenantBrand() {
+    if (!tenantBrand) return;
+    var name = tenantBrand.name;
+    var logo = tenantBrand.logo;
+
+    if (name) {
+      var titleEl = document.querySelector('.topbar__title');
+      if (titleEl && titleEl.textContent !== name) titleEl.textContent = name;
+      var footerBrand = document.querySelector('.footer__brand');
+      if (footerBrand && footerBrand.textContent !== name) footerBrand.textContent = name;
+      if (document.title !== name) document.title = name;
+    }
+
+    // The footer links belong to whoever made the skin (Greentic's docs,
+    // 3Point's site), not to the tenant now branding the page. Inline, not
+    // `hidden`: every skin styles `.footer__links` as flex, which beats the
+    // user-agent `display: none` that `hidden` relies on.
+    var footerLinks = document.querySelectorAll('.footer__links');
+    for (var f = 0; f < footerLinks.length; f += 1) {
+      if (footerLinks[f].style.display !== 'none') footerLinks[f].style.display = 'none';
+    }
+
+    // `.topbar__logo` is the default skin's mark, `img.topbar__brand` the
+    // 3aigent one. The marker class lets the skin size a tenant logo to fill
+    // its avatar instead of the 20px glyph the Greentic mark is drawn at.
+    var logoEls = document.querySelectorAll('.topbar__logo, img.topbar__brand');
+    for (var i = 0; i < logoEls.length; i += 1) {
+      var img = logoEls[i];
+      if (logo) {
+        if (img.getAttribute('src') !== logo) img.setAttribute('src', logo);
+        img.classList.add('topbar__logo--tenant');
+        if (img.parentElement && img.parentElement.classList.contains('topbar__avatar')) {
+          img.parentElement.classList.add('topbar__avatar--tenant');
+        }
+      }
+      if (name) {
+        var alt = name + ' logo';
+        if (img.getAttribute('alt') !== alt) img.setAttribute('alt', alt);
+      }
+    }
   }
 
   function applyUiTranslations() {
@@ -1888,6 +1977,11 @@ console.log('[runtime-bootstrap] loaded');
           console.warn('[bootstrap] tenant config returned non-JSON content, using route tenant fallback:', tenantId, contentType || '<unknown>');
         }
         if (!payload) payload = fallbackPayload();
+        // The SPA also fetches the product's default tenant (greentic.json),
+        // and the skin.json intercept below is keyed by SKIN name, not by
+        // tenant -- so this page's own tenant config is the only place its
+        // brand can be read from.
+        if (tenantId === tenant) tenantBrand = readTenantBrand(payload);
         // Reconcile the skin fields. The SPA selects the skins/<name>/ folder
         // from `legacy_skin`, but greentic-setup's sync_skin writes the
         // operator's chosen skin into the modern `skin` field only —
@@ -2069,6 +2163,15 @@ console.log('[runtime-bootstrap] loaded');
         }
         skinData.statusBar = skinData.statusBar || {};
         skinData.statusBar.show = false;
+        if (tenantBrand) {
+          // Merge onto the skin's brand so every reader of `brand` -- the
+          // topbar title below, applyUiTranslations, and the SPA's own login
+          // card -- sees the tenant's name without learning a second field.
+          skinData.brand = Object.assign({}, skinData.brand);
+          if (tenantBrand.name) skinData.brand.name = tenantBrand.name;
+          if (tenantBrand.logo) skinData.brand.logo = tenantBrand.logo;
+          applyTenantBrand();
+        }
         window.__SKIN__ = skinData;
         // Update topbar title with brand name from skin
         var titleEl = document.querySelector('.topbar__title');

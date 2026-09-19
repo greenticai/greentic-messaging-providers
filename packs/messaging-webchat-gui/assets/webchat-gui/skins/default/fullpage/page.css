@@ -18,6 +18,19 @@
   --radius: 12px;
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+
+  /* Adaptive Card form inputs. Their own tokens rather than --border /
+     --surface: the dark blocks below redefine --border as a bare HSL triplet
+     for the React app, which is not a colour var() can use. */
+  --input-bg: #ffffff;
+  --input-border: #c9d4ce;
+  --input-border-hover: #8fb3a2;
+  --input-text: #1f2937;
+  --input-placeholder: #8a9690;
+  --input-focus: var(--brand);
+  --input-focus-ring: rgba(5,150,105,0.18);
+  --input-error: #dc2626;
+  --input-error-ring: rgba(220,38,38,0.16);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -519,6 +532,15 @@ button[data-action="logout"]:hover,
     --brand-light: rgba(5,150,105,0.25);
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
     --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+    --input-bg: #111827;
+    --input-border: #4b5563;
+    --input-border-hover: #6b7280;
+    --input-text: #f3f4f6;
+    --input-placeholder: #6b7280;
+    --input-focus: #34d399;
+    --input-focus-ring: rgba(52,211,153,0.22);
+    --input-error: #f87171;
+    --input-error-ring: rgba(248,113,113,0.22);
 
     /* Tailwind/shadcn theme overrides for React app */
     --background: 222 47% 7%;
@@ -552,6 +574,15 @@ button[data-action="logout"]:hover,
   --brand-light: rgba(5,150,105,0.25);
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+  --input-bg: #111827;
+  --input-border: #4b5563;
+  --input-border-hover: #6b7280;
+  --input-text: #f3f4f6;
+  --input-placeholder: #6b7280;
+  --input-focus: #34d399;
+  --input-focus-ring: rgba(52,211,153,0.22);
+  --input-error: #f87171;
+  --input-error-ring: rgba(248,113,113,0.22);
 
   /* Tailwind/shadcn theme overrides for React app */
   --background: 222 47% 7%;
@@ -1105,5 +1136,89 @@ button[data-action="logout"]:hover,
 
   .topbar-nav::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* ── Tenant brand logo ──────────────────────────────────── */
+/* runtime-bootstrap.js adds these classes only when the tenant config
+   carries its own `brand.logo_url`. A tenant mark is a full-colour image,
+   not the 20px glyph the Greentic logo is drawn at, so it fills the avatar
+   and skips the dark-mode brightening meant for that glyph. */
+.topbar__avatar--tenant {
+  background: transparent !important;
+  overflow: hidden;
+}
+.topbar__avatar .topbar__logo--tenant {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: none !important;
+}
+
+/* ── Adaptive Card form inputs ──────────────────────────── */
+/* Text, number, date, time, multiline and compact choice inputs. Checkboxes,
+   radios and the expanded choice-set container (a div) keep the renderer's
+   own layout. The :is() list also lifts these rules above the older
+   dark-mode colour-only rules, which the tokens now cover. */
+.webchat__bubble__content .ac-input:is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  display: block;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px !important;
+  font-family: var(--font) !important;
+  font-size: 0.9375rem !important;
+  line-height: 1.4 !important;
+  color: var(--input-text) !important;
+  background: var(--input-bg) !important;
+  border: 1px solid var(--input-border) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.webchat__bubble__content .ac-input:is(textarea) {
+  min-height: 96px !important;
+  resize: vertical;
+}
+.webchat__bubble__content .ac-input:is(input, textarea)::placeholder {
+  color: var(--input-placeholder);
+  opacity: 1;
+}
+.webchat__bubble__content .ac-input:is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):hover {
+  border-color: var(--input-border-hover) !important;
+}
+.webchat__bubble__content .ac-input:is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+  border-color: var(--input-focus) !important;
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+/* Same :is() list as the base rule plus the class, and after :focus, so a
+   failed field stays red while it is being corrected. */
+.webchat__bubble__content .ac-input:is(input:not([type="checkbox"]):not([type="radio"]), select, textarea).ac-input-validation-failed {
+  border-color: var(--input-error) !important;
+  box-shadow: 0 0 0 3px var(--input-error-ring);
+}
+.webchat__bubble__content .ac-input:is(input, select, textarea):disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.webchat__bubble__content .ac-input-container {
+  width: 100%;
+}
+/* The renderer appends a failed input's error message as a plain TextBlock
+   right after its control; the dark-mode rules above paint every TextBlock
+   white, which made the message read as ordinary body text. */
+.webchat__bubble__content .ac-input-container + .ac-textBlock {
+  margin-top: 6px !important;
+}
+.webchat__bubble__content .ac-input-container + .ac-textBlock,
+.webchat__bubble__content .ac-input-container + .ac-textBlock * {
+  font-size: 0.8125rem !important;
+  color: var(--input-error) !important;
+}
+
+/* 16px stops iOS Safari zooming the page when an input takes focus. */
+@media (max-width: 768px) {
+  .webchat__bubble__content .ac-input:is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    font-size: 16px !important;
   }
 }
