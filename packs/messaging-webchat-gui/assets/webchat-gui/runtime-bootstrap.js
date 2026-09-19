@@ -579,6 +579,15 @@ console.log('[runtime-bootstrap] loaded');
       if (document.title !== name) document.title = name;
     }
 
+    // The footer links belong to whoever made the skin (Greentic's docs,
+    // 3Point's site), not to the tenant now branding the page. Inline, not
+    // `hidden`: every skin styles `.footer__links` as flex, which beats the
+    // user-agent `display: none` that `hidden` relies on.
+    var footerLinks = document.querySelectorAll('.footer__links');
+    for (var f = 0; f < footerLinks.length; f += 1) {
+      if (footerLinks[f].style.display !== 'none') footerLinks[f].style.display = 'none';
+    }
+
     // `.topbar__logo` is the default skin's mark, `img.topbar__brand` the
     // 3aigent one. The marker class lets the skin size a tenant logo to fill
     // its avatar instead of the 20px glyph the Greentic mark is drawn at.

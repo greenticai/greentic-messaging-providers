@@ -36,6 +36,9 @@ test.describe('tenant brand', () => {
     await expect(page.locator('.topbar__title')).toHaveText('Meridian Insurance');
     await expect(page.locator('.footer__brand')).toHaveText('Meridian Insurance');
     await expect(page).toHaveTitle('Meridian Insurance');
+    // The skin vendor's own links (Greentic docs, GitHub, website) do not
+    // belong on a page carrying the tenant's brand.
+    await expect(page.locator('.footer__links')).toBeHidden();
 
     const logo = page.locator('.topbar__logo');
     await expect(logo).toHaveAttribute('src', LOGO_URL);
@@ -62,6 +65,7 @@ test.describe('tenant brand', () => {
     await expect(page.locator('.topbar__title')).toHaveText('Meridian Insurance');
     await expect(page.locator('img.topbar__brand')).toHaveAttribute('src', LOGO_URL);
     await expect(page.locator('.footer__brand')).toHaveText('Meridian Insurance');
+    await expect(page.locator('.footer__links')).toBeHidden();
   });
 
   test('a tenant with no brand keeps the skin brand', async ({ page }) => {
@@ -73,6 +77,7 @@ test.describe('tenant brand', () => {
 
     await expect(page.locator('.topbar__title')).toHaveText('Greentic');
     await expect(page.locator('.footer__brand')).toHaveText('Greentic');
+    await expect(page.locator('.footer__links')).toBeVisible();
     const logo = page.locator('.topbar__logo');
     await expect(logo).toHaveAttribute('src', /\/skins\/default\/assets\/logo\.svg$/);
     await expect(logo).not.toHaveClass(/topbar__logo--tenant/);
