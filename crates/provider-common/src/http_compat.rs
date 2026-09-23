@@ -13,20 +13,12 @@ use serde_json::{Value, json};
 /// into the `greentic-types` `HttpInV1` format.
 ///
 /// Falls back gracefully: if fields are already in the expected format they pass through.
+///
+/// The `config` field is kept. greentic-start sends deploy-time provider config on
+/// `ingest_http` alongside an array-of-pairs `query`, which the native `HttpInV1`
+/// cannot deserialize — so this fallback is the only path that request takes, and
+/// dropping `config` here left the provider with no config at all.
 pub fn parse_operator_http_in(input_json: &[u8]) -> Result<HttpInV1, String> {
-    parse_operator_http_in_inner(input_json, false)
-}
-
-/// Same as [`parse_operator_http_in`] but also extracts the `config` field from the
-/// operator payload. Used by providers that need config for ingress (e.g. Email).
-pub fn parse_operator_http_in_with_config(input_json: &[u8]) -> Result<HttpInV1, String> {
-    parse_operator_http_in_inner(input_json, true)
-}
-
-fn parse_operator_http_in_inner(
-    input_json: &[u8],
-    extract_config: bool,
-) -> Result<HttpInV1, String> {
     let val: Value = serde_json::from_slice(input_json).map_err(|e| e.to_string())?;
     let method = val
         .get("method")
@@ -88,11 +80,7 @@ fn parse_operator_http_in_inner(
         .get("binding_id")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
-    let config = if extract_config {
-        val.get("config").cloned()
-    } else {
-        None
-    };
+    let config = val.get("config").filter(|v| !v.is_null()).cloned();
     Ok(HttpInV1 {
         method,
         path,
@@ -103,6 +91,14 @@ fn parse_operator_http_in_inner(
         binding_id,
         config,
     })
+}
+
+/// Alias of [`parse_operator_http_in`], kept for existing callers (e.g. Email).
+///
+/// Both functions keep the `config` field; this one predates that and used to be
+/// the only one that did.
+pub fn parse_operator_http_in_with_config(input_json: &[u8]) -> Result<HttpInV1, String> {
+    parse_operator_http_in(input_json)
 }
 
 fn parse_headers(val: &Value) -> Vec<Header> {
@@ -248,17 +244,61 @@ mod tests {
         assert_eq!(req.config.unwrap()["tenant_id"], "abc");
     }
 
+    /// The exact shape greentic-start sends on `invoke(op="ingest_http")`: query and
+    /// headers as arrays of pairs, plus the deploy-time provider config. The native
+    /// `HttpInV1` rejects the array query, so this parser is the only one that sees
+    /// the request — and the config has to survive it.
     #[test]
-    fn parse_operator_format_without_config() {
+    fn start_wire_shape_keeps_config() {
+        let input = serde_json::to_vec(&json!({
+            "method": "POST",
+            "path": "/v1/messaging/webchat/acme/v3/directline/conversations",
+            "query": [["tenant", "acme"], ["team", "_"]],
+            "headers": [["content-type", "application/json"], ["authorization", "Bearer t"]],
+            "body_b64": "",
+            "route": null,
+            "binding_id": null,
+            "config": {"auto_start_on_open": false, "oauth_enabled_b64": "dHJ1ZQ=="},
+        }))
+        .unwrap();
+        assert!(
+            serde_json::from_slice::<HttpInV1>(&input).is_err(),
+            "the native parser must reject this shape, or the fallback is not what runs"
+        );
+
+        let req = parse_operator_http_in(&input).unwrap();
+        assert_eq!(req.query.as_deref(), Some("tenant=acme&team=_"));
+        assert_eq!(req.headers.len(), 2);
+        assert_eq!(req.headers[1].name, "authorization");
+        assert_eq!(
+            req.config,
+            Some(json!({"auto_start_on_open": false, "oauth_enabled_b64": "dHJ1ZQ=="}))
+        );
+    }
+
+    #[test]
+    fn absent_or_null_config_is_none() {
+        let absent = serde_json::to_vec(&json!({"method": "POST", "path": "/"})).unwrap();
+        assert!(parse_operator_http_in(&absent).unwrap().config.is_none());
+
+        let null =
+            serde_json::to_vec(&json!({"method": "POST", "path": "/", "config": null})).unwrap();
+        assert!(parse_operator_http_in(&null).unwrap().config.is_none());
+    }
+
+    #[test]
+    fn both_entry_points_agree_on_config() {
         let input = serde_json::to_vec(&json!({
             "method": "POST",
             "path": "/notifications",
-            "body_b64": "",
+            "query": [],
             "config": {"tenant_id": "abc"},
         }))
         .unwrap();
-        let req = parse_operator_http_in(&input).unwrap();
-        assert!(req.config.is_none());
+        let plain = parse_operator_http_in(&input).unwrap();
+        let with_config = parse_operator_http_in_with_config(&input).unwrap();
+        assert_eq!(plain.config, Some(json!({"tenant_id": "abc"})));
+        assert_eq!(plain.config, with_config.config);
     }
 
     #[test]
@@ -268,10 +308,12 @@ mod tests {
             "path": "/webhook",
             "body_b64": "",
             "query": "foo=bar&baz=qux",
+            "config": {"tenant_id": "abc"},
         }))
         .unwrap();
         let req = parse_operator_http_in(&input).unwrap();
         assert_eq!(req.query.as_deref(), Some("foo=bar&baz=qux"));
+        assert_eq!(req.config, Some(json!({"tenant_id": "abc"})));
     }
 
     #[test]
