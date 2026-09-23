@@ -333,7 +333,7 @@
     },
     "webchat": {
       "pack": "messaging-webchat",
-      "version": "0.5.10",
+      "version": "0.5.11",
       "ghcr_target": "ghcr.io/greenticai/messaging-webchat",
       "shared_crate_dependency": "greentic-messaging-provider-common@0.4.102",
       "e2e": {
@@ -369,7 +369,7 @@
     },
     "webchat-gui": {
       "pack": "messaging-webchat-gui",
-      "version": "0.5.38",
+      "version": "0.5.39",
       "ghcr_target": "ghcr.io/greenticai/messaging-webchat-gui",
       "shared_crate_dependency": "greentic-messaging-provider-common@0.4.102",
       "e2e": {
@@ -395,7 +395,7 @@
     },
     "3aigent-gui": {
       "pack": "messaging-3aigent-gui",
-      "version": "0.5.31",
+      "version": "0.5.32",
       "ghcr_target": "ghcr.io/greenticai/messaging-3aigent-gui",
       "shared_crate_dependency": "greentic-messaging-provider-common@0.4.102",
       "e2e": {
