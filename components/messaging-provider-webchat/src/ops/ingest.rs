@@ -1242,4 +1242,34 @@ mod tests {
         );
         assert!(!duplicated.events[0].extensions.contains_key("caller"));
     }
+
+    /// A Direct Line request as greentic-start sends it on `invoke(op="ingest_http")`:
+    /// array-of-pairs query and headers, plus the deploy-time config. The OAuth answers
+    /// are only reachable through that config, so `auth/config` reporting `enabled`
+    /// proves the config survived the operator-format fallback parse.
+    #[test]
+    fn ingest_http_keeps_config_from_the_start_wire_shape() {
+        let providers = json!([{"id": "greentic", "label": "Greentic SSO", "client_id": "c"}]);
+        let input = serde_json::to_vec(&json!({
+            "method": "GET",
+            "path": "/v1/messaging/webchat/acme/auth/config",
+            "query": [["tenant", "acme"], ["team", "_"]],
+            "headers": [["accept", "application/json"]],
+            "body_b64": "",
+            "config": {
+                "oauth_enabled_b64": general_purpose::STANDARD.encode("true"),
+                "oauth_providers_b64": general_purpose::STANDARD.encode(providers.to_string()),
+            },
+        }))
+        .unwrap();
+
+        let out: Value = serde_json::from_slice(&ingest_http(&input)).unwrap();
+        assert_eq!(out["status"], 200);
+        let body = general_purpose::STANDARD
+            .decode(out["body_b64"].as_str().unwrap())
+            .unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["enabled"], true);
+        assert_eq!(body["providers"][0]["id"], "greentic");
+    }
 }
