@@ -74,7 +74,7 @@
     "src": "src",
     "generated_pack_dir": "target/generated/messaging-teams.pack"
   },
-  "pack_version": "0.5.24",
+  "pack_version": "0.5.25",
   "build_answer": {
     "schema_id": "greentic-messaging-teams.build-answer",
     "schema_version": "1.0.0"
@@ -95,7 +95,7 @@
   "runtime_components": [
     {
       "id": "messaging-ingress-teams",
-      "version": "0.5.24",
+      "version": "0.5.25",
       "build_script": "tools/build_components/messaging-ingress-teams.sh",
       "source": "target/components/messaging-ingress-teams.wasm",
       "target": "components/messaging-ingress-teams/component.wasm",
@@ -105,7 +105,7 @@
     },
     {
       "id": "messaging-provider-teams-graph",
-      "version": "0.5.24",
+      "version": "0.5.25",
       "build_script": "tools/build_components/messaging-provider-teams-graph.sh",
       "source": "target/components/messaging-provider-teams-graph.wasm",
       "target": "components/messaging-provider-teams-graph/component.wasm",
@@ -121,7 +121,7 @@
       "provider_id": "messaging-teams",
       "tag_name": "greentic-teams-setup-v4",
       "module_asset": "assets/setup/greentic-teams-setup.js",
-      "module_url": "/v1/web/messaging-teams/setup/{tenant}/greentic-teams-setup.js?v=0.5.24-setup4",
+      "module_url": "/v1/web/messaging-teams/setup/{tenant}/greentic-teams-setup.js?v=0.5.25-setup4",
       "asset_base_path": "/v1/web/messaging-teams/setup/{tenant}",
       "attributes": {
         "provider-id": "messaging-teams",
@@ -193,7 +193,7 @@
       },
       {
         "path": "assets/setup.routes.json",
-        "content": "{\n  \"schema_id\": \"greentic.setup.web-component.v1\",\n  \"provider_id\": \"messaging-teams\",\n  \"tag_name\": \"greentic-teams-setup-v4\",\n  \"module_asset\": \"assets/setup/greentic-teams-setup.js\",\n  \"module_url\": \"/v1/web/messaging-teams/setup/{tenant}/greentic-teams-setup.js?v=0.5.24-setup4\",\n  \"asset_base_path\": \"/v1/web/messaging-teams/setup/{tenant}\",\n  \"static_route\": {\n    \"id\": \"messaging-teams-setup\",\n    \"public_path\": \"/v1/web/messaging-teams/setup/{tenant}\",\n    \"source_root\": \"assets/setup\"\n  },\n  \"attributes\": {\n    \"provider-id\": \"messaging-teams\",\n    \"api-base\": \"\",\n    \"locale\": \"{locale}\",\n    \"state-path\": \"/v1/messaging/setup/messaging-teams/{tenant}\",\n    \"next-path\": \"/v1/messaging/setup/messaging-teams/{tenant}/next\",\n    \"config-path\": \"/v1/messaging/setup/messaging-teams/{tenant}/config\",\n    \"oauth-start-path\": \"/v1/messaging/setup/messaging-teams/{tenant}/oauth/{kind}/start\",\n    \"oauth-complete-path\": \"/v1/messaging/setup/messaging-teams/{tenant}/oauth/{kind}/complete\",\n    \"package-path\": \"/v1/messaging/setup/messaging-teams/{tenant}/teams-app/package.zip\"\n  },\n  \"events\": {\n    \"state\": \"greentic-provider-setup-state\",\n    \"result\": \"greentic-provider-setup-result\",\n    \"action_start\": \"greentic-provider-setup-action-start\",\n    \"action_complete\": \"greentic-provider-setup-action-complete\",\n    \"action_timeout\": \"greentic-provider-setup-action-timeout\",\n    \"device_login\": \"greentic-provider-setup-device-login\",\n    \"error\": \"greentic-provider-setup-error\",\n    \"complete\": \"greentic-provider-setup-complete\"\n  },\n  \"completion\": {\n    \"event\": \"greentic-provider-setup-complete\",\n    \"state_event\": \"greentic-provider-setup-state\",\n    \"state_path\": \"setup_status.ok\",\n    \"equals\": true\n  },\n  \"api\": {\n    \"state\": \"/v1/messaging/setup/messaging-teams/{tenant}\",\n    \"next\": \"/v1/messaging/setup/messaging-teams/{tenant}/next\",\n    \"config\": \"/v1/messaging/setup/messaging-teams/{tenant}/config\",\n    \"oauth_start\": \"/v1/messaging/setup/messaging-teams/{tenant}/oauth/{kind}/start\",\n    \"oauth_complete\": \"/v1/messaging/setup/messaging-teams/{tenant}/oauth/{kind}/complete\",\n    \"teams_app_publish\": \"/v1/messaging/setup/messaging-teams/{tenant}/teams-app/publish\",\n    \"teams_app_install_me\": \"/v1/messaging/setup/messaging-teams/{tenant}/teams-app/install-me\",\n    \"teams_app_package\": \"/v1/messaging/setup/messaging-teams/{tenant}/teams-app/package.zip\"\n  }\n}\n"
+        "content": "{\n  \"schema_id\": \"greentic.setup.web-component.v1\",\n  \"provider_id\": \"messaging-teams\",\n  \"tag_name\": \"greentic-teams-setup-v4\",\n  \"module_asset\": \"assets/setup/greentic-teams-setup.js\",\n  \"module_url\": \"/v1/web/messaging-teams/setup/{tenant}/greentic-teams-setup.js?v=0.5.25-setup4\",\n  \"asset_base_path\": \"/v1/web/messaging-teams/setup/{tenant}\",\n  \"static_route\": {\n    \"id\": \"messaging-teams-setup\",\n    \"public_path\": \"/v1/web/messaging-teams/setup/{tenant}\",\n    \"source_root\": \"assets/setup\"\n  },\n  \"attributes\": {\n    \"provider-id\": \"messaging-teams\",\n    \"api-base\": \"\",\n    \"locale\": \"{locale}\",\n    \"state-path\": \"/v1/messaging/setup/messaging-teams/{tenant}\",\n    \"next-path\": \"/v1/messaging/setup/messaging-teams/{tenant}/next\",\n    \"config-path\": \"/v1/messaging/setup/messaging-teams/{tenant}/config\",\n    \"oauth-start-path\": \"/v1/messaging/setup/messaging-teams/{tenant}/oauth/{kind}/start\",\n    \"oauth-complete-path\": \"/v1/messaging/setup/messaging-teams/{tenant}/oauth/{kind}/complete\",\n    \"package-path\": \"/v1/messaging/setup/messaging-teams/{tenant}/teams-app/package.zip\"\n  },\n  \"events\": {\n    \"state\": \"greentic-provider-setup-state\",\n    \"result\": \"greentic-provider-setup-result\",\n    \"action_start\": \"greentic-provider-setup-action-start\",\n    \"action_complete\": \"greentic-provider-setup-action-complete\",\n    \"action_timeout\": \"greentic-provider-setup-action-timeout\",\n    \"device_login\": \"greentic-provider-setup-device-login\",\n    \"error\": \"greentic-provider-setup-error\",\n    \"complete\": \"greentic-provider-setup-complete\"\n  },\n  \"completion\": {\n    \"event\": \"greentic-provider-setup-complete\",\n    \"state_event\": \"greentic-provider-setup-state\",\n    \"state_path\": \"setup_status.ok\",\n    \"equals\": true\n  },\n  \"api\": {\n    \"state\": \"/v1/messaging/setup/messaging-teams/{tenant}\",\n    \"next\": \"/v1/messaging/setup/messaging-teams/{tenant}/next\",\n    \"config\": \"/v1/messaging/setup/messaging-teams/{tenant}/config\",\n    \"oauth_start\": \"/v1/messaging/setup/messaging-teams/{tenant}/oauth/{kind}/start\",\n    \"oauth_complete\": \"/v1/messaging/setup/messaging-teams/{tenant}/oauth/{kind}/complete\",\n    \"teams_app_publish\": \"/v1/messaging/setup/messaging-teams/{tenant}/teams-app/publish\",\n    \"teams_app_install_me\": \"/v1/messaging/setup/messaging-teams/{tenant}/teams-app/install-me\",\n    \"teams_app_package\": \"/v1/messaging/setup/messaging-teams/{tenant}/teams-app/package.zip\"\n  }\n}\n"
       }
     ]
   }
