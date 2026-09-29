@@ -26,6 +26,8 @@ pub(crate) const I18N_KEYS: &[&str] = &[
     "teams.op.encode.description",
     "teams.op.send_payload.title",
     "teams.op.send_payload.description",
+    "teams.op.send_typing.title",
+    "teams.op.send_typing.description",
     // Input schema
     "teams.schema.input.title",
     "teams.schema.input.description",
@@ -143,6 +145,11 @@ pub(crate) fn build_describe_payload() -> DescribePayload {
                 "teams.op.send_payload.title",
                 "teams.op.send_payload.description",
             ),
+            op(
+                "send_typing",
+                "teams.op.send_typing.title",
+                "teams.op.send_typing.description",
+            ),
             // Subscription sync is provided by the Teams ingress component.
         ],
         input_schema: input_schema.clone(),
@@ -208,6 +215,11 @@ pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
     (
         "teams.op.send_payload.description",
         "Send encoded payload to Microsoft Graph",
+    ),
+    ("teams.op.send_typing.title", "Send Typing"),
+    (
+        "teams.op.send_typing.description",
+        "Show that the bot is typing (Bot Framework conversations only)",
     ),
     // Input schema
     ("teams.schema.input.title", "Teams input"),

@@ -9,6 +9,7 @@
 //! - `encode` — step 2 (`encode_op`): universal → provider payload.
 //! - `send_payload` — step 3 (`send_payload`): persist + append bot activity
 //!   into the Direct Line conversation state.
+//! - `send_typing` — optional typing indicator (ephemeral slot, never history).
 //! - `send` — legacy `run`/`send` op (`handle_send`) for direct non-universal
 //!   invocation.
 //! - `ingest` — inbound HTTP router (`handle_ingest`, `ingest_http`) covering
@@ -31,6 +32,7 @@ mod oauth;
 mod render;
 mod send;
 mod send_payload;
+mod send_typing;
 
 pub(crate) use encode::encode_op;
 pub(crate) use identify::{IDENTIFY_HINT_JSON, extract_recipient_id};
@@ -38,3 +40,4 @@ pub(crate) use ingest::{handle_ingest, ingest_http};
 pub(crate) use render::render_plan;
 pub(crate) use send::handle_send;
 pub(crate) use send_payload::send_payload;
+pub(crate) use send_typing::send_typing;

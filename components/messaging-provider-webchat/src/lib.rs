@@ -35,7 +35,9 @@ use config::{ProviderConfigOut, default_config_out, default_mode, validate_confi
 use describe::{
     DEFAULT_KEYS, I18N_KEYS, I18N_PAIRS, SETUP_QUESTIONS, build_describe_payload, build_qa_spec,
 };
-use ops::{encode_op, handle_ingest, handle_send, ingest_http, render_plan, send_payload};
+use ops::{
+    encode_op, handle_ingest, handle_send, ingest_http, render_plan, send_payload, send_typing,
+};
 
 // ============================================================================
 // Component trait implementations
@@ -161,6 +163,7 @@ fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
         "render_plan" | "render-plan" => render_plan(input_json),
         "encode" => encode_op(input_json),
         "send_payload" | "send-payload" => send_payload(input_json),
+        "send_typing" | "send-typing" => send_typing(input_json),
         other => json_bytes(&json!({"ok": false, "error": format!("unsupported op: {other}")})),
     }
 }
@@ -381,6 +384,19 @@ mod tests {
     use config::parse_config_bytes;
     use provider_common::component_v0_6::{SchemaIr, schema_hash};
     use std::collections::BTreeSet;
+
+    #[test]
+    fn send_typing_is_dispatched_not_unsupported() {
+        let out: serde_json::Value =
+            serde_json::from_slice(&dispatch_json_invoke("send_typing", b"{")).expect("json");
+        assert_eq!(out["ok"], false);
+        assert!(
+            !out["error"]
+                .as_str()
+                .unwrap_or("")
+                .contains("unsupported op")
+        );
+    }
 
     #[test]
     fn parse_config_requires_new_fields() {

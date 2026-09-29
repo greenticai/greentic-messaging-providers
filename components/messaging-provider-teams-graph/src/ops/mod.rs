@@ -8,6 +8,7 @@
 //! - `encode`  — `encode_op` (step 2)
 //! - `send`    — `send_payload`, `handle_send`, `handle_reply` (step 3 + legacy)
 //! - `provision` — setup-time Teams channel desired-state helpers
+//! - `typing`  — `send_typing` (Bot Framework connector only)
 //! - `ingest`  — `ingest_http` + Bot Framework activity/card-action handling
 //!
 //! `build_team_envelope` is shared between `send` and `ingest` because both
@@ -20,6 +21,7 @@ mod ingest;
 mod provision;
 mod render;
 mod send;
+mod typing;
 
 pub(crate) use encode::encode_op;
 pub(crate) use identify::{IDENTIFY_HINT_JSON, extract_recipient_id};
@@ -29,6 +31,7 @@ pub(crate) use provision::with_http_send_mock;
 pub(crate) use provision::{ensure_channel, maybe_ensure_channel_config};
 pub(crate) use render::render_plan;
 pub(crate) use send::{handle_reply, handle_send, send_payload};
+pub(crate) use typing::send_typing;
 
 // Re-export extraction helpers for the in-module test suite. The pattern
 // mirrors `messaging-provider-slack::ops` so unit tests can keep using

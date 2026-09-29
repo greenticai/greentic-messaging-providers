@@ -341,6 +341,7 @@ fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
         "render_plan" => ops::render_plan(input_json),
         "encode" => ops::encode_op(input_json),
         "send_payload" => ops::send_payload(input_json),
+        "send_typing" => ops::send_typing(input_json),
         other => json_bytes(&json!({"ok": false, "error": format!("unsupported op: {other}")})),
     }
 }
@@ -350,6 +351,19 @@ mod tests {
     use super::*;
     use base64::{Engine as _, engine::general_purpose};
     use config::parse_config_bytes;
+
+    #[test]
+    fn send_typing_is_dispatched_not_unsupported() {
+        let out: Value =
+            serde_json::from_slice(&dispatch_json_invoke("send_typing", b"{")).expect("json");
+        assert_eq!(out["ok"], false);
+        assert!(
+            !out["error"]
+                .as_str()
+                .unwrap_or("")
+                .contains("unsupported op")
+        );
+    }
 
     #[test]
     fn parse_config_requires_new_fields() {

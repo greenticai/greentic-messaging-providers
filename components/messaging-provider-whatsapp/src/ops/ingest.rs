@@ -70,7 +70,12 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         .and_then(|m| m.get("phone_number_id"))
         .and_then(Value::as_str)
         .map(str::to_string);
-    let mut envelope = build_whatsapp_envelope(text.clone(), from.clone(), cloud_phone_id);
+    let mut envelope = build_whatsapp_envelope(
+        text.clone(),
+        from.clone(),
+        cloud_phone_id,
+        cloud_message_id(msg),
+    );
     // WhatsApp doesn't include locale in webhooks; use provider config default.
     if let Ok(wa_cfg) = load_config(&body_val)
         && let Some(locale) = &wa_cfg.default_locale
@@ -100,6 +105,7 @@ fn build_whatsapp_envelope(
     text: String,
     from: Option<String>,
     phone_number_id: Option<String>,
+    message_id: Option<String>,
 ) -> ChannelMessageEnvelope {
     let env = EnvId::try_from("default").expect("env id");
     let tenant = TenantId::try_from("default").expect("tenant id");
@@ -108,6 +114,9 @@ fn build_whatsapp_envelope(
     metadata.insert("channel_id".to_string(), "whatsapp".to_string());
     let pnid = phone_number_id.unwrap_or_else(|| "unknown".to_string());
     metadata.insert("phone_number_id".to_string(), pnid);
+    if let Some(id) = message_id {
+        metadata.insert("wa_message_id".to_string(), id);
+    }
     let sender = from.map(|id| Actor {
         id,
         kind: Some("user".into()),
@@ -139,6 +148,15 @@ fn build_whatsapp_envelope(
     }
 }
 
+/// Cloud API inbound message id (`wamid.…`); the typing indicator must name it.
+fn cloud_message_id(msg: &Value) -> Option<String> {
+    msg.get("id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(str::to_string)
+}
+
 fn parse_query(query: &Option<String>) -> Option<HashMap<String, String>> {
     let query = query.as_deref()?;
     let mut map = HashMap::new();
@@ -149,4 +167,27 @@ fn parse_query(query: &Option<String>) -> Option<HashMap<String, String>> {
         }
     }
     if map.is_empty() { None } else { Some(map) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_inbound_message_id_is_kept_for_typing() {
+        let msg = json!({"id": "wamid.ABC", "from": "447", "text": {"body": "hi"}});
+        assert_eq!(cloud_message_id(&msg).as_deref(), Some("wamid.ABC"));
+        let env = build_whatsapp_envelope(
+            "hi".into(),
+            Some("447".into()),
+            Some("pn-1".into()),
+            cloud_message_id(&msg),
+        );
+        assert_eq!(
+            env.metadata.get("wa_message_id").map(String::as_str),
+            Some("wamid.ABC")
+        );
+        let none = build_whatsapp_envelope("hi".into(), None, None, None);
+        assert!(!none.metadata.contains_key("wa_message_id"));
+    }
 }

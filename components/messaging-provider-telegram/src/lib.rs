@@ -34,7 +34,8 @@ use describe::{
     DEFAULT_KEYS, I18N_KEYS, I18N_PAIRS, SETUP_QUESTIONS, build_describe_payload, build_qa_spec,
 };
 use ops::{
-    encode_op, handle_reply, handle_send, ingest_http, render_plan, send_payload, setup_webhook,
+    encode_op, handle_reply, handle_send, ingest_http, render_plan, send_payload, send_typing,
+    setup_webhook,
 };
 
 // ============================================================================
@@ -161,6 +162,7 @@ fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
         "render_plan" => render_plan(input_json),
         "encode" => encode_op(input_json),
         "send_payload" => send_payload(input_json),
+        "send_typing" => send_typing(input_json),
         "setup_webhook" => setup_webhook(input_json),
         other => json_bytes(&json!({"ok": false, "error": format!("unsupported op: {other}")})),
     }
@@ -383,6 +385,19 @@ fn string_or_default(answers: &Value, key: &str, default: &str) -> String {
 mod tests {
     use super::*;
     use std::collections::BTreeSet;
+
+    #[test]
+    fn send_typing_is_dispatched_not_unsupported() {
+        let out: serde_json::Value =
+            serde_json::from_slice(&dispatch_json_invoke("send_typing", b"{")).expect("json");
+        assert_eq!(out["ok"], false);
+        assert!(
+            !out["error"]
+                .as_str()
+                .unwrap_or("")
+                .contains("unsupported op")
+        );
+    }
 
     #[test]
     fn schema_hash_is_stable() {
