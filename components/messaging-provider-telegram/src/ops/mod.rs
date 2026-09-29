@@ -8,6 +8,7 @@
 //! - [`send`]     — `send`/`run` op: outbound Telegram message fan-out.
 //! - [`send_payload`] — `send_payload` op, `handle_reply`, and the send-payload bridge.
 //! - [`ingest`]   — `ingest_http` op: webhook → `ChannelMessageEnvelope` normalization.
+//! - [`typing`]   — `send_typing` op: `sendChatAction` typing indicator.
 //! - [`webhook`]  — `setup_webhook` op: Telegram `setWebhook` invocation.
 //! - [`http`]     — thin wrappers around the HTTP client for Telegram API calls.
 //! - [`ac_to_html`] / [`ac_inputs`] / [`ac_helpers`] — Adaptive Card → HTML + inline
@@ -24,6 +25,7 @@ pub(crate) mod ingest;
 pub(crate) mod render;
 pub(crate) mod send;
 pub(crate) mod send_payload;
+pub(crate) mod typing;
 pub(crate) mod webhook;
 
 pub(crate) use encode::encode_op;
@@ -32,4 +34,5 @@ pub(crate) use ingest::ingest_http;
 pub(crate) use render::render_plan;
 pub(crate) use send::handle_send;
 pub(crate) use send_payload::{handle_reply, send_payload};
+pub(crate) use typing::send_typing;
 pub(crate) use webhook::setup_webhook;

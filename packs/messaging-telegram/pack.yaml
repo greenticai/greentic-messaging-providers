@@ -341,6 +341,7 @@ extensions:
         - render_plan
         - encode
         - send_payload
+        - send_typing
         - setup_webhook
         - qa-spec
         - apply-answers

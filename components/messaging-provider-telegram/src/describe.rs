@@ -23,6 +23,8 @@ pub(crate) const I18N_KEYS: &[&str] = &[
     "telegram.op.encode.description",
     "telegram.op.send_payload.title",
     "telegram.op.send_payload.description",
+    "telegram.op.send_typing.title",
+    "telegram.op.send_typing.description",
     "telegram.op.setup_webhook.title",
     "telegram.op.setup_webhook.description",
     "telegram.schema.input.title",
@@ -112,6 +114,11 @@ pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
     (
         "telegram.op.send_payload.description",
         "Send encoded payload to Telegram API",
+    ),
+    ("telegram.op.send_typing.title", "Send Typing"),
+    (
+        "telegram.op.send_typing.description",
+        "Show that the bot is typing (sendChatAction)",
     ),
     ("telegram.op.setup_webhook.title", "Setup Webhook"),
     (
@@ -238,6 +245,11 @@ pub(crate) fn build_describe_payload() -> DescribePayload {
                 "send_payload",
                 "telegram.op.send_payload.title",
                 "telegram.op.send_payload.description",
+            ),
+            op(
+                "send_typing",
+                "telegram.op.send_typing.title",
+                "telegram.op.send_typing.description",
             ),
             op(
                 "setup_webhook",
