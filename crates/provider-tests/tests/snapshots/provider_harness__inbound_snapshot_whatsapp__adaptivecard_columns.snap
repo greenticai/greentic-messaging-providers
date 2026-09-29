@@ -9,7 +9,8 @@ expression: value
     "metadata": {
       "channel_id": "whatsapp",
       "phone_number_id": "unknown",
-      "universal": "true"
+      "universal": "true",
+      "wa_message_id": "whatsapp-adaptivecard_columns-id"
     },
     "session_id": "whatsapp",
     "tenant": {
