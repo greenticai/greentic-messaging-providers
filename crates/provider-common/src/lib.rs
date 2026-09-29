@@ -30,6 +30,7 @@ pub mod redact;
 pub mod render;
 pub mod telemetry;
 pub mod test_macros;
+pub mod typing;
 
 pub use ac_converter::AdaptiveCardConverter;
 
