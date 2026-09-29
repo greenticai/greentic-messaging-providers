@@ -290,6 +290,7 @@
               "render_plan",
               "encode",
               "send_payload",
+              "send_typing",
               "qa-spec",
               "apply-answers",
               "i18n-keys"

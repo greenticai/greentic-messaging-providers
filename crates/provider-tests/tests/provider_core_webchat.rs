@@ -380,3 +380,72 @@ fn invoke_send_and_ingest_smoke_test() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn send_typing_writes_only_the_ephemeral_slot() -> Result<()> {
+    let component_path = ensure_component_artifact()?;
+    let engine = new_engine();
+    let component = Component::from_file(&engine, &component_path)
+        .map_err(|err| anyhow::anyhow!("loading component: {err}"))?;
+    let mut linker = Linker::new(&engine);
+    add_wasi_to_linker(&mut linker);
+    add_greentic_hosts(&mut linker);
+
+    let conv_key = "webchat:conv:prod:acme:_:conv-1";
+    let conversation = json!({
+        "ctx": {"env": "prod", "tenant": "acme", "team": null},
+        "next_watermark": 3,
+        "activities": []
+    });
+    let conversation_bytes = serde_json::to_vec(&conversation)?;
+    let mut host = HostState::new();
+    host.state
+        .insert(conv_key.to_string(), conversation_bytes.clone());
+    let mut store = Store::new(&engine, host);
+    let instance = linker
+        .instantiate(&mut store, &component)
+        .map_err(|err| anyhow::anyhow!("instantiate: {err}"))?;
+    let api_index: ComponentExportIndex = instance
+        .get_export_index(&mut store, None, "greentic:component/runtime@0.6.0")
+        .context("runtime export index")?;
+    let invoke_index = instance
+        .get_export_index(&mut store, Some(&api_index), "invoke")
+        .context("invoke export index")?;
+    let invoke: TypedFunc<(String, Vec<u8>), (Vec<u8>,)> = instance
+        .get_typed_func(&mut store, invoke_index)
+        .map_err(|err| anyhow::anyhow!("get invoke func: {err}"))?;
+
+    let input = json!({
+        "v": 1,
+        "provider_type": "messaging.webchat",
+        "tenant_id": "acme",
+        "tenant": {"env": "prod", "tenant": "acme"},
+        "message": {
+            "session_id": "conv-1",
+            "metadata": {"env": "prod", "tenant": "acme"}
+        }
+    });
+    let (resp,) = invoke
+        .call(
+            &mut store,
+            ("send_typing".to_string(), canonical_cbor_bytes(&input)),
+        )
+        .map_err(|err| anyhow::anyhow!("call send_typing: {err}"))?;
+    let out: Value = decode_cbor(&resp).map_err(anyhow::Error::msg)?;
+    assert_eq!(out["ok"], true, "{out}");
+    assert_eq!(out["refresh_after_ms"], 4000);
+    assert_eq!(out["_greentic"]["watermark_bumped"], 3);
+    assert_eq!(out["_greentic"]["conversation_id"], "conv-1");
+    assert_eq!(out["_greentic"]["tenant"], "acme");
+
+    let state = &store.data().state;
+    assert_eq!(state.get(conv_key), Some(&conversation_bytes));
+    let slot: Value = serde_json::from_slice(
+        state
+            .get(&format!("{conv_key}:typing"))
+            .context("typing slot written")?,
+    )?;
+    assert_eq!(slot["since_watermark"], 3);
+    assert_eq!(state.len(), 2);
+    Ok(())
+}

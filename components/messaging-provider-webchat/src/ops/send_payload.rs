@@ -341,7 +341,7 @@ fn build_error_adaptive_card(safe_message: &str, error_kind: &str) -> Value {
 /// variant. Walks `candidate_conversation_contexts` and returns the first key
 /// that resolves. Logs the keys tried when none match — silent misses here
 /// translate directly into "/activities is empty" symptoms in the SPA.
-fn find_existing_conversation_state<S: crate::directline::store::StateStore>(
+pub(super) fn find_existing_conversation_state<S: crate::directline::store::StateStore>(
     store: &mut S,
     ctx: &DirectLineContext,
     conversation_id: &str,

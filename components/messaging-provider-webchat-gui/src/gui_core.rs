@@ -25,6 +25,7 @@ use crate::describe::{
 };
 use crate::ops::{
     self, encode_op, handle_ingest, handle_send, ingest_http, render_plan, send_payload,
+    send_typing,
 };
 
 pub(crate) struct Component;
@@ -320,6 +321,7 @@ fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
         "render_plan" | "render-plan" => render_plan(input_json),
         "encode" => encode_op(input_json),
         "send_payload" | "send-payload" => send_payload(input_json),
+        "send_typing" | "send-typing" => send_typing(input_json),
         other => {
             telemetry::emit(
                 Level::Warn,
@@ -814,6 +816,19 @@ mod tests {
         let headers = r#"{"method":"POST","path":"/v3/directline/conversations","query":"","content-type":"application/json"}"#;
         let input = ingress_operator_input(headers, "{}", config).expect("operator input");
         serde_json::from_value(input).expect("ingest_http accepts the operator input")
+    }
+
+    #[test]
+    fn send_typing_is_dispatched_for_this_variants_provider_type() {
+        let input = json!({"v": 1, "provider_type": crate::PROVIDER_TYPE, "message": {}});
+        let out: Value = serde_json::from_slice(&dispatch_json_invoke(
+            "send_typing",
+            input.to_string().as_bytes(),
+        ))
+        .expect("json");
+        assert_eq!(out["ok"], false);
+        let err = out["error"].as_str().unwrap_or("");
+        assert!(err.contains("no Direct Line conversation"), "{err}");
     }
 
     #[test]

@@ -168,6 +168,8 @@ pub(crate) const I18N_KEYS: &[&str] = &[
     "webchat.op.encode.description",
     "webchat.op.send_payload.title",
     "webchat.op.send_payload.description",
+    "webchat.op.send_typing.title",
+    "webchat.op.send_typing.description",
     "webchat.schema.input.title",
     "webchat.schema.input.description",
     "webchat.schema.input.message.title",
@@ -438,6 +440,11 @@ pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
     (
         "webchat.op.send_payload.description",
         "Send encoded payload to WebChat API",
+    ),
+    ("webchat.op.send_typing.title", "Send Typing"),
+    (
+        "webchat.op.send_typing.description",
+        "Show that the bot is typing in the conversation; never stored as history",
     ),
     ("webchat.schema.input.title", "WebChat input"),
     (
@@ -784,6 +791,11 @@ pub(crate) fn build_describe_payload() -> DescribePayload {
                 "send_payload",
                 "webchat.op.send_payload.title",
                 "webchat.op.send_payload.description",
+            ),
+            op(
+                "send_typing",
+                "webchat.op.send_typing.title",
+                "webchat.op.send_typing.description",
             ),
         ],
         input_schema: input_schema.clone(),
