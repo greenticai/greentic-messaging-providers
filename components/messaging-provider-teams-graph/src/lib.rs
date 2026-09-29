@@ -62,7 +62,7 @@ use describe::{
 };
 use ops::{
     encode_op, ensure_channel, handle_reply, handle_send, ingest_http, maybe_ensure_channel_config,
-    render_plan, send_payload,
+    render_plan, send_payload, send_typing,
 };
 
 // ============================================================================
@@ -190,6 +190,7 @@ fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
         "render_plan" => render_plan(input_json),
         "encode" => encode_op(input_json),
         "send_payload" => send_payload(input_json),
+        "send_typing" => send_typing(input_json),
         // Note: subscription_* operations removed - Bot Service handles subscriptions automatically
         other => json_bytes(&json!({"ok": false, "error": format!("unsupported op: {other}")})),
     }
@@ -487,6 +488,19 @@ mod tests {
     use config::parse_config_bytes;
     use provider_common::component_v0_6::schema_hash;
     use std::collections::BTreeSet;
+
+    #[test]
+    fn send_typing_is_dispatched_not_unsupported() {
+        let out: Value =
+            serde_json::from_slice(&dispatch_json_invoke("send_typing", b"{")).expect("json");
+        assert_eq!(out["ok"], false);
+        assert!(
+            !out["error"]
+                .as_str()
+                .unwrap_or("")
+                .contains("unsupported op")
+        );
+    }
 
     #[test]
     fn parse_config_requires_new_fields() {
