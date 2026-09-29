@@ -178,6 +178,10 @@ When the operator sends a message to a channel, it runs three sequential WASM in
       → returns delivery confirmation
 ```
 
+Providers whose platform has a native typing indicator also implement the
+optional `send_typing` op, which the host calls while a turn runs; see
+[`docs/typing-signal.md`](docs/typing-signal.md).
+
 ### Adaptive Card Tiers
 
 The `greentic-messaging-renderer` crate determines how to handle Adaptive Cards based on channel capabilities:
