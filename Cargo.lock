@@ -2259,7 +2259,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-teams"
-version = "0.5.25"
+version = "0.5.26"
 dependencies = [
  "base64",
  "greentic-telemetry",
@@ -2272,7 +2272,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-telegram"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "greentic-telemetry",
  "serde",
@@ -2282,7 +2282,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-whatsapp"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "greentic-telemetry",
  "serde",
@@ -2292,7 +2292,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-3aigent-gui"
-version = "0.5.33"
+version = "0.5.34"
 dependencies = [
  "base64",
  "chrono",
@@ -2369,7 +2369,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-telegram"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "base64",
  "greentic-messaging-provider-common",
@@ -2382,7 +2382,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webchat"
-version = "0.5.12"
+version = "0.5.13"
 dependencies = [
  "base64",
  "chrono",
@@ -2401,7 +2401,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webchat-gui"
-version = "0.5.40"
+version = "0.5.41"
 dependencies = [
  "base64",
  "chrono",
@@ -2436,7 +2436,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-whatsapp"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "base64",
  "greentic-messaging-provider-common",
@@ -3580,7 +3580,7 @@ dependencies = [
 
 [[package]]
 name = "telegram"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",
@@ -3593,7 +3593,7 @@ dependencies = [
 
 [[package]]
 name = "telegram-webhook"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "greentic-telemetry",
  "serde",
@@ -4646,7 +4646,7 @@ dependencies = [
 
 [[package]]
 name = "webchat"
-version = "0.5.12"
+version = "0.5.13"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",
@@ -4708,7 +4708,7 @@ dependencies = [
 
 [[package]]
 name = "whatsapp"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",
