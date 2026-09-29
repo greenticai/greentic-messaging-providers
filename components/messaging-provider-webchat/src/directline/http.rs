@@ -11,7 +11,10 @@ use greentic_types::messaging::universal_dto::{Header, HttpInV1, HttpOutV1};
 use super::caller::caller_header;
 use super::jwt::{DirectLineContext, TTL_SECONDS, issue_token, reissue_token, verify_token};
 use super::oidc::{OidcError, verify_access_token};
-use super::state::{ConversationState, StoredActivity, conversation_key, sanitize_team};
+use super::state::{
+    ConversationState, StoredActivity, TypingSlot, conversation_key, sanitize_team,
+    typing_activity, typing_key,
+};
 use super::store::{JwksFetcher, NoJwksFetcher, RateLimitState, SecretStore, StateStore};
 
 const DIRECTLINE_PREFIX: &str = "/v3/directline";
@@ -661,7 +664,7 @@ where
         Err(resp) => return resp,
     };
 
-    let activities = conversation
+    let mut activities = conversation
         .activities
         .iter()
         .filter(|activity| match watermark {
@@ -670,6 +673,9 @@ where
         })
         .map(activity_to_value)
         .collect::<Vec<_>>();
+    if let Some(typing) = live_typing_activity(state_store, &conv_key, &conversation) {
+        activities.push(typing);
+    }
 
     respond_json(
         200,
@@ -730,6 +736,17 @@ fn write_conversation_state<S: StateStore>(
     store
         .write(key, &bytes)
         .map_err(|err| respond_error(500, "state_write", err))
+}
+
+/// Typing is cosmetic: a missing or unreadable slot is "no typing", never an error.
+fn live_typing_activity<S: StateStore>(
+    store: &mut S,
+    conv_key: &str,
+    conversation: &ConversationState,
+) -> Option<Value> {
+    let bytes = store.read(&typing_key(conv_key)).ok().flatten()?;
+    let slot: TypingSlot = serde_json::from_slice(&bytes).ok()?;
+    typing_activity(&slot, conversation, Utc::now().timestamp_millis())
 }
 
 fn load_conversation_state<S: StateStore>(
@@ -1512,6 +1529,152 @@ mod tests {
             .decode(&response.body_b64)
             .map_err(|err| err.to_string())?;
         serde_json::from_slice(&bytes).map_err(|err| err.to_string())
+    }
+
+    fn bearer(token: &str) -> Vec<Header> {
+        vec![Header {
+            name: "Authorization".into(),
+            value: format!("Bearer {token}"),
+        }]
+    }
+
+    fn open_conversation(
+        state: &mut InMemoryStateStore,
+        secrets: &TestSecretStore,
+    ) -> Result<(String, String), String> {
+        let token_req = build_request(
+            "POST",
+            "/v3/directline/tokens/generate",
+            Some("env=default&tenant=default"),
+            Some(&json!({"user": {"id": "alice"}})),
+            vec![],
+        )?;
+        let token_body = decode_body(&handle_directline_request(&token_req, state, secrets))?;
+        let user_token = token_body["token"].as_str().ok_or("token")?.to_string();
+        let conv_req = build_request(
+            "POST",
+            "/v3/directline/conversations",
+            None,
+            None,
+            bearer(&user_token),
+        )?;
+        let conv_body = decode_body(&handle_directline_request(&conv_req, state, secrets))?;
+        let conv_id = conv_body["conversationId"]
+            .as_str()
+            .ok_or("conv id")?
+            .to_string();
+        let conv_token = conv_body["token"].as_str().ok_or("conv token")?.to_string();
+        let post = build_request(
+            "POST",
+            &format!("/v3/directline/conversations/{conv_id}/activities"),
+            None,
+            Some(&json!({"type": "message", "text": "hi", "from": {"id": "alice"}})),
+            bearer(&conv_token),
+        )?;
+        assert_eq!(handle_directline_request(&post, state, secrets).status, 201);
+        Ok((conv_id, conv_token))
+    }
+
+    fn get_activities(
+        state: &mut InMemoryStateStore,
+        secrets: &TestSecretStore,
+        conv_id: &str,
+        token: &str,
+    ) -> Result<Value, String> {
+        let req = build_request(
+            "GET",
+            &format!("/v3/directline/conversations/{conv_id}/activities"),
+            None,
+            None,
+            bearer(token),
+        )?;
+        decode_body(&handle_directline_request(&req, state, secrets))
+    }
+
+    fn default_conv_key(conv_id: &str) -> String {
+        conversation_key(
+            &DirectLineContext {
+                env: "default".into(),
+                tenant: "default".into(),
+                team: None,
+            },
+            conv_id,
+        )
+    }
+
+    fn read_conversation(
+        state: &mut InMemoryStateStore,
+        key: &str,
+    ) -> Result<ConversationState, String> {
+        serde_json::from_slice(&state.read(key)?.ok_or("conversation stored")?)
+            .map_err(|e| e.to_string())
+    }
+
+    #[test]
+    fn typing_is_synthesized_on_get_never_stored_and_gone_after_the_reply() -> Result<(), String> {
+        let mut state = InMemoryStateStore::new();
+        let mut secrets = TestSecretStore::new();
+        secrets.insert(TOKEN_SECRET_KEY, b"test-secret");
+        let (conv_id, token) = open_conversation(&mut state, &secrets)?;
+        let conv_key = default_conv_key(&conv_id);
+
+        let conversation = read_conversation(&mut state, &conv_key)?;
+        let slot = TypingSlot::raise(&conversation, Utc::now().timestamp_millis());
+        state.write(
+            &typing_key(&conv_key),
+            &serde_json::to_vec(&slot).map_err(|e| e.to_string())?,
+        )?;
+
+        let body = get_activities(&mut state, &secrets, &conv_id, &token)?;
+        let activities = body["activities"].as_array().ok_or("activities")?;
+        assert_eq!(
+            activities.last().map(|a| a["type"].clone()),
+            Some(json!("typing"))
+        );
+        assert_eq!(
+            body["watermark"],
+            json!("1"),
+            "typing consumes no watermark"
+        );
+
+        let mut stored = read_conversation(&mut state, &conv_key)?;
+        assert!(stored.activities.iter().all(|a| a.type_ != "typing"));
+
+        let wm = stored.bump_watermark();
+        stored.activities.push(StoredActivity {
+            id: format!("bot-{wm}"),
+            type_: "message".into(),
+            text: Some("done".into()),
+            from: Some("bot".into()),
+            timestamp: Utc::now().timestamp_millis(),
+            watermark: wm,
+            raw: json!({}),
+        });
+        state.write(
+            &conv_key,
+            &serde_json::to_vec(&stored).map_err(|e| e.to_string())?,
+        )?;
+        let after = get_activities(&mut state, &secrets, &conv_id, &token)?;
+        assert!(
+            after["activities"]
+                .as_array()
+                .ok_or("activities")?
+                .iter()
+                .all(|a| a["type"] != "typing")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn an_unreadable_typing_slot_never_fails_the_poll() -> Result<(), String> {
+        let mut state = InMemoryStateStore::new();
+        let mut secrets = TestSecretStore::new();
+        secrets.insert(TOKEN_SECRET_KEY, b"test-secret");
+        let (conv_id, token) = open_conversation(&mut state, &secrets)?;
+        state.write(&typing_key(&default_conv_key(&conv_id)), b"not json")?;
+        let body = get_activities(&mut state, &secrets, &conv_id, &token)?;
+        assert_eq!(body["activities"].as_array().ok_or("activities")?.len(), 1);
+        Ok(())
     }
 
     #[test]
