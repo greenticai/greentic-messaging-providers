@@ -21,6 +21,8 @@ pub(crate) const I18N_KEYS: &[&str] = &[
     "whatsapp.op.encode.description",
     "whatsapp.op.send_payload.title",
     "whatsapp.op.send_payload.description",
+    "whatsapp.op.send_typing.title",
+    "whatsapp.op.send_typing.description",
     "whatsapp.schema.input.title",
     "whatsapp.schema.input.description",
     "whatsapp.schema.input.message.title",
@@ -121,6 +123,11 @@ pub(crate) fn build_describe_payload() -> DescribePayload {
                 "whatsapp.op.send_payload.title",
                 "whatsapp.op.send_payload.description",
             ),
+            op(
+                "send_typing",
+                "whatsapp.op.send_typing.title",
+                "whatsapp.op.send_typing.description",
+            ),
         ],
         input_schema: input_schema.clone(),
         output_schema: output_schema.clone(),
@@ -178,6 +185,11 @@ pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
     (
         "whatsapp.op.send_payload.description",
         "Send encoded payload to WhatsApp API",
+    ),
+    ("whatsapp.op.send_typing.title", "Send Typing"),
+    (
+        "whatsapp.op.send_typing.description",
+        "Show that the bot is typing; also marks the inbound message read",
     ),
     ("whatsapp.schema.input.title", "WhatsApp input"),
     (
