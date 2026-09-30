@@ -325,6 +325,7 @@ console.log('[runtime-bootstrap] loaded');
   setTimeout(function () {
     ensureAdaptiveCardWidthStyle();
     ensureAdaptiveCardWidthObserver();
+    startTypingIndicator();
   }, 0);
 
   // Detect OAuth completion redirect (?oauth_done=true)
@@ -608,6 +609,249 @@ console.log('[runtime-bootstrap] loaded');
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Typing indicator.
+  //
+  // Web Chat's own indicator is a 64x20 GIF on a white box
+  // (`.webchat__typing-indicator`, an empty `aria-hidden` div it mounts while
+  // the bot is typing), drawn in the corner above the send box whatever the
+  // skin. It is replaced here with one of three looks next to a small bot
+  // avatar, in the skin's own bubble colours:
+  //
+  //   shimmer (default)  "Thinking…" with a sweeping highlight
+  //   pulse              one breathing dot
+  //   dots               three bouncing dots in a bot-coloured bubble
+  //
+  // The look comes from the tenant config's `typing_indicator` (the pack's
+  // setup answer of the same name), overridable per page with
+  // `?typingIndicator=` or `window.__GREENTIC_WEBCHAT_TYPING_INDICATOR__`.
+  // It is published as `<html data-typing-indicator>` and stamped on each
+  // drawn indicator as `data-mode`; the CSS keys off the latter so an embed
+  // that loads this script into a host page does not depend on the host's
+  // <html> (which it still sets, for the record).
+  //
+  // The children are added to Web Chat's element, not rendered by it. React
+  // renders that div with no children, so it never reconciles ours away; the
+  // element is unmounted whenever typing stops and re-mounted next time, and
+  // is re-decorated then.
+  // ---------------------------------------------------------------------------
+  var TYPING_INDICATOR_STYLES = ['shimmer', 'pulse', 'dots'];
+  var DEFAULT_TYPING_INDICATOR = 'shimmer';
+
+  function normalizeTypingIndicator(raw) {
+    if (typeof raw !== 'string') return null;
+    var value = raw.trim().toLowerCase();
+    return TYPING_INDICATOR_STYLES.indexOf(value) >= 0 ? value : null;
+  }
+
+  function typingIndicatorOverride() {
+    var params = new URLSearchParams(window.location.search);
+    return normalizeTypingIndicator(
+      window.__GREENTIC_WEBCHAT_TYPING_INDICATOR__ ||
+      params.get('typingIndicator') ||
+      params.get('typing_indicator') ||
+      ''
+    );
+  }
+
+  var typingIndicatorMode = typingIndicatorOverride() || DEFAULT_TYPING_INDICATOR;
+  document.documentElement.setAttribute('data-typing-indicator', typingIndicatorMode);
+
+  function setTypingIndicatorMode(mode) {
+    typingIndicatorMode = normalizeTypingIndicator(mode) || DEFAULT_TYPING_INDICATOR;
+    document.documentElement.setAttribute('data-typing-indicator', typingIndicatorMode);
+    var drawn = document.querySelectorAll('.gt-typing');
+    for (var i = 0; i < drawn.length; i += 1) drawn[i].setAttribute('data-mode', typingIndicatorMode);
+  }
+
+  // The tenant's choice, unless the page URL asked for a specific look.
+  function applyTenantTypingIndicator(tenantCfg) {
+    if (typingIndicatorOverride()) return;
+    var raw = tenantCfg && tenantCfg.typing_indicator;
+    if (typeof raw === 'string' && raw.trim() && !normalizeTypingIndicator(raw)) {
+      console.warn('[bootstrap] tenant typing_indicator ignored: expected shimmer|pulse|dots, got', raw);
+    }
+    setTypingIndicatorMode(raw);
+  }
+
+  function ensureTypingIndicatorStyle() {
+    if (document.getElementById('greentic-typing-indicator-style')) return;
+    var style = document.createElement('style');
+    style.id = 'greentic-typing-indicator-style';
+    style.textContent = [
+      // Colours: sampled from the live transcript at draw time (inline custom
+      // properties on .gt-typing), else these light/dark fallbacks.
+      '.gt-typing {',
+      '  --gt-typing-fg: #101613; --gt-typing-bubble: #ffffff; --gt-typing-border: #b3c2b9;',
+      '  --gt-typing-dot: #6b7a73; --gt-typing-avatar: var(--brand, #0b7f5b); --gt-typing-avatar-fg: #ffffff;',
+      '}',
+      'html[data-theme="dark"] .gt-typing {',
+      '  --gt-typing-fg: #e5e7eb; --gt-typing-bubble: #1e2533; --gt-typing-border: #334155; --gt-typing-dot: #94a3b8;',
+      '}',
+      '@media (prefers-color-scheme: dark) {',
+      '  html:not([data-theme="light"]) .gt-typing {',
+      '    --gt-typing-fg: #e5e7eb; --gt-typing-bubble: #1e2533; --gt-typing-border: #334155; --gt-typing-dot: #94a3b8;',
+      '  }',
+      '}',
+      // Drop the stock GIF box and its RTL mirror (which would flip the text).
+      '.webchat__typing-indicator.webchat__typing-indicator {',
+      '  background-image: none !important; background-color: transparent !important;',
+      '  width: auto !important; height: auto !important; transform: none !important;',
+      '  display: block !important; overflow: visible !important;',
+      '}',
+      '.gt-typing {',
+      '  display: inline-flex; align-items: center; gap: 8px; min-height: 28px;',
+      '  font-family: inherit; font-size: 14px; line-height: 1.4; color: var(--gt-typing-fg);',
+      '  pointer-events: none; user-select: none;',
+      '}',
+      '.gt-typing__avatar {',
+      '  flex: 0 0 28px; width: 28px; height: 28px; border-radius: 50%;',
+      '  background: var(--gt-typing-avatar); color: var(--gt-typing-avatar-fg);',
+      '  display: inline-flex; align-items: center; justify-content: center;',
+      '  font-size: 11px; font-weight: 600; letter-spacing: .02em;',
+      '}',
+      '.gt-typing__shimmer, .gt-typing__pulse, .gt-typing__dots { display: none; }',
+      '.gt-typing[data-mode="shimmer"] .gt-typing__shimmer { display: inline-block; }',
+      '.gt-typing[data-mode="pulse"] .gt-typing__pulse { display: inline-block; }',
+      '.gt-typing[data-mode="dots"] .gt-typing__dots { display: inline-flex; }',
+      '.gt-typing__shimmer {',
+      '  font-weight: 500; color: transparent;',
+      '  background: linear-gradient(90deg,',
+      '    color-mix(in srgb, var(--gt-typing-fg) 45%, transparent) 0%,',
+      '    color-mix(in srgb, var(--gt-typing-fg) 45%, transparent) 35%,',
+      '    var(--gt-typing-fg) 50%,',
+      '    color-mix(in srgb, var(--gt-typing-fg) 45%, transparent) 65%,',
+      '    color-mix(in srgb, var(--gt-typing-fg) 45%, transparent) 100%);',
+      '  background-size: 250% 100%; -webkit-background-clip: text; background-clip: text;',
+      '  animation: gt-typing-sweep 1.8s linear infinite;',
+      '}',
+      '.gt-typing__pulse {',
+      '  width: 12px; height: 12px; border-radius: 50%; background: var(--gt-typing-fg);',
+      '  animation: gt-typing-breathe 1.4s ease-in-out infinite;',
+      '}',
+      '.gt-typing__dots {',
+      '  align-items: center; gap: 5px; padding: 10px 14px; border-radius: 16px;',
+      '  background: var(--gt-typing-bubble); border: 1px solid var(--gt-typing-border);',
+      '}',
+      '.gt-typing__dots > i {',
+      '  width: 7px; height: 7px; border-radius: 50%; background: var(--gt-typing-dot);',
+      '  animation: gt-typing-hop 1.2s ease-in-out infinite;',
+      '}',
+      '.gt-typing__dots > i:nth-child(2) { animation-delay: .16s; }',
+      '.gt-typing__dots > i:nth-child(3) { animation-delay: .32s; }',
+      '@keyframes gt-typing-sweep { from { background-position: 100% 0; } to { background-position: -150% 0; } }',
+      '@keyframes gt-typing-breathe { 0%, 100% { transform: scale(.7); opacity: .45; } 50% { transform: scale(1); opacity: 1; } }',
+      '@keyframes gt-typing-hop { 0%, 80%, 100% { transform: translateY(0); opacity: .45; } 40% { transform: translateY(-4px); opacity: 1; } }',
+      '@media (prefers-reduced-motion: reduce) {',
+      '  .gt-typing__shimmer, .gt-typing__pulse, .gt-typing__dots > i { animation: none; }',
+      '  .gt-typing__shimmer { background: none; color: color-mix(in srgb, var(--gt-typing-fg) 70%, transparent); }',
+      '  .gt-typing__pulse, .gt-typing__dots > i { opacity: .7; }',
+      '}'
+    ].join('\n');
+    document.head.appendChild(style);
+  }
+
+  function visibleColor(value) {
+    if (!value) return '';
+    var v = value.replace(/\s+/g, '');
+    if (v === 'transparent' || /^rgba\(\d+,\d+,\d+,0(\.0+)?\)$/.test(v)) return '';
+    return value;
+  }
+
+  function lastMatch(selector) {
+    var all = document.querySelectorAll(selector);
+    return all.length ? all[all.length - 1] : null;
+  }
+
+  // Read the skin's real bot palette off the transcript, so the indicator
+  // matches whatever styleOptions (and the dark-mode overrides) produced.
+  function sampleTypingColors(wrap) {
+    var bubble = lastMatch('.webchat__bubble:not(.webchat__bubble--from-user) .webchat__bubble__content');
+    if (bubble && window.getComputedStyle) {
+      var cs = window.getComputedStyle(bubble);
+      var bg = visibleColor(cs.backgroundColor);
+      if (bg) wrap.style.setProperty('--gt-typing-bubble', bg);
+      var fg = visibleColor(cs.color);
+      if (fg) {
+        wrap.style.setProperty('--gt-typing-fg', fg);
+        wrap.style.setProperty('--gt-typing-dot', 'color-mix(in srgb, ' + fg + ' 55%, transparent)');
+      }
+      var border = parseFloat(cs.borderTopWidth) > 0 ? visibleColor(cs.borderTopColor) : '';
+      wrap.style.setProperty('--gt-typing-border', border || 'transparent');
+    }
+    var avatar = lastMatch('.webchat__initialsAvatar:not(.webchat__initialsAvatar--fromUser)');
+    if (avatar && window.getComputedStyle) {
+      var acs = window.getComputedStyle(avatar);
+      var abg = visibleColor(acs.backgroundColor);
+      if (abg) wrap.style.setProperty('--gt-typing-avatar', abg);
+      var afg = visibleColor(acs.color);
+      if (afg) wrap.style.setProperty('--gt-typing-avatar-fg', afg);
+    }
+    return avatar ? (avatar.textContent || '').trim() : '';
+  }
+
+  function typingLabel() {
+    return uiT('chat.typing', 'Thinking…');
+  }
+
+  function decorateTypingIndicator(el) {
+    if (!el || el.querySelector('.gt-typing')) return;
+    var wrap = document.createElement('span');
+    wrap.className = 'gt-typing';
+    wrap.setAttribute('data-mode', typingIndicatorMode);
+    var initials = sampleTypingColors(wrap);
+
+    var avatar = document.createElement('span');
+    avatar.className = 'gt-typing__avatar';
+    avatar.textContent = (initials || 'AI').slice(0, 3);
+
+    var shimmer = document.createElement('span');
+    shimmer.className = 'gt-typing__shimmer';
+    shimmer.textContent = typingLabel();
+
+    var pulse = document.createElement('span');
+    pulse.className = 'gt-typing__pulse';
+
+    var dots = document.createElement('span');
+    dots.className = 'gt-typing__dots';
+    for (var i = 0; i < 3; i += 1) dots.appendChild(document.createElement('i'));
+
+    wrap.appendChild(avatar);
+    wrap.appendChild(shimmer);
+    wrap.appendChild(pulse);
+    wrap.appendChild(dots);
+    el.appendChild(wrap);
+  }
+
+  function decorateTypingIndicators(root) {
+    if (!root || root.nodeType !== 1) return;
+    if (root.classList && root.classList.contains('webchat__typing-indicator')) {
+      decorateTypingIndicator(root);
+      return;
+    }
+    if (!root.querySelectorAll) return;
+    var found = root.querySelectorAll('.webchat__typing-indicator');
+    for (var i = 0; i < found.length; i += 1) decorateTypingIndicator(found[i]);
+  }
+
+  function refreshTypingLabels() {
+    var labels = document.querySelectorAll('.gt-typing__shimmer');
+    for (var i = 0; i < labels.length; i += 1) labels[i].textContent = typingLabel();
+  }
+
+  function startTypingIndicator() {
+    ensureTypingIndicatorStyle();
+    decorateTypingIndicators(document.documentElement);
+    if (window.__GREENTIC_TYPING_INDICATOR_OBSERVER__ || typeof MutationObserver === 'undefined') return;
+    window.__GREENTIC_TYPING_INDICATOR_OBSERVER__ = true;
+    new MutationObserver(function (mutations) {
+      for (var i = 0; i < mutations.length; i += 1) {
+        var added = mutations[i].addedNodes;
+        for (var j = 0; j < added.length; j += 1) decorateTypingIndicators(added[j]);
+      }
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
+
   function applyUiTranslations() {
     // Set topbar title from skin brand.name, fall back to i18n, then 'AI Assistant'
     var titleEl = document.querySelector('.topbar__title');
@@ -617,6 +861,7 @@ console.log('[runtime-bootstrap] loaded');
     }
     applyShellI18n();
     startShellI18nObserver();
+    refreshTypingLabels();
 
     // Translate logout button if already injected
     var logoutBtn = document.getElementById('greentic-logout-btn');
@@ -1981,7 +2226,10 @@ console.log('[runtime-bootstrap] loaded');
         // and the skin.json intercept below is keyed by SKIN name, not by
         // tenant -- so this page's own tenant config is the only place its
         // brand can be read from.
-        if (tenantId === tenant) tenantBrand = readTenantBrand(payload);
+        if (tenantId === tenant) {
+          tenantBrand = readTenantBrand(payload);
+          applyTenantTypingIndicator(payload);
+        }
         // Reconcile the skin fields. The SPA selects the skins/<name>/ folder
         // from `legacy_skin`, but greentic-setup's sync_skin writes the
         // operator's chosen skin into the modern `skin` field only —

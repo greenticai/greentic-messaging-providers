@@ -282,6 +282,18 @@ questions:
     validate:
       regex: "^https://"
 
+  - name: typing_indicator
+    title: Typing indicator
+    kind: enum
+    choices:
+      - shimmer
+      - pulse
+      - dots
+    required: false
+    default: "shimmer"
+    help: "How the chat shows that the assistant is working on a reply. shimmer: \"Thinking…\" with a sweeping highlight (default). pulse: one breathing dot. dots: three dots in a bubble."
+    group: Branding
+
   - name: presentation_mode
     title: Presentation mode
     kind: enum

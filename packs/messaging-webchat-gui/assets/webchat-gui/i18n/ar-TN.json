@@ -8,6 +8,7 @@
   "chat.connectBody": "تمّ تحميل هيكل الصفحة. اربط وقت اللي تحب تطلب جلسة دردشة.",
   "chat.connectTitle": "الدردشة جاهزة للبداية",
   "chat.retryAction": "أعد محاولة الاتصال",
+  "chat.typing": "يفكّر…",
   "chat.unavailableBody": "مشكلة في الاتصال هي سبب المشكل.",
   "chat.unavailableTitle": "العامل الرقمي غير متاح حاليًا",
   "header.locale": "اللغة",

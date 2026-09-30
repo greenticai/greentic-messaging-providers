@@ -8,6 +8,7 @@
   "chat.connectBody": "โหลดโครงหน้าหลักแล้ว เชื่อมต่อเมื่อคุณต้องการขอเซสชันแชต",
   "chat.connectTitle": "แชตพร้อมเริ่มแล้ว",
   "chat.retryAction": "ลองเชื่อมต่ออีกครั้ง",
+  "chat.typing": "กำลังคิด…",
   "chat.unavailableBody": "ปัญหาเกิดจากการเชื่อมต่อขัดข้อง",
   "chat.unavailableTitle": "ขณะนี้ Digital Worker ไม่พร้อมให้บริการ",
   "header.locale": "ภาษา",

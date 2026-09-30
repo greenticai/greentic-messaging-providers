@@ -8,6 +8,7 @@
   "chat.connectBody": "Khung trang đã được tải. Hãy kết nối khi bạn muốn yêu cầu một phiên trò chuyện.",
   "chat.connectTitle": "Trò chuyện đã sẵn sàng để bắt đầu",
   "chat.retryAction": "Thử kết nối lại",
+  "chat.typing": "Đang suy nghĩ…",
   "chat.unavailableBody": "Sự cố kết nối là nguyên nhân của vấn đề.",
   "chat.unavailableTitle": "Nhân viên Kỹ thuật số hiện không khả dụng",
   "header.locale": "Ngôn ngữ",

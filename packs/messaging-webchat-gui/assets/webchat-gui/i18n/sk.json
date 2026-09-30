@@ -8,6 +8,7 @@
   "chat.connectBody": "Shell stránky je načítaný. Pripojte sa, keď budete chcieť požiadať o chatovaciu reláciu.",
   "chat.connectTitle": "Chat je pripravený na spustenie",
   "chat.retryAction": "Skúsiť sa pripojiť znova",
+  "chat.typing": "Premýšľa…",
   "chat.unavailableBody": "Príčinou problému je problém s pripojením.",
   "chat.unavailableTitle": "Digitálny pracovník je momentálne nedostupný",
   "header.locale": "Miestne nastavenie",

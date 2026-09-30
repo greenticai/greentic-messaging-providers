@@ -8,6 +8,7 @@
   "chat.connectBody": "A estrutura da página foi carregada. Ligue quando quiser solicitar uma sessão de chat.",
   "chat.connectTitle": "O chat está pronto para começar",
   "chat.retryAction": "Tentar conectar novamente",
+  "chat.typing": "Pensando…",
   "chat.unavailableBody": "Um problema de ligação é a origem do problema.",
   "chat.unavailableTitle": "O Trabalhador Digital está atualmente indisponível",
   "header.locale": "Localidade",

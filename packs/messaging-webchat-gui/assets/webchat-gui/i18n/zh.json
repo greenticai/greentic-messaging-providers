@@ -8,6 +8,7 @@
   "chat.connectBody": "页面外壳已加载。您可在需要请求聊天会话时进行连接。",
   "chat.connectTitle": "聊天已准备好开始",
   "chat.retryAction": "重试连接",
+  "chat.typing": "思考中…",
   "chat.unavailableBody": "问题的原因是连接故障。",
   "chat.unavailableTitle": "数字员工当前不可用",
   "header.locale": "语言区域",

@@ -8,6 +8,7 @@
   "chat.connectBody": "Puslapio apvalkalas įkeltas. Prisijunkite, kai norėsite paprašyti pokalbio sesijos.",
   "chat.connectTitle": "Pokalbis paruoštas pradėti",
   "chat.retryAction": "Bandyti prisijungti dar kartą",
+  "chat.typing": "Galvoja…",
   "chat.unavailableBody": "Problemos priežastis yra ryšio sutrikimas.",
   "chat.unavailableTitle": "Skaitmeninis darbuotojas šiuo metu nepasiekiamas",
   "header.locale": "Lokalė",

@@ -587,6 +587,12 @@ fn apply_answers_impl(
     if has("brand_logo_url") {
         merged.brand_logo_url = optional_string_from(&answers, "brand_logo_url");
     }
+    // Same clearing rule as the brand: an answered-but-empty choice hands the
+    // page back to its default look.
+    if has("typing_indicator") {
+        merged.typing_indicator =
+            optional_string_from(&answers, "typing_indicator").map(|v| v.to_ascii_lowercase());
+    }
 
     if has("oauth_greentic_issuer") {
         merged.oidc_issuer = optional_string_from(&answers, "oauth_greentic_issuer");
@@ -982,6 +988,34 @@ mod tests {
         }));
         assert_eq!(value["ok"], false);
         assert!(error_text(&value).contains("brand_name"));
+    }
+
+    #[test]
+    fn apply_answers_round_trips_typing_indicator() {
+        let value = apply_setup(json!({
+            "public_base_url": "https://chat.example.com",
+            "route": "webchat",
+            "typing_indicator": " Dots "
+        }));
+        assert_eq!(value["ok"], true, "{value}");
+        assert_eq!(value["config"]["typing_indicator"], "dots");
+
+        let value = apply_setup(json!({
+            "public_base_url": "https://chat.example.com",
+            "route": "webchat"
+        }));
+        assert!(value["config"].get("typing_indicator").is_none());
+    }
+
+    #[test]
+    fn apply_answers_rejects_an_unknown_typing_indicator() {
+        let value = apply_setup(json!({
+            "public_base_url": "https://chat.example.com",
+            "route": "webchat",
+            "typing_indicator": "sparkles"
+        }));
+        assert_eq!(value["ok"], false);
+        assert!(error_text(&value).contains("typing_indicator"));
     }
 
     #[test]

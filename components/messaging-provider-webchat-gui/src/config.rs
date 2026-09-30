@@ -52,6 +52,8 @@ pub(crate) struct ProviderConfig {
     pub(crate) brand_name: Option<String>,
     #[serde(default)]
     pub(crate) brand_logo_url: Option<String>,
+    #[serde(default)]
+    pub(crate) typing_indicator: Option<String>,
     #[serde(default = "default_text_input_enabled")]
     pub(crate) text_input_enabled: bool,
     #[serde(default = "default_auto_start_on_open")]
@@ -89,6 +91,12 @@ pub(crate) struct ProviderConfigOut {
     pub(crate) brand_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) brand_logo_url: Option<String>,
+    /// How the hosted page shows that the assistant is working: one of
+    /// [`TYPING_INDICATOR_STYLES`]. Absent means the page default
+    /// (`shimmer`). greentic-setup has to copy it into the tenant config as
+    /// `typing_indicator`, where runtime-bootstrap.js reads it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) typing_indicator: Option<String>,
     #[serde(default = "default_text_input_enabled")]
     pub(crate) text_input_enabled: bool,
     #[serde(default = "default_auto_start_on_open")]
@@ -132,6 +140,7 @@ pub(crate) fn default_config_out() -> ProviderConfigOut {
         skin: default_skin(),
         brand_name: None,
         brand_logo_url: None,
+        typing_indicator: None,
         text_input_enabled: default_text_input_enabled(),
         auto_start_on_open: default_auto_start_on_open(),
         nav_links: Vec::new(),
@@ -163,6 +172,20 @@ fn has_greentic_provider(config: &ProviderConfigOut) -> bool {
     providers
         .iter()
         .any(|p| p.get("type").and_then(Value::as_str) == Some("greentic"))
+}
+
+/// Typing-indicator looks runtime-bootstrap.js knows how to draw. Keep in
+/// step with `TYPING_INDICATOR_STYLES` there and the setup.yaml choices.
+pub(crate) const TYPING_INDICATOR_STYLES: [&str; 3] = ["shimmer", "pulse", "dots"];
+
+fn validate_typing_indicator(value: Option<&str>, prefix: &str) -> Result<(), String> {
+    match value {
+        None => Ok(()),
+        Some(style) if TYPING_INDICATOR_STYLES.contains(&style) => Ok(()),
+        Some(style) => Err(format!(
+            "{prefix}: typing_indicator must be one of shimmer|pulse|dots, got `{style}`"
+        )),
+    }
 }
 
 /// Longest brand name the hosted page renders; runtime-bootstrap.js truncates
@@ -217,6 +240,10 @@ pub(crate) fn validate_config_out(config: &ProviderConfigOut) -> Result<(), Stri
         config.brand_logo_url.as_deref(),
         "config validation failed",
     )?;
+    validate_typing_indicator(
+        config.typing_indicator.as_deref(),
+        "config validation failed",
+    )?;
     if has_greentic_provider(config)
         && !config
             .oidc_issuer
@@ -251,6 +278,7 @@ pub(crate) fn validate_provider_config(mut cfg: ProviderConfig) -> Result<Provid
         cfg.brand_logo_url.as_deref(),
         "invalid config",
     )?;
+    validate_typing_indicator(cfg.typing_indicator.as_deref(), "invalid config")?;
     if cfg.presentation_mode == PresentationMode::EmbedWebcomponent {
         cfg.nav_links.clear();
     }
@@ -304,6 +332,7 @@ pub(crate) fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         "skin",
         "brand_name",
         "brand_logo_url",
+        "typing_indicator",
         "text_input_enabled",
         "auto_start_on_open",
         "nav_links",
@@ -331,6 +360,7 @@ pub(crate) fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         "skin",
         "brand_name",
         "brand_logo_url",
+        "typing_indicator",
         "text_input_enabled",
         "auto_start_on_open",
         "nav_links",
@@ -488,6 +518,51 @@ mod tests {
         );
         cfg.oidc_issuer = Some("https://acme.greentic-id.com".to_string());
         assert!(validate_config_out(&cfg).is_ok());
+    }
+
+    #[test]
+    fn typing_indicator_accepts_the_three_styles_and_absence() {
+        let mut cfg = valid_base_config();
+        assert!(validate_config_out(&cfg).is_ok());
+        for style in TYPING_INDICATOR_STYLES {
+            cfg.typing_indicator = Some(style.to_string());
+            assert!(validate_config_out(&cfg).is_ok(), "{style}");
+        }
+    }
+
+    #[test]
+    fn typing_indicator_rejects_an_unknown_style() {
+        let mut cfg = valid_base_config();
+        cfg.typing_indicator = Some("sparkles".to_string());
+        let err = validate_config_out(&cfg).unwrap_err();
+        assert!(err.contains("typing_indicator"), "{err}");
+
+        let err = load_config(&json!({
+            "public_base_url": "https://chat.example.com",
+            "route": "webchat",
+            "typing_indicator": "sparkles"
+        }))
+        .unwrap_err();
+        assert!(err.contains("typing_indicator"), "{err}");
+    }
+
+    #[test]
+    fn load_config_carries_typing_indicator_from_flat_and_injected_fields() {
+        let cfg = load_config(&json!({
+            "public_base_url": "https://chat.example.com",
+            "route": "webchat",
+            "typing_indicator": "dots"
+        }))
+        .expect("config");
+        assert_eq!(cfg.typing_indicator.as_deref(), Some("dots"));
+
+        let cfg = load_config(&json!({
+            "public_base_url_b64": general_purpose::STANDARD.encode("https://chat.example.com"),
+            "route_b64": general_purpose::STANDARD.encode("webchat"),
+            "typing_indicator_b64": general_purpose::STANDARD.encode("pulse")
+        }))
+        .expect("config");
+        assert_eq!(cfg.typing_indicator.as_deref(), Some("pulse"));
     }
 
     #[test]

@@ -54,6 +54,12 @@
       "pattern": "^https://",
       "description": "Absolute https:// URL of the header logo. Empty keeps the skin's own logo."
     },
+    "typing_indicator": {
+      "type": "string",
+      "enum": ["shimmer", "pulse", "dots"],
+      "default": "shimmer",
+      "description": "How the chat shows that the assistant is working on a reply: shimmer (\"Thinking…\" with a sweeping highlight), pulse (one breathing dot) or dots (three dots in a bubble)."
+    },
     "text_input_enabled": {
       "type": "boolean",
       "default": true,

@@ -8,6 +8,7 @@
   "chat.connectBody": "Lapas čaula ir ielādēta. Pievienojiet, kad vēlaties pieprasīt tērzēšanas sesiju.",
   "chat.connectTitle": "Tērzēšana ir gatava sākšanai",
   "chat.retryAction": "Mēģināt pieslēgties vēlreiz",
+  "chat.typing": "Domā…",
   "chat.unavailableBody": "Problēmas avots ir savienojuma kļūme.",
   "chat.unavailableTitle": "Digitālais darbinieks pašlaik nav pieejams",
   "header.locale": "Lokalizācija",

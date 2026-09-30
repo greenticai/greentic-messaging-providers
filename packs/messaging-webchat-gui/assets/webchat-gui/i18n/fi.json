@@ -8,6 +8,7 @@
   "chat.connectBody": "Sivun runko on ladattu. Yhdistä, kun haluat pyytää chat-istuntoa.",
   "chat.connectTitle": "Chat on valmis aloitettavaksi",
   "chat.retryAction": "Yritä yhdistää uudelleen",
+  "chat.typing": "Miettii…",
   "chat.unavailableBody": "Ongelman syynä on yhteysongelma.",
   "chat.unavailableTitle": "Digitaalinen työntekijä ei ole tällä hetkellä käytettävissä",
   "header.locale": "Alueasetukset",

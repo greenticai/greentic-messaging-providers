@@ -8,6 +8,7 @@
   "chat.connectBody": "Siderammen er lastet inn. Koble til når du vil be om en chatøkt.",
   "chat.connectTitle": "Chatten er klar til å starte",
   "chat.retryAction": "Prøv å koble til igjen",
+  "chat.typing": "Tenker…",
   "chat.unavailableBody": "Et tilkoblingsproblem er årsaken til problemet.",
   "chat.unavailableTitle": "Den digitale medarbeideren er for øyeblikket utilgjengelig",
   "header.locale": "Lokale",

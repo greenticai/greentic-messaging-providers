@@ -8,6 +8,7 @@
   "chat.connectBody": "Naka-load na ang shell ng pahina. Kumonekta kapag gusto mong humiling ng chat session.",
   "chat.connectTitle": "Handa nang magsimula ang chat",
   "chat.retryAction": "Subukang kumonekta muli",
+  "chat.typing": "Nag-iisip…",
   "chat.unavailableBody": "Isang isyu sa koneksyon ang pinagmumulan ng problema.",
   "chat.unavailableTitle": "Kasalukuyang hindi available ang Digital Worker",
   "header.locale": "Lokal",

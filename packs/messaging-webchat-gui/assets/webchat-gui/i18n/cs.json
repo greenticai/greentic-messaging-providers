@@ -8,6 +8,7 @@
   "chat.connectBody": "Rámec stránky je načten. Připojte se, až budete chtít požádat o chatovou relaci.",
   "chat.connectTitle": "Chat je připraven ke spuštění",
   "chat.retryAction": "Zkusit se připojit znovu",
+  "chat.typing": "Přemýšlí…",
   "chat.unavailableBody": "Příčinou problému je problém s připojením.",
   "chat.unavailableTitle": "Digitální pracovník je momentálně nedostupný",
   "header.locale": "Národní prostředí",

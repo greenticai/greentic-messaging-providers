@@ -8,6 +8,7 @@
   "chat.connectBody": "Kerangka halaman telah dimuat. Hubungkan saat Anda ingin meminta sesi chat.",
   "chat.connectTitle": "Chat siap dimulai",
   "chat.retryAction": "Coba sambungkan lagi",
+  "chat.typing": "Sedang berpikir…",
   "chat.unavailableBody": "Masalah ini disebabkan oleh gangguan koneksi.",
   "chat.unavailableTitle": "Digital Worker saat ini tidak tersedia",
   "header.locale": "Lokal",

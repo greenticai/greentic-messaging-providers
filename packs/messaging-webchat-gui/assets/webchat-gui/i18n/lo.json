@@ -8,6 +8,7 @@
   "chat.connectBody": "ໂຄງໜ້າຂອງໜ້າເວັບຖືກໂຫຼດແລ້ວ. ເຊື່ອມຕໍ່ເມື່ອທ່ານຕ້ອງການຂໍເຊດຊັນແຊັດ.",
   "chat.connectTitle": "ພ້ອມເລີ່ມການແຊັດແລ້ວ",
   "chat.retryAction": "ລອງເຊື່ອມຕໍ່ອີກຄັ້ງ",
+  "chat.typing": "ກຳລັງຄິດ…",
   "chat.unavailableBody": "ບັນຫາເກີດຈາກການເຊື່ອມຕໍ່ຂັດຂ້ອງ.",
   "chat.unavailableTitle": "Digital Worker ບໍ່ພ້ອມໃຫ້ບໍລິການໃນຂະນະນີ້",
   "header.locale": "ພາສາທ້ອງຖິ່ນ",

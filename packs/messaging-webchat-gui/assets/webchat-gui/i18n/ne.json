@@ -8,6 +8,7 @@
   "chat.connectBody": "पृष्ठको shell लोड भइसकेको छ। च्याट सत्र अनुरोध गर्न चाहेको बेला जडान गर्नुहोस्।",
   "chat.connectTitle": "च्याट सुरु गर्न तयार छ",
   "chat.retryAction": "फेरि जडान गर्ने प्रयास गर्नुहोस्",
+  "chat.typing": "सोच्दैछ…",
   "chat.unavailableBody": "समस्याको कारण जडानसम्बन्धी समस्या हो।",
   "chat.unavailableTitle": "डिजिटल वर्कर हाल उपलब्ध छैन",
   "header.locale": "लोकेल",
