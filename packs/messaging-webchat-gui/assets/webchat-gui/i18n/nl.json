@@ -8,6 +8,7 @@
   "chat.connectBody": "De paginaschil is geladen. Verbind wanneer je een chatsessie wilt aanvragen.",
   "chat.connectTitle": "Chat is klaar om te starten",
   "chat.retryAction": "Opnieuw verbinding maken",
+  "chat.typing": "Aan het denken…",
   "chat.unavailableBody": "Een verbindingsprobleem is de oorzaak van het probleem.",
   "chat.unavailableTitle": "De Digital Worker is momenteel niet beschikbaar",
   "header.locale": "Landinstelling",

@@ -8,6 +8,7 @@
   "chat.connectBody": "Okvir stranice je učitan. Povežite se kada želite zatražiti chat sesiju.",
   "chat.connectTitle": "Chat je spreman za početak",
   "chat.retryAction": "Pokušaj ponovno povezivanje",
+  "chat.typing": "Razmišlja…",
   "chat.unavailableBody": "Problem je uzrokovan poteškoćom s povezivanjem.",
   "chat.unavailableTitle": "Digitalni radnik trenutačno nije dostupan",
   "header.locale": "Jezik",

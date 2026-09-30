@@ -8,6 +8,7 @@
   "chat.connectBody": "Az oldal váza betöltődött. Csatlakozzon, amikor chat-munkamenetet szeretne kérni.",
   "chat.connectTitle": "A csevegés indításra kész",
   "chat.retryAction": "Újracsatlakozás",
+  "chat.typing": "Gondolkodik…",
   "chat.unavailableBody": "A problémát kapcsolódási hiba okozza.",
   "chat.unavailableTitle": "A Digital Worker jelenleg nem érhető el",
   "header.locale": "Nyelvi beállítás",

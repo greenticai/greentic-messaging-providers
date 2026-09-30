@@ -8,6 +8,7 @@
   "chat.connectBody": "Sideskallen er indlæst. Opret forbindelse, når du vil anmode om en chatsession.",
   "chat.connectTitle": "Chatten er klar til at starte",
   "chat.retryAction": "Prøv at oprette forbindelse igen",
+  "chat.typing": "Tænker…",
   "chat.unavailableBody": "Et forbindelsesproblem er årsagen til problemet.",
   "chat.unavailableTitle": "Den digitale medarbejder er i øjeblikket utilgængelig",
   "header.locale": "Landestandard",

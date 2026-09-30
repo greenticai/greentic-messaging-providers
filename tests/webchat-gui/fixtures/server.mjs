@@ -72,6 +72,8 @@ function tenantScenario(tenant) {
     // answers. `brand-http` carries a logo the page must refuse to render.
     brand: normalized.includes('brand'),
     brandInsecureLogo: normalized.includes('brand-http'),
+    // What greentic-setup writes from the pack's typing_indicator answer.
+    typingIndicator: (normalized.match(/typing-(shimmer|pulse|dots|bogus)/) || [])[1] || null,
   };
 }
 
@@ -101,6 +103,9 @@ function tenantConfig(tenant) {
         ? 'http://brand.example.test/logo.svg'
         : 'https://brand.example.test/logo.svg',
     };
+  }
+  if (scenario.typingIndicator) {
+    base.typing_indicator = scenario.typingIndicator;
   }
   base.navigation = scenario.nav ? { menu: demoLinks } : { menu: [] };
   base.nav_links = scenario.nav ? demoLinks : [];

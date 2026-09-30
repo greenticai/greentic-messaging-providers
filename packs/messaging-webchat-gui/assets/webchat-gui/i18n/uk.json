@@ -8,6 +8,7 @@
   "chat.connectBody": "Оболонку сторінки завантажено. Підключіться, коли захочете запросити сеанс чату.",
   "chat.connectTitle": "Чат готовий до початку",
   "chat.retryAction": "Повторити підключення",
+  "chat.typing": "Думає…",
   "chat.unavailableBody": "Причиною проблеми є збій з’єднання.",
   "chat.unavailableTitle": "Цифровий працівник наразі недоступний",
   "header.locale": "Мова",

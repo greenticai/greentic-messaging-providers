@@ -8,6 +8,7 @@
   "chat.connectBody": "L'interface de la page est chargee. Connectez-vous lorsque vous souhaitez demander une session de chat.",
   "chat.connectTitle": "Le chat est pret a demarrer",
   "chat.retryAction": "Réessayer de se connecter",
+  "chat.typing": "Réflexion…",
   "chat.unavailableBody": "Un probleme de connexion est a l'origine du probleme.",
   "chat.unavailableTitle": "Le travailleur numerique est actuellement indisponible",
   "header.locale": "Langue",

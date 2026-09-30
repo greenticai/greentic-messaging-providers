@@ -8,6 +8,7 @@
   "chat.connectBody": "Sidans skal har lästs in. Anslut när du vill begära en chatsession.",
   "chat.connectTitle": "Chatten är redo att starta",
   "chat.retryAction": "Försök ansluta igen",
+  "chat.typing": "Tänker…",
   "chat.unavailableBody": "Ett anslutningsproblem är orsaken till problemet.",
   "chat.unavailableTitle": "Den digitala medarbetaren är för närvarande inte tillgänglig",
   "header.locale": "Språk",

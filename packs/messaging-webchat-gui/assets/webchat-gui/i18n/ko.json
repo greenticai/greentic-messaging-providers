@@ -8,6 +8,7 @@
   "chat.connectBody": "페이지 셸이 로드되었습니다. 채팅 세션을 요청할 준비가 되면 연결하세요.",
   "chat.connectTitle": "채팅을 시작할 준비가 되었습니다",
   "chat.retryAction": "다시 연결 시도",
+  "chat.typing": "생각 중…",
   "chat.unavailableBody": "문제의 원인은 연결 이슈입니다.",
   "chat.unavailableTitle": "디지털 워커를 현재 사용할 수 없습니다",
   "header.locale": "로캘",

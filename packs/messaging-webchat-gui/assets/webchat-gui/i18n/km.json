@@ -8,6 +8,7 @@
   "chat.connectBody": "Page shell ត្រូវបានផ្ទុករួចហើយ។ ភ្ជាប់នៅពេលអ្នកចង់ស្នើសុំសម័យជជែក។",
   "chat.connectTitle": "ការជជែករួចរាល់សម្រាប់ចាប់ផ្តើម",
   "chat.retryAction": "ព្យាយាមភ្ជាប់ម្តងទៀត",
+  "chat.typing": "កំពុងគិត…",
   "chat.unavailableBody": "បញ្ហាការតភ្ជាប់គឺជាមូលហេតុនៃបញ្ហានេះ។",
   "chat.unavailableTitle": "Digital Worker មិនអាចប្រើបាននៅពេលនេះទេ",
   "header.locale": "តំបន់ភាសា",

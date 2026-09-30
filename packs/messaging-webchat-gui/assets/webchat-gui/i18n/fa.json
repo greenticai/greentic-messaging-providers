@@ -8,6 +8,7 @@
   "chat.connectBody": "پوسته صفحه بارگذاری شده است. هر زمان خواستید یک نشست چت درخواست کنید، متصل شوید.",
   "chat.connectTitle": "چت آماده شروع است",
   "chat.retryAction": "تلاش دوباره برای اتصال",
+  "chat.typing": "در حال فکر کردن…",
   "chat.unavailableBody": "مشکل از یک اختلال در اتصال است.",
   "chat.unavailableTitle": "کارگر دیجیتال در حال حاضر در دسترس نیست",
   "header.locale": "زبان",

@@ -8,6 +8,7 @@
   "chat.connectBody": "Lehe kest on laaditud. Ühendage siis, kui soovite taotleda vestlusseanssi.",
   "chat.connectTitle": "Vestlus on alustamiseks valmis",
   "chat.retryAction": "Proovi uuesti ühendada",
+  "chat.typing": "Mõtleb…",
   "chat.unavailableBody": "Probleemi põhjuseks on ühenduse tõrge.",
   "chat.unavailableTitle": "Digitaalne töötaja ei ole praegu saadaval",
   "header.locale": "Lokaat",

@@ -8,6 +8,7 @@
   "chat.connectBody": "The page shell is loaded. Connect when you want to request a chat session.",
   "chat.connectTitle": "Chat is ready to start",
   "chat.retryAction": "Retry connecting",
+  "chat.typing": "Thinking…",
   "chat.unavailableBody": "A connection issue is the source of the problem.",
   "chat.unavailableTitle": "The Digital Worker is currently unavailable",
   "header.locale": "Locale",

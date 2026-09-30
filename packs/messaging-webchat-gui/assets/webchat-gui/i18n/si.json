@@ -8,6 +8,7 @@
   "chat.connectBody": "පිටුවේ shell එක පූරණය කර ඇත. ඔබට චැට් සැසියක් ඉල්ලීමට අවශ්‍ය විට සම්බන්ධ වන්න.",
   "chat.connectTitle": "චැට් ආරම්භ කිරීමට සූදානම්",
   "chat.retryAction": "නැවත සම්බන්ධ වීමට උත්සාහ කරන්න",
+  "chat.typing": "සිතමින්…",
   "chat.unavailableBody": "ගැටලුවට හේතුව සම්බන්ධතා දෝෂයකි.",
   "chat.unavailableTitle": "ඩිජිටල් සේවකයා දැනට ලබා ගත නොහැක",
   "header.locale": "ප්‍රාදේශිකය",
