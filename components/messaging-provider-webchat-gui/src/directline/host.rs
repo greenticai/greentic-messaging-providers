@@ -70,6 +70,35 @@ impl StateStore for HostStateStore {
                 format!("state write error: {} - {}", err.code, detail)
             })
     }
+
+    fn write_if_absent(&mut self, key: &str, value: &[u8]) -> Result<Option<bool>, String> {
+        match state_store::write_if_absent(key, value, None) {
+            Ok(created) => Ok(Some(created)),
+            Err(err) if err.code == "unsupported" => Ok(None),
+            Err(err) => {
+                let detail = redact::error_message(&err.message);
+                telemetry::emit(
+                    Level::Warn,
+                    PROVIDER_TYPE,
+                    "state write-if-absent error",
+                    &[
+                        Field {
+                            key: "code",
+                            value: err.code.as_str(),
+                        },
+                        Field {
+                            key: field::ERROR,
+                            value: &detail,
+                        },
+                    ],
+                );
+                Err(format!(
+                    "state write-if-absent error: {} - {}",
+                    err.code, detail
+                ))
+            }
+        }
+    }
 }
 
 /// Host-backed fetcher for an OIDC issuer's JWKS document over the WIT HTTP client.

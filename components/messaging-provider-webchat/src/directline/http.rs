@@ -1488,6 +1488,14 @@ mod tests {
             self.data.insert(key.to_string(), value.to_vec());
             Ok(())
         }
+
+        fn write_if_absent(&mut self, key: &str, value: &[u8]) -> Result<Option<bool>, String> {
+            if self.data.contains_key(key) {
+                return Ok(Some(false));
+            }
+            self.data.insert(key.to_string(), value.to_vec());
+            Ok(Some(true))
+        }
     }
 
     struct TestSecretStore {

@@ -2,7 +2,7 @@ package greentic:component@0.6.1;
 
 use greentic:http/http-client@1.1.0 as http-client;
 use greentic:secrets-store/secrets-store@1.0.0;
-use greentic:state/state-store@1.0.0;
+use greentic:state/state-store@1.1.0;
 use greentic:provider-schema-core/schema-core-api@1.0.0;
 use greentic:provider-instance-identity/instance-identity-api@0.1.0;
 use greentic:provider-instance-identity/instance-identity-describe-api@0.1.0;

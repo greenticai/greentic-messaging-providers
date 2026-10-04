@@ -9,6 +9,7 @@ use greentic_interfaces_wasmtime::host_helpers::v1::{
 };
 use greentic_types::provider::PROVIDER_EXTENSION_ID;
 use provider_common::component_v0_6::{DescribePayload, canonical_cbor_bytes, decode_cbor};
+use provider_tests::harness::{StateStoreWriteIfAbsent, add_state_store_v1_1_to_linker};
 use serde_json::{Value, json};
 use wasmtime::component::{
     Component, ComponentExportIndex, HasSelf, Linker, ResourceTable, TypedFunc,
@@ -184,6 +185,21 @@ impl state_store::StateStoreHost for HostState {
     }
 }
 
+impl StateStoreWriteIfAbsent for HostState {
+    fn write_if_absent(
+        &mut self,
+        key: state_store::StateKey,
+        bytes: Vec<u8>,
+        _ctx: Option<state_store::TenantCtx>,
+    ) -> Result<bool, state_store::StateStoreError> {
+        if self.state.contains_key(&key) {
+            return Ok(false);
+        }
+        self.state.insert(key, bytes);
+        Ok(true)
+    }
+}
+
 fn add_wasi_to_linker(linker: &mut Linker<HostState>) {
     wasmtime_wasi::p2::add_to_linker_sync(linker).expect("add wasi");
 }
@@ -203,6 +219,7 @@ fn add_greentic_hosts(linker: &mut Linker<HostState>) {
         },
     )
     .expect("add greentic hosts");
+    add_state_store_v1_1_to_linker(linker).expect("add state-store@1.1.0");
 }
 
 #[test]

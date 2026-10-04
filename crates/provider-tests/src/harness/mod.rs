@@ -153,8 +153,77 @@ pub fn add_wasmtime_hosts(linker: &mut Linker<TestHostState>) -> Result<()> {
             ..Default::default()
         },
     )?;
+    add_state_store_v1_1_to_linker(linker)?;
     add_http_client_http_client_world(linker)?;
     add_http_client_client_world(linker)?;
+    Ok(())
+}
+
+/// `write-if-absent` of `greentic:state/state-store@1.1.0`.
+pub trait StateStoreWriteIfAbsent: state_store::StateStoreHost {
+    fn write_if_absent(
+        &mut self,
+        key: state_store::StateKey,
+        bytes: Vec<u8>,
+        ctx: Option<state_store::TenantCtx>,
+    ) -> Result<bool, state_store::StateStoreError>;
+}
+
+impl StateStoreWriteIfAbsent for TestHostState {
+    fn write_if_absent(
+        &mut self,
+        _key: state_store::StateKey,
+        _bytes: Vec<u8>,
+        _ctx: Option<state_store::TenantCtx>,
+    ) -> Result<bool, state_store::StateStoreError> {
+        Err(state_store::StateStoreError {
+            code: "unimplemented".into(),
+            message: "state store not available in universal tests".into(),
+        })
+    }
+}
+
+/// greentic-interfaces-wasmtime 0.5 only registers `state-store@1.0.0`; the
+/// webchat providers import `@1.1.0` for `write-if-absent`. The 1.0 types are
+/// structurally identical, so they type the 1.1 functions here.
+pub fn add_state_store_v1_1_to_linker<T: StateStoreWriteIfAbsent + 'static>(
+    linker: &mut Linker<T>,
+) -> Result<()> {
+    use state_store::{StateKey, StateStoreHost, TenantCtx};
+    type Caller<'a, T> = wasmtime::StoreContextMut<'a, T>;
+
+    let mut inst = linker.instance("greentic:state/state-store@1.1.0")?;
+    inst.func_wrap(
+        "read",
+        move |mut caller: Caller<'_, T>, (key, ctx): (StateKey, Option<TenantCtx>)| {
+            Ok((StateStoreHost::read(caller.data_mut(), key, ctx),))
+        },
+    )?;
+    inst.func_wrap(
+        "write",
+        move |mut caller: Caller<'_, T>,
+              (key, bytes, ctx): (StateKey, Vec<u8>, Option<TenantCtx>)| {
+            Ok((StateStoreHost::write(caller.data_mut(), key, bytes, ctx),))
+        },
+    )?;
+    inst.func_wrap(
+        "delete",
+        move |mut caller: Caller<'_, T>, (key, ctx): (StateKey, Option<TenantCtx>)| {
+            Ok((StateStoreHost::delete(caller.data_mut(), key, ctx),))
+        },
+    )?;
+    inst.func_wrap(
+        "write-if-absent",
+        move |mut caller: Caller<'_, T>,
+              (key, bytes, ctx): (StateKey, Vec<u8>, Option<TenantCtx>)| {
+            Ok((StateStoreWriteIfAbsent::write_if_absent(
+                caller.data_mut(),
+                key,
+                bytes,
+                ctx,
+            ),))
+        },
+    )?;
     Ok(())
 }
 

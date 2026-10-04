@@ -255,6 +255,7 @@ When an operation is dispatched, the operator:
 | `greentic:secrets/secrets-store@1.0.0` | `SecretsManagerHandle` → dev secrets file / AWS / Azure KV / Vault |
 | `greentic:http/http-client@1.1.0` | Outbound HTTP (provider API calls to Slack, Telegram, etc.) |
 | `greentic:state/state-store@1.0.0` | Optional host key-value store (only for components that declare it) |
+| `greentic:state/state-store@1.1.0` | Same store plus atomic `write-if-absent`; imported by `messaging-provider-webchat`, `-webchat-gui` and `-3aigent-gui`, which will not instantiate on a host that only serves `@1.0.0` |
 | `wasi:io/*`, `wasi:random/*` | Standard WASI Preview 2 |
 
 3. Resolves provider binding via `pack_runtime.resolve_provider()`
