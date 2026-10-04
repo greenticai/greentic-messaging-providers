@@ -16,6 +16,7 @@ use serde_json::{Value, json};
 
 use crate::PROVIDER_TYPE;
 use crate::directline::HostStateStore;
+use crate::directline::activity_log;
 use crate::directline::jwt::DirectLineContext;
 use crate::directline::state::{StoredActivity, conversation_key};
 use crate::directline::store::StateStore as _;
@@ -226,36 +227,28 @@ fn append_bot_activity_to_conversation(
     };
     let mut store = HostStateStore;
 
-    let (conv_key, conv_bytes) =
-        match find_existing_conversation_state(&mut store, &ctx, conversation_id)? {
-            Some(found) => found,
-            None => return Ok(None), // conversation not found, skip silently
-        };
-
-    let mut conversation: crate::directline::state::ConversationState =
-        serde_json::from_slice(&conv_bytes).map_err(|e| e.to_string())?;
-
-    let watermark = conversation.bump_watermark();
-    let raw = build_bot_activity_raw(text, adaptive_card_json, extensions, envelope_attachments);
-
-    let activity = StoredActivity {
-        id: format!("bot-{watermark}"),
-        type_: "message".to_string(),
-        text: if text.is_empty() {
-            None
-        } else {
-            Some(text.to_string())
-        },
-        from: Some("bot".to_string()),
-        timestamp: chrono::Utc::now().timestamp_millis(),
-        watermark,
-        raw,
+    let conv_key = match find_existing_conversation_state(&mut store, &ctx, conversation_id)? {
+        Some(found) => found,
+        None => return Ok(None), // conversation not found, skip silently
     };
-    conversation.activities.push(activity);
 
-    let updated = serde_json::to_vec(&conversation).map_err(|e| e.to_string())?;
-    store.write(&conv_key, &updated)?;
-    Ok(Some(watermark))
+    let raw = build_bot_activity_raw(text, adaptive_card_json, extensions, envelope_attachments);
+    let activity =
+        activity_log::append_activity(&mut store, &conv_key, |watermark| StoredActivity {
+            id: format!("bot-{watermark}"),
+            type_: "message".to_string(),
+            text: if text.is_empty() {
+                None
+            } else {
+                Some(text.to_string())
+            },
+            from: Some("bot".to_string()),
+            timestamp: chrono::Utc::now().timestamp_millis(),
+            watermark,
+            raw: raw.clone(),
+        })
+        .map_err(|e| e.to_string())?;
+    Ok(Some(activity.watermark))
 }
 
 /// Append an "event"-typed activity carrying a redacted error AC card. Returns
@@ -276,34 +269,29 @@ fn append_error_activity_to_conversation(
     };
     let mut store = HostStateStore;
 
-    let (conv_key, conv_bytes) =
-        match find_existing_conversation_state(&mut store, &ctx, conversation_id)? {
-            Some(found) => found,
-            None => return Ok(None),
-        };
+    let conv_key = match find_existing_conversation_state(&mut store, &ctx, conversation_id)? {
+        Some(found) => found,
+        None => return Ok(None),
+    };
 
-    let mut conversation: crate::directline::state::ConversationState =
-        serde_json::from_slice(&conv_bytes).map_err(|e| e.to_string())?;
-    let watermark = conversation.bump_watermark();
     let card = build_error_adaptive_card(safe_message, error_kind);
     let card_json = serde_json::to_string(&card).unwrap_or_else(|_| "{}".to_string());
     let raw = build_bot_activity_raw(safe_message, Some(&card_json), None, None);
 
-    let activity = StoredActivity {
-        id: format!("error-{watermark}"),
-        // `event` type avoids the bot-echo loop and one-shot delivery.
-        type_: "event".to_string(),
-        text: Some(safe_message.to_string()),
-        from: Some("bot".to_string()),
-        timestamp: chrono::Utc::now().timestamp_millis(),
-        watermark,
-        raw,
-    };
-    conversation.activities.push(activity);
-
-    let updated = serde_json::to_vec(&conversation).map_err(|e| e.to_string())?;
-    store.write(&conv_key, &updated)?;
-    Ok(Some(watermark))
+    let activity = activity_log::append_activity(&mut store, &conv_key, |watermark| {
+        StoredActivity {
+            id: format!("error-{watermark}"),
+            // `event` type avoids the bot-echo loop and one-shot delivery.
+            type_: "event".to_string(),
+            text: Some(safe_message.to_string()),
+            from: Some("bot".to_string()),
+            timestamp: chrono::Utc::now().timestamp_millis(),
+            watermark,
+            raw: raw.clone(),
+        }
+    })
+    .map_err(|e| e.to_string())?;
+    Ok(Some(activity.watermark))
 }
 
 /// Adaptive Card body for the error activity. Attention-styled headline +
@@ -345,12 +333,12 @@ pub(super) fn find_existing_conversation_state<S: crate::directline::store::Stat
     store: &mut S,
     ctx: &DirectLineContext,
     conversation_id: &str,
-) -> Result<Option<(String, Vec<u8>)>, String> {
+) -> Result<Option<String>, String> {
     let mut tried_keys: Vec<String> = Vec::new();
     for candidate_ctx in candidate_conversation_contexts(ctx) {
         let key = conversation_key(&candidate_ctx, conversation_id);
-        if let Some(bytes) = store.read(&key)? {
-            return Ok(Some((key, bytes)));
+        if store.read(&key)?.is_some() {
+            return Ok(Some(key));
         }
         tried_keys.push(key);
     }
