@@ -1981,6 +1981,50 @@ console.log('[runtime-bootstrap] loaded');
     return true;
   }
 
+  var CONVERSATIONS_PATH_RE = /\/v3\/directline\/conversations\/?$/i;
+  var RESUME_FAILURE_STATUSES = [401, 403, 404, 410];
+
+  function directLineResumeRetryKey() { return directLineCacheKey('resume-retry'); }
+
+  function conversationsPathOf(url) {
+    try { return new URL(url, window.location.href).pathname; } catch (_) { return ''; }
+  }
+
+  function resumeUrlFor(url, conversationId) {
+    var target = new URL(url, window.location.href);
+    target.pathname = target.pathname.replace(/\/+$/, '') + '/' + encodeURIComponent(conversationId);
+    target.search = '';
+    return target.toString();
+  }
+
+  function reloadOnceAfterResumeFailure(status) {
+    clearDirectLineCache();
+    try {
+      if (sessionStorage.getItem(directLineResumeRetryKey()) === '1') return false;
+      sessionStorage.setItem(directLineResumeRetryKey(), '1');
+    } catch (_) {
+      if (window.__GREENTIC_DIRECT_LINE_RESUME_RETRY__) return false;
+      window.__GREENTIC_DIRECT_LINE_RESUME_RETRY__ = true;
+    }
+    console.warn('[bootstrap] resuming the saved conversation failed (' + status + '); cleared it and reloading once');
+    window.location.reload();
+    return true;
+  }
+
+  function recordConversationFromXhr(xhr, resumed) {
+    var data = null;
+    try {
+      data = (xhr.responseType === '' || xhr.responseType === 'text')
+        ? JSON.parse(xhr.responseText)
+        : xhr.response;
+      if (typeof data === 'string') data = JSON.parse(data);
+    } catch (_) {}
+    if (!data || typeof data !== 'object' || !data.conversationId) return;
+    writeCachedConversation(data);
+    try { sessionStorage.removeItem(directLineResumeRetryKey()); } catch (_) {}
+    console.log('[bootstrap] ' + (resumed ? 'resumed' : 'saved') + ' conversation:', data.conversationId);
+  }
+
   function injectGuestIdIntoBody(init) {
     var nextInit = Object.assign({}, init || {});
     var nextHeaders = nextInit.headers ? Object.assign({}, nextInit.headers) : {};
@@ -2017,15 +2061,32 @@ console.log('[runtime-bootstrap] loaded');
     XHRProto.open = function (method, url) {
       this.__gtcMethod = (method || '').toUpperCase();
       this.__gtcUrl = url;
-      return origOpen.apply(this, arguments);
+      var args = Array.prototype.slice.call(arguments);
+      try {
+        if (this.__gtcMethod === 'POST' && CONVERSATIONS_PATH_RE.test(conversationsPathOf(url))) {
+          var saved = readCachedConversation();
+          if (saved) {
+            args[0] = 'GET';
+            args[1] = resumeUrlFor(url, saved.conversationId);
+            this.__gtcMethod = 'GET';
+            this.__gtcUrl = args[1];
+            this.__gtcResume = true;
+            console.log('[bootstrap] resuming saved conversation:', saved.conversationId);
+          }
+        }
+      } catch (_) {
+        // Resuming is best-effort; fall through to the original request.
+      }
+      return origOpen.apply(this, args);
     };
     XHRProto.send = function (body) {
+      var sendArgs = this.__gtcResume ? [] : arguments;
       try {
         this.__gtcBody = body;
-        if ((selectedLocale || flowId) && this.__gtcMethod === 'POST') {
+        if ((selectedLocale || flowId) && (this.__gtcMethod === 'POST' || this.__gtcResume)) {
           var path = '';
           try { path = new URL(this.__gtcUrl, window.location.href).pathname; } catch (_) {}
-          if (/\/v3\/directline\/conversations\/?$/i.test(path)) {
+          if (this.__gtcResume || CONVERSATIONS_PATH_RE.test(path)) {
             if (selectedLocale) {
               this.setRequestHeader('X-Greentic-Locale', selectedLocale);
             }
@@ -2039,13 +2100,20 @@ console.log('[runtime-bootstrap] loaded');
         try { requestPath = new URL(xhr.__gtcUrl, window.location.href).pathname; } catch (_) {}
         if (/\/v3\/directline\//i.test(requestPath)) {
           xhr.addEventListener('loadend', function () {
-            if (xhr.status === 401) reloadOnceAfterDirectLineAuthFailure();
+            if (xhr.__gtcResume && RESUME_FAILURE_STATUSES.indexOf(xhr.status) !== -1) {
+              reloadOnceAfterResumeFailure(xhr.status);
+            } else if (xhr.status === 401) {
+              reloadOnceAfterDirectLineAuthFailure();
+            } else if ((xhr.__gtcResume || (xhr.__gtcMethod === 'POST' && CONVERSATIONS_PATH_RE.test(requestPath)))
+              && (xhr.status === 200 || xhr.status === 201)) {
+              recordConversationFromXhr(xhr, !!xhr.__gtcResume);
+            }
           });
         }
       } catch (_) {
         // Header injection is best-effort; failure must not break the request.
       }
-      return origSend.apply(this, arguments);
+      return origSend.apply(this, sendArgs);
     };
   }
 
