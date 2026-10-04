@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use greentic_types::messaging::universal_dto::{Header, HttpInV1, HttpOutV1};
 
+use super::activity_log::{self, LogError};
 use super::caller::caller_header;
 use super::jwt::{DirectLineContext, TTL_SECONDS, issue_token, reissue_token, verify_token};
 use super::oidc::{OidcError, verify_access_token};
@@ -530,7 +531,7 @@ where
     }
 
     let conv_key = conversation_key(&claims.ctx, conversation_id);
-    let mut conversation = match load_conversation_state(state_store, &conv_key) {
+    let conversation = match load_conversation_state(state_store, &conv_key) {
         Ok(state) => state,
         Err(resp) => return resp,
     };
@@ -539,7 +540,6 @@ where
         return respond_forbidden("token context mismatch");
     }
 
-    let watermark = conversation.bump_watermark();
     let body = match decode_json_body(request) {
         Ok(value) => value,
         Err(resp) => return resp,
@@ -553,32 +553,31 @@ where
         return resp;
     }
 
-    let activity = StoredActivity {
-        id: Uuid::new_v4().to_string(),
-        type_: body
-            .get("type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("message")
-            .to_string(),
-        text: body
-            .get("text")
-            .and_then(|value| value.as_str())
-            .map(|s| s.to_string()),
-        from: body
-            .get("from")
-            .and_then(|from| from.get("id"))
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string()),
-        timestamp: Utc::now().timestamp_millis(),
-        watermark,
-        raw: body.clone(),
-    };
-
-    conversation.activities.push(activity.clone());
-
-    if let Err(resp) = write_conversation_state(state_store, &conv_key, &conversation) {
-        return resp;
-    }
+    let activity =
+        match activity_log::append_activity(state_store, &conv_key, |watermark| StoredActivity {
+            id: Uuid::new_v4().to_string(),
+            type_: body
+                .get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("message")
+                .to_string(),
+            text: body
+                .get("text")
+                .and_then(|value| value.as_str())
+                .map(|s| s.to_string()),
+            from: body
+                .get("from")
+                .and_then(|from| from.get("id"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            timestamp: Utc::now().timestamp_millis(),
+            watermark,
+            raw: body.clone(),
+        }) {
+            Ok(activity) => activity,
+            Err(err) => return log_error_response(err),
+        };
+    let watermark = activity.watermark;
 
     // Include context in headers so ingest_http can extract env/tenant for envelope routing
     let mut headers = json_headers();
@@ -664,13 +663,14 @@ where
         Err(resp) => return resp,
     };
 
-    let mut activities = conversation
+    let page = match activity_log::read_activities(state_store, &conv_key, &conversation, watermark)
+    {
+        Ok(page) => page,
+        Err(err) => return log_error_response(err),
+    };
+    let mut activities = page
         .activities
         .iter()
-        .filter(|activity| match watermark {
-            Some(watermark) => activity.watermark >= watermark,
-            None => true,
-        })
         .map(activity_to_value)
         .collect::<Vec<_>>();
     if let Some(typing) = live_typing_activity(state_store, &conv_key, &conversation) {
@@ -681,9 +681,20 @@ where
         200,
         json!({
             "activities": activities,
-            "watermark": conversation.next_watermark.to_string(),
+            "watermark": page.watermark.to_string(),
         }),
     )
+}
+
+fn log_error_response(err: LogError) -> HttpOutV1 {
+    match err {
+        LogError::NotFound => respond_not_found("conversation not found"),
+        LogError::Read(e) => respond_error(500, "state_read", e),
+        LogError::Write(e) => respond_error(500, "state_write", e),
+        LogError::Parse(e) => respond_error(500, "state_parse", e),
+        LogError::Serialize(e) => respond_error(500, "state_serialize", e),
+        LogError::Contended => respond_error(503, "state_contended", err.to_string()),
+    }
 }
 
 fn enforce_rate_limit<S: StateStore>(
@@ -746,7 +757,8 @@ fn live_typing_activity<S: StateStore>(
 ) -> Option<Value> {
     let bytes = store.read(&typing_key(conv_key)).ok().flatten()?;
     let slot: TypingSlot = serde_json::from_slice(&bytes).ok()?;
-    typing_activity(&slot, conversation, Utc::now().timestamp_millis())
+    let tail = activity_log::with_tail(store, conv_key, conversation, slot.since_watermark).ok()?;
+    typing_activity(&slot, &tail, Utc::now().timestamp_millis())
 }
 
 fn load_conversation_state<S: StateStore>(
@@ -1637,11 +1649,10 @@ mod tests {
             "typing consumes no watermark"
         );
 
-        let mut stored = read_conversation(&mut state, &conv_key)?;
+        let stored = read_conversation(&mut state, &conv_key)?;
         assert!(stored.activities.iter().all(|a| a.type_ != "typing"));
 
-        let wm = stored.bump_watermark();
-        stored.activities.push(StoredActivity {
+        activity_log::append_activity(&mut state, &conv_key, |wm| StoredActivity {
             id: format!("bot-{wm}"),
             type_: "message".into(),
             text: Some("done".into()),
@@ -1649,11 +1660,8 @@ mod tests {
             timestamp: Utc::now().timestamp_millis(),
             watermark: wm,
             raw: json!({}),
-        });
-        state.write(
-            &conv_key,
-            &serde_json::to_vec(&stored).map_err(|e| e.to_string())?,
-        )?;
+        })
+        .map_err(|e| e.to_string())?;
         let after = get_activities(&mut state, &secrets, &conv_id, &token)?;
         assert!(
             after["activities"]

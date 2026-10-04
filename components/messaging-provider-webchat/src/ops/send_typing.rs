@@ -7,8 +7,9 @@ use serde_json::{Value, json};
 
 use crate::PROVIDER_TYPE;
 use crate::directline::HostStateStore;
+use crate::directline::activity_log;
 use crate::directline::jwt::DirectLineContext;
-use crate::directline::state::{ConversationState, TypingSlot, typing_key};
+use crate::directline::state::{TypingSlot, typing_key};
 use crate::directline::store::StateStore;
 
 use super::send_payload::find_existing_conversation_state;
@@ -69,10 +70,13 @@ fn raise_typing<S: StateStore>(
     ctx: &DirectLineContext,
     now_ms: i64,
 ) -> Result<Value, String> {
-    let (conv_key, bytes) = find_existing_conversation_state(store, ctx, conversation_id)?
+    let conv_key = find_existing_conversation_state(store, ctx, conversation_id)?
         .ok_or_else(|| "conversation not found".to_string())?;
-    let conversation: ConversationState =
-        serde_json::from_slice(&bytes).map_err(|err| format!("conversation state: {err}"))?;
+    let header = activity_log::read_header(store, &conv_key)
+        .map_err(|err| format!("conversation state: {err}"))?
+        .ok_or_else(|| "conversation not found".to_string())?;
+    let conversation = activity_log::with_tail(store, &conv_key, &header, header.next_watermark)
+        .map_err(|err| format!("conversation state: {err}"))?;
     let slot = TypingSlot::raise(&conversation, now_ms);
     let slot_bytes = serde_json::to_vec(&slot).map_err(|err| err.to_string())?;
     store.write(&typing_key(&conv_key), &slot_bytes)?;
@@ -86,7 +90,7 @@ fn raise_typing<S: StateStore>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::directline::state::conversation_key;
+    use crate::directline::state::{ConversationState, conversation_key};
     use serde_json::json;
     use std::collections::HashMap;
 

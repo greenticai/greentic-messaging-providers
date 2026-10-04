@@ -18,13 +18,22 @@ pub struct StoredActivity {
     pub raw: Value,
 }
 
+/// Storage layout marker. `0` (absent) is the legacy single-blob shape where
+/// `activities` holds the whole history; `2` means the value is only a
+/// header and each activity lives under its own key (see `activity_log`).
+pub const LAYOUT_PER_ACTIVITY: u8 = 2;
+
+/// Conversation header. In the legacy layout it also carried every activity.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ConversationState {
     pub ctx: DirectLineContext,
     pub next_watermark: u64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub activities: Vec<StoredActivity>,
     #[serde(default)]
     pub flow_binding: Option<String>,
+    #[serde(default)]
+    pub layout: u8,
 }
 
 impl ConversationState {
@@ -34,7 +43,13 @@ impl ConversationState {
             next_watermark: 0,
             activities: Vec::new(),
             flow_binding: None,
+            layout: LAYOUT_PER_ACTIVITY,
         }
+    }
+
+    /// True when this value still embeds the activity history (pre-split).
+    pub fn is_legacy(&self) -> bool {
+        self.layout < LAYOUT_PER_ACTIVITY
     }
 
     pub fn bump_watermark(&mut self) -> u64 {
