@@ -487,8 +487,59 @@ fn add_greentic_hosts(linker: &mut Linker<TesterHostState>) -> Result<()> {
             ..Default::default()
         },
     )?;
+    add_state_store_v1_1_world(linker)?;
     add_http_client_http_client_world(linker)?;
     add_http_client_client_world(linker)?;
+    Ok(())
+}
+
+// greentic-interfaces-wasmtime 0.5 only registers `state-store@1.0.0`; the
+// webchat providers import `@1.1.0` for `write-if-absent`. The 1.0 types are
+// structurally identical, so they type the 1.1 functions here.
+fn add_state_store_v1_1_world(linker: &mut Linker<TesterHostState>) -> Result<()> {
+    use state_store::{StateKey, StateStoreError, StateStoreHost, TenantCtx};
+    type Caller<'a> = wasmtime::StoreContextMut<'a, TesterHostState>;
+
+    let mut inst = linker.instance("greentic:state/state-store@1.1.0")?;
+    inst.func_wrap(
+        "read",
+        move |mut caller: Caller<'_>, (key, ctx): (StateKey, Option<TenantCtx>)| {
+            Ok((StateStoreHost::read(caller.data_mut(), key, ctx),))
+        },
+    )?;
+    inst.func_wrap(
+        "write",
+        move |mut caller: Caller<'_>, (key, bytes, ctx): (StateKey, Vec<u8>, Option<TenantCtx>)| {
+            Ok((StateStoreHost::write(caller.data_mut(), key, bytes, ctx),))
+        },
+    )?;
+    inst.func_wrap(
+        "delete",
+        move |mut caller: Caller<'_>, (key, ctx): (StateKey, Option<TenantCtx>)| {
+            Ok((StateStoreHost::delete(caller.data_mut(), key, ctx),))
+        },
+    )?;
+    inst.func_wrap(
+        "write-if-absent",
+        move |caller: Caller<'_>, (key, bytes, _ctx): (StateKey, Vec<u8>, Option<TenantCtx>)| {
+            let result: Result<bool, StateStoreError> = caller
+                .data()
+                .state_store
+                .lock()
+                .map_err(|_| StateStoreError {
+                    code: "poisoned".into(),
+                    message: "state store lock poisoned".into(),
+                })
+                .map(|mut map| match map.entry(key) {
+                    std::collections::hash_map::Entry::Occupied(_) => false,
+                    std::collections::hash_map::Entry::Vacant(slot) => {
+                        slot.insert(bytes);
+                        true
+                    }
+                });
+            Ok((result,))
+        },
+    )?;
     Ok(())
 }
 

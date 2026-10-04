@@ -1,7 +1,8 @@
 // Per-activity storage for Direct Line conversations.
 //
-// The `greentic:state/state-store` contract offers only `read`, `write` and
-// `delete` on opaque blobs: no list, no append, no TTL, no compare-and-swap.
+// The `greentic:state/state-store` contract offers `read`, `write` and
+// `delete` on opaque blobs, plus (from @1.1.0) an atomic `write-if-absent`:
+// no list, no append, no TTL, no compare-and-swap.
 // A conversation therefore lives under these keys:
 //
 // ```text
@@ -19,19 +20,17 @@
 // # What is and is not guaranteed
 //
 // The header's `next_watermark` is a hint, not the truth: the activity keys
-// are. An append starts probing at the hint and skips any slot that already
-// holds an activity, then writes and reads the slot back. A concurrent writer
-// that overwrote the slot after our write is detected by the read-back and we
-// retry on the next slot. Readers also probe past the hint, so a header write
-// that was lost or regressed heals by itself.
+// are. Readers probe past the hint, so a lost or regressed header write heals
+// by itself.
 //
-// With blob read/write only, a race remains: two writers that both see a slot
-// free *and* whose writes are not interleaved with the other's read-back can
-// each believe they won, and the later write replaces the earlier activity.
-// The window is the gap between one writer's existence check and its write,
-// instead of the whole read-modify-write of the history that the single blob
-// had. Closing it entirely needs a compare-and-swap (or conditional write) in
-// the state-store contract.
+// With `write-if-absent` an append claims a slot atomically: the call that
+// creates the key owns that watermark and a loser moves to the next slot, so
+// two writers can never share one.
+//
+// Hosts without it (`StateStore::write_if_absent` answering `None`) fall back
+// to probing the slot, writing and reading it back. A race remains there: two
+// writers whose writes are not interleaved with the other's read-back can each
+// believe they won, and the later write replaces the earlier activity.
 
 use super::state::{ConversationState, LAYOUT_PER_ACTIVITY, StoredActivity};
 use super::store::StateStore;
@@ -106,9 +105,15 @@ fn migrate_legacy<S: StateStore>(
 ) -> Result<(), LogError> {
     for activity in &header.activities {
         let bytes = serde_json::to_vec(activity).map_err(|e| LogError::Serialize(e.to_string()))?;
-        store
-            .write(&activity_key(conv_key, activity.watermark), &bytes)
-            .map_err(LogError::Write)?;
+        let key = activity_key(conv_key, activity.watermark);
+        // An existing slot is an earlier, interrupted migration of this activity.
+        if store
+            .write_if_absent(&key, &bytes)
+            .map_err(LogError::Write)?
+            .is_none()
+        {
+            store.write(&key, &bytes).map_err(LogError::Write)?;
+        }
         header.next_watermark = header
             .next_watermark
             .max(activity.watermark.saturating_add(1));
@@ -132,15 +137,29 @@ pub fn append_activity<S: StateStore>(
 
     let mut seq = header.next_watermark;
     for _ in 0..MAX_ALLOC_ATTEMPTS {
-        let key = activity_key(conv_key, seq);
-        if store.read(&key).map_err(LogError::Read)?.is_some() {
-            seq = seq.saturating_add(1);
-            continue;
-        }
         let mut activity = make(seq);
         activity.watermark = seq;
         let bytes =
             serde_json::to_vec(&activity).map_err(|e| LogError::Serialize(e.to_string()))?;
+        let key = activity_key(conv_key, seq);
+        match store
+            .write_if_absent(&key, &bytes)
+            .map_err(LogError::Write)?
+        {
+            Some(true) => {
+                commit_header(store, conv_key, header, seq)?;
+                return Ok(activity);
+            }
+            Some(false) => {
+                seq = seq.saturating_add(1);
+                continue;
+            }
+            None => {}
+        }
+        if store.read(&key).map_err(LogError::Read)?.is_some() {
+            seq = seq.saturating_add(1);
+            continue;
+        }
         store.write(&key, &bytes).map_err(LogError::Write)?;
         let held = store.read(&key).map_err(LogError::Read)?;
         if held.as_deref() != Some(bytes.as_slice()) {
@@ -254,13 +273,15 @@ mod tests {
     use crate::directline::jwt::DirectLineContext;
     use serde_json::json;
     use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
 
-    type AfterWrite = Box<dyn FnMut(&mut HashMap<String, Vec<u8>>, &str)>;
+    type AfterWrite = Box<dyn FnMut(&mut HashMap<String, Vec<u8>>, &str) + Send>;
 
     #[derive(Default)]
     struct MemStore {
         map: HashMap<String, Vec<u8>>,
         after_write: Option<AfterWrite>,
+        claim: bool,
     }
 
     impl StateStore for MemStore {
@@ -273,6 +294,30 @@ mod tests {
                 hook(&mut self.map, key);
             }
             Ok(())
+        }
+        fn write_if_absent(&mut self, key: &str, value: &[u8]) -> Result<Option<bool>, String> {
+            if !self.claim {
+                return Ok(None);
+            }
+            if self.map.contains_key(key) {
+                return Ok(Some(false));
+            }
+            self.map.insert(key.to_string(), value.to_vec());
+            Ok(Some(true))
+        }
+    }
+
+    struct SharedStore(Arc<Mutex<MemStore>>);
+
+    impl StateStore for SharedStore {
+        fn read(&mut self, key: &str) -> Result<Option<Vec<u8>>, String> {
+            self.0.lock().unwrap().read(key)
+        }
+        fn write(&mut self, key: &str, value: &[u8]) -> Result<(), String> {
+            self.0.lock().unwrap().write(key, value)
+        }
+        fn write_if_absent(&mut self, key: &str, value: &[u8]) -> Result<Option<bool>, String> {
+            self.0.lock().unwrap().write_if_absent(key, value)
         }
     }
 
@@ -301,6 +346,12 @@ mod tests {
     fn fresh() -> MemStore {
         let mut s = MemStore::default();
         write_header(&mut s, KEY, &ConversationState::new(ctx())).unwrap();
+        s
+    }
+
+    fn claiming() -> MemStore {
+        let mut s = fresh();
+        s.claim = true;
         s
     }
 
@@ -457,6 +508,99 @@ mod tests {
         let page = read_activities(&mut s, KEY, &header, None).unwrap();
         let ids: Vec<_> = page.activities.iter().map(|a| a.id.as_str()).collect();
         assert_eq!(ids, ["other", "ours"]);
+    }
+
+    #[test]
+    fn concurrent_appends_each_claim_a_distinct_slot() {
+        const THREADS: usize = 4;
+        const PER_THREAD: usize = 8;
+        let shared = Arc::new(Mutex::new(claiming()));
+        let handles: Vec<_> = (0..THREADS)
+            .map(|t| {
+                let mut store = SharedStore(Arc::clone(&shared));
+                std::thread::spawn(move || {
+                    (0..PER_THREAD)
+                        .map(|i| {
+                            append_activity(&mut store, KEY, |wm| act(&format!("t{t}-{i}"), wm))
+                                .unwrap()
+                                .watermark
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        let mut watermarks: Vec<u64> = handles
+            .into_iter()
+            .flat_map(|h| h.join().unwrap())
+            .collect();
+        watermarks.sort_unstable();
+        let total = (THREADS * PER_THREAD) as u64;
+        assert_eq!(watermarks, (0..total).collect::<Vec<_>>());
+
+        let mut s = SharedStore(shared);
+        let header = read_header(&mut s, KEY).unwrap().unwrap();
+        let page = read_activities(&mut s, KEY, &header, None).unwrap();
+        let mut ids: Vec<_> = page.activities.iter().map(|a| a.id.clone()).collect();
+        ids.sort();
+        let mut expected: Vec<_> = (0..THREADS)
+            .flat_map(|t| (0..PER_THREAD).map(move |i| format!("t{t}-{i}")))
+            .collect();
+        expected.sort();
+        assert_eq!(ids, expected);
+    }
+
+    #[test]
+    fn append_without_conditional_write_still_assigns_contiguous_watermarks() {
+        let mut s = fresh();
+        assert!(!s.claim);
+        let marks: Vec<_> = (0..5)
+            .map(|i| push(&mut s, &format!("a{i}")).watermark)
+            .collect();
+        assert_eq!(marks, [0, 1, 2, 3, 4]);
+        let header = read_header(&mut s, KEY).unwrap().unwrap();
+        let page = read_activities(&mut s, KEY, &header, None).unwrap();
+        assert_eq!(page.activities.len(), 5);
+    }
+
+    #[test]
+    fn a_claimed_slot_is_never_overwritten_and_the_append_moves_on() {
+        let mut s = claiming();
+        let existing = serde_json::to_vec(&act("existing", 0)).unwrap();
+        s.map.insert(activity_key(KEY, 0), existing.clone());
+
+        let ours = push(&mut s, "ours");
+        assert_eq!(ours.watermark, 1);
+        assert_eq!(s.map.get(&activity_key(KEY, 0)), Some(&existing));
+        let header = read_header(&mut s, KEY).unwrap().unwrap();
+        assert_eq!(header.next_watermark, 2);
+    }
+
+    #[test]
+    fn repeating_a_legacy_migration_loses_nothing() {
+        let mut s = MemStore {
+            claim: true,
+            ..MemStore::default()
+        };
+        let mut legacy = ConversationState::new(ctx());
+        legacy.layout = 0;
+        legacy.activities = vec![act("old0", 0), act("old1", 1)];
+        legacy.next_watermark = 2;
+        let legacy_bytes = serde_json::to_vec(&legacy).unwrap();
+        s.map.insert(KEY.into(), legacy_bytes.clone());
+
+        let mut header = read_header(&mut s, KEY).unwrap().unwrap();
+        migrate_legacy(&mut s, KEY, &mut header).unwrap();
+        let migrated = s.map.get(&activity_key(KEY, 1)).cloned();
+        // A crash before the header rewrite leaves the legacy blob in place.
+        s.map.insert(KEY.into(), legacy_bytes);
+
+        let added = push(&mut s, "new");
+        assert_eq!(added.watermark, 2);
+        assert_eq!(s.map.get(&activity_key(KEY, 1)).cloned(), migrated);
+        let header = read_header(&mut s, KEY).unwrap().unwrap();
+        let page = read_activities(&mut s, KEY, &header, None).unwrap();
+        let ids: Vec<_> = page.activities.iter().map(|a| a.id.as_str()).collect();
+        assert_eq!(ids, ["old0", "old1", "new"]);
     }
 
     #[test]

@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 pub trait StateStore {
     fn read(&mut self, key: &str) -> Result<Option<Vec<u8>>, String>;
     fn write(&mut self, key: &str, value: &[u8]) -> Result<(), String>;
+    /// Atomic create-only write. `Ok(Some(true))` when this call created the
+    /// key, `Ok(Some(false))` when a value already existed, `Ok(None)` when
+    /// the host cannot do conditional writes.
+    fn write_if_absent(&mut self, _key: &str, _value: &[u8]) -> Result<Option<bool>, String> {
+        Ok(None)
+    }
 }
 
 /// Driver for reading secrets required by the Direct Line contract.
