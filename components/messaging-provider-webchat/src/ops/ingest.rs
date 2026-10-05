@@ -455,13 +455,20 @@ fn stamp_ingest_envelopes(request: &HttpInV1, dl_path: &str, out: &mut HttpOutV1
                 envelope.metadata.insert(k.clone(), s);
             }
         }
-        // Mark a card submit explicitly. A submit is an activity that carries
-        // Action.Submit `data` (`value`), even an empty `{}`; typed text never
-        // does. The runner reads this instead of guessing from which metadata
-        // keys are present (typed webchat text carries many stamped keys, and
-        // a submit with no data looks like the text "message"). `greentic_*`
-        // keys from the client are skipped above, so only this stamp can set it.
-        if action_value.is_some_and(|v| !v.is_null()) {
+        // Mark a card submit explicitly. A submit is a MESSAGE activity that
+        // carries Action.Submit `data` (`value` as an object), even an empty
+        // `{}`; typed text never does. `event`/`typing` activities (stock
+        // WebChat posts `webchat/join` with a `value`) and non-object values
+        // are not submits. The runner reads this instead of guessing from which
+        // metadata keys are present (typed webchat text carries many stamped
+        // keys, and a submit with no data looks like the text "message").
+        // `greentic_*` keys from the client are skipped above, so only this
+        // stamp can set it.
+        let is_message = body
+            .get("type")
+            .and_then(Value::as_str)
+            .is_none_or(|t| t.eq_ignore_ascii_case("message"));
+        if is_message && action_value.is_some_and(Value::is_object) {
             envelope
                 .metadata
                 .insert(SUBMIT_MARKER_KEY.to_string(), "true".to_string());
@@ -977,6 +984,45 @@ mod tests {
     fn a_card_submit_with_no_data_is_still_marked() {
         let events = stamped_out_for(json!({ "type": "message", "value": {} })).events;
         assert_eq!(events[0].text.as_deref(), Some("message"));
+        assert_eq!(
+            events[0]
+                .metadata
+                .get("greentic_submit")
+                .map(String::as_str),
+            Some("true")
+        );
+    }
+
+    // Only an Action.Submit from a MESSAGE activity is a submit. Stock WebChat
+    // also posts `event`/`typing` activities that carry a `value` (e.g.
+    // `webchat/join`), and a non-object `value` is not Action.Submit data.
+    #[test]
+    fn an_event_activity_with_a_value_is_not_marked() {
+        let events = stamped_out_for(json!({
+            "type": "event",
+            "name": "webchat/join",
+            "value": {"language": "en-US"},
+        }))
+        .events;
+        assert!(!events[0].metadata.contains_key("greentic_submit"));
+    }
+
+    #[test]
+    fn a_non_object_value_is_not_a_submit() {
+        for value in [json!("yes"), json!(0), json!([1, 2])] {
+            let events =
+                stamped_out_for(json!({ "type": "message", "text": "hi", "value": value })).events;
+            assert!(
+                !events[0].metadata.contains_key("greentic_submit"),
+                "value {value} must not be marked"
+            );
+        }
+    }
+
+    // An activity with no `type` defaults to a message (as handle_post_activities does).
+    #[test]
+    fn a_submit_with_no_type_is_a_message_and_is_marked() {
+        let events = stamped_out_for(json!({ "value": {"room": "101"} })).events;
         assert_eq!(
             events[0]
                 .metadata
