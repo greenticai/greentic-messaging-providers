@@ -19,6 +19,12 @@ use std::collections::BTreeMap;
 
 use crate::PROVIDER_TYPE;
 
+/// Envelope metadata key set to `"true"` on a card submit (an activity carrying
+/// Action.Submit `data`) and absent on typed text. Contract with greentic-runner
+/// (`is_card_submit`); the `greentic_` prefix keeps it out of reach of client
+/// data, which this component never copies for `greentic_*` keys.
+pub const SUBMIT_MARKER_KEY: &str = "greentic_submit";
+
 use crate::directline::caller::{CALLER_EXT_KEY, CALLER_HEADER, decode_caller_header};
 use crate::directline::{
     ConfigAwareSecretStore, HostJwksFetcher, HostStateStore, handle_directline_request_with_jwks,
@@ -448,6 +454,17 @@ fn stamp_ingest_envelopes(request: &HttpInV1, dl_path: &str, out: &mut HttpOutV1
                 };
                 envelope.metadata.insert(k.clone(), s);
             }
+        }
+        // Mark a card submit explicitly. A submit is an activity that carries
+        // Action.Submit `data` (`value`), even an empty `{}`; typed text never
+        // does. The runner reads this instead of guessing from which metadata
+        // keys are present (typed webchat text carries many stamped keys, and
+        // a submit with no data looks like the text "message"). `greentic_*`
+        // keys from the client are skipped above, so only this stamp can set it.
+        if action_value.is_some_and(|v| !v.is_null()) {
+            envelope
+                .metadata
+                .insert(SUBMIT_MARKER_KEY.to_string(), "true".to_string());
         }
         // Stamp the server-verified trust signal after the Action.Submit
         // copy above so a client-supplied value can never survive it.
@@ -900,6 +917,87 @@ mod tests {
             Some("verified-sub"),
             "actor must come from the X-Greentic-User response header, not body.from.id"
         );
+    }
+
+    fn stamped_out_for(body: serde_json::Value) -> HttpOutV1 {
+        let request = build_ingest_request(
+            "POST",
+            "/v3/directline/conversations/conv-1/activities",
+            vec![],
+            Some(&body),
+        );
+        let mut out = build_dl_response_201(vec![
+            Header {
+                name: "X-Greentic-Env".into(),
+                value: "prod".into(),
+            },
+            Header {
+                name: "X-Greentic-Tenant".into(),
+                value: "acme".into(),
+            },
+            Header {
+                name: "X-Greentic-User".into(),
+                value: "guest-abc".into(),
+            },
+            Header {
+                name: "X-Greentic-User-Verified".into(),
+                value: "false".into(),
+            },
+        ]);
+        stamp_ingest_envelopes(
+            &request,
+            "/v3/directline/conversations/conv-1/activities",
+            &mut out,
+        );
+        out
+    }
+
+    // A card submit is marked explicitly so the runner does not have to guess
+    // it from which metadata keys happen to be present.
+    #[test]
+    fn a_card_submit_carries_the_submit_marker() {
+        let events = stamped_out_for(json!({
+            "type": "message",
+            "value": {"room": "101"},
+        }))
+        .events;
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0]
+                .metadata
+                .get("greentic_submit")
+                .map(String::as_str),
+            Some("true")
+        );
+    }
+
+    // `data: {}` has no fields and gets the synthetic text "message": only the
+    // marker tells it apart from a person typing "message".
+    #[test]
+    fn a_card_submit_with_no_data_is_still_marked() {
+        let events = stamped_out_for(json!({ "type": "message", "value": {} })).events;
+        assert_eq!(events[0].text.as_deref(), Some("message"));
+        assert_eq!(
+            events[0]
+                .metadata
+                .get("greentic_submit")
+                .map(String::as_str),
+            Some("true")
+        );
+    }
+
+    #[test]
+    fn typed_text_carries_no_submit_marker() {
+        let events = stamped_out_for(json!({ "type": "message", "text": "message" })).events;
+        assert!(!events[0].metadata.contains_key("greentic_submit"));
+        let events = stamped_out_for(json!({
+            "type": "message",
+            "text": "hi",
+            "value": null,
+            "channelData": {"greentic_submit": "true"},
+        }))
+        .events;
+        assert!(!events[0].metadata.contains_key("greentic_submit"));
     }
 
     // C1: a client posting a spoofed `user_verified`/`user_id` in the
