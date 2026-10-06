@@ -107,7 +107,71 @@ fn normalize_adaptive_card_for_webex(card: &Value) -> Value {
     card
 }
 
+/// Whether an element asks for `isRequired`, as a boolean or as the string a
+/// template substitution leaves behind.
+fn is_required(obj: &serde_json::Map<String, Value>) -> bool {
+    match obj.get("isRequired") {
+        Some(Value::Bool(flag)) => *flag,
+        Some(Value::String(text)) => text == "true",
+        _ => false,
+    }
+}
+
+/// Webex's client refuses to submit a card holding a REQUIRED `Input.Toggle`
+/// even when the box is ticked: measured 2026-10-06 against a real client, every
+/// variant (explicit `value`, no `valueOn`/`valueOff`, no `errorMessage`) was
+/// rejected before any webhook was sent, while an optional toggle and a
+/// required single-choice multi-select `Input.ChoiceSet` were both accepted.
+///
+/// A required consent box must stay required (nothing server-side enforces it),
+/// so it is rendered as the equivalent checkbox: one choice whose value is the
+/// toggle's `valueOn`. A ticked box submits that value, exactly what the toggle
+/// submitted; an unticked one blocks the submit, exactly what `isRequired` asks.
+/// An optional toggle is left alone because it works.
+fn required_toggle_as_choice_set(obj: &serde_json::Map<String, Value>) -> Value {
+    let value_on = obj
+        .get("valueOn")
+        .and_then(Value::as_str)
+        .unwrap_or("true")
+        .to_string();
+    let mut set = serde_json::Map::new();
+    set.insert("type".into(), Value::String("Input.ChoiceSet".into()));
+    set.insert("isMultiSelect".into(), Value::Bool(true));
+    set.insert("style".into(), Value::String("expanded".into()));
+    set.insert("isRequired".into(), Value::Bool(true));
+    set.insert(
+        "choices".into(),
+        serde_json::json!([{
+            "title": obj.get("title").cloned().unwrap_or_else(|| Value::String(String::new())),
+            "value": value_on,
+        }]),
+    );
+    if obj.get("value").and_then(Value::as_str) == Some(value_on.as_str()) {
+        set.insert("value".into(), Value::String(value_on));
+    }
+    for key in [
+        "id",
+        "label",
+        "errorMessage",
+        "spacing",
+        "separator",
+        "isVisible",
+        "height",
+    ] {
+        if let Some(found) = obj.get(key) {
+            set.insert(key.to_string(), found.clone());
+        }
+    }
+    Value::Object(set)
+}
+
 fn normalize_adaptive_card_value(value: &mut Value) {
+    if let Value::Object(obj) = value
+        && obj.get("type").and_then(Value::as_str) == Some("Input.Toggle")
+        && is_required(obj)
+    {
+        *value = required_toggle_as_choice_set(obj);
+    }
     match value {
         Value::Object(obj) => {
             for key in ["isVisible", "wrap", "isSubtle", "bleed", "separator"] {
@@ -287,5 +351,68 @@ mod tests {
             format_webex_error(400, br#"{"message":"bad room"}"#),
             r#"webex returned status 400 body={"message":"bad room"}"#
         );
+    }
+
+    #[test]
+    fn a_required_toggle_is_sent_as_a_required_single_choice_checkbox() {
+        let body = build_webex_body(
+            Some(&json!({
+                "type": "AdaptiveCard",
+                "version": "1.3",
+                "body": [
+                    {"type": "Input.Text", "id": "name", "isRequired": true},
+                    {
+                        "type": "Input.Toggle", "id": "consent", "label": "Consent",
+                        "title": "I agree", "valueOn": "true", "valueOff": "false",
+                        "isRequired": true, "errorMessage": "Consent is required."
+                    }
+                ]
+            })),
+            None,
+            "fallback",
+        );
+        let content = &body["attachments"][0]["content"];
+        assert_eq!(content["body"][0]["type"], "Input.Text");
+        assert_eq!(content["body"][0]["isRequired"], true);
+        let set = &content["body"][1];
+        assert_eq!(set["type"], "Input.ChoiceSet");
+        assert_eq!(set["id"], "consent");
+        assert_eq!(set["label"], "Consent");
+        assert_eq!(set["isMultiSelect"], true);
+        assert_eq!(set["isRequired"], true);
+        assert_eq!(set["errorMessage"], "Consent is required.");
+        assert_eq!(set["choices"][0]["title"], "I agree");
+        assert_eq!(set["choices"][0]["value"], "true");
+        assert!(
+            set.get("value").is_none(),
+            "a consent box must start unticked"
+        );
+    }
+
+    #[test]
+    fn a_required_toggle_keeps_its_custom_on_value_and_templated_flag() {
+        let mut card = json!({
+            "type": "AdaptiveCard",
+            "body": [{
+                "type": "Input.Toggle", "id": "ok", "title": "Accept",
+                "valueOn": "yes", "valueOff": "no", "value": "yes", "isRequired": "true"
+            }]
+        });
+        normalize_adaptive_card_value(&mut card);
+        let set = &card["body"][0];
+        assert_eq!(set["type"], "Input.ChoiceSet");
+        assert_eq!(set["choices"][0]["value"], "yes");
+        assert_eq!(set["value"], "yes", "a pre-ticked box stays pre-ticked");
+    }
+
+    #[test]
+    fn an_optional_toggle_is_left_alone() {
+        let toggle = json!({
+            "type": "Input.Toggle", "id": "news", "title": "Newsletter",
+            "valueOn": "true", "valueOff": "false", "isRequired": false
+        });
+        let mut card = json!({"type": "AdaptiveCard", "body": [toggle.clone()]});
+        normalize_adaptive_card_value(&mut card);
+        assert_eq!(card["body"][0], toggle);
     }
 }
