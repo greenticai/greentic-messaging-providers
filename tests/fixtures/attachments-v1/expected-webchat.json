@@ -1,0 +1,33 @@
+{
+  "envelopes": [
+    {
+      "attachments": [
+        {
+          "mime_type": "image/png",
+          "name": "p.png",
+          "size_bytes": 12,
+          "content": {
+            "data_base64": "iVBORw0KGgpEQVRB"
+          }
+        },
+        {
+          "mime_type": "text/csv",
+          "name": "notes.csv",
+          "size_bytes": 8,
+          "content": {
+            "data_base64": "YSxiCjEsMgo="
+          }
+        }
+      ],
+      "attachment_fetch": [
+        {
+          "kind": "inline"
+        },
+        {
+          "kind": "inline"
+        }
+      ],
+      "attachments_dropped": null
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "artifact": {
+    "id": "artifact://00ff",
+    "mime_type": "image/png",
+    "name": "a.png"
+  }
+}

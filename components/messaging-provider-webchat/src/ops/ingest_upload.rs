@@ -328,6 +328,44 @@ mod tests {
         assert!(!text.contains("THUMB") && !text.contains("thumbnailUrl"));
     }
 
+    /// Shared C6 fixture: the WebChat upload yields `expected-webchat.json`.
+    #[test]
+    fn the_shared_attachments_v1_fixture_yields_the_expected_envelope() {
+        let native: Value = serde_json::from_str(include_str!(
+            "../../../../tests/fixtures/attachments-v1/webchat-upload.json"
+        ))
+        .expect("native");
+        let expected: Value = serde_json::from_str(include_str!(
+            "../../../../tests/fixtures/attachments-v1/expected-webchat.json"
+        ))
+        .expect("expected");
+        let mut parts = vec![activity_part(&native["activity"].to_string())];
+        for file in native["files"].as_array().expect("files") {
+            let bytes = STANDARD
+                .decode(file["bytes_b64"].as_str().expect("bytes"))
+                .expect("base64");
+            parts.push(file_part(
+                file["filename"].as_str().expect("filename"),
+                file["declared_content_type"].as_str().expect("type"),
+                &bytes,
+            ));
+        }
+        let out = stamp(&request(&parts), accepted());
+        let events: Vec<Value> = out
+            .events
+            .iter()
+            .map(|e| {
+                let e = serde_json::to_value(e).expect("envelope");
+                json!({
+                    "attachments": e.get("attachments").cloned().unwrap_or(json!([])),
+                    "attachment_fetch": e["extensions"]["attachment_fetch"],
+                    "attachments_dropped": e["metadata"]["attachments_dropped"],
+                })
+            })
+            .collect();
+        assert_eq!(json!({ "envelopes": events }), expected);
+    }
+
     #[test]
     fn a_file_of_exactly_ten_mebibytes_reaches_the_envelope() {
         let mut at_cap = PNG.to_vec();

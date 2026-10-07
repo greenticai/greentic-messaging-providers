@@ -1,0 +1,19 @@
+{
+  "headers": { "x-provider": "whatsapp", "x-scenario": "image_message" },
+  "body": {
+    "entry": [{
+      "changes": [{
+        "value": {
+          "metadata": { "phone_number_id": "555" },
+          "messages": [
+            { "id": "wamid.A", "from": "6281", "type": "image",
+              "image": { "id": "MEDIA1", "mime_type": "image/jpeg", "caption": "ini apa?" } },
+            { "id": "wamid.B", "from": "6281", "type": "document",
+              "document": { "id": "MEDIA2", "filename": "x.pdf", "mime_type": "application/pdf" } },
+            { "id": "wamid.C", "from": "6281", "type": "text", "text": { "body": "halo" } }
+          ]
+        }
+      }]
+    }]
+  }
+}

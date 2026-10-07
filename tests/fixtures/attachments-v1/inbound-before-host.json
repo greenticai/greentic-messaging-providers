@@ -1,0 +1,19 @@
+{
+  "attachments": [
+    {
+      "mime_type": "image/png",
+      "url": null,
+      "name": "a.png",
+      "size_bytes": 3
+    }
+  ],
+  "extensions": {
+    "attachment_fetch": [
+      {
+        "kind": "bearer",
+        "url": "https://files.slack.com/f/a.png",
+        "secret_key": "SLACK_BOT_TOKEN"
+      }
+    ]
+  }
+}

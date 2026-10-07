@@ -868,6 +868,26 @@ mod tests {
         assert!(teams_pending_attachments(&activity).is_empty());
     }
 
+    /// Shared C6 fixture: the Teams native payload yields `expected-teams.json`.
+    #[test]
+    fn the_shared_attachments_v1_fixture_yields_the_expected_envelope() {
+        let native: Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/attachments-v1/teams-attachment.json"
+        ))
+        .expect("native");
+        let expected: Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/attachments-v1/expected-teams.json"
+        ))
+        .expect("expected");
+        let event = normalize_activity(&native["body"], None);
+        let projected = json!({"envelopes": [{
+            "attachments": event.get("attachments").cloned().unwrap_or(json!([])),
+            "attachment_fetch": event["extensions"]["attachment_fetch"],
+            "attachments_dropped": event["metadata"]["attachments_dropped"],
+        }]});
+        assert_eq!(projected, expected);
+    }
+
     #[test]
     fn normalized_activity_carries_the_refs() {
         let activity = message(json!([file("n.csv", "https://x.sharepoint.com/d", "csv")]));

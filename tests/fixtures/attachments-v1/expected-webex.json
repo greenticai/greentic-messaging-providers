@@ -1,0 +1,19 @@
+{
+  "envelopes": [
+    {
+      "attachments": [
+        {
+          "mime_type": "application/octet-stream"
+        }
+      ],
+      "attachment_fetch": [
+        {
+          "kind": "bearer",
+          "url": "https://webexapis.com/v1/contents/abc123",
+          "secret_key": "WEBEX_BOT_TOKEN"
+        }
+      ],
+      "attachments_dropped": null
+    }
+  ]
+}

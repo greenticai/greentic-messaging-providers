@@ -1,0 +1,19 @@
+{
+  "_note": "Direct Line upload: POST /v3/directline/conversations/{id}/upload, multipart/form-data, one activity part and one file part per entry",
+  "activity": {
+    "type": "message",
+    "text": "look"
+  },
+  "files": [
+    {
+      "filename": "p.png",
+      "declared_content_type": "image/png",
+      "bytes_b64": "iVBORw0KGgpEQVRB"
+    },
+    {
+      "filename": "notes.csv",
+      "declared_content_type": "text/csv",
+      "bytes_b64": "YSxiCjEsMgo="
+    }
+  ]
+}

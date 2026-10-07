@@ -1,0 +1,16 @@
+{
+  "headers": { "x-provider": "telegram", "x-scenario": "photo_caption" },
+  "body": {
+    "update_id": 9001,
+    "message": {
+      "message_id": 77,
+      "from": { "id": 42, "is_bot": false, "language_code": "id" },
+      "chat": { "id": 1001, "type": "private" },
+      "caption": "what is this?",
+      "photo": [
+        { "file_id": "SMALL", "file_unique_id": "u1", "width": 90, "height": 60, "file_size": 1200 },
+        { "file_id": "LARGE", "file_unique_id": "u2", "width": 1280, "height": 853, "file_size": 98000 }
+      ]
+    }
+  }
+}

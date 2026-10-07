@@ -1,0 +1,18 @@
+{
+  "headers": { "x-provider": "teams", "x-scenario": "file_download_info" },
+  "body": {
+    "type": "message", "id": "act-1", "text": "here",
+    "serviceUrl": "https://smba.trafficmanager.net/emea/",
+    "conversation": { "id": "conv-1" },
+    "from": { "id": "29:u1", "name": "U" },
+    "channelData": { "tenant": { "id": "tid-1" } },
+    "attachments": [{
+      "contentType": "application/vnd.microsoft.teams.file.download.info",
+      "name": "plan.pdf",
+      "content": {
+        "downloadUrl": "https://contoso.sharepoint.com/personal/u/_layouts/15/download.aspx?UniqueId=1&tempauth=x",
+        "fileType": "pdf", "uniqueId": "1"
+      }
+    }]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "attachments": [
+    {
+      "mime_type": "image/png",
+      "url": "artifact://00ff",
+      "name": "a.png",
+      "size_bytes": 3
+    }
+  ],
+  "extensions": {
+    "artifacts": [
+      {
+        "sha256": "ab",
+        "kind": "image",
+        "text_ref": null
+      }
+    ]
+  }
+}
