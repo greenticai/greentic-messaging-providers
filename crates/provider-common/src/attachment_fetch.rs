@@ -5,6 +5,7 @@
 //! (`greentic-start`) resolves the reference, validates magic bytes and stores
 //! the artifact.
 
+use crate::telemetry;
 use greentic_types::ChannelMessageEnvelope;
 use greentic_types::messaging::Attachment;
 use serde::{Deserialize, Serialize};
@@ -68,13 +69,29 @@ impl std::fmt::Debug for FetchRef {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct PendingAttachment {
     pub mime_type: String,
     pub name: Option<String>,
     pub size_bytes: Option<u64>,
     pub fetch: FetchRef,
     pub inline_base64: Option<String>,
+}
+
+/// Inline bytes can be ~14 MB of base64, so `Debug` prints only their length.
+impl std::fmt::Debug for PendingAttachment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PendingAttachment")
+            .field("mime_type", &self.mime_type)
+            .field("name", &self.name)
+            .field("size_bytes", &self.size_bytes)
+            .field("fetch", &self.fetch)
+            .field(
+                "inline_base64_len",
+                &self.inline_base64.as_ref().map(String::len),
+            )
+            .finish()
+    }
 }
 
 /// A secret NAME: slash allowed, charset `[A-Za-z0-9_./-]`, 1..=128 chars.
@@ -95,15 +112,30 @@ pub fn is_allowed_mime(mime: &str) -> bool {
     ALLOWED_MIME.contains(&base.as_str())
 }
 
-/// Strip directories and control characters; cap length. `None` when nothing is left.
+/// Unicode format (Cf) characters that can disguise a file name (bidi
+/// overrides, zero-width characters, BOM, ...).
+fn is_format_char(c: char) -> bool {
+    matches!(c,
+        '\u{00AD}' | '\u{0600}'..='\u{0605}' | '\u{061C}' | '\u{06DD}' | '\u{070F}'
+        | '\u{180E}' | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}'
+        | '\u{2060}'..='\u{206F}' | '\u{FEFF}' | '\u{FFF9}'..='\u{FFFB}'
+        | '\u{E0001}' | '\u{E0020}'..='\u{E007F}')
+}
+
+/// Strip directories, control and format characters; cap length (then trim
+/// again). `None` when nothing usable is left, or the name is `.` / `..`.
 pub fn sanitize_name(raw: &str) -> Option<String> {
     let last = raw.rsplit(['/', '\\']).next().unwrap_or("");
-    let cleaned: String = last.chars().filter(|c| !c.is_control()).collect();
-    let trimmed = cleaned.trim();
-    if trimmed.is_empty() || trimmed == "." || trimmed == ".." {
+    let cleaned: String = last
+        .chars()
+        .filter(|c| !c.is_control() && !is_format_char(*c))
+        .collect();
+    let truncated: String = cleaned.trim().chars().take(MAX_NAME_LEN).collect();
+    let name = truncated.trim();
+    if name.is_empty() || name == "." || name == ".." {
         return None;
     }
-    Some(trimmed.chars().take(MAX_NAME_LEN).collect())
+    Some(name.to_string())
 }
 
 /// Cheap magic-byte sniff for the v1 types. The host re-validates; this is a
@@ -141,25 +173,118 @@ pub fn sniff_mime(bytes: &[u8]) -> Option<&'static str> {
     None
 }
 
+/// Shape check for a fetch URL: `https://`, a non-empty plain host with an
+/// optional numeric port, no userinfo, no whitespace/control/backslash. The
+/// host (greentic-start) owns the SSRF allow-list; this only stops the bot
+/// token from being referenced for a URL that is plainly not an https target.
+fn https_url_problem(url: &str) -> Option<&'static str> {
+    let Some(rest) = url
+        .get(..8)
+        .filter(|p| p.eq_ignore_ascii_case("https://"))
+        .map(|_| &url[8..])
+    else {
+        return Some("url is not https");
+    };
+    if url
+        .chars()
+        .any(|c| c.is_control() || c.is_whitespace() || c == '\\')
+    {
+        return Some("url has forbidden characters");
+    }
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    if authority.contains('@') {
+        return Some("url has userinfo");
+    }
+    let (host, port) = match authority.rsplit_once(':') {
+        Some((h, p)) => (h, Some(p)),
+        None => (authority, None),
+    };
+    if host.is_empty() {
+        return Some("url has an empty host");
+    }
+    if !host
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'))
+    {
+        return Some("url host is malformed");
+    }
+    if port.is_some_and(|p| p.is_empty() || p.len() > 5 || !p.bytes().all(|b| b.is_ascii_digit())) {
+        return Some("url port is malformed");
+    }
+    None
+}
+
+/// Why an item must not reach the envelope; `None` when it is fine.
+fn rejection(item: &PendingAttachment) -> Option<&'static str> {
+    // Inline bytes are bounded by their own length, never by a declared size
+    // that may be absent or wrong: base64 carries 3 bytes per 4 characters.
+    let inline_bytes = item
+        .inline_base64
+        .as_ref()
+        .map(|b64| (b64.len() as u64).div_ceil(4) * 3);
+    if item.size_bytes.is_some_and(|s| s > MAX_ATTACHMENT_BYTES)
+        || inline_bytes.is_some_and(|s| s > MAX_ATTACHMENT_BYTES)
+    {
+        return Some("attachment too large");
+    }
+    if !is_allowed_mime(&item.mime_type) {
+        return Some("mime type not allowed");
+    }
+    match (&item.fetch, &item.inline_base64) {
+        (FetchRef::Inline, None) => return Some("inline ref without bytes"),
+        (FetchRef::Inline, Some(_)) => {}
+        (_, Some(_)) => return Some("bytes supplied for a non-inline ref"),
+        (_, None) => {}
+    }
+    match &item.fetch {
+        FetchRef::Bearer { url, secret_key } => {
+            if !valid_secret_key(secret_key) {
+                return Some("invalid secret_key");
+            }
+            https_url_problem(url)
+        }
+        FetchRef::Public { url } => https_url_problem(url),
+        _ => None,
+    }
+}
+
+fn warn_dropped(channel: &str, reason: &str) {
+    // Never the url (a `Public` url is a credential) and never any token value.
+    telemetry::log(
+        telemetry::Level::Warn,
+        "attachment dropped at the provider edge",
+        &[
+            telemetry::Field {
+                key: telemetry::field::PROVIDER,
+                value: channel,
+            },
+            telemetry::Field {
+                key: "reason",
+                value: reason,
+            },
+        ],
+    );
+}
+
 /// Write pending attachments onto the envelope (`url` stays `None`), plus the
-/// parallel `extensions["attachment_fetch"]` list. Applies the per-message cap
-/// and the MIME/size pre-checks; anything rejected is counted in
-/// `metadata["attachments_dropped"]`.
+/// parallel `extensions["attachment_fetch"]` list. Only items that pass the
+/// per-message cap and the MIME, size, https-url and inline-consistency checks
+/// are kept, so the two lists are index-parallel by construction. Rejected
+/// items are added to `metadata["attachments_dropped"]` (the counter
+/// accumulates across calls). When nothing is kept the envelope's
+/// `attachments` and `attachment_fetch` are left untouched; otherwise they are
+/// replaced.
 pub fn apply_fetch_refs(envelope: &mut ChannelMessageEnvelope, pending: Vec<PendingAttachment>) {
     let mut kept: Vec<(Attachment, Value)> = Vec::new();
     let mut dropped = 0usize;
     for item in pending {
-        // Inline bytes are bounded by their own length, never by a declared size
-        // that may be absent or wrong: base64 carries 3 bytes per 4 characters.
-        let inline_bytes = item
-            .inline_base64
-            .as_ref()
-            .map(|b64| (b64.len() as u64).div_ceil(4) * 3);
-        let too_big = item.size_bytes.is_some_and(|s| s > MAX_ATTACHMENT_BYTES)
-            || inline_bytes.is_some_and(|s| s > MAX_ATTACHMENT_BYTES);
-        let bad_key = matches!(&item.fetch, FetchRef::Bearer { secret_key, .. } if !valid_secret_key(secret_key));
-        if kept.len() >= MAX_ATTACHMENTS || too_big || bad_key || !is_allowed_mime(&item.mime_type)
-        {
+        let reason = if kept.len() >= MAX_ATTACHMENTS {
+            Some("too many attachments")
+        } else {
+            rejection(&item)
+        };
+        if let Some(reason) = reason {
+            warn_dropped(&envelope.channel, reason);
             dropped += 1;
             continue;
         }
@@ -178,9 +303,15 @@ pub fn apply_fetch_refs(envelope: &mut ChannelMessageEnvelope, pending: Vec<Pend
         kept.push((attachment, fetch));
     }
     if dropped > 0 {
-        envelope
+        let previous = envelope
             .metadata
-            .insert("attachments_dropped".to_string(), dropped.to_string());
+            .get("attachments_dropped")
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(0);
+        envelope.metadata.insert(
+            "attachments_dropped".to_string(),
+            (previous + dropped).to_string(),
+        );
     }
     if kept.is_empty() {
         return;
@@ -411,5 +542,195 @@ mod tests {
             serde_json::to_value(&r).expect("ser"),
             json!({"kind":"whatsapp_media","media_id":"M1"})
         );
+    }
+
+    fn bearer(url: &str) -> PendingAttachment {
+        PendingAttachment {
+            mime_type: "image/png".into(),
+            name: Some("a.png".into()),
+            size_bytes: Some(1),
+            fetch: FetchRef::Bearer {
+                url: url.into(),
+                secret_key: "SLACK_BOT_TOKEN".into(),
+            },
+            inline_base64: None,
+        }
+    }
+
+    fn public(url: &str) -> PendingAttachment {
+        PendingAttachment {
+            fetch: FetchRef::Public { url: url.into() },
+            ..bearer("")
+        }
+    }
+
+    #[test]
+    fn non_https_or_malformed_urls_are_dropped() {
+        let bad = [
+            "http://files.slack.com/x",
+            "https://user:pw@files.slack.com/x",
+            "https://user@files.slack.com/x",
+            "https:///path",
+            "https://",
+            "https://:443/x",
+            "not a url",
+            "",
+            "ftp://x.test/a",
+            "https://a b.test/x",
+            "https://x.test\\evil.test/x",
+        ];
+        for url in bad {
+            for item in [bearer(url), public(url)] {
+                let mut env = empty_envelope();
+                apply_fetch_refs(&mut env, vec![item]);
+                assert!(env.attachments.is_empty(), "kept {url:?}");
+                assert_eq!(
+                    env.metadata.get("attachments_dropped").map(String::as_str),
+                    Some("1"),
+                    "{url:?}"
+                );
+            }
+        }
+        let mut env = empty_envelope();
+        apply_fetch_refs(
+            &mut env,
+            vec![
+                bearer("https://files.slack.com/x?y=1"),
+                public("HTTPS://x.test:8443/p#f"),
+            ],
+        );
+        assert_eq!(env.attachments.len(), 2);
+    }
+
+    #[test]
+    fn lists_stay_index_parallel_when_middle_items_are_dropped() {
+        let mut env = empty_envelope();
+        let mk = |i: usize| PendingAttachment {
+            mime_type: "image/png".into(),
+            name: Some(format!("n{i}.png")),
+            size_bytes: Some(100 + i as u64),
+            fetch: FetchRef::Bearer {
+                url: format!("https://files.slack.com/{i}"),
+                secret_key: "SLACK_BOT_TOKEN".into(),
+            },
+            inline_base64: None,
+        };
+        let mut bad_mime = mk(1);
+        bad_mime.mime_type = "image/svg+xml".into();
+        let mut bad_key = mk(3);
+        bad_key.fetch = FetchRef::Bearer {
+            url: "https://files.slack.com/3".into(),
+            secret_key: "a b".into(),
+        };
+        let mut big = mk(5);
+        big.size_bytes = Some(MAX_ATTACHMENT_BYTES + 1);
+        let mut http = mk(7);
+        http.fetch = FetchRef::Bearer {
+            url: "http://files.slack.com/7".into(),
+            secret_key: "K".into(),
+        };
+        apply_fetch_refs(
+            &mut env,
+            vec![
+                mk(0),
+                bad_mime,
+                mk(2),
+                bad_key,
+                mk(4),
+                big,
+                mk(6),
+                http,
+                mk(8),
+            ],
+        );
+        let refs = env.extensions["attachment_fetch"]
+            .as_array()
+            .expect("array")
+            .clone();
+        assert_eq!(env.attachments.len(), 5);
+        assert_eq!(refs.len(), env.attachments.len());
+        for (i, (a, r)) in env.attachments.iter().zip(refs.iter()).enumerate() {
+            let n = i * 2;
+            assert_eq!(a.name.as_deref(), Some(format!("n{n}.png").as_str()));
+            assert_eq!(a.size_bytes, Some(100 + n as u64));
+            assert_eq!(a.mime_type, "image/png");
+            assert_eq!(r["url"], format!("https://files.slack.com/{n}"));
+        }
+        assert_eq!(env.metadata["attachments_dropped"], "4");
+    }
+
+    #[test]
+    fn inline_consistency_is_enforced() {
+        let mut env = empty_envelope();
+        let mut no_bytes = pending(1);
+        no_bytes[0].fetch = FetchRef::Inline;
+        let mut stray_bytes = pending(1);
+        stray_bytes[0].inline_base64 = Some("AQID".into());
+        apply_fetch_refs(&mut env, no_bytes.into_iter().chain(stray_bytes).collect());
+        assert!(env.attachments.is_empty());
+        assert_eq!(env.metadata["attachments_dropped"], "2");
+    }
+
+    #[test]
+    fn sanitize_name_strips_format_and_bidi_characters() {
+        assert_eq!(
+            sanitize_name("a\u{202E}gnp.exe").as_deref(),
+            Some("agnp.exe")
+        );
+        for c in [
+            '\u{200B}', '\u{200F}', '\u{2060}', '\u{2066}', '\u{2069}', '\u{FEFF}', '\u{202A}',
+        ] {
+            assert_eq!(
+                sanitize_name(&format!("x{c}y")).as_deref(),
+                Some("xy"),
+                "{c:?}"
+            );
+        }
+        assert_eq!(sanitize_name("\u{202E}").as_deref(), None);
+        assert_eq!(sanitize_name("dir/..").as_deref(), None);
+        assert_eq!(sanitize_name("dir/.").as_deref(), None);
+        let spaced = format!("{} z", "x".repeat(119));
+        assert_eq!(
+            sanitize_name(&spaced).as_deref(),
+            Some("x".repeat(119).as_str())
+        );
+    }
+
+    #[test]
+    fn pending_debug_never_prints_inline_bytes() {
+        let p = PendingAttachment {
+            mime_type: "image/png".into(),
+            name: None,
+            size_bytes: None,
+            fetch: FetchRef::Inline,
+            inline_base64: Some("SECRETBYTES".into()),
+        };
+        let dbg = format!("{p:?}");
+        assert!(!dbg.contains("SECRETBYTES"), "{dbg}");
+        assert!(dbg.contains("11"), "{dbg}");
+    }
+
+    #[test]
+    fn dropped_counter_accumulates_and_empty_apply_leaves_lists_alone() {
+        let mut env = empty_envelope();
+        apply_fetch_refs(&mut env, pending(2));
+        let mut svg = pending(1);
+        svg[0].mime_type = "image/svg+xml".into();
+        apply_fetch_refs(&mut env, svg.clone());
+        assert_eq!(env.metadata["attachments_dropped"], "1");
+        assert_eq!(
+            env.attachments.len(),
+            2,
+            "kept nothing: attachments untouched"
+        );
+        assert_eq!(
+            env.extensions["attachment_fetch"]
+                .as_array()
+                .expect("array")
+                .len(),
+            2
+        );
+        apply_fetch_refs(&mut env, svg);
+        assert_eq!(env.metadata["attachments_dropped"], "2");
     }
 }
