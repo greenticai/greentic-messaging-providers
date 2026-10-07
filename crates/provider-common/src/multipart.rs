@@ -3,6 +3,8 @@
 //!
 //! Only CRLF line endings are accepted (RFC 7578); a bare-LF body is an error.
 
+use memchr::memmem::Finder;
+
 /// Largest body `parse` will look at.
 pub const MAX_BODY_BYTES: usize = 15 * 1024 * 1024;
 /// Most parts `parse` returns before refusing.
@@ -78,6 +80,7 @@ pub fn parse(body: &[u8], boundary: &str) -> Result<Vec<Part>, String> {
     let delim = format!("--{boundary}").into_bytes();
     // Every boundary after the first is preceded by CRLF.
     let crlf_delim = [b"\r\n".as_slice(), &delim].concat();
+    let finder = Finder::new(&crlf_delim);
     let mut parts = Vec::new();
     let mut pos = find(body, &delim, 0).ok_or("missing opening boundary")? + delim.len();
     loop {
@@ -94,10 +97,11 @@ pub fn parse(body: &[u8], boundary: &str) -> Result<Vec<Part>, String> {
         // The header block ends within MAX_HEADER_BYTES and before any boundary.
         let window_end = body.len().min(pos + MAX_HEADER_BYTES + 4);
         let header_end = find(&body[..window_end], b"\r\n\r\n", pos);
-        let next_boundary = find_boundary(body, &crlf_delim, pos - 2);
+        // One boundary search per part, used for both the header and the body.
+        let next_boundary = find_boundary(body, &finder, pos - 2);
         let header_end = match (header_end, next_boundary) {
             (Some(h), Some(b)) if h < b => h,
-            (Some(h), None) => h,
+            (Some(_), None) => return Err("truncated part body".into()),
             _ => return Err("missing or oversized part headers".into()),
         };
         if header_end - pos > MAX_HEADER_BYTES {
@@ -106,7 +110,12 @@ pub fn parse(body: &[u8], boundary: &str) -> Result<Vec<Part>, String> {
         let headers =
             std::str::from_utf8(&body[pos..header_end]).map_err(|_| "non-utf8 headers")?;
         let data_start = header_end + 4;
-        let next = find_boundary(body, &crlf_delim, data_start).ok_or("truncated part body")?;
+        // A boundary inside the header terminator (`\r\n\r\n--b`) is not this
+        // part's end: search on from the data start, as before.
+        let next = match next_boundary {
+            Some(b) if b >= data_start => b,
+            _ => find_boundary(body, &finder, data_start).ok_or("truncated part body")?,
+        };
         let (mut name, mut filename, mut content_type) = (None, None, None);
         let mut seen_disposition = false;
         for line in headers.split("\r\n") {
@@ -132,15 +141,24 @@ pub fn parse(body: &[u8], boundary: &str) -> Result<Vec<Part>, String> {
 
 /// Find `CRLF--boundary` at or after `from` that is a real boundary line, i.e.
 /// followed by `--` or CRLF (so `--boundaryfoo` inside content is data).
-fn find_boundary(body: &[u8], crlf_delim: &[u8], mut from: usize) -> Option<usize> {
-    while let Some(at) = find(body, crlf_delim, from) {
-        let after = &body[at + crlf_delim.len()..];
-        if after.starts_with(b"--") || after.starts_with(b"\r\n") {
-            return Some(at);
-        }
-        from = at + 1;
-    }
-    None
+fn find_boundary(body: &[u8], finder: &Finder<'_>, start: usize) -> Option<usize> {
+    let len = finder.needle().len();
+    let found = finder
+        .find_iter(body.get(start..)?)
+        .map(|rel| start + rel)
+        .find(|&at| {
+            let after = &body[at + len..];
+            after.starts_with(b"--") || after.starts_with(b"\r\n")
+        });
+    #[cfg(test)]
+    SCANNED.with(|c| c.set(c.get() + found.map_or(body.len(), |at| at + len) - start));
+    found
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Bytes searched for boundaries by the current thread (tests only).
+    static SCANNED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 fn disposition_param(line: &str, key: &str) -> Option<String> {
@@ -164,10 +182,7 @@ fn find(haystack: &[u8], needle: &[u8], from: usize) -> Option<usize> {
     if needle.is_empty() || from > haystack.len() {
         return None;
     }
-    haystack[from..]
-        .windows(needle.len())
-        .position(|w| w == needle)
-        .map(|i| i + from)
+    memchr::memmem::find(&haystack[from..], needle).map(|i| i + from)
 }
 
 #[cfg(test)]
@@ -336,6 +351,65 @@ mod tests {
     fn bare_lf_bodies_are_rejected() {
         let body = "--XX\nContent-Disposition: form-data; name=\"a\"\n\nv\n--XX--\n";
         assert!(parse(body.as_bytes(), "XX").is_err());
+    }
+
+    fn timed_parse(body: &[u8], boundary: &str) -> std::time::Duration {
+        let start = std::time::Instant::now();
+        let parts = parse(body, boundary).expect("parses");
+        assert_eq!(parts.len(), 1);
+        start.elapsed()
+    }
+
+    /// Near-boundary bytes (`\r\n--<boundary minus its last byte>`) filling a
+    /// 15 MiB body must parse in time linear in the body, like plain data.
+    #[test]
+    fn near_boundary_bytes_parse_in_linear_time() {
+        let boundary = "b".repeat(70);
+        let head = format!("--{boundary}\r\nContent-Disposition: form-data; name=\"f\"\r\n\r\n");
+        let tail = format!("\r\n--{boundary}--\r\n");
+        let fill = MAX_BODY_BYTES - head.len() - tail.len();
+        let near = format!("\r\n--{}", &boundary[..boundary.len() - 1]);
+        let mut adversarial = head.clone().into_bytes();
+        while adversarial.len() + near.len() <= head.len() + fill {
+            adversarial.extend_from_slice(near.as_bytes());
+        }
+        adversarial.resize(head.len() + fill, b'x');
+        adversarial.extend_from_slice(tail.as_bytes());
+        let mut plain = head.into_bytes();
+        plain.resize(adversarial.len() - tail.len(), b'x');
+        plain.extend_from_slice(tail.as_bytes());
+        assert_eq!(plain.len(), adversarial.len());
+        assert!(adversarial.len() <= MAX_BODY_BYTES);
+
+        let baseline = timed_parse(&plain, &boundary);
+        let hostile = timed_parse(&adversarial, &boundary);
+        assert!(
+            hostile <= baseline * 8 + std::time::Duration::from_millis(250),
+            "near-boundary body took {hostile:?}, plain body {baseline:?}"
+        );
+    }
+
+    #[test]
+    fn a_boundary_inside_the_header_terminator_is_not_the_part_end() {
+        let body = b"--XX\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\n--XX--\r\n";
+        assert!(parse(body, "XX").is_err());
+        let ok = b"--XX\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\n\r\n--XX--\r\n";
+        assert_eq!(parse(ok, "XX").expect("empty part")[0].data, b"");
+    }
+
+    #[test]
+    fn each_byte_is_searched_for_a_boundary_once() {
+        let mut body = b"--XX\r\nContent-Disposition: form-data; name=\"f\"\r\n\r\n".to_vec();
+        body.resize(1024 * 1024, b'\r');
+        body.extend_from_slice(b"\r\n--XX--\r\n");
+        SCANNED.with(|c| c.set(0));
+        assert_eq!(parse(&body, "XX").expect("parses").len(), 1);
+        let scanned = SCANNED.with(std::cell::Cell::get);
+        assert!(
+            scanned <= body.len(),
+            "scanned {scanned} bytes of {}",
+            body.len()
+        );
     }
 
     #[test]

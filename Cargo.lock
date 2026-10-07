@@ -1486,6 +1486,7 @@ dependencies = [
  "greentic-telemetry",
  "greentic-types 1.1.4",
  "jsonschema",
+ "memchr",
  "once_cell",
  "schemars",
  "serde",
