@@ -86,6 +86,8 @@
     // Recorded so a spec can assert which locale the SPA handed to Web Chat:
     // that value is what every outgoing activity is stamped with.
     window.__MOCK_WEBCHAT_LOCALE__ = config && config.locale;
+    // The whole config, so a spec can assert on the style options handed over.
+    window.__lastWebChatConfig = config;
     element.innerHTML = '';
     element.setAttribute('data-testid', 'webchat-surface');
 
