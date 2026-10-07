@@ -195,7 +195,7 @@ pub(crate) fn collect_select_action(element: &Value, actions: &mut Vec<Value>) {
 /// Compress AC action data to fit Telegram's 64-byte callback_data limit.
 /// Uses abbreviated keys: "r" for routeToCardId, "c" for cardId.
 /// The ingest_http callback_query handler recognises both full and abbreviated keys.
-fn compact_callback_data(data: &Value) -> Value {
+pub(crate) fn compact_callback_data(data: &Value) -> Value {
     let mut compact = serde_json::Map::new();
     if let Some(rtc) = data.get("routeToCardId").and_then(Value::as_str) {
         compact.insert("r".into(), Value::String(rtc.to_string()));

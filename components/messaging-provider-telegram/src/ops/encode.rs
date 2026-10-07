@@ -19,7 +19,9 @@ use provider_common::helpers::{decode_encode_message, encode_error, json_bytes};
 use serde_json::json;
 use std::collections::BTreeMap;
 
+use super::ac_helpers::compact_callback_data;
 use super::ac_to_html::ac_to_telegram;
+use super::form_reply::{FormMarker, embed_marker};
 
 pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
     let mut envelope = match decode_encode_message(input_json) {
@@ -57,12 +59,21 @@ pub(crate) fn encode_op(input_json: &[u8]) -> Vec<u8> {
                 .insert("ac_pending_inputs".to_string(), ij);
             // Store the submit action data so ingest_http can auto-submit
             // after all text inputs are collected.
-            if let Some(submit_action) = content.actions.iter().find(|a| a.get("data").is_some())
-                && let Some(data) = submit_action.get("data")
-            {
+            let submit_data = content.actions.iter().find_map(|a| a.get("data")).cloned();
+            if let Some(data) = &submit_data {
                 envelope
                     .metadata
                     .insert("ac_submit_data".to_string(), data.to_string());
+            }
+            // Metadata does not survive to the inbound reply, but the message
+            // does: anchor what the reply answers on the first pencil so
+            // `ingest_http` can submit the card (see `form_reply`).
+            let marker = FormMarker::for_inputs(
+                &content.inputs,
+                submit_data.as_ref().map(compact_callback_data),
+            );
+            if let (Some(marker), Some(text)) = (marker, envelope.text.as_mut()) {
+                *text = embed_marker(text, &marker);
             }
         }
     }
