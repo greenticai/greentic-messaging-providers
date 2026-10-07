@@ -28,6 +28,7 @@ mod envelope;
 mod helpers;
 mod identify;
 mod ingest;
+mod ingest_upload;
 mod oauth;
 mod render;
 mod send;

@@ -10,13 +10,16 @@ use greentic_types::messaging::universal_dto::{Header, HttpInV1, HttpOutV1};
 
 use super::activity_log::{self, LogError};
 use super::caller::caller_header;
-use super::jwt::{DirectLineContext, TTL_SECONDS, issue_token, reissue_token, verify_token};
+use super::jwt::{
+    DirectLineContext, TTL_SECONDS, TokenClaims, issue_token, reissue_token, verify_token,
+};
 use super::oidc::{OidcError, verify_access_token};
 use super::state::{
     ConversationState, StoredActivity, TypingSlot, conversation_key, sanitize_team,
     typing_activity, typing_key,
 };
 use super::store::{JwksFetcher, NoJwksFetcher, RateLimitState, SecretStore, StateStore};
+use super::upload::parse_upload;
 
 const DIRECTLINE_PREFIX: &str = "/v3/directline";
 const JSON_CONTENT_TYPE: &str = "application/json";
@@ -33,6 +36,10 @@ const ALLOWED_ATTACHMENT_TYPES: &[&str] = &[
     "image/png",
     "image/jpeg",
     "image/gif",
+    "image/webp",
+    "application/pdf",
+    "text/csv",
+    "text/markdown",
     "application/vnd.microsoft.card.adaptive",
     "application/vnd.microsoft.card.hero",
     "application/vnd.microsoft.card.thumbnail",
@@ -100,6 +107,10 @@ where
                 _ => method_not_allowed(),
             }
         }
+        ["v3", "directline", "conversations", conv_id, "upload"] if method_is(request, "POST") => {
+            handle_upload(request, state_store, secrets, conv_id)
+        }
+        ["v3", "directline", "conversations", _conv_id, "upload"] => method_not_allowed(),
         ["v3", "directline", "conversations", conv_id] if method_is(request, "GET") => {
             handle_reconnect_conversation(request, state_store, secrets, conv_id)
         }
@@ -513,32 +524,11 @@ where
     S: StateStore,
     SE: SecretStore,
 {
-    let authorization = match extract_bearer(request.headers.as_slice()) {
-        Some(token) => token,
-        None => return respond_unauthorized("missing Authorization header"),
-    };
-    let signing_key = match load_signing_key(request, secrets) {
-        Ok(key) => key,
-        Err(resp) => return resp,
-    };
-    let claims = match verify_token(&signing_key, &authorization) {
-        Ok(claims) => claims,
-        Err(err) => return respond_unauthorized(&format!("invalid token: {err:?}")),
-    };
-
-    if claims.conv.as_deref() != Some(conversation_id) {
-        return respond_forbidden("token bound to different conversation");
-    }
-
-    let conv_key = conversation_key(&claims.ctx, conversation_id);
-    let conversation = match load_conversation_state(state_store, &conv_key) {
-        Ok(state) => state,
-        Err(resp) => return resp,
-    };
-
-    if conversation.ctx != claims.ctx {
-        return respond_forbidden("token context mismatch");
-    }
+    let (claims, conv_key, conversation) =
+        match authorize_conversation_post(request, state_store, secrets, conversation_id) {
+            Ok(authorized) => authorized,
+            Err(resp) => return resp,
+        };
 
     let body = match decode_json_body(request) {
         Ok(value) => value,
@@ -577,8 +567,16 @@ where
             Ok(activity) => activity,
             Err(err) => return log_error_response(err),
         };
-    let watermark = activity.watermark;
+    respond_activity_accepted(&activity, &claims, &conversation, conversation_id)
+}
 
+/// The `201` for an accepted user activity, shared by `/activities` and `/upload`.
+fn respond_activity_accepted(
+    activity: &StoredActivity,
+    claims: &TokenClaims,
+    conversation: &ConversationState,
+    conversation_id: &str,
+) -> HttpOutV1 {
     // Include context in headers so ingest_http can extract env/tenant for envelope routing
     let mut headers = json_headers();
     headers.push(Header {
@@ -599,7 +597,7 @@ where
     });
     // The verified caller block for `extensions.caller`; consumed and removed
     // by ingest before the response leaves the provider (see `caller`).
-    headers.push(caller_header(&claims));
+    headers.push(caller_header(claims));
     if let Some(ref flow) = conversation.flow_binding {
         headers.push(Header {
             name: FLOW_HINT_HEADER.to_string(),
@@ -613,12 +611,98 @@ where
     let body_value = json!({
         "id": activity.id,
         "_greentic": {
-            "watermark_bumped": watermark,
+            "watermark_bumped": activity.watermark,
             "conversation_id": conversation_id,
             "tenant": claims.ctx.tenant,
         },
     });
     respond_json_with_headers(201, body_value, headers)
+}
+
+/// Token, conversation binding and context checks shared by `/activities` and `/upload`.
+fn authorize_conversation_post<S, SE>(
+    request: &HttpInV1,
+    state_store: &mut S,
+    secrets: &SE,
+    conversation_id: &str,
+) -> Result<(TokenClaims, String, ConversationState), HttpOutV1>
+where
+    S: StateStore,
+    SE: SecretStore,
+{
+    let Some(authorization) = extract_bearer(request.headers.as_slice()) else {
+        return Err(respond_unauthorized("missing Authorization header"));
+    };
+    let signing_key = load_signing_key(request, secrets)?;
+    let claims = verify_token(&signing_key, &authorization)
+        .map_err(|err| respond_unauthorized(&format!("invalid token: {err:?}")))?;
+    if claims.conv.as_deref() != Some(conversation_id) {
+        return Err(respond_forbidden("token bound to different conversation"));
+    }
+    let conv_key = conversation_key(&claims.ctx, conversation_id);
+    let conversation = load_conversation_state(state_store, &conv_key)?;
+    if conversation.ctx != claims.ctx {
+        return Err(respond_forbidden("token context mismatch"));
+    }
+    Ok((claims, conv_key, conversation))
+}
+
+/// `POST .../upload`: stores metadata only; ingest re-runs [`parse_upload`] for bytes.
+fn handle_upload<S, SE>(
+    request: &HttpInV1,
+    state_store: &mut S,
+    secrets: &SE,
+    conversation_id: &str,
+) -> HttpOutV1
+where
+    S: StateStore,
+    SE: SecretStore,
+{
+    let (claims, conv_key, conversation) =
+        match authorize_conversation_post(request, state_store, secrets, conversation_id) {
+            Ok(authorized) => authorized,
+            Err(resp) => return resp,
+        };
+    if parse_query(request.query.as_deref())
+        .get("userId")
+        .is_some_and(|user| *user != claims.sub)
+    {
+        return respond_forbidden("userId does not match the token");
+    }
+    let upload = match parse_upload(&request.headers, &request.body_b64) {
+        Ok(upload) => upload,
+        Err(rejection) => {
+            return respond_error(rejection.status(), rejection.code(), rejection.message());
+        }
+    };
+    let mut raw = upload.activity.clone();
+    raw.insert("type".to_string(), Value::from("message"));
+    raw.insert(
+        "attachments".to_string(),
+        Value::Array(upload.attachment_metadata()),
+    );
+    let raw = Value::Object(raw);
+    if let Err(resp) = validate_channel_data(&raw) {
+        return resp;
+    }
+    let activity =
+        match activity_log::append_activity(state_store, &conv_key, |watermark| StoredActivity {
+            id: Uuid::new_v4().to_string(),
+            type_: "message".to_string(),
+            text: raw.get("text").and_then(Value::as_str).map(str::to_string),
+            from: raw
+                .get("from")
+                .and_then(|from| from.get("id"))
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            timestamp: Utc::now().timestamp_millis(),
+            watermark,
+            raw: raw.clone(),
+        }) {
+            Ok(activity) => activity,
+            Err(err) => return log_error_response(err),
+        };
+    respond_activity_accepted(&activity, &claims, &conversation, conversation_id)
 }
 
 fn handle_get_activities<S, SE>(
@@ -1556,6 +1640,16 @@ mod tests {
             name: "Authorization".into(),
             value: format!("Bearer {token}"),
         }]
+    }
+
+    #[test]
+    fn allow_list_accepts_the_v1_types_and_rejects_svg() {
+        for ok in ["image/webp", "application/pdf", "text/csv", "text/markdown"] {
+            let body = json!({"attachments":[{"contentType": ok, "contentUrl": "data:x"}]});
+            assert!(validate_attachments(&body).is_ok(), "{ok}");
+        }
+        let svg = json!({"attachments":[{"contentType":"image/svg+xml"}]});
+        assert!(validate_attachments(&svg).is_err());
     }
 
     fn open_conversation(
@@ -3558,5 +3652,237 @@ mod tests {
         });
         let response = validate_channel_data(&body).expect_err("oversized channelData");
         assert_eq!(response.status, 400);
+    }
+
+    fn multipart_body(boundary: &str, file_ct: &str, bytes: &[u8]) -> Vec<u8> {
+        let mut b = Vec::new();
+        b.extend_from_slice(
+            format!("--{boundary}\r\nContent-Disposition: form-data; name=\"activity\"\r\nContent-Type: application/json\r\n\r\n{{\"type\":\"message\",\"text\":\"look\"}}\r\n").as_bytes(),
+        );
+        b.extend_from_slice(
+            format!("--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"p.png\"\r\nContent-Type: {file_ct}\r\n\r\n").as_bytes(),
+        );
+        b.extend_from_slice(bytes);
+        b.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+        b
+    }
+
+    fn upload_fixture() -> Result<(InMemoryStateStore, TestSecretStore, String, String), String> {
+        let mut state = InMemoryStateStore::new();
+        let mut secrets = TestSecretStore::new();
+        secrets.insert(TOKEN_SECRET_KEY, b"test-secret");
+        let (conv, token) = open_conversation(&mut state, &secrets)?;
+        Ok((state, secrets, token, conv))
+    }
+
+    fn upload_request(conv: &str, token: &str, boundary: &str, body: Vec<u8>) -> HttpInV1 {
+        let mut headers = bearer(token);
+        headers.push(Header {
+            name: "Content-Type".into(),
+            value: format!("multipart/form-data; boundary={boundary}"),
+        });
+        HttpInV1 {
+            method: "POST".to_string(),
+            path: format!("/v3/directline/conversations/{conv}/upload"),
+            query: Some("userId=alice".to_string()),
+            headers,
+            body_b64: general_purpose::STANDARD.encode(body),
+            route_hint: None,
+            binding_id: None,
+            config: None,
+        }
+    }
+
+    const UPLOAD_PNG: &[u8] = b"\x89PNG\r\n\x1a\nDATA-MARKER-7f3a";
+
+    #[test]
+    fn upload_with_matching_bytes_is_accepted_and_recorded() -> Result<(), String> {
+        let (mut state, secrets, token, conv) = upload_fixture()?;
+        let req = upload_request(
+            &conv,
+            &token,
+            "BB",
+            multipart_body("BB", "image/png", UPLOAD_PNG),
+        );
+        let resp = handle_directline_request(&req, &mut state, &secrets);
+        assert_eq!(resp.status, 201, "{resp:?}");
+        let id = decode_body(&resp)?["id"].as_str().ok_or("id")?.to_string();
+        for name in [
+            "X-Greentic-Env",
+            "X-Greentic-Tenant",
+            "X-Greentic-User",
+            "X-Greentic-User-Verified",
+        ] {
+            assert!(resp.headers.iter().any(|h| h.name == name), "{name}");
+        }
+        let page = get_activities(&mut state, &secrets, &conv, &token)?;
+        let stored = page["activities"]
+            .as_array()
+            .and_then(|a| a.iter().find(|x| x["id"] == id.as_str()))
+            .ok_or("stored activity")?
+            .clone();
+        assert_eq!(stored["text"], "look");
+        assert_eq!(
+            stored["attachments"],
+            json!([{"contentType": "image/png", "name": "p.png", "size": UPLOAD_PNG.len(), "_greentic_upload": true}])
+        );
+        // State holds metadata only: neither the raw bytes nor their base64.
+        let b64 = general_purpose::STANDARD.encode(UPLOAD_PNG);
+        for value in state.data.values() {
+            let text = String::from_utf8_lossy(value);
+            assert!(
+                !text.contains("DATA-MARKER") && !text.contains(&b64[4..]),
+                "{text}"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn the_stored_metadata_is_what_a_second_parse_of_the_request_yields() -> Result<(), String> {
+        let (mut state, secrets, token, conv) = upload_fixture()?;
+        let jpeg = b"\xff\xd8\xff\xe0JFIF";
+        let req = upload_request(&conv, &token, "BB", multipart_body("BB", "image/png", jpeg));
+        let resp = handle_directline_request(&req, &mut state, &secrets);
+        assert_eq!(resp.status, 201);
+        let id = decode_body(&resp)?["id"].as_str().ok_or("id")?.to_string();
+        let page = get_activities(&mut state, &secrets, &conv, &token)?;
+        let stored = page["activities"]
+            .as_array()
+            .and_then(|a| a.iter().find(|x| x["id"] == id.as_str()))
+            .ok_or("stored")?
+            .clone();
+        let reparsed = super::super::upload::parse_upload(&req.headers, &req.body_b64)
+            .map_err(|e| e.message().to_string())?;
+        assert_eq!(
+            stored["attachments"],
+            Value::Array(reparsed.attachment_metadata())
+        );
+        assert_eq!(stored["attachments"][0]["contentType"], "image/jpeg");
+        Ok(())
+    }
+
+    #[test]
+    fn upload_whose_bytes_do_not_match_the_declared_type_is_415() -> Result<(), String> {
+        let (mut state, secrets, token, conv) = upload_fixture()?;
+        let body = multipart_body("BB", "image/png", b"<svg xmlns='x'></svg>");
+        let req = upload_request(&conv, &token, "BB", body);
+        let resp = handle_directline_request(&req, &mut state, &secrets);
+        assert_eq!(resp.status, 415);
+        assert_eq!(decode_body(&resp)?["message"], "file type is not allowed");
+        Ok(())
+    }
+
+    #[test]
+    fn upload_over_ten_megabytes_is_413() -> Result<(), String> {
+        let (mut state, secrets, token, conv) = upload_fixture()?;
+        let mut big = b"\x89PNG\r\n\x1a\n".to_vec();
+        big.resize(10 * 1024 * 1024 + 1, 0);
+        let req = upload_request(&conv, &token, "BB", multipart_body("BB", "image/png", &big));
+        assert_eq!(
+            handle_directline_request(&req, &mut state, &secrets).status,
+            413
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn upload_without_a_boundary_or_with_a_truncated_body_is_400() -> Result<(), String> {
+        let (mut state, secrets, token, conv) = upload_fixture()?;
+        let mut req = upload_request(&conv, &token, "BB", b"--BB\r\nbroken".to_vec());
+        assert_eq!(
+            handle_directline_request(&req, &mut state, &secrets).status,
+            400
+        );
+        req.headers
+            .retain(|h| !h.name.eq_ignore_ascii_case("content-type"));
+        assert_eq!(
+            handle_directline_request(&req, &mut state, &secrets).status,
+            400
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn upload_with_a_token_for_another_conversation_is_403() -> Result<(), String> {
+        let (mut state, secrets, token, _conv) = upload_fixture()?;
+        let req = upload_request(
+            "some-other-conv",
+            &token,
+            "BB",
+            multipart_body("BB", "image/png", UPLOAD_PNG),
+        );
+        assert_eq!(
+            handle_directline_request(&req, &mut state, &secrets).status,
+            403
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn upload_authentication_matches_post_activities() -> Result<(), String> {
+        let (mut state, secrets, token, conv) = upload_fixture()?;
+        let ok_body = multipart_body("BB", "image/png", UPLOAD_PNG);
+
+        let mut no_auth = upload_request(&conv, &token, "BB", ok_body.clone());
+        no_auth
+            .headers
+            .retain(|h| !h.name.eq_ignore_ascii_case("authorization"));
+        assert_eq!(
+            handle_directline_request(&no_auth, &mut state, &secrets).status,
+            401
+        );
+
+        let bad = upload_request(&conv, "not.a.token", "BB", ok_body.clone());
+        assert_eq!(
+            handle_directline_request(&bad, &mut state, &secrets).status,
+            401
+        );
+
+        let mut other_secret = TestSecretStore::new();
+        other_secret.insert(TOKEN_SECRET_KEY, b"another-secret");
+        let forged = upload_request(&conv, &token, "BB", ok_body.clone());
+        assert_eq!(
+            handle_directline_request(&forged, &mut state, &other_secret).status,
+            401
+        );
+
+        // A valid token whose conversation is not in this state store.
+        // Refused before the body is read: a broken body still answers 404.
+        let mut empty = InMemoryStateStore::new();
+        let unknown = upload_request(&conv, &token, "BB", b"--BB\r\nbroken".to_vec());
+        assert_eq!(
+            handle_directline_request(&unknown, &mut empty, &secrets).status,
+            404
+        );
+        assert!(empty.data.is_empty());
+
+        let mut mismatch = upload_request(&conv, &token, "BB", ok_body.clone());
+        mismatch.query = Some("userId=mallory".to_string());
+        assert_eq!(
+            handle_directline_request(&mismatch, &mut state, &secrets).status,
+            403
+        );
+
+        let mut get = upload_request(&conv, &token, "BB", ok_body);
+        get.method = "GET".to_string();
+        assert_eq!(
+            handle_directline_request(&get, &mut state, &secrets).status,
+            405
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn unauthenticated_uploads_never_reach_parsing_or_state() -> Result<(), String> {
+        let (mut state, secrets, _token, conv) = upload_fixture()?;
+        let before = state.data.clone();
+        let mut req = upload_request(&conv, "bad", "BB", b"--BB\r\nbroken".to_vec());
+        req.headers
+            .retain(|h| !h.name.eq_ignore_ascii_case("authorization"));
+        let resp = handle_directline_request(&req, &mut state, &secrets);
+        assert_eq!(resp.status, 401);
+        assert_eq!(state.data, before);
+        Ok(())
     }
 }
