@@ -379,6 +379,12 @@ fn mime_for_extension(file_type: &str) -> &'static str {
 /// trusted, so a crafted activity cannot point the host at another target
 /// (lookalike domains, IP literals, `localhost`). The shared guard checks the
 /// rest of the url shape and its length.
+///
+/// Scope is commercial `sharepoint.com` only: uploads from GCC High
+/// (`sharepoint.us`), DoD (`sharepoint-mil.us`) and China (`sharepoint.cn`)
+/// tenants are dropped and counted in `attachments_dropped`. This list and
+/// the host-side (greentic-start) allow-list for Teams `public` refs must be
+/// changed together, or files are either dropped here or refused there.
 fn is_teams_download_host(url: &str) -> bool {
     let Some(rest) = url
         .get(..8)
@@ -896,14 +902,26 @@ mod tests {
             "https://contoso.sharepoint.com:8443/d",
             "https://contoso.sharepoint.com\\evil.test/d",
             "ftp://contoso.sharepoint.com/d",
+            "https://contoso.sharepoint.com./d",
+            "https://contoso%2esharepoint.com/d",
+            "https://evil.test%2f.sharepoint.com/d",
+            "https://contoso.sharepoint.com\u{3002}evil.test/d",
+            "https://contoso\u{FF0E}sharepoint.com/d",
+            "https://sharepoint.com/d",
             long.as_str(),
         ];
-        for url in bad {
-            let event = normalize_activity(&message(json!([file("a.pdf", url, "pdf")])), None);
-            assert!(event.get("attachments").is_none(), "kept {url:.80}");
-            assert!(event.get("extensions").is_none(), "{url:.80}");
-            assert_eq!(event["metadata"]["attachments_dropped"], "1", "{url:.80}");
-        }
+        // Every case is checked so one run names all the urls that got through.
+        let kept: Vec<String> = bad
+            .iter()
+            .filter(|url| {
+                let event = normalize_activity(&message(json!([file("a.pdf", url, "pdf")])), None);
+                event.get("attachments").is_some()
+                    || event.get("extensions").is_some()
+                    || event["metadata"]["attachments_dropped"] != "1"
+            })
+            .map(|url| url.chars().take(80).collect())
+            .collect();
+        assert!(kept.is_empty(), "kept or not counted: {kept:?}");
     }
 
     #[test]
@@ -1014,6 +1032,15 @@ mod tests {
         assert_eq!(event["attachments"].as_array().expect("a").len(), 1);
         assert_eq!(event["attachments"][0]["mime_type"], "text/markdown");
         assert_eq!(event["metadata"]["attachments_dropped"], "2");
+    }
+
+    #[test]
+    fn an_upper_case_scheme_and_host_is_kept() {
+        let url = "HTTPS://CONTOSO.SHAREPOINT.COM/d";
+        let event = normalize_activity(&message(json!([file("a.pdf", url, "pdf")])), None);
+        assert_eq!(event["attachments"].as_array().expect("a").len(), 1);
+        assert_eq!(event["extensions"]["attachment_fetch"][0]["url"], url);
+        assert!(event["metadata"].get("attachments_dropped").is_none());
     }
 
     #[test]
