@@ -26,6 +26,8 @@ const JSON_CONTENT_TYPE: &str = "application/json";
 const TOKEN_SECRET_KEY: &str = "jwt_signing_key";
 const RATE_LIMIT_WINDOW_SECONDS_DEFAULT: i64 = 60;
 const RATE_LIMIT_REQUESTS_DEFAULT: u32 = 60;
+/// Uploads per token subject per window (fixed; not tenant-configurable).
+const UPLOAD_RATE_LIMIT_REQUESTS: u32 = 10;
 const MAX_ATTACHMENT_BYTES: usize = 512 * 1024;
 const MAX_CHANNEL_DATA_BYTES: usize = 64 * 1024;
 const FLOW_HINT_HEADER: &str = "X-Greentic-Flow";
@@ -663,11 +665,20 @@ where
             Ok(authorized) => authorized,
             Err(resp) => return resp,
         };
-    if parse_query(request.query.as_deref())
-        .get("userId")
-        .is_some_and(|user| *user != claims.sub)
-    {
-        return respond_forbidden("userId does not match the token");
+    // `?userId=` is not checked: the token is the credential.
+    let rate_key = format!(
+        "webchat:rate:upload:{}:{}:{}:{}",
+        claims.ctx.env,
+        claims.ctx.tenant,
+        sanitize_team(claims.ctx.team.as_deref()),
+        claims.sub
+    );
+    let cfg = RateLimitConfig {
+        window_seconds: RATE_LIMIT_WINDOW_SECONDS_DEFAULT,
+        requests: UPLOAD_RATE_LIMIT_REQUESTS,
+    };
+    if let Err(resp) = enforce_rate_limit(state_store, &rate_key, Utc::now().timestamp(), &cfg) {
+        return upload_rate_limited(resp);
     }
     let upload = match parse_upload(&request.headers, &request.body_b64) {
         Ok(upload) => upload,
@@ -1427,6 +1438,29 @@ fn respond_rate_limited(retry_after_seconds: i64) -> HttpOutV1 {
         }),
         headers,
     )
+}
+
+/// Same 429 (and `Retry-After`) as the token limit, with the upload message.
+fn upload_rate_limited(resp: HttpOutV1) -> HttpOutV1 {
+    if resp.status != 429 {
+        return resp;
+    }
+    let retry = resp
+        .headers
+        .iter()
+        .find(|h| h.name == "Retry-After")
+        .and_then(|h| h.value.parse::<i64>().ok())
+        .unwrap_or(1);
+    let mut out = respond_rate_limited(retry);
+    out.body_b64 = general_purpose::STANDARD.encode(
+        serde_json::to_vec(&json!({
+            "error": "rate_limited",
+            "message": "upload rate limit exceeded",
+            "retry_after": retry,
+        }))
+        .unwrap_or_default(),
+    );
+    out
 }
 
 fn respond_bad_request(message: &str) -> HttpOutV1 {
@@ -3857,18 +3891,102 @@ mod tests {
         );
         assert!(empty.data.is_empty());
 
-        let mut mismatch = upload_request(&conv, &token, "BB", ok_body.clone());
-        mismatch.query = Some("userId=mallory".to_string());
-        assert_eq!(
-            handle_directline_request(&mismatch, &mut state, &secrets).status,
-            403
-        );
-
         let mut get = upload_request(&conv, &token, "BB", ok_body);
         get.method = "GET".to_string();
         assert_eq!(
             handle_directline_request(&get, &mut state, &secrets).status,
             405
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn the_user_id_query_is_ignored_the_token_is_the_credential() -> Result<(), String> {
+        let (mut state, secrets, token, conv) = upload_fixture()?;
+        for query in [Some("userId=someone-else"), Some("userId=alice"), None] {
+            let mut req = upload_request(
+                &conv,
+                &token,
+                "BB",
+                multipart_body("BB", "image/png", UPLOAD_PNG),
+            );
+            req.query = query.map(str::to_string);
+            assert_eq!(
+                handle_directline_request(&req, &mut state, &secrets).status,
+                201,
+                "{query:?}"
+            );
+        }
+        Ok(())
+    }
+
+    fn token_for_conversation(
+        state: &mut InMemoryStateStore,
+        secrets: &TestSecretStore,
+        user: &str,
+    ) -> Result<(String, String), String> {
+        let token_req = build_request(
+            "POST",
+            "/v3/directline/tokens/generate",
+            Some("env=default&tenant=default"),
+            Some(&json!({"user": {"id": user}})),
+            vec![],
+        )?;
+        let token_body = decode_body(&handle_directline_request(&token_req, state, secrets))?;
+        let user_token = token_body["token"].as_str().ok_or("token")?.to_string();
+        let conv_req = build_request(
+            "POST",
+            "/v3/directline/conversations",
+            None,
+            None,
+            bearer(&user_token),
+        )?;
+        let conv_body = decode_body(&handle_directline_request(&conv_req, state, secrets))?;
+        Ok((
+            conv_body["conversationId"]
+                .as_str()
+                .ok_or("conv")?
+                .to_string(),
+            conv_body["token"].as_str().ok_or("conv token")?.to_string(),
+        ))
+    }
+
+    #[test]
+    fn uploads_are_rate_limited_per_subject_before_the_body_is_read() -> Result<(), String> {
+        let mut state = InMemoryStateStore::new();
+        let mut secrets = TestSecretStore::new();
+        secrets.insert(TOKEN_SECRET_KEY, b"test-secret");
+        let (conv, token) = token_for_conversation(&mut state, &secrets, "alice")?;
+        for i in 0..UPLOAD_RATE_LIMIT_REQUESTS {
+            let req = upload_request(
+                &conv,
+                &token,
+                "BB",
+                multipart_body("BB", "image/png", UPLOAD_PNG),
+            );
+            assert_eq!(
+                handle_directline_request(&req, &mut state, &secrets).status,
+                201,
+                "upload {i}"
+            );
+        }
+        // Over the limit: refused before parsing, so a broken body is 429, not 400.
+        let req = upload_request(&conv, &token, "BB", b"--BB\r\nbroken".to_vec());
+        let resp = handle_directline_request(&req, &mut state, &secrets);
+        assert_eq!(resp.status, 429);
+        assert_eq!(decode_body(&resp)?["message"], "upload rate limit exceeded");
+        assert!(resp.headers.iter().any(|h| h.name == "Retry-After"));
+
+        let (other_conv, other_token) = token_for_conversation(&mut state, &secrets, "bob")?;
+        let req = upload_request(
+            &other_conv,
+            &other_token,
+            "BB",
+            multipart_body("BB", "image/png", UPLOAD_PNG),
+        );
+        assert_eq!(
+            handle_directline_request(&req, &mut state, &secrets).status,
+            201
         );
         Ok(())
     }

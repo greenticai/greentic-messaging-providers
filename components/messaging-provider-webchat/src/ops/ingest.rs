@@ -35,7 +35,9 @@ use super::helpers::{
     decode_body_json, extract_activity_text, extract_text, non_empty_string, route_from_value,
     tenant_channel_from_value, user_from_value,
 };
-use super::ingest_upload::{is_upload_path, pending_from_upload, validated_upload};
+use super::ingest_upload::{
+    is_activities_path, is_upload_path, pending_from_upload, validated_upload,
+};
 use super::oauth::{handle_auth_config, handle_oauth_token_exchange};
 use provider_common::attachment_fetch::apply_fetch_refs;
 
@@ -374,7 +376,7 @@ pub(super) fn stamp_ingest_envelopes(request: &HttpInV1, dl_path: &str, out: &mu
     // forward user messages to the flow engine.
     let is_upload = is_upload_path(dl_path);
     if request.method.eq_ignore_ascii_case("POST")
-        && (dl_path.contains("/activities") || is_upload)
+        && (is_activities_path(dl_path) || is_upload)
         && out.status == 201
     {
         // An upload's bytes are not in state: re-run the route's own pure parse.

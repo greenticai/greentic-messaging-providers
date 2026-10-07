@@ -8,15 +8,24 @@ use crate::directline::upload::{UploadedFile, ValidatedUpload, parse_upload};
 
 /// `/v3/directline/conversations/{id}/upload`, nothing more or less.
 pub(super) fn is_upload_path(dl_path: &str) -> bool {
-    matches!(
-        dl_path.split('/').collect::<Vec<_>>().as_slice(),
-        ["", "v3", "directline", "conversations", id, "upload"] if !id.is_empty()
-    )
+    conversation_sub_route(dl_path) == Some("upload")
 }
 
 /// The upload as the route accepted it (same function, same input).
 pub(super) fn validated_upload(request: &HttpInV1) -> Option<ValidatedUpload> {
     parse_upload(&request.headers, &request.body_b64).ok()
+}
+
+/// `/v3/directline/conversations/{id}/activities`, nothing more or less.
+pub(super) fn is_activities_path(dl_path: &str) -> bool {
+    conversation_sub_route(dl_path) == Some("activities")
+}
+
+fn conversation_sub_route(dl_path: &str) -> Option<&str> {
+    match dl_path.split('/').collect::<Vec<_>>().as_slice() {
+        ["", "v3", "directline", "conversations", id, route] if !id.is_empty() => Some(route),
+        _ => None,
+    }
 }
 
 /// Accepted files as inline fetch refs, in part order.
@@ -161,6 +170,11 @@ mod tests {
 
     #[test]
     fn the_envelope_carries_exactly_what_the_route_validated() {
+        let mut at_cap = PNG.to_vec();
+        at_cap.resize(
+            provider_common::attachment_fetch::MAX_ATTACHMENT_BYTES as usize,
+            0,
+        );
         let bodies: Vec<Vec<Vec<u8>>> = vec![
             vec![file_part("a.png", "image/png", b"\xff\xd8\xff\xe0JFIF")],
             vec![
@@ -175,6 +189,13 @@ mod tests {
                 file_part("a.png", "image/png", PNG),
                 b"--BB--\r\n".to_vec(),
                 file_part("late.png", "image/png", PNG),
+            ],
+            vec![
+                file_part("cap.png", "image/png", &at_cap),
+                file_part("b.txt", "text/plain", b"x"),
+                file_part("c.md", "text/markdown", b"# t"),
+                file_part("d.gif", "image/gif", b"GIF89a.."),
+                file_part("e.pdf", "application/pdf", b"%PDF-1"),
             ],
         ];
         for parts in bodies {
@@ -197,7 +218,9 @@ mod tests {
                     )
                 })
                 .collect();
+            // Invariant: every file the route accepted is on the envelope, none dropped.
             assert_eq!(from_env, from_route);
+            assert!(!env.metadata.contains_key("attachments_dropped"));
         }
     }
 
@@ -224,6 +247,85 @@ mod tests {
         ] {
             assert!(!is_upload_path(other), "{other}");
         }
+    }
+
+    #[test]
+    fn the_activities_and_upload_gates_never_overlap() {
+        let paths = [
+            "/v3/directline/conversations/conv-1/activities",
+            "/v3/directline/conversations/activities/upload",
+            "/v3/directline/conversations/upload/activities",
+            "/v3/directline/conversations/a/activities/upload",
+            "/v3/directline/conversations/conv-1/activities/x",
+            "/v3/directline/conversations/activities",
+            "/v3/directline/conversations//activities",
+            PATH,
+        ];
+        for path in paths {
+            assert!(
+                !(is_activities_path(path) && is_upload_path(path)),
+                "{path}"
+            );
+        }
+        assert!(is_activities_path(
+            "/v3/directline/conversations/conv-1/activities"
+        ));
+        assert!(is_activities_path(
+            "/v3/directline/conversations/upload/activities"
+        ));
+        assert!(is_upload_path(
+            "/v3/directline/conversations/activities/upload"
+        ));
+        for not_activities in [
+            "/v3/directline/conversations/a/activities/upload",
+            "/v3/directline/conversations/conv-1/activities/x",
+            "/v3/directline/conversations/activities",
+            "/v3/directline/conversations//activities",
+        ] {
+            assert!(!is_activities_path(not_activities), "{not_activities}");
+        }
+    }
+
+    #[test]
+    fn only_exact_activity_and_upload_routes_emit_an_envelope() {
+        let body = json!({"type":"message","text":"x"});
+        for path in [
+            "/v3/directline/conversations/c/activities/extra",
+            "/v3/directline/conversations/c/x/activities",
+            "/v3/directline/conversations/activities",
+        ] {
+            let req = HttpInV1 {
+                method: "POST".into(),
+                path: path.into(),
+                query: None,
+                headers: vec![],
+                body_b64: STANDARD.encode(serde_json::to_vec(&body).expect("json")),
+                route_hint: None,
+                binding_id: None,
+                config: None,
+            };
+            let mut out = accepted();
+            stamp_ingest_envelopes(&req, path, &mut out);
+            assert!(out.events.is_empty(), "{path}");
+        }
+    }
+
+    #[test]
+    fn a_file_of_exactly_ten_mebibytes_reaches_the_envelope() {
+        let mut at_cap = PNG.to_vec();
+        at_cap.resize(
+            provider_common::attachment_fetch::MAX_ATTACHMENT_BYTES as usize,
+            0,
+        );
+        let req = request(&[file_part("big.png", "image/png", &at_cap)]);
+        assert!(
+            parse_upload(&req.headers, &req.body_b64).is_ok(),
+            "route accepts"
+        );
+        let env = &stamp(&req, accepted()).events[0];
+        assert_eq!(env.attachments.len(), 1);
+        assert_eq!(env.attachments[0].size_bytes, Some(at_cap.len() as u64));
+        assert!(!env.metadata.contains_key("attachments_dropped"));
     }
 
     #[test]

@@ -232,14 +232,17 @@ fn host_resolved_id_problem(id: &str) -> Option<&'static str> {
     (!ok).then_some("invalid fetch id")
 }
 
+/// Exact decoded length of standard base64, padded or not.
+pub fn inline_decoded_len(b64: &str) -> u64 {
+    let body = b64.trim_end_matches('=');
+    let len = body.len() as u64;
+    len / 4 * 3 + (len % 4).saturating_sub(1)
+}
+
 /// Why an item must not reach the envelope; `None` when it is fine.
 fn rejection(item: &PendingAttachment) -> Option<&'static str> {
-    // Inline bytes are bounded by their own length, never by a declared size
-    // that may be absent or wrong: base64 carries 3 bytes per 4 characters.
-    let inline_bytes = item
-        .inline_base64
-        .as_ref()
-        .map(|b64| (b64.len() as u64).div_ceil(4) * 3);
+    // Inline bytes are bounded by their own decoded length, never by a declared size.
+    let inline_bytes = item.inline_base64.as_deref().map(inline_decoded_len);
     if item.size_bytes.is_some_and(|s| s > MAX_ATTACHMENT_BYTES)
         || inline_bytes.is_some_and(|s| s > MAX_ATTACHMENT_BYTES)
     {
@@ -667,6 +670,44 @@ mod tests {
             env.metadata.get("attachments_dropped").map(String::as_str),
             Some("1")
         );
+    }
+
+    fn inline_of(len: usize) -> PendingAttachment {
+        use base64::Engine as _;
+        PendingAttachment {
+            mime_type: "image/png".into(),
+            name: Some("a.png".into()),
+            size_bytes: None,
+            fetch: FetchRef::Inline,
+            inline_base64: Some(base64::engine::general_purpose::STANDARD.encode(vec![0u8; len])),
+        }
+    }
+
+    #[test]
+    fn inline_bytes_at_the_exact_cap_are_kept_and_one_more_is_dropped() {
+        let cap = MAX_ATTACHMENT_BYTES as usize;
+        // cap % 3 == 1, so cap, cap-1 and cap+1 cover "==", "=" and no padding.
+        for len in [cap - 2, cap - 1, cap] {
+            let mut env = empty_envelope();
+            apply_fetch_refs(&mut env, vec![inline_of(len)]);
+            assert_eq!(env.attachments.len(), 1, "len {len} kept");
+        }
+        for len in [cap + 1, cap + 2, cap + 3] {
+            let mut env = empty_envelope();
+            apply_fetch_refs(&mut env, vec![inline_of(len)]);
+            assert!(env.attachments.is_empty(), "len {len} dropped");
+        }
+    }
+
+    #[test]
+    fn inline_decoded_len_is_exact_for_every_padding() {
+        use base64::Engine as _;
+        for len in 0..12 {
+            let b64 = base64::engine::general_purpose::STANDARD.encode(vec![7u8; len]);
+            assert_eq!(inline_decoded_len(&b64), len as u64, "{b64}");
+            let unpadded = b64.trim_end_matches('=');
+            assert_eq!(inline_decoded_len(unpadded), len as u64, "{unpadded}");
+        }
     }
 
     #[test]

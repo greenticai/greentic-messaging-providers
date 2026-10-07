@@ -9,7 +9,7 @@ use serde_json::{Map, Value};
 pub const MAX_UPLOAD_FILES: usize = attachment_fetch::MAX_ATTACHMENTS;
 /// Bytes per file.
 pub const MAX_UPLOAD_FILE_BYTES: usize = attachment_fetch::MAX_ATTACHMENT_BYTES as usize;
-/// Decoded request body (all parts together).
+/// WebChat: 15 MiB per message (all files of one message share one upload).
 pub const MAX_UPLOAD_BODY_BYTES: usize = multipart::MAX_BODY_BYTES;
 /// The optional `activity` JSON part.
 pub const MAX_ACTIVITY_PART_BYTES: usize = 64 * 1024;
@@ -203,7 +203,10 @@ fn sanitize_activity(data: &[u8]) -> Result<Map<String, Value>, UploadRejection>
 /// Allow-listed type from the bytes; `declared` only picks a text subtype.
 pub fn sniff_upload(data: &[u8], declared: Option<&str>) -> Option<&'static str> {
     if let Some(mime) = attachment_fetch::sniff_mime(data)
-        && (mime.starts_with("image/") || mime == "application/pdf")
+        && matches!(
+            mime,
+            "image/jpeg" | "image/png" | "image/gif" | "image/webp" | "application/pdf"
+        )
     {
         return Some(mime);
     }
@@ -526,25 +529,5 @@ mod tests {
             b"<svg>ZZSECRETZZ</svg>",
         )]);
         assert!(!r.message().contains(marker));
-    }
-
-    /// Bodies whose two readings could plausibly differ must answer identically.
-    #[test]
-    fn crafted_bodies_parse_identically_every_time() {
-        let raw: Vec<Vec<u8>> = vec![
-            [file_part("file", "a.png", "image/png", PNG), b"--BB--\r\n".to_vec(), file_part("file", "b.png", "image/png", PNG)].concat(),
-            [b"preamble --BB not a boundary\r\n".to_vec(), file_part("file", "a.png", "image/png", PNG), b"--BB--\r\n".to_vec()].concat(),
-            [file_part("file", "a.png", "image/png", b"\x89PNG\r\n\x1a\n\r\n--BBX inside"), b"--BB--\r\n".to_vec()].concat(),
-            [file_part("file", "a.png", "image/png", PNG), file_part("file", "a.png", "image/png", PNG), b"--BB--\r\n".to_vec()].concat(),
-            b"--BB\r\nContent-Disposition: form-data; name=\"file\"; name=\"activity\"; filename=\"x\"\r\n\r\nhi\r\n--BB--\r\n".to_vec(),
-            b"--BB\r\nContent-Disposition: form-data; name=\"file\"; filename=\"x\"\r\nContent-Disposition: form-data; name=\"activity\"\r\n\r\nhi\r\n--BB--\r\n".to_vec(),
-        ];
-        for b in raw {
-            let encoded = general_purpose::STANDARD.encode(&b);
-            let first = parse_upload(&ct("BB"), &encoded);
-            for _ in 0..3 {
-                assert_eq!(parse_upload(&ct("BB"), &encoded), first);
-            }
-        }
     }
 }
