@@ -31,10 +31,58 @@ pub struct WhatsappMessage {
     pub pending: Vec<PendingAttachment>,
 }
 
-/// All messages of a webhook body, in order. A body with no Cloud API messages
-/// is read as the flat legacy format (the body itself is the one message).
+/// Most messages processed from one update; the rest are dropped and counted.
+pub const MAX_MESSAGES_PER_UPDATE: usize = 100;
+
+/// Longest `wamid` kept readable in an envelope id.
+const MAX_READABLE_ID_LEN: usize = 128;
+
+/// The messages of one webhook body plus how many were dropped by the cap.
+#[derive(Debug, Clone)]
+pub struct ParsedUpdate {
+    pub messages: Vec<WhatsappMessage>,
+    pub dropped: usize,
+}
+
+/// Envelope id for a WhatsApp message id: `whatsapp-<wamid>` when the trimmed
+/// wamid is 1..=128 chars of `[A-Za-z0-9._=+-]` (real ids look like
+/// `wamid.HBgM…`); otherwise `whatsapp-~<first 32 hex of sha256(trimmed
+/// wamid)>`. Deterministic; `~` is outside the readable alphabet, so a hashed
+/// id can never equal a readable one and no wamid can forge another's hash id.
+pub fn whatsapp_envelope_id(wamid: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let id = wamid.trim();
+    let readable = (1..=MAX_READABLE_ID_LEN).contains(&id.len())
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'=' | b'+' | b'-'));
+    if readable {
+        return format!("whatsapp-{id}");
+    }
+    let digest = Sha256::digest(id.as_bytes());
+    let hex: String = digest.iter().take(16).map(|b| format!("{b:02x}")).collect();
+    format!("whatsapp-~{hex}")
+}
+
+/// All messages of a webhook body (at most [`MAX_MESSAGES_PER_UPDATE`]).
 pub fn parse_messages(body: &Value) -> Vec<WhatsappMessage> {
-    let cloud: Vec<&Value> = body
+    parse_update(body).messages
+}
+
+/// Messages of a webhook body, in order, with the dropped count.
+///
+/// The flat legacy format (the body itself is the message) applies ONLY when
+/// the body has no `entry` key. A Cloud API update that carries no messages
+/// (delivery receipts, `statuses` only, malformed `messages`) yields nothing:
+/// it must not become an empty envelope.
+pub fn parse_update(body: &Value) -> ParsedUpdate {
+    if body.get("entry").is_none() {
+        return ParsedUpdate {
+            messages: vec![message_from(body)],
+            dropped: 0,
+        };
+    }
+    let mut cloud = body
         .get("entry")
         .and_then(Value::as_array)
         .into_iter()
@@ -46,12 +94,24 @@ pub fn parse_messages(body: &Value) -> Vec<WhatsappMessage> {
                 .flatten()
         })
         .filter_map(|c| c.get("value")?.get("messages")?.as_array())
-        .flatten()
+        .flatten();
+    let messages: Vec<WhatsappMessage> = cloud
+        .by_ref()
+        .take(MAX_MESSAGES_PER_UPDATE)
+        .map(message_from)
         .collect();
-    if cloud.is_empty() {
-        return vec![message_from(body)];
+    let dropped = cloud.count();
+    if dropped > 0 {
+        crate::telemetry::log(
+            crate::telemetry::Level::Warn,
+            "whatsapp messages dropped at the provider edge",
+            &[crate::telemetry::Field {
+                key: "reason",
+                value: "too many messages in one update",
+            }],
+        );
     }
-    cloud.into_iter().map(message_from).collect()
+    ParsedUpdate { messages, dropped }
 }
 
 fn message_from(msg: &Value) -> WhatsappMessage {
@@ -184,5 +244,96 @@ mod tests {
     fn a_text_body_wins_over_a_caption() {
         let b = json!({"text":{"body":"t"},"image":{"id":"I","caption":"c"}});
         assert_eq!(parse_messages(&b)[0].text, "t");
+    }
+
+    #[test]
+    fn updates_without_messages_yield_nothing() {
+        for b in [
+            json!({"entry":[{"changes":[{"value":{"statuses":[{"id":"w","status":"delivered"}]}}]}]}),
+            json!({"entry":[{"changes":[{"value":{"messages":"nope"}}]}]}),
+            json!({"entry":[{"changes":[{"field":"messages"}]}]}),
+            json!({"entry":[{"changes":[{"value":{"messages":[]}}]}]}),
+            json!({"entry":[]}),
+            json!({"entry":"x"}),
+        ] {
+            assert!(parse_messages(&b).is_empty(), "{b}");
+        }
+    }
+
+    #[test]
+    fn statuses_beside_messages_yield_only_the_messages() {
+        let b = json!({"entry":[{"changes":[{"value":{
+            "statuses":[{"id":"s","status":"read"}],
+            "messages":[{"id":"m","from":"1","text":{"body":"yo"}}]}}]}]});
+        let msgs = parse_messages(&b);
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].text, "yo");
+    }
+
+    #[test]
+    fn at_most_the_cap_is_processed_and_the_rest_counted() {
+        let many: Vec<Value> = (0..250)
+            .map(|i| json!({"id": format!("w{i}"), "text": {"body": "x"}}))
+            .collect();
+        let b = json!({"entry":[{"changes":[{"value":{"messages": many}}]}]});
+        let update = parse_update(&b);
+        assert_eq!(update.messages.len(), MAX_MESSAGES_PER_UPDATE);
+        assert_eq!(update.dropped, 250 - MAX_MESSAGES_PER_UPDATE);
+        assert_eq!(update.messages[0].id.as_deref(), Some("w0"));
+    }
+
+    #[test]
+    fn readable_wamids_stay_readable() {
+        assert_eq!(
+            whatsapp_envelope_id("wamid.HBgMNTU1MTIzNDU2Nzg5FQIAEhgUM0E=="),
+            "whatsapp-wamid.HBgMNTU1MTIzNDU2Nzg5FQIAEhgUM0E=="
+        );
+        assert_eq!(whatsapp_envelope_id("  wamid.A \t"), "whatsapp-wamid.A");
+    }
+
+    #[test]
+    fn hostile_wamids_are_hashed_deterministically() {
+        let long = "a".repeat(10 * 1024);
+        let exactly = "a".repeat(128);
+        let over = "a".repeat(129);
+        assert_eq!(
+            whatsapp_envelope_id(&exactly),
+            format!("whatsapp-{exactly}")
+        );
+        for hostile in [
+            "a\nb",
+            "a b",
+            "a/b",
+            "a\u{0}b",
+            "wamid.\u{e9}",
+            long.as_str(),
+            over.as_str(),
+        ] {
+            let id = whatsapp_envelope_id(hostile);
+            assert!(id.starts_with("whatsapp-~"), "{id}");
+            assert_eq!(id.len(), "whatsapp-~".len() + 32, "{id}");
+            assert!(
+                id.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'~')
+            );
+            assert_eq!(id, whatsapp_envelope_id(hostile));
+        }
+        assert_ne!(whatsapp_envelope_id("a\nb"), whatsapp_envelope_id("a\nc"));
+        assert_ne!(whatsapp_envelope_id("a b"), whatsapp_envelope_id("a/b"));
+    }
+
+    #[test]
+    fn non_text_message_kinds_stay_empty() {
+        for m in [
+            json!({"id":"r","type":"reaction","reaction":{"message_id":"x","emoji":"x"}}),
+            json!({"id":"b","type":"button","button":{"text":"Yes","payload":"p"}}),
+            json!({"id":"i","type":"interactive","interactive":{"type":"button_reply","button_reply":{"id":"1","title":"T"}}}),
+        ] {
+            let b = json!({"entry":[{"changes":[{"value":{"messages":[m]}}]}]});
+            let msgs = parse_messages(&b);
+            assert_eq!(msgs.len(), 1);
+            assert_eq!(msgs[0].text, "");
+            assert!(msgs[0].pending.is_empty());
+        }
     }
 }

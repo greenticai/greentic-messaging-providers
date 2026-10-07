@@ -5,7 +5,7 @@ use greentic_types::{
 };
 use provider_common::attachment_fetch::apply_fetch_refs;
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
-use provider_common::whatsapp_attachments::parse_messages;
+use provider_common::whatsapp_attachments::{parse_update, whatsapp_envelope_id};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 
@@ -60,7 +60,9 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
     let mut events = Vec::new();
     let mut first_text = String::new();
     let mut first_from = None;
-    for (index, msg) in parse_messages(&body_val).into_iter().enumerate() {
+    let update = parse_update(&body_val);
+    let last = update.messages.len().saturating_sub(1);
+    for (index, msg) in update.messages.into_iter().enumerate() {
         if index == 0 {
             first_text = msg.text.clone();
             first_from = msg.from.clone();
@@ -73,6 +75,11 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
                 .insert("locale".to_string(), locale.clone());
         }
         apply_fetch_refs(&mut envelope, msg.pending);
+        if index == last && update.dropped > 0 {
+            envelope
+                .metadata
+                .insert("messages_dropped".to_string(), update.dropped.to_string());
+        }
         events.push(envelope);
     }
     let normalized = json!({
@@ -108,7 +115,7 @@ fn build_whatsapp_envelope(
     // every media message (empty text) would collapse to `whatsapp-`. A payload
     // carrying no id keeps the old text-derived id.
     let envelope_id = match &message_id {
-        Some(id) => format!("whatsapp-{id}"),
+        Some(id) => whatsapp_envelope_id(id),
         None => format!("whatsapp-{text}"),
     };
     if let Some(id) = message_id {
@@ -164,12 +171,19 @@ mod tests {
     #[test]
     fn the_inbound_message_id_is_kept_for_typing() {
         let msg = json!({"id": "wamid.ABC", "from": "447", "text": {"body": "hi"}});
-        assert_eq!(parse_messages(&msg)[0].id.as_deref(), Some("wamid.ABC"));
+        assert_eq!(
+            provider_common::whatsapp_attachments::parse_messages(&msg)[0]
+                .id
+                .as_deref(),
+            Some("wamid.ABC")
+        );
         let env = build_whatsapp_envelope(
             "hi".into(),
             Some("447".into()),
             Some("pn-1".into()),
-            parse_messages(&msg)[0].id.clone(),
+            provider_common::whatsapp_attachments::parse_messages(&msg)[0]
+                .id
+                .clone(),
         );
         assert_eq!(
             env.metadata.get("wa_message_id").map(String::as_str),
@@ -256,5 +270,111 @@ mod tests {
     fn a_message_without_an_id_keeps_the_text_derived_id() {
         let events = events_for(&json!({"from":"1","text":{"body":"hi"}}));
         assert_eq!(events[0]["id"], "whatsapp-hi");
+    }
+
+    fn out_for(body: &Value) -> Value {
+        serde_json::from_slice(&ingest_http(&http_in(body))).expect("out")
+    }
+
+    fn one_message(m: Value) -> Value {
+        json!({"entry":[{"changes":[{"value":{"messages":[m]}}]}]})
+    }
+
+    #[test]
+    fn a_delivery_receipt_creates_no_envelope() {
+        let body = json!({"entry":[{"changes":[{"value":{
+            "metadata":{"phone_number_id":"555"},
+            "statuses":[{"id":"wamid.S","status":"delivered","recipient_id":"1"}]}}]}]});
+        let out = out_for(&body);
+        assert_eq!(out["status"], 200);
+        assert_eq!(out["events"].as_array().map(Vec::len), Some(0));
+    }
+
+    #[test]
+    fn a_flat_payload_without_entry_still_makes_one_envelope() {
+        let events = events_for(&json!({"from":"1","text":{"body":"hi"}}));
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0]["text"], "hi");
+    }
+
+    #[test]
+    fn messages_beyond_the_cap_are_dropped_and_counted() {
+        let many: Vec<Value> = (0..250)
+            .map(|i| json!({"id": format!("w{i}"), "from": "1", "text": {"body": "x"}}))
+            .collect();
+        let events = events_for(&json!({"entry":[{"changes":[{"value":{"messages": many}}]}]}));
+        assert_eq!(events.len(), 100);
+        assert_eq!(events[0]["metadata"].get("messages_dropped"), None);
+        assert_eq!(events[99]["metadata"]["messages_dropped"], "150");
+    }
+
+    #[test]
+    fn a_hostile_message_id_cannot_shape_the_envelope_id() {
+        let long = "x".repeat(10 * 1024);
+        for hostile in ["a\nb", "a/b", long.as_str()] {
+            let events = events_for(&one_message(json!({"id": hostile, "text": {"body": "t"}})));
+            let id = events[0]["id"].as_str().unwrap();
+            assert!(id.starts_with("whatsapp-~") && id.len() < 64, "{id}");
+        }
+    }
+
+    #[test]
+    fn hostile_media_ids_are_refused_but_the_turn_survives() {
+        let long = "9".repeat(10 * 1024);
+        for bad in [
+            json!("../x"),
+            json!("https://evil/x"),
+            json!(long),
+            json!(12345),
+        ] {
+            let events = events_for(&one_message(json!({
+                "id": "wamid.H", "from": "1", "type": "image",
+                "image": {"id": bad, "mime_type": "image/png", "caption": "keep me"}})));
+            assert_eq!(events.len(), 1);
+            assert_eq!(events[0]["text"], "keep me");
+            assert!(
+                events[0]
+                    .get("attachments")
+                    .is_none_or(|a| a.as_array().is_some_and(Vec::is_empty))
+            );
+            assert!(events[0]["extensions"].get("attachment_fetch").is_none());
+        }
+        // A well-formed id with a hostile neighbour is the case the shared
+        // refusal covers: it must be dropped and counted, not fail the turn.
+        let events = events_for(&one_message(json!({
+            "id": "wamid.H", "type": "document",
+            "document": {"id": "../x", "mime_type": "application/pdf", "caption": "c"}})));
+        assert_eq!(events[0]["text"], "c");
+        assert_eq!(events[0]["metadata"]["attachments_dropped"], "1");
+    }
+
+    #[test]
+    fn reaction_button_and_interactive_messages_stay_empty() {
+        for m in [
+            json!({"id":"r","from":"1","type":"reaction","reaction":{"message_id":"x","emoji":"y"}}),
+            json!({"id":"b","from":"1","type":"button","button":{"text":"Yes"}}),
+            json!({"id":"i","from":"1","type":"interactive","interactive":{"type":"button_reply"}}),
+        ] {
+            let events = events_for(&one_message(m));
+            assert_eq!(events.len(), 1);
+            assert_eq!(events[0]["text"], "");
+            assert!(
+                events[0]
+                    .get("attachments")
+                    .is_none_or(|a| a.as_array().is_some_and(Vec::is_empty))
+            );
+        }
+    }
+
+    #[test]
+    fn text_and_an_image_in_one_message_keep_the_text() {
+        let events = events_for(&one_message(json!({
+            "id":"wamid.X","from":"1","type":"image","text":{"body":"the text"},
+            "image":{"id":"M9","mime_type":"image/png","caption":"the caption"}})));
+        assert_eq!(events[0]["text"], "the text");
+        assert_eq!(
+            events[0]["extensions"]["attachment_fetch"][0]["media_id"],
+            "M9"
+        );
     }
 }
