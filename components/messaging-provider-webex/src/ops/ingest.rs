@@ -457,13 +457,17 @@ pub(crate) fn handle_webhook_event(body: &Value, cfg: &ProviderConfig) -> Ingest
                         cfg.default_locale.as_ref(),
                         Some(200),
                     );
-                    let envelope = build_webhook_envelope(
+                    let mut envelope = build_webhook_envelope(
                         text,
                         session_id,
                         sender,
                         metadata,
                         details.attachments.clone(),
                         Some(&message_id),
+                    );
+                    provider_common::attachment_fetch::apply_fetch_refs(
+                        &mut envelope,
+                        details.pending.clone(),
                     );
                     return IngestOutcome {
                         envelope: Some(envelope),

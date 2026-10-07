@@ -8,6 +8,7 @@ use greentic_types::{
     Actor, Attachment, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx,
     TenantId,
 };
+use provider_common::attachment_fetch::{FetchRef, PendingAttachment};
 use provider_common::redact;
 use provider_common::telemetry::{self, Field, Level, event, field};
 use serde_json::{Value, json};
@@ -24,7 +25,11 @@ pub(super) struct MessageDetails {
     pub(super) room_id: Option<String>,
     pub(super) person_email: Option<String>,
     pub(super) person_id: Option<String>,
+    /// Interactive cards (`attachments[]`); never downloadable files.
     pub(super) attachments: Vec<Attachment>,
+    /// Uploaded files (`files[]`) as fetch references, applied to the
+    /// envelope with `apply_fetch_refs`.
+    pub(super) pending: Vec<PendingAttachment>,
 }
 
 /// Fetch Webex attachment action details to retrieve user inputs.
@@ -208,10 +213,10 @@ pub(super) fn fetch_message_details(
         telemetry::downstream_error(PROVIDER_TYPE, api_base, resp.status, &body_text);
         return Err(format_webex_error(resp.status, &body));
     }
-    parse_message_details_body(message_id, resp.body.as_deref().unwrap_or_default())
+    parse_message_details_body(resp.body.as_deref().unwrap_or_default())
 }
 
-fn parse_message_details_body(message_id: &str, body: &[u8]) -> Result<MessageDetails, String> {
+fn parse_message_details_body(body: &[u8]) -> Result<MessageDetails, String> {
     let message_json: Value = serde_json::from_slice(body).map_err(|err| {
         let detail = redact::error_message(&err.to_string());
         telemetry::emit(
@@ -229,7 +234,7 @@ fn parse_message_details_body(message_id: &str, body: &[u8]) -> Result<MessageDe
         .get("result")
         .cloned()
         .unwrap_or_else(|| message_json.clone());
-    let attachments = convert_webex_attachments(message_id, &data);
+    let attachments = convert_webex_attachments(&data);
     Ok(MessageDetails {
         markdown: data
             .get("markdown")
@@ -252,23 +257,55 @@ fn parse_message_details_body(message_id: &str, body: &[u8]) -> Result<MessageDe
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
         attachments,
+        pending: convert_webex_files(&data),
     })
 }
 
-fn convert_webex_attachments(message_id: &str, data: &Value) -> Vec<Attachment> {
-    data.get("attachments")
+/// Webex file URLs are trusted only on exactly `webexapis.com` (https, no
+/// userinfo, no port) so a crafted message cannot make the host send the bot
+/// token elsewhere.
+fn is_webex_file_url(url: &str) -> bool {
+    url.strip_prefix("https://")
+        .and_then(|rest| rest.split(['/', '?', '#']).next())
+        .is_some_and(|host| host == "webexapis.com")
+}
+
+/// `files[]` of a Webex message as fetch references. The message JSON carries
+/// no name or MIME type (they are response headers of the download), and a
+/// provider never downloads, so the type is declared unknown
+/// (`application/octet-stream`) and the host sniffs the bytes. Only the NAME of
+/// the bot token travels.
+pub(super) fn convert_webex_files(data: &Value) -> Vec<PendingAttachment> {
+    data.get("files")
         .and_then(Value::as_array)
-        .map(|array| {
-            array
+        .map(|files| {
+            files
                 .iter()
-                .enumerate()
-                .filter_map(|(idx, attachment)| build_webex_attachment(message_id, idx, attachment))
+                .filter_map(Value::as_str)
+                .filter(|url| is_webex_file_url(url))
+                .map(|url| PendingAttachment {
+                    mime_type: "application/octet-stream".to_string(),
+                    name: None,
+                    size_bytes: None,
+                    fetch: FetchRef::Bearer {
+                        url: url.to_string(),
+                        secret_key: crate::DEFAULT_TOKEN_KEY.to_string(),
+                    },
+                    inline_base64: None,
+                })
                 .collect()
         })
         .unwrap_or_default()
 }
 
-fn build_webex_attachment(message_id: &str, idx: usize, value: &Value) -> Option<Attachment> {
+fn convert_webex_attachments(data: &Value) -> Vec<Attachment> {
+    data.get("attachments")
+        .and_then(Value::as_array)
+        .map(|array| array.iter().filter_map(build_webex_attachment).collect())
+        .unwrap_or_default()
+}
+
+fn build_webex_attachment(value: &Value) -> Option<Attachment> {
     let mime_type = value
         .get("contentType")
         .and_then(|v| v.as_str())
@@ -283,8 +320,7 @@ fn build_webex_attachment(message_id: &str, idx: usize, value: &Value) -> Option
                 .and_then(|content| content.get("url"))
                 .and_then(|v| v.as_str())
         })
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| format!("webex:{message_id}:attachment:{idx}"));
+        .map(|s| s.to_string());
     let name = value
         .get("name")
         .or_else(|| value.get("displayName"))
@@ -296,7 +332,7 @@ fn build_webex_attachment(message_id: &str, idx: usize, value: &Value) -> Option
         .or_else(|| value.get("sizeBytes").and_then(|v| v.as_u64()));
     Some(Attachment {
         mime_type,
-        url: Some(url),
+        url,
         content: None,
         name,
         size_bytes,
@@ -520,7 +556,7 @@ mod tests {
     }
 
     #[test]
-    fn attachment_conversion_prefers_content_url_but_falls_back_to_stable_id() {
+    fn attachment_conversion_prefers_content_url_and_never_invents_one() {
         let data = json!({
             "attachments": [
                 {"contentType": "image/png", "contentUrl": "https://cdn.example/a.png", "name": "a"},
@@ -529,7 +565,7 @@ mod tests {
             ]
         });
 
-        let attachments = convert_webex_attachments("msg-1", &data);
+        let attachments = convert_webex_attachments(&data);
 
         assert_eq!(attachments.len(), 3);
         assert_eq!(
@@ -542,16 +578,69 @@ mod tests {
         );
         assert_eq!(attachments[1].name.as_deref(), Some("card"));
         assert_eq!(attachments[1].size_bytes, Some(42));
-        assert_eq!(
-            attachments[2].url.as_deref(),
-            Some("webex:msg-1:attachment:2")
-        );
+        assert_eq!(attachments[2].url, None, "no invented placeholder URL");
         assert_eq!(attachments[2].size_bytes, Some(7));
     }
 
     #[test]
+    fn files_array_becomes_bearer_refs_on_webexapis() {
+        let data = json!({"files":[
+            "https://webexapis.com/v1/contents/abc123",
+            "https://evil.example/x"
+        ]});
+        let pending = convert_webex_files(&data);
+        assert_eq!(pending.len(), 1, "only webexapis.com is trusted");
+        assert_eq!(
+            pending[0].fetch,
+            FetchRef::Bearer {
+                url: "https://webexapis.com/v1/contents/abc123".into(),
+                secret_key: "WEBEX_BOT_TOKEN".into()
+            }
+        );
+        assert_eq!(pending[0].mime_type, "application/octet-stream");
+        assert_eq!(pending[0].name, None);
+    }
+
+    #[test]
+    fn lookalike_and_unsafe_file_hosts_are_rejected() {
+        for url in [
+            "https://webexapis.com.evil.example/v1/contents/a",
+            "https://evil.example/webexapis.com",
+            "https://webexapis.com@evil.example/v1/contents/a",
+            "https://evil.example@webexapis.com/v1/contents/a",
+            "https://webexapis.com:8443/v1/contents/a",
+            "http://webexapis.com/v1/contents/a",
+            "https://api.webexapis.com/v1/contents/a",
+            "https://WEBEXAPIS.COM.evil.example/",
+            "https://webexapis.com\\@evil.example/",
+            "webexapis.com/v1/contents/a",
+        ] {
+            assert!(
+                convert_webex_files(&json!({ "files": [url] })).is_empty(),
+                "{url} must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn card_attachments_are_not_files() {
+        let data = json!({"attachments":[{"contentType":"application/vnd.microsoft.card.adaptive","content":{}}]});
+        assert!(convert_webex_files(&data).is_empty());
+    }
+
+    #[test]
+    fn message_details_carry_files_beside_cards() {
+        let details = parse_message_details_body(br#"{"text":"x","files":["https://webexapis.com/v1/contents/f1"],
+                "attachments":[{"contentType":"application/vnd.microsoft.card.adaptive","content":{}}]}"#,
+        )
+        .expect("details");
+        assert_eq!(details.attachments.len(), 1);
+        assert_eq!(details.pending.len(), 1);
+    }
+
+    #[test]
     fn attachment_conversion_handles_missing_array() {
-        assert!(convert_webex_attachments("msg-1", &json!({})).is_empty());
+        assert!(convert_webex_attachments(&json!({})).is_empty());
     }
 
     #[test]
@@ -574,7 +663,6 @@ mod tests {
     #[test]
     fn parse_message_details_unwraps_result_and_attachments() {
         let details = parse_message_details_body(
-            "msg-1",
             br#"{
                 "result": {
                     "markdown": "**hello**",
@@ -601,7 +689,6 @@ mod tests {
     #[test]
     fn parse_message_details_accepts_top_level_message() {
         let details = parse_message_details_body(
-            "msg-2",
             br#"{"text":"plain","roomId":"room-2","personId":"person-2"}"#,
         )
         .expect("valid top-level message");
@@ -614,8 +701,8 @@ mod tests {
 
     #[test]
     fn parse_message_details_reports_invalid_json() {
-        let err = parse_message_details_body("msg-1", b"{not-json")
-            .expect_err("invalid message json should fail");
+        let err =
+            parse_message_details_body(b"{not-json").expect_err("invalid message json should fail");
         assert!(err.contains("invalid message JSON"));
     }
 }

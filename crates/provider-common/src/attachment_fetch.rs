@@ -14,6 +14,9 @@ use serde_json::{Value, json};
 pub const MAX_ATTACHMENTS: usize = 5;
 pub const MAX_ATTACHMENT_BYTES: u64 = 10 * 1024 * 1024;
 const MAX_NAME_LEN: usize = 120;
+/// Declared type of an attachment whose type the provider cannot know. Only a
+/// `Bearer` ref may carry it past [`apply_fetch_refs`]; the host sniffs bytes.
+pub const UNKNOWN_MIME: &str = "application/octet-stream";
 pub const FETCH_KEY: &str = "attachment_fetch";
 
 const ALLOWED_MIME: &[&str] = &[
@@ -237,7 +240,13 @@ fn rejection(item: &PendingAttachment) -> Option<&'static str> {
     {
         return Some("attachment too large");
     }
-    if !is_allowed_mime(&item.mime_type) {
+    // "Type unknown at the edge, the host sniffs the bytes and decides": only
+    // for a bearer download (Webex `files[]`, whose type is a response header
+    // a provider never fetches). Telegram/WhatsApp ids and public urls still
+    // must declare an allowed type.
+    let unknown_for_host =
+        item.mime_type == UNKNOWN_MIME && matches!(item.fetch, FetchRef::Bearer { .. });
+    if !is_allowed_mime(&item.mime_type) && !unknown_for_host {
         return Some("mime type not allowed");
     }
     match (&item.fetch, &item.inline_base64) {
@@ -287,8 +296,9 @@ fn warn_dropped(channel: &str, reason: &str) {
 /// are kept, so the two lists are index-parallel by construction. Rejected
 /// items are added to `metadata["attachments_dropped"]` (the counter
 /// accumulates across calls). When nothing is kept the envelope's
-/// `attachments` and `attachment_fetch` are left untouched; otherwise they are
-/// replaced.
+/// `attachments` and `attachment_fetch` are left untouched; otherwise the kept
+/// items are appended and the fetch list stays index-aligned (`null` for an
+/// attachment that has no ref).
 pub fn apply_fetch_refs(envelope: &mut ChannelMessageEnvelope, pending: Vec<PendingAttachment>) {
     let mut kept: Vec<(Attachment, Value)> = Vec::new();
     let mut dropped = 0usize;
@@ -331,8 +341,18 @@ pub fn apply_fetch_refs(envelope: &mut ChannelMessageEnvelope, pending: Vec<Pend
     if kept.is_empty() {
         return;
     }
-    let refs: Vec<Value> = kept.iter().map(|(_, f)| f.clone()).collect();
-    envelope.attachments = kept.into_iter().map(|(a, _)| a).collect();
+    // Existing attachments (e.g. interactive cards) have no fetch ref: keep the
+    // parallel list index-aligned with a `null` for each.
+    let existing = envelope.attachments.len();
+    let mut refs: Vec<Value> = match envelope.extensions.get(FETCH_KEY) {
+        Some(Value::Array(items)) => items.clone(),
+        _ => Vec::new(),
+    };
+    refs.resize(existing, Value::Null);
+    for (attachment, fetch) in kept {
+        envelope.attachments.push(attachment);
+        refs.push(fetch);
+    }
     envelope
         .extensions
         .insert(FETCH_KEY.to_string(), Value::Array(refs));
@@ -483,6 +503,52 @@ mod tests {
             env.metadata.get("attachments_dropped").map(String::as_str),
             Some("1")
         );
+    }
+
+    #[test]
+    fn unknown_type_is_kept_for_the_host_to_sniff_on_bearer_only() {
+        let bearer = |mime: &str| PendingAttachment {
+            mime_type: mime.into(),
+            name: None,
+            size_bytes: None,
+            fetch: FetchRef::Bearer {
+                url: "https://x.test/f".into(),
+                secret_key: "K".into(),
+            },
+            inline_base64: None,
+        };
+        let mut env = empty_envelope();
+        apply_fetch_refs(&mut env, vec![bearer("application/octet-stream")]);
+        assert_eq!(env.attachments.len(), 1);
+        assert_eq!(env.attachments[0].mime_type, "application/octet-stream");
+
+        // Other ref kinds still drop an undeclared type (Telegram/WhatsApp).
+        let mut env = empty_envelope();
+        let mut p = pending(1);
+        p[0].mime_type = "application/octet-stream".into();
+        apply_fetch_refs(&mut env, p);
+        assert!(env.attachments.is_empty());
+
+        // A real disallowed type on a Bearer ref is still dropped.
+        let mut env = empty_envelope();
+        apply_fetch_refs(&mut env, vec![bearer("image/svg+xml")]);
+        assert!(env.attachments.is_empty());
+    }
+
+    #[test]
+    fn refs_stay_index_aligned_when_attachments_already_exist() {
+        let mut env = empty_envelope();
+        env.attachments.push(Attachment {
+            mime_type: "application/vnd.microsoft.card.adaptive".into(),
+            url: None,
+            content: None,
+            name: None,
+            size_bytes: None,
+        });
+        apply_fetch_refs(&mut env, pending(1));
+        assert_eq!(env.attachments.len(), 2);
+        assert_eq!(env.extensions["attachment_fetch"][0], Value::Null);
+        assert_eq!(env.extensions["attachment_fetch"][1]["kind"], "public");
     }
 
     #[test]

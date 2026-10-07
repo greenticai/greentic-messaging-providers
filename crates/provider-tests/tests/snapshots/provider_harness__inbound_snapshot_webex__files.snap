@@ -1,0 +1,30 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+expression: value
+---
+{
+  "event": {
+    "channel": "webex",
+    "id": "<FIXED>",
+    "metadata": {
+      "webex.event": "",
+      "webex.fetchStatus": "200",
+      "webex.hasAttachments": "false",
+      "webex.resource": ""
+    },
+    "session_id": "webex",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": "see file",
+    "to": [
+      {
+        "id": "<FIXED>"
+      }
+    ]
+  },
+  "ok": true
+}
