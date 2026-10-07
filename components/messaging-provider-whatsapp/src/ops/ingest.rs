@@ -5,7 +5,9 @@ use greentic_types::{
 };
 use provider_common::attachment_fetch::apply_fetch_refs;
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
-use provider_common::whatsapp_attachments::{parse_update, whatsapp_envelope_id};
+use provider_common::whatsapp_attachments::{
+    is_readable_wamid, parse_update, whatsapp_envelope_id,
+};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 
@@ -37,19 +39,6 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
     let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
-    // Phone number id from the Cloud API metadata (first change).
-    let cloud_phone_id = body_val
-        .get("entry")
-        .and_then(|e| e.as_array())
-        .and_then(|arr| arr.first())
-        .and_then(|e| e.get("changes"))
-        .and_then(|c| c.as_array())
-        .and_then(|arr| arr.first())
-        .and_then(|c| c.get("value"))
-        .and_then(|v| v.get("metadata"))
-        .and_then(|m| m.get("phone_number_id"))
-        .and_then(Value::as_str)
-        .map(str::to_string);
     // WhatsApp doesn't include locale in webhooks; use provider config default.
     let default_locale = load_config(&body_val)
         .ok()
@@ -67,8 +56,7 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             first_text = msg.text.clone();
             first_from = msg.from.clone();
         }
-        let mut envelope =
-            build_whatsapp_envelope(msg.text, msg.from, cloud_phone_id.clone(), msg.id);
+        let mut envelope = build_whatsapp_envelope(msg.text, msg.from, msg.phone_number_id, msg.id);
         if let Some(locale) = &default_locale {
             envelope
                 .metadata
@@ -118,8 +106,9 @@ fn build_whatsapp_envelope(
         Some(id) => whatsapp_envelope_id(id),
         None => format!("whatsapp-{text}"),
     };
-    if let Some(id) = message_id {
-        metadata.insert("wa_message_id".to_string(), id);
+    // Typing needs the raw id; an unreadable one is not carried at all.
+    if let Some(id) = message_id.filter(|id| is_readable_wamid(id)) {
+        metadata.insert("wa_message_id".to_string(), id.trim().to_string());
     }
     let sender = from.map(|id| Actor {
         id,
@@ -243,6 +232,42 @@ mod tests {
             events[2]
                 .get("attachments")
                 .is_none_or(|a| a.as_array().is_some_and(Vec::is_empty))
+        );
+    }
+
+    #[test]
+    fn each_envelope_carries_the_phone_number_of_its_own_change() {
+        let body = json!({"entry":[
+            {"changes":[
+                {"value":{"metadata":{"phone_number_id":"111"},
+                    "messages":[{"id":"wamid.1","from":"6281","text":{"body":"a"}}]}},
+                {"value":{"metadata":{"phone_number_id":"222"},
+                    "messages":[{"id":"wamid.2","from":"6282","text":{"body":"b"}}]}}]},
+            {"changes":[
+                {"value":{"metadata":{"phone_number_id":"333"},
+                    "messages":[{"id":"wamid.3","from":"6283","text":{"body":"c"}}]}},
+                {"value":{"messages":[{"id":"wamid.4","from":"6284","text":{"body":"d"}}]}}]}]});
+        let numbers: Vec<Value> = events_for(&body)
+            .iter()
+            .map(|e| e["metadata"]["phone_number_id"].clone())
+            .collect();
+        assert_eq!(
+            numbers,
+            [json!("111"), json!("222"), json!("333"), json!("unknown")]
+        );
+    }
+
+    #[test]
+    fn an_unreadable_wamid_is_not_stamped_as_wa_message_id() {
+        for wamid in ["wamid. with space", "../x", &"w".repeat(129)] {
+            let env = build_whatsapp_envelope("hi".into(), None, None, Some(wamid.to_string()));
+            assert!(env.id.starts_with("whatsapp-~"), "{wamid}");
+            assert!(!env.metadata.contains_key("wa_message_id"), "{wamid}");
+        }
+        let ok = build_whatsapp_envelope("hi".into(), None, None, Some("wamid.HBgM=".into()));
+        assert_eq!(
+            ok.metadata.get("wa_message_id").map(String::as_str),
+            Some("wamid.HBgM=")
         );
     }
 

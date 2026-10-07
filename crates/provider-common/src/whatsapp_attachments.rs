@@ -26,6 +26,8 @@ pub struct WhatsappMessage {
     /// The WhatsApp message id (`wamid.…`), when present.
     pub id: Option<String>,
     pub from: Option<String>,
+    /// `metadata.phone_number_id` of the change this message came from.
+    pub phone_number_id: Option<String>,
     /// `text.body`, else the media caption, else empty.
     pub text: String,
     pub pending: Vec<PendingAttachment>,
@@ -52,16 +54,21 @@ pub struct ParsedUpdate {
 pub fn whatsapp_envelope_id(wamid: &str) -> String {
     use sha2::{Digest, Sha256};
     let id = wamid.trim();
-    let readable = (1..=MAX_READABLE_ID_LEN).contains(&id.len())
-        && id
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'=' | b'+' | b'-'));
-    if readable {
+    if is_readable_wamid(id) {
         return format!("whatsapp-{id}");
     }
     let digest = Sha256::digest(id.as_bytes());
     let hex: String = digest.iter().take(16).map(|b| format!("{b:02x}")).collect();
     format!("whatsapp-~{hex}")
+}
+
+/// 1..=128 chars of `[A-Za-z0-9._=+-]` (after trimming): safe to carry verbatim.
+pub fn is_readable_wamid(wamid: &str) -> bool {
+    let id = wamid.trim();
+    (1..=MAX_READABLE_ID_LEN).contains(&id.len())
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'=' | b'+' | b'-'))
 }
 
 /// All messages of a webhook body (at most [`MAX_MESSAGES_PER_UPDATE`]).
@@ -78,7 +85,7 @@ pub fn parse_messages(body: &Value) -> Vec<WhatsappMessage> {
 pub fn parse_update(body: &Value) -> ParsedUpdate {
     if body.get("entry").is_none() {
         return ParsedUpdate {
-            messages: vec![message_from(body)],
+            messages: vec![message_from(body, None)],
             dropped: 0,
         };
     }
@@ -93,12 +100,25 @@ pub fn parse_update(body: &Value) -> ParsedUpdate {
                 .into_iter()
                 .flatten()
         })
-        .filter_map(|c| c.get("value")?.get("messages")?.as_array())
+        .filter_map(|c| {
+            let value = c.get("value")?;
+            let phone = value
+                .get("metadata")
+                .and_then(|m| m.get("phone_number_id"))
+                .and_then(Value::as_str);
+            Some(
+                value
+                    .get("messages")?
+                    .as_array()?
+                    .iter()
+                    .map(move |m| (m, phone)),
+            )
+        })
         .flatten();
     let messages: Vec<WhatsappMessage> = cloud
         .by_ref()
         .take(MAX_MESSAGES_PER_UPDATE)
-        .map(message_from)
+        .map(|(m, phone)| message_from(m, phone))
         .collect();
     let dropped = cloud.count();
     if dropped > 0 {
@@ -114,7 +134,7 @@ pub fn parse_update(body: &Value) -> ParsedUpdate {
     ParsedUpdate { messages, dropped }
 }
 
-fn message_from(msg: &Value) -> WhatsappMessage {
+fn message_from(msg: &Value, phone_number_id: Option<&str>) -> WhatsappMessage {
     let mut pending = Vec::new();
     let mut caption = None;
     for kind in ["image", "document"] {
@@ -161,6 +181,7 @@ fn message_from(msg: &Value) -> WhatsappMessage {
             .filter(|s| !s.is_empty())
             .map(str::to_string),
         from: msg.get("from").and_then(Value::as_str).map(str::to_string),
+        phone_number_id: phone_number_id.map(str::to_string),
         text,
         pending,
     }
