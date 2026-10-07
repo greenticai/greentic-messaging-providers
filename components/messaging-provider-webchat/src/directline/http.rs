@@ -3729,6 +3729,60 @@ mod tests {
 
     const UPLOAD_PNG: &[u8] = b"\x89PNG\r\n\x1a\nDATA-MARKER-7f3a";
 
+    /// Web Chat 4.18 sends each image's thumbnail as a data: URL in the activity part.
+    fn thumbnail_body(thumb_len: usize) -> Vec<u8> {
+        let thumb = format!("data:image/png;base64,THUMB{}", "A".repeat(thumb_len));
+        let activity = json!({
+            "type": "message",
+            "text": "look",
+            "attachments": [{"contentType": "image/png", "name": "p.png", "thumbnailUrl": thumb, "contentUrl": "blob:x"}],
+        });
+        let mut b = format!(
+            "--BB\r\nContent-Disposition: form-data; name=\"activity\"\r\nContent-Type: application/vnd.microsoft.activity\r\n\r\n{activity}\r\n"
+        )
+        .into_bytes();
+        b.extend_from_slice(
+            b"--BB\r\nContent-Disposition: form-data; name=\"file\"; filename=\"p.png\"\r\nContent-Type: image/png\r\n\r\n",
+        );
+        b.extend_from_slice(UPLOAD_PNG);
+        b.extend_from_slice(b"\r\n--BB--\r\n");
+        b
+    }
+
+    #[test]
+    fn a_webchat_thumbnail_in_the_activity_part_is_accepted_and_never_stored() -> Result<(), String>
+    {
+        let (mut state, secrets, token, conv) = upload_fixture()?;
+        let req = upload_request(&conv, &token, "BB", thumbnail_body(120 * 1024));
+        let resp = handle_directline_request(&req, &mut state, &secrets);
+        assert_eq!(resp.status, 201, "{:?}", decode_body(&resp));
+        let page = get_activities(&mut state, &secrets, &conv, &token)?;
+        let stored = page["activities"]
+            .as_array()
+            .and_then(|a| a.last())
+            .ok_or("stored")?
+            .clone();
+        assert_eq!(
+            stored["attachments"],
+            json!([{"contentType": "image/png", "name": "p.png", "size": UPLOAD_PNG.len(), "_greentic_upload": true}])
+        );
+        for value in state.data.values() {
+            let text = String::from_utf8_lossy(value);
+            assert!(!text.contains("THUMB") && !text.contains("blob:x"));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn an_activity_part_over_256_kib_is_413() -> Result<(), String> {
+        let (mut state, secrets, token, conv) = upload_fixture()?;
+        let req = upload_request(&conv, &token, "BB", thumbnail_body(256 * 1024));
+        let resp = handle_directline_request(&req, &mut state, &secrets);
+        assert_eq!(resp.status, 413);
+        assert_eq!(decode_body(&resp)?["message"], "activity part too large");
+        Ok(())
+    }
+
     #[test]
     fn upload_with_matching_bytes_is_accepted_and_recorded() -> Result<(), String> {
         let (mut state, secrets, token, conv) = upload_fixture()?;

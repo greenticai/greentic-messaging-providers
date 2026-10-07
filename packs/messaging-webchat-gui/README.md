@@ -84,9 +84,9 @@ through each skin's `styleOptions*.json`:
 - `uploadAccept` limits the file picker to the types the upload route accepts.
   It is a hint to the browser only; the route decides from the file bytes.
 - `enableUploadThumbnail: false` keeps Web Chat from embedding an image
-  thumbnail (a `data:` URL) in the upload's `activity` part, which the route
-  caps at 64 KiB. A skin that turns thumbnails back on can have image uploads
-  refused.
+  thumbnail (a `data:` URL) in the upload's `activity` part. The route ignores
+  that thumbnail and caps the `activity` part at 256 KiB, so a skin that turns
+  thumbnails back on still uploads, with a larger request.
 
 Uploads go to the provider's Direct Line route
 `POST /v3/directline/conversations/{id}/upload` (multipart, fields `activity`

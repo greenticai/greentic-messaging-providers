@@ -311,6 +311,24 @@ mod tests {
     }
 
     #[test]
+    fn a_webchat_thumbnail_never_reaches_the_envelope() {
+        let thumb = format!("data:image/png;base64,THUMB{}", "A".repeat(120 * 1024));
+        let activity = json!({
+            "text": "look",
+            "attachments": [{"contentType": "image/png", "thumbnailUrl": thumb}],
+        });
+        let req = request(&[
+            activity_part(&activity.to_string()),
+            file_part("p.png", "image/png", PNG),
+        ]);
+        let out = stamp(&req, accepted());
+        assert_eq!(out.events.len(), 1);
+        assert_eq!(out.events[0].attachments.len(), 1);
+        let text = serde_json::to_string(&out.events[0]).expect("json");
+        assert!(!text.contains("THUMB") && !text.contains("thumbnailUrl"));
+    }
+
+    #[test]
     fn a_file_of_exactly_ten_mebibytes_reaches_the_envelope() {
         let mut at_cap = PNG.to_vec();
         at_cap.resize(

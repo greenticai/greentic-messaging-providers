@@ -11,8 +11,8 @@ pub const MAX_UPLOAD_FILES: usize = attachment_fetch::MAX_ATTACHMENTS;
 pub const MAX_UPLOAD_FILE_BYTES: usize = attachment_fetch::MAX_ATTACHMENT_BYTES as usize;
 /// WebChat: 15 MiB per message (all files of one message share one upload).
 pub const MAX_UPLOAD_BODY_BYTES: usize = multipart::MAX_BODY_BYTES;
-/// The optional `activity` JSON part.
-pub const MAX_ACTIVITY_PART_BYTES: usize = 64 * 1024;
+/// Activity part, sized for a Web Chat 4.18 thumbnail (a data: URL in its ignored `attachments`).
+pub const MAX_ACTIVITY_PART_BYTES: usize = 256 * 1024;
 
 /// Why an upload is refused. Every message is fixed text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -167,7 +167,7 @@ fn validate_file(part: multipart::Part) -> Result<UploadedFile, UploadRejection>
     })
 }
 
-/// Keep only `text`, `locale`, `channelData` and `from.{id,name}`.
+/// Keep only `text`, `locale`, `channelData` and `from.{id,name}`; `attachments` (thumbnails) is ignored.
 fn sanitize_activity(data: &[u8]) -> Result<Map<String, Value>, UploadRejection> {
     if data.len() > MAX_ACTIVITY_PART_BYTES {
         return Err(UploadRejection::TooLarge("activity part too large"));
