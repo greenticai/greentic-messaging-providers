@@ -8,7 +8,7 @@ use greentic_types::{
     Actor, Attachment, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx,
     TenantId,
 };
-use provider_common::attachment_fetch::{FetchRef, PendingAttachment};
+use provider_common::attachment_fetch::{FetchRef, PendingAttachment, apply_fetch_refs};
 use provider_common::redact;
 use provider_common::telemetry::{self, Field, Level, event, field};
 use serde_json::{Value, json};
@@ -339,6 +339,76 @@ fn build_webex_attachment(value: &Value) -> Option<Attachment> {
     })
 }
 
+/// Envelope for a fetched `messages/created` message: cards stay in
+/// `attachments` with a `{"kind":"none"}` fetch entry, kept files are appended
+/// with their bearer refs. `webex.hasAttachments` / `attachmentTypes` describe
+/// every attachment on the envelope (cards and kept files; a file's type is
+/// `application/octet-stream`, unknown at the edge).
+#[allow(clippy::too_many_arguments)]
+pub(super) fn envelope_from_details(
+    details: &MessageDetails,
+    message_id: &String,
+    webhook_room: Option<&String>,
+    webhook_person_email: Option<&String>,
+    webhook_person_id: Option<&String>,
+    resource: &str,
+    event: &str,
+    default_locale: Option<&String>,
+) -> ChannelMessageEnvelope {
+    let session_id = details
+        .room_id
+        .clone()
+        .or_else(|| webhook_room.cloned())
+        .unwrap_or_else(|| message_id.clone());
+    let sender = pick_sender(&details.person_email, &details.person_id)
+        .or_else(|| pick_sender(&webhook_person_email.cloned(), &webhook_person_id.cloned()));
+    let text = details
+        .markdown
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| details.text.clone())
+        .unwrap_or_default();
+    let mut envelope = build_webhook_envelope(
+        text,
+        session_id,
+        sender,
+        MessageMetadata::new(),
+        details.attachments.clone(),
+        Some(message_id),
+    );
+    apply_fetch_refs(&mut envelope, details.pending.clone());
+    let attachment_types = if envelope.attachments.is_empty() {
+        None
+    } else {
+        Some(
+            envelope
+                .attachments
+                .iter()
+                .map(|a| a.mime_type.clone())
+                .collect::<Vec<_>>()
+                .join(","),
+        )
+    };
+    let mut metadata = build_webhook_metadata(
+        resource,
+        event,
+        Some(message_id),
+        details.room_id.as_ref().or(webhook_room),
+        details.person_email.as_ref().or(webhook_person_email),
+        details.person_id.as_ref().or(webhook_person_id),
+        None,
+        attachment_types,
+        default_locale,
+        Some(200),
+    );
+    if let Some(dropped) = envelope.metadata.get("attachments_dropped") {
+        metadata.insert("attachments_dropped".to_string(), dropped.clone());
+    }
+    envelope.metadata = metadata;
+    envelope
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn build_webhook_metadata(
     resource: &str,
@@ -636,6 +706,115 @@ mod tests {
         .expect("details");
         assert_eq!(details.attachments.len(), 1);
         assert_eq!(details.pending.len(), 1);
+    }
+
+    fn details_of(body: &str) -> MessageDetails {
+        parse_message_details_body(body.as_bytes()).expect("details")
+    }
+
+    const CARD: &str = r#"{"contentType":"application/vnd.microsoft.card.adaptive","content":{"type":"AdaptiveCard"}}"#;
+
+    fn envelope_of(details: &MessageDetails) -> ChannelMessageEnvelope {
+        let id = "msg-1".to_string();
+        envelope_from_details(details, &id, None, None, None, "messages", "created", None)
+    }
+
+    #[test]
+    fn message_with_cards_and_files_keeps_attachments_and_refs_aligned() {
+        let details = details_of(&format!(
+            r#"{{"text":"x","roomId":"r","attachments":[{CARD},{CARD}],
+                "files":["https://webexapis.com/v1/contents/f1","https://webexapis.com/v1/contents/f2"]}}"#
+        ));
+        let env = envelope_of(&details);
+        assert_eq!(env.attachments.len(), 4);
+        let refs = env.extensions["attachment_fetch"].as_array().expect("refs");
+        assert_eq!(refs.len(), 4);
+        assert_eq!(refs[0], json!({"kind":"none"}));
+        assert_eq!(refs[1], json!({"kind":"none"}));
+        assert_eq!(refs[2]["url"], "https://webexapis.com/v1/contents/f1");
+        assert_eq!(refs[3]["url"], "https://webexapis.com/v1/contents/f2");
+        assert_eq!(
+            env.attachments[0].mime_type,
+            "application/vnd.microsoft.card.adaptive"
+        );
+        assert!(env.attachments[2].url.is_none());
+        assert_eq!(env.attachments[3].mime_type, "application/octet-stream");
+        assert_eq!(
+            env.metadata.get("webex.hasAttachments").map(String::as_str),
+            Some("true")
+        );
+    }
+
+    #[test]
+    fn three_cards_and_five_files_keep_all_files_cards_do_not_use_the_cap() {
+        let files: Vec<String> = (0..7)
+            .map(|i| format!("\"https://webexapis.com/v1/contents/f{i}\""))
+            .collect();
+        let details = details_of(&format!(
+            r#"{{"text":"x","attachments":[{CARD},{CARD},{CARD}],"files":[{}]}}"#,
+            files[..5].join(",")
+        ));
+        let env = envelope_of(&details);
+        assert_eq!(env.attachments.len(), 8);
+        assert!(!env.metadata.contains_key("attachments_dropped"));
+
+        let over = details_of(&format!(r#"{{"text":"x","files":[{}]}}"#, files.join(",")));
+        let env = envelope_of(&over);
+        assert_eq!(env.attachments.len(), 5, "the cap is 5 files");
+        assert_eq!(
+            env.metadata.get("attachments_dropped").map(String::as_str),
+            Some("2")
+        );
+    }
+
+    #[test]
+    fn the_same_file_url_twice_is_one_reference() {
+        let details = details_of(
+            r#"{"text":"x","files":["https://webexapis.com/v1/contents/f1","https://webexapis.com/v1/contents/f1"]}"#,
+        );
+        assert_eq!(envelope_of(&details).attachments.len(), 1);
+    }
+
+    #[test]
+    fn a_10kb_file_url_is_refused_and_counted() {
+        let url = format!(
+            "https://webexapis.com/v1/contents/{}",
+            "a".repeat(10 * 1024)
+        );
+        let details = details_of(&format!(r#"{{"text":"x","files":["{url}"]}}"#));
+        let env = envelope_of(&details);
+        assert!(env.attachments.is_empty());
+        assert_eq!(
+            env.metadata.get("attachments_dropped").map(String::as_str),
+            Some("1")
+        );
+        assert_eq!(
+            env.metadata.get("webex.hasAttachments").map(String::as_str),
+            Some("false")
+        );
+    }
+
+    #[test]
+    fn a_files_only_message_reports_has_attachments() {
+        let details =
+            details_of(r#"{"text":"x","files":["https://webexapis.com/v1/contents/f1"]}"#);
+        let env = envelope_of(&details);
+        assert_eq!(
+            env.metadata.get("webex.hasAttachments").map(String::as_str),
+            Some("true")
+        );
+        assert!(env.extensions["attachment_fetch"][0]["kind"] == "bearer");
+    }
+
+    #[test]
+    fn a_message_without_files_or_cards_is_unchanged() {
+        let env = envelope_of(&details_of(r#"{"text":"x"}"#));
+        assert!(env.attachments.is_empty());
+        assert!(env.extensions.is_empty());
+        assert_eq!(
+            env.metadata.get("webex.hasAttachments").map(String::as_str),
+            Some("false")
+        );
     }
 
     #[test]

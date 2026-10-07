@@ -20,8 +20,8 @@ use serde_json::{Value, json};
 use sha1::Sha1;
 
 use super::ingest_helpers::{
-    build_webhook_envelope, build_webhook_metadata, fetch_action_details, fetch_message_details,
-    pick_sender,
+    build_webhook_envelope, build_webhook_metadata, envelope_from_details, fetch_action_details,
+    fetch_message_details, pick_sender,
 };
 #[cfg(not(test))]
 use crate::DEFAULT_WEBHOOK_SECRET_KEY;
@@ -416,58 +416,15 @@ pub(crate) fn handle_webhook_event(body: &Value, cfg: &ProviderConfig) -> Ingest
         match get_secret_string(DEFAULT_TOKEN_KEY) {
             Ok(token) => match fetch_message_details(&message_id, &api_base, &token) {
                 Ok(details) => {
-                    let session_id = details
-                        .room_id
-                        .clone()
-                        .or(webhook_room.clone())
-                        .unwrap_or_else(|| message_id.clone());
-                    let sender = pick_sender(&details.person_email, &details.person_id)
-                        .or_else(|| pick_sender(&webhook_person_email, &webhook_person_id));
-                    let text = details
-                        .markdown
-                        .as_deref()
-                        .filter(|value| !value.trim().is_empty())
-                        .map(ToOwned::to_owned)
-                        .or_else(|| details.text.clone())
-                        .unwrap_or_default();
-                    let attachment_types = if details.attachments.is_empty() {
-                        None
-                    } else {
-                        Some(
-                            details
-                                .attachments
-                                .iter()
-                                .map(|a| a.mime_type.clone())
-                                .collect::<Vec<_>>()
-                                .join(","),
-                        )
-                    };
-                    let metadata = build_webhook_metadata(
+                    let envelope = envelope_from_details(
+                        &details,
+                        &message_id,
+                        webhook_room.as_ref(),
+                        webhook_person_email.as_ref(),
+                        webhook_person_id.as_ref(),
                         resource,
                         event,
-                        Some(&message_id),
-                        details.room_id.as_ref().or(webhook_room.as_ref()),
-                        details
-                            .person_email
-                            .as_ref()
-                            .or(webhook_person_email.as_ref()),
-                        details.person_id.as_ref().or(webhook_person_id.as_ref()),
-                        None,
-                        attachment_types.clone(),
                         cfg.default_locale.as_ref(),
-                        Some(200),
-                    );
-                    let mut envelope = build_webhook_envelope(
-                        text,
-                        session_id,
-                        sender,
-                        metadata,
-                        details.attachments.clone(),
-                        Some(&message_id),
-                    );
-                    provider_common::attachment_fetch::apply_fetch_refs(
-                        &mut envelope,
-                        details.pending.clone(),
                     );
                     return IngestOutcome {
                         envelope: Some(envelope),

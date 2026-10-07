@@ -17,6 +17,8 @@ const MAX_NAME_LEN: usize = 120;
 /// Declared type of an attachment whose type the provider cannot know. Only a
 /// `Bearer` ref may carry it past [`apply_fetch_refs`]; the host sniffs bytes.
 pub const UNKNOWN_MIME: &str = "application/octet-stream";
+/// Longest fetch url accepted at the edge (longer is refused and counted).
+const MAX_URL_LEN: usize = 2048;
 pub const FETCH_KEY: &str = "attachment_fetch";
 
 const ALLOWED_MIME: &[&str] = &[
@@ -188,6 +190,9 @@ fn https_url_problem(url: &str) -> Option<&'static str> {
     else {
         return Some("url is not https");
     };
+    if url.len() > MAX_URL_LEN {
+        return Some("url too long");
+    }
     if url
         .chars()
         .any(|c| c.is_control() || c.is_whitespace() || c == '\\')
@@ -297,11 +302,14 @@ fn warn_dropped(channel: &str, reason: &str) {
 /// items are added to `metadata["attachments_dropped"]` (the counter
 /// accumulates across calls). When nothing is kept the envelope's
 /// `attachments` and `attachment_fetch` are left untouched; otherwise the kept
-/// items are appended and the fetch list stays index-aligned (`null` for an
-/// attachment that has no ref).
+/// items are appended and the fetch list stays index-aligned (`{"kind":"none"}`
+/// for an attachment that has nothing to fetch). The per-message cap counts
+/// only fetchable items: existing attachments (cards) do not consume it.
+/// Repeated urls are deduplicated (first kept).
 pub fn apply_fetch_refs(envelope: &mut ChannelMessageEnvelope, pending: Vec<PendingAttachment>) {
     let mut kept: Vec<(Attachment, Value)> = Vec::new();
     let mut dropped = 0usize;
+    let mut seen_urls: Vec<String> = Vec::new();
     for item in pending {
         let reason = if kept.len() >= MAX_ATTACHMENTS {
             Some("too many attachments")
@@ -312,6 +320,14 @@ pub fn apply_fetch_refs(envelope: &mut ChannelMessageEnvelope, pending: Vec<Pend
             warn_dropped(&envelope.channel, reason);
             dropped += 1;
             continue;
+        }
+        // The same url twice is one file: the first valid one is kept, the
+        // repeat is skipped silently (not an error, not counted as dropped).
+        if let FetchRef::Bearer { url, .. } | FetchRef::Public { url } = &item.fetch {
+            if seen_urls.contains(url) {
+                continue;
+            }
+            seen_urls.push(url.clone());
         }
         let content = item
             .inline_base64
@@ -341,14 +357,17 @@ pub fn apply_fetch_refs(envelope: &mut ChannelMessageEnvelope, pending: Vec<Pend
     if kept.is_empty() {
         return;
     }
-    // Existing attachments (e.g. interactive cards) have no fetch ref: keep the
-    // parallel list index-aligned with a `null` for each.
+    // Existing attachments (e.g. interactive cards) have nothing to fetch: keep
+    // the parallel list index-aligned with `{"kind":"none"}` for each (never
+    // JSON null, which breaks a host reading the list as a tagged enum). The
+    // host must NEVER fetch an attachment whose entry is `none`, including a
+    // card's `contentUrl`.
     let existing = envelope.attachments.len();
     let mut refs: Vec<Value> = match envelope.extensions.get(FETCH_KEY) {
         Some(Value::Array(items)) => items.clone(),
         _ => Vec::new(),
     };
-    refs.resize(existing, Value::Null);
+    refs.resize(existing, json!({ "kind": "none" }));
     for (attachment, fetch) in kept {
         envelope.attachments.push(attachment);
         refs.push(fetch);
@@ -547,8 +566,65 @@ mod tests {
         });
         apply_fetch_refs(&mut env, pending(1));
         assert_eq!(env.attachments.len(), 2);
-        assert_eq!(env.extensions["attachment_fetch"][0], Value::Null);
+        assert_eq!(
+            env.extensions["attachment_fetch"][0],
+            json!({"kind": "none"})
+        );
         assert_eq!(env.extensions["attachment_fetch"][1]["kind"], "public");
+        assert_eq!(
+            env.attachments[0].mime_type, "application/vnd.microsoft.card.adaptive",
+            "the existing attachment is left untouched"
+        );
+        assert!(env.attachments[0].url.is_none() && env.attachments[0].name.is_none());
+    }
+
+    #[test]
+    fn cards_do_not_consume_the_file_cap() {
+        let mut env = empty_envelope();
+        for _ in 0..3 {
+            env.attachments.push(Attachment {
+                mime_type: "application/vnd.microsoft.card.adaptive".into(),
+                url: None,
+                content: None,
+                name: None,
+                size_bytes: None,
+            });
+        }
+        apply_fetch_refs(&mut env, pending(5));
+        assert_eq!(env.attachments.len(), 8, "3 existing + 5 fetchable");
+        let refs = env.extensions["attachment_fetch"].as_array().expect("refs");
+        assert_eq!(refs.len(), 8);
+        assert!(refs[..3].iter().all(|r| r["kind"] == "none"));
+        assert!(refs[3..].iter().all(|r| r["kind"] == "public"));
+        assert!(!env.metadata.contains_key("attachments_dropped"));
+    }
+
+    #[test]
+    fn the_same_url_twice_keeps_the_first_only() {
+        let mut env = empty_envelope();
+        let mut p = pending(2);
+        p[1].fetch = p[0].fetch.clone();
+        apply_fetch_refs(&mut env, p);
+        assert_eq!(env.attachments.len(), 1);
+        assert_eq!(
+            env.extensions["attachment_fetch"].as_array().unwrap().len(),
+            1
+        );
+    }
+
+    #[test]
+    fn an_overlong_url_is_refused() {
+        let mut env = empty_envelope();
+        let mut p = pending(1);
+        p[0].fetch = FetchRef::Public {
+            url: format!("https://x.test/{}", "a".repeat(10 * 1024)),
+        };
+        apply_fetch_refs(&mut env, p);
+        assert!(env.attachments.is_empty());
+        assert_eq!(
+            env.metadata.get("attachments_dropped").map(String::as_str),
+            Some("1")
+        );
     }
 
     #[test]
@@ -647,7 +723,7 @@ mod tests {
             name: None,
             size_bytes: None,
             fetch: FetchRef::Bearer {
-                url: "https://files.slack.com/x".into(),
+                url: format!("https://files.slack.com/{k}"),
                 secret_key: k.into(),
             },
             inline_base64: None,
