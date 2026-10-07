@@ -8,6 +8,7 @@ mod bindings {
 
 use bindings::exports::provider::common0_0_2::ingress::Guest;
 use bindings::exports::provider::common0_0_3::ingress::Guest as ConfiguredIngressGuest;
+use provider_common::telegram_attachments::{telegram_message_text, telegram_pending_attachments};
 use serde_json::{Map, Value, json};
 
 struct Component;
@@ -62,16 +63,20 @@ fn envelope_from_update(update: &Value) -> Option<Value> {
         return None;
     }
 
-    let text = message
-        .get("text")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    Some(envelope_from_parts(
-        text,
+    // Media become fetch references (never a URL: the download URL embeds the
+    // bot token). Albums arrive as separate updates and are not merged. The
+    // mapping is shared with the provider's `ingest_http`.
+    let mut envelope = envelope_from_parts(
+        telegram_message_text(message),
         chat_id(message.get("chat")).as_deref(),
         sender_id(message.get("from")).as_deref(),
         update_id,
-    ))
+    );
+    provider_common::attachment_fetch::apply_to_value(
+        &mut envelope,
+        telegram_pending_attachments(message),
+    );
+    Some(envelope)
 }
 
 fn is_bot_message(message: &Value) -> bool {
@@ -265,5 +270,55 @@ mod tests {
             .expect_err("invalid body should fail");
 
         assert!(err.contains("invalid body"), "{err}");
+    }
+    #[test]
+    fn legacy_update_with_photo_keeps_caption_and_emits_refs() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/telegram/inbound/photo_caption.json"
+        ))
+        .expect("fixture");
+        let envelope = envelope_from_update(&fixture["body"]).expect("envelope");
+        assert_eq!(envelope["text"], "what is this?");
+        assert_eq!(envelope["id"], "telegram:9001");
+        assert_eq!(envelope["attachments"][0]["mime_type"], "image/jpeg");
+        assert!(envelope["attachments"][0]["url"].is_null());
+        assert_eq!(
+            envelope["extensions"]["attachment_fetch"],
+            json!([{"kind":"telegram_file","file_id":"LARGE"}])
+        );
+        let dump = envelope.to_string();
+        assert!(!dump.contains("api.telegram.org") && !dump.contains("/bot"));
+    }
+
+    #[test]
+    fn legacy_document_update_carries_name_mime_and_size() {
+        let update = json!({"update_id":3,"message":{"chat":{"id":5},"from":{"id":6},
+            "document":{"file_id":"D1","file_name":"n.csv","mime_type":"text/csv","file_size":50}}});
+        let a = &envelope_from_update(&update).expect("envelope")["attachments"][0];
+        assert_eq!(a["mime_type"], "text/csv");
+        assert_eq!(a["name"], "n.csv");
+        assert_eq!(a["size_bytes"], 50);
+    }
+
+    #[test]
+    fn legacy_oversize_media_is_dropped_but_the_turn_survives() {
+        let update = json!({"update_id":4,"message":{"chat":{"id":5},"from":{"id":6},"caption":"big",
+            "document":{"file_id":"D","mime_type":"application/pdf","file_size":99999999}}});
+        let e = envelope_from_update(&update).expect("envelope");
+        assert_eq!(e["text"], "big");
+        assert_eq!(e["attachments"], json!([]));
+        assert_eq!(e["metadata"]["attachments_dropped"], "1");
+    }
+
+    #[test]
+    fn legacy_text_update_without_media_is_unchanged() {
+        let update =
+            json!({"update_id":8,"message":{"chat":{"id":5},"from":{"id":6},"text":"hello"}});
+        let e = envelope_from_update(&update).expect("envelope");
+        assert_eq!(e["id"], "telegram:8");
+        assert_eq!(e["text"], "hello");
+        assert_eq!(e["attachments"], json!([]));
+        assert!(e.get("extensions").is_none());
+        assert!(e["metadata"].get("attachments_dropped").is_none());
     }
 }

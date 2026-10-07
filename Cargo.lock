@@ -2275,6 +2275,7 @@ dependencies = [
 name = "messaging-ingress-telegram"
 version = "0.5.10"
 dependencies = [
+ "greentic-messaging-provider-common",
  "greentic-telemetry",
  "serde",
  "serde_json",

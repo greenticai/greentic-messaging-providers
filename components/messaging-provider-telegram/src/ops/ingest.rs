@@ -12,8 +12,10 @@ use greentic_types::messaging::universal_dto::HttpOutV1;
 use greentic_types::{
     Actor, ChannelMessageEnvelope, Destination, EnvId, MessageMetadata, TenantCtx, TenantId,
 };
+use provider_common::attachment_fetch::apply_fetch_refs;
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
 use provider_common::lifecycle_events::{mark_user_entered, user_entered_idempotency_key};
+use provider_common::telegram_attachments::{telegram_message_text, telegram_pending_attachments};
 use serde_json::{Value, json};
 
 fn debug_enabled() -> bool {
@@ -80,6 +82,23 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         from.clone(),
         msg_locale,
     );
+    // Media become fetch references (never a URL: the Telegram download URL
+    // embeds the bot token). Albums arrive as separate updates, one per item,
+    // and are deliberately not merged.
+    let pending = telegram_pending_attachments(&message);
+    if !pending.is_empty() {
+        // Every text-less envelope shares the constant id, so a media-only
+        // message would collapse with its neighbours. Text messages keep the
+        // old id byte for byte.
+        let unique = body_val
+            .get("update_id")
+            .and_then(Value::as_i64)
+            .or_else(|| message.get("message_id").and_then(Value::as_i64));
+        if let Some(unique) = unique {
+            envelope.id = format!("telegram:{unique}");
+        }
+    }
+    apply_fetch_refs(&mut envelope, pending);
     if is_start_command(&text) {
         let idempotency_key = user_entered_idempotency_key(
             "telegram",
@@ -310,11 +329,7 @@ fn is_start_command(text: &str) -> bool {
 }
 
 pub(crate) fn extract_message_text(value: &Value) -> String {
-    value
-        .get("text")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string()
+    telegram_message_text(value).to_string()
 }
 
 pub(crate) fn extract_chat_id(value: &Value) -> Option<String> {
@@ -514,5 +529,76 @@ mod tests {
 
         assert_eq!(message_id, "abc-123");
         assert_eq!(provider_message_id, "tg:abc-123");
+    }
+    #[test]
+    fn photo_update_emits_caption_ref_and_distinct_id() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../tests/fixtures/telegram/inbound/photo_caption.json"
+        ))
+        .expect("fixture");
+        let out = ingest_body(fixture["body"].clone());
+        assert_eq!(out.events.len(), 1);
+        let ev = &out.events[0];
+        assert_eq!(ev.text.as_deref(), Some("what is this?"));
+        assert_eq!(ev.id, "telegram:9001");
+        assert_eq!(ev.attachments.len(), 1);
+        assert_eq!(ev.attachments[0].mime_type, "image/jpeg");
+        assert!(ev.attachments[0].url.is_none());
+        assert_eq!(
+            ev.extensions["attachment_fetch"],
+            json!([{"kind":"telegram_file","file_id":"LARGE"}])
+        );
+        let dump = serde_json::to_string(ev).expect("json");
+        assert!(!dump.contains("api.telegram.org") && !dump.contains("/bot"));
+    }
+
+    #[test]
+    fn media_only_messages_get_distinct_ids() {
+        let id = |update_id: i64| {
+            ingest_body(json!({"update_id": update_id, "message": {
+                "message_id": 1, "chat": {"id": 5}, "from": {"id": 6},
+                "photo": [{"file_id": "P", "width": 1, "height": 1}]}}))
+            .events[0]
+                .id
+                .clone()
+        };
+        assert_ne!(id(1), id(2));
+    }
+
+    #[test]
+    fn document_update_carries_name_mime_and_size() {
+        let out = ingest_body(json!({"update_id": 3, "message": {
+            "chat": {"id": 5}, "from": {"id": 6},
+            "document": {"file_id":"D1","file_name":"n.csv","mime_type":"text/csv","file_size":50}}}));
+        let a = &out.events[0].attachments[0];
+        assert_eq!(a.mime_type, "text/csv");
+        assert_eq!(a.name.as_deref(), Some("n.csv"));
+        assert_eq!(a.size_bytes, Some(50));
+    }
+
+    #[test]
+    fn oversize_media_is_dropped_but_the_turn_survives() {
+        let out = ingest_body(json!({"update_id": 4, "message": {
+            "chat": {"id": 5}, "from": {"id": 6}, "caption": "big",
+            "document": {"file_id":"D","mime_type":"application/pdf","file_size": 99999999}}}));
+        let ev = &out.events[0];
+        assert_eq!(ev.text.as_deref(), Some("big"));
+        assert!(ev.attachments.is_empty());
+        assert_eq!(
+            ev.metadata.get("attachments_dropped").map(String::as_str),
+            Some("1")
+        );
+    }
+
+    #[test]
+    fn text_update_without_media_is_unchanged() {
+        let out = ingest_body(json!({"update_id": 8, "message": {
+            "message_id": 2, "chat": {"id": 5}, "from": {"id": 6}, "text": "hello"}}));
+        let ev = &out.events[0];
+        assert_eq!(ev.id, "telegram-telegram");
+        assert_eq!(ev.text.as_deref(), Some("hello"));
+        assert!(ev.attachments.is_empty());
+        assert!(!ev.extensions.contains_key("attachment_fetch"));
+        assert!(!ev.metadata.contains_key("attachments_dropped"));
     }
 }
