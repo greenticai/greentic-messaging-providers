@@ -355,6 +355,13 @@ pub fn apply_fetch_refs(envelope: &mut ChannelMessageEnvelope, pending: Vec<Pend
     let mut dropped = 0usize;
     let mut seen_urls: Vec<String> = Vec::new();
     for item in pending {
+        // The same url twice is one file: the repeat is skipped silently (not an
+        // error, not counted), before the cap so it never reads as "too many".
+        if let FetchRef::Bearer { url, .. } | FetchRef::Public { url } = &item.fetch
+            && seen_urls.contains(url)
+        {
+            continue;
+        }
         let reason = if kept.len() >= MAX_ATTACHMENTS {
             Some("too many attachments")
         } else {
@@ -365,12 +372,7 @@ pub fn apply_fetch_refs(envelope: &mut ChannelMessageEnvelope, pending: Vec<Pend
             dropped += 1;
             continue;
         }
-        // The same url twice is one file: the first valid one is kept, the
-        // repeat is skipped silently (not an error, not counted as dropped).
         if let FetchRef::Bearer { url, .. } | FetchRef::Public { url } = &item.fetch {
-            if seen_urls.contains(url) {
-                continue;
-            }
             seen_urls.push(url.clone());
         }
         let content = item
@@ -490,6 +492,16 @@ mod tests {
             metadata: Default::default(),
             extensions: Default::default(),
         }
+    }
+
+    #[test]
+    fn a_repeated_url_after_the_cap_is_skipped_not_counted() {
+        let mut env = empty_envelope();
+        let mut items = pending(5);
+        items.push(pending(1).remove(0));
+        apply_fetch_refs(&mut env, items);
+        assert_eq!(env.attachments.len(), 5);
+        assert!(!env.metadata.contains_key("attachments_dropped"));
     }
 
     fn pending(n: usize) -> Vec<PendingAttachment> {

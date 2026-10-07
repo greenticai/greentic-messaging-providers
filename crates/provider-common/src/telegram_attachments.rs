@@ -32,14 +32,20 @@ fn file_id(v: &Value) -> Option<String> {
 /// back to the next smaller size instead of losing the photo. Array order is
 /// not trusted. A size with no `file_size` is assumed to fit.
 fn best_photo(photos: &[Value]) -> Option<&Value> {
+    let fits = |p: &&Value| {
+        p.get("file_size")
+            .and_then(Value::as_u64)
+            .is_none_or(|s| s <= MAX_ATTACHMENT_BYTES)
+    };
+    // No size fits: keep the largest anyway so the size check drops AND counts it.
+    largest(photos, fits).or_else(|| largest(photos, |_| true))
+}
+
+fn largest<'a>(photos: &'a [Value], keep: impl Fn(&&'a Value) -> bool) -> Option<&'a Value> {
     photos
         .iter()
         .filter(|p| file_id(p).is_some())
-        .filter(|p| {
-            p.get("file_size")
-                .and_then(Value::as_u64)
-                .is_none_or(|s| s <= MAX_ATTACHMENT_BYTES)
-        })
+        .filter(keep)
         .max_by_key(|p| {
             let dim = |k: &str| p.get(k).and_then(Value::as_u64).unwrap_or(0);
             (
@@ -182,6 +188,19 @@ mod tests {
                 .collect();
             assert_eq!(got, want, "{name}");
         }
+    }
+
+    #[test]
+    fn a_photo_with_every_size_over_the_cap_is_counted_as_dropped() {
+        use crate::attachment_fetch::apply_to_value;
+        let over = MAX_ATTACHMENT_BYTES + 1;
+        let message = json!({"photo":[
+            {"file_id":"A","width":90,"height":60,"file_size":over},
+            {"file_id":"B","width":1280,"height":853,"file_size":over + 5}]});
+        let mut envelope = json!({"channel": "telegram", "metadata": {}});
+        apply_to_value(&mut envelope, telegram_pending_attachments(&message));
+        assert!(envelope.get("attachments").is_none());
+        assert_eq!(envelope["metadata"]["attachments_dropped"], "1");
     }
 
     #[test]
