@@ -323,6 +323,61 @@ pub fn apply_fetch_refs(envelope: &mut ChannelMessageEnvelope, pending: Vec<Pend
         .insert(FETCH_KEY.to_string(), Value::Array(refs));
 }
 
+/// Same as [`apply_fetch_refs`] for components that build envelopes as raw
+/// JSON. Replaces `attachments`, adds `extensions.attachment_fetch` and the
+/// `metadata.attachments_dropped` counter exactly as the typed variant does;
+/// when nothing is kept only the dropped counter can change.
+pub fn apply_to_value(envelope: &mut Value, pending: Vec<PendingAttachment>) {
+    let channel = envelope
+        .get("channel")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let mut typed = ChannelMessageEnvelope {
+        id: String::new(),
+        tenant: greentic_types::TenantCtx::new(
+            greentic_types::EnvId::try_from("default").expect("env"),
+            greentic_types::TenantId::try_from("default").expect("tenant"),
+        ),
+        channel,
+        session_id: String::new(),
+        reply_scope: None,
+        from: None,
+        to: Vec::new(),
+        correlation_id: None,
+        text: None,
+        attachments: Vec::new(),
+        metadata: Default::default(),
+        extensions: Default::default(),
+    };
+    apply_fetch_refs(&mut typed, pending);
+    let Some(map) = envelope.as_object_mut() else {
+        return;
+    };
+    if !typed.attachments.is_empty() {
+        map.insert(
+            "attachments".to_string(),
+            serde_json::to_value(&typed.attachments).unwrap_or(Value::Array(Vec::new())),
+        );
+    }
+    if let Some(refs) = typed.extensions.get(FETCH_KEY) {
+        let ext = map
+            .entry("extensions".to_string())
+            .or_insert_with(|| json!({}));
+        if let Some(ext_map) = ext.as_object_mut() {
+            ext_map.insert(FETCH_KEY.to_string(), refs.clone());
+        }
+    }
+    if let Some(dropped) = typed.metadata.get("attachments_dropped") {
+        let meta = map
+            .entry("metadata".to_string())
+            .or_insert_with(|| json!({}));
+        if let Some(meta_map) = meta.as_object_mut() {
+            meta_map.insert("attachments_dropped".to_string(), json!(dropped));
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -361,6 +416,33 @@ mod tests {
                 inline_base64: None,
             })
             .collect()
+    }
+
+    #[test]
+    fn apply_to_value_matches_typed_output() {
+        let mut v = json!({"id":"x","channel":"c","attachments":[],"metadata":{}});
+        apply_to_value(&mut v, pending(1));
+        assert_eq!(v["attachments"][0]["mime_type"], "image/png");
+        assert!(v["attachments"][0]["url"].is_null());
+        assert_eq!(v["extensions"]["attachment_fetch"][0]["kind"], "public");
+    }
+
+    #[test]
+    fn apply_to_value_with_nothing_kept_only_counts_drops() {
+        let mut v = json!({"id":"x","attachments":[],"metadata":{}});
+        let bad = vec![PendingAttachment {
+            mime_type: "image/svg+xml".into(),
+            name: None,
+            size_bytes: Some(1),
+            fetch: FetchRef::Public {
+                url: "https://x.test/a".into(),
+            },
+            inline_base64: None,
+        }];
+        apply_to_value(&mut v, bad);
+        assert_eq!(v["attachments"], json!([]));
+        assert!(v.get("extensions").is_none());
+        assert_eq!(v["metadata"]["attachments_dropped"], "1");
     }
 
     #[test]

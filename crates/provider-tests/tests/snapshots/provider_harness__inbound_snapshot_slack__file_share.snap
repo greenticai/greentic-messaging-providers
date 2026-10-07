@@ -1,0 +1,59 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+expression: value
+---
+{
+  "event": {
+    "attachments": [
+      {
+        "mime_type": "application/pdf",
+        "name": "report.pdf",
+        "size_bytes": 2048
+      },
+      {
+        "mime_type": "image/png",
+        "name": "diagram.png",
+        "size_bytes": 4096
+      }
+    ],
+    "channel": "C1",
+    "extensions": {
+      "attachment_fetch": [
+        {
+          "kind": "bearer",
+          "secret_key": "SLACK_BOT_TOKEN",
+          "url": "https://files.slack.com/files-pri/T1-F1/download/report.pdf"
+        },
+        {
+          "kind": "bearer",
+          "secret_key": "SLACK_BOT_TOKEN",
+          "url": "https://files.slack.com/files-pri/T1-F2/download/diagram.png"
+        }
+      ]
+    },
+    "from": {
+      "id": "<FIXED>",
+      "kind": "user"
+    },
+    "id": "<FIXED>",
+    "metadata": {
+      "channel": "C1",
+      "from": "U1",
+      "universal": "true"
+    },
+    "session_id": "C1",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": "see attached",
+    "to": [
+      {
+        "id": "<FIXED>"
+      }
+    ]
+  },
+  "ok": true
+}
