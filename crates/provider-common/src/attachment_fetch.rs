@@ -214,6 +214,16 @@ fn https_url_problem(url: &str) -> Option<&'static str> {
     None
 }
 
+/// 1..=256 characters of `[A-Za-z0-9_-]`. Telegram file ids are base64url and
+/// WhatsApp media ids are digit strings, so real ids always pass.
+fn host_resolved_id_problem(id: &str) -> Option<&'static str> {
+    let ok = (1..=256).contains(&id.len())
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'));
+    (!ok).then_some("invalid fetch id")
+}
+
 /// Why an item must not reach the envelope; `None` when it is fine.
 fn rejection(item: &PendingAttachment) -> Option<&'static str> {
     // Inline bytes are bounded by their own length, never by a declared size
@@ -244,7 +254,12 @@ fn rejection(item: &PendingAttachment) -> Option<&'static str> {
             https_url_problem(url)
         }
         FetchRef::Public { url } => https_url_problem(url),
-        _ => None,
+        // The host calls the platform API with this id, so it must not be able
+        // to reshape that request (path, query, absolute URL).
+        FetchRef::TelegramFile { file_id: id } | FetchRef::WhatsappMedia { media_id: id } => {
+            host_resolved_id_problem(id)
+        }
+        FetchRef::Inline => None,
     }
 }
 
@@ -814,5 +829,66 @@ mod tests {
         );
         apply_fetch_refs(&mut env, svg);
         assert_eq!(env.metadata["attachments_dropped"], "2");
+    }
+    fn ref_item(fetch: FetchRef) -> PendingAttachment {
+        PendingAttachment {
+            mime_type: "image/jpeg".into(),
+            name: None,
+            size_bytes: Some(1),
+            fetch,
+            inline_base64: None,
+        }
+    }
+
+    #[test]
+    fn host_resolved_ids_are_bounded_and_charset_checked() {
+        let long = "a".repeat(10 * 1024);
+        let ok = [
+            "a".repeat(256),
+            "AgACAgIAAxkBAAIB-x_yZ".to_string(),
+            "1234567890123456".to_string(),
+        ];
+        let bad = [
+            "".to_string(),
+            "a/b".into(),
+            "a?b".into(),
+            "..".into(),
+            "https://evil.example/x".into(),
+            "a b".into(),
+            "a\tb".into(),
+            "a".repeat(257),
+            long,
+            "idé".into(),
+        ];
+        for (name, make) in [
+            (
+                "telegram",
+                (|id: String| FetchRef::TelegramFile { file_id: id }) as fn(String) -> FetchRef,
+            ),
+            ("whatsapp", |id: String| FetchRef::WhatsappMedia {
+                media_id: id,
+            }),
+        ] {
+            for id in &ok {
+                let mut e = empty_envelope();
+                apply_fetch_refs(&mut e, vec![ref_item(make(id.clone()))]);
+                assert_eq!(e.attachments.len(), 1, "{name}: {} accepted", id.len());
+            }
+            for id in &bad {
+                let item = ref_item(make(id.clone()));
+                let reason = rejection(&item).unwrap_or_else(|| panic!("{name}: {id:?} accepted"));
+                assert!(
+                    id.is_empty() || !reason.contains(id.as_str()),
+                    "reason leaks the id"
+                );
+                let mut e = empty_envelope();
+                apply_fetch_refs(&mut e, vec![item]);
+                assert!(e.attachments.is_empty(), "{name}: {} dropped", id.len());
+                assert_eq!(
+                    e.metadata.get("attachments_dropped").map(String::as_str),
+                    Some("1")
+                );
+            }
+        }
     }
 }

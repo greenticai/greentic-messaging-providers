@@ -17,7 +17,7 @@
 //! `{file_id, file_name?, mime_type?, file_size?}`; `caption` is the text of a
 //! media message.
 
-use crate::attachment_fetch::{FetchRef, PendingAttachment};
+use crate::attachment_fetch::{FetchRef, MAX_ATTACHMENT_BYTES, PendingAttachment};
 use serde_json::Value;
 
 fn file_id(v: &Value) -> Option<String> {
@@ -28,11 +28,18 @@ fn file_id(v: &Value) -> Option<String> {
 }
 
 /// The photo with the most pixels (ties: larger `file_size`, then later in the
-/// array). Array order is not trusted.
-fn largest_photo(photos: &[Value]) -> Option<&Value> {
+/// array) among those within the shared size cap, so an oversize original falls
+/// back to the next smaller size instead of losing the photo. Array order is
+/// not trusted. A size with no `file_size` is assumed to fit.
+fn best_photo(photos: &[Value]) -> Option<&Value> {
     photos
         .iter()
         .filter(|p| file_id(p).is_some())
+        .filter(|p| {
+            p.get("file_size")
+                .and_then(Value::as_u64)
+                .is_none_or(|s| s <= MAX_ATTACHMENT_BYTES)
+        })
         .max_by_key(|p| {
             let dim = |k: &str| p.get(k).and_then(Value::as_u64).unwrap_or(0);
             (
@@ -42,13 +49,17 @@ fn largest_photo(photos: &[Value]) -> Option<&Value> {
         })
 }
 
-/// `photo` (largest size only) and `document` of a Telegram message.
+/// `photo` (one size: see [`best_photo`]) and `document` of a Telegram message.
+///
+/// A document without `mime_type` is mapped as `application/octet-stream`,
+/// which is not on the shared allowlist, so `apply_fetch_refs` drops it and
+/// counts it in `attachments_dropped` (the turn and caption survive).
 pub fn telegram_pending_attachments(message: &Value) -> Vec<PendingAttachment> {
     let mut out = Vec::new();
     if let Some(best) = message
         .get("photo")
         .and_then(Value::as_array)
-        .and_then(|photos| largest_photo(photos))
+        .and_then(|photos| best_photo(photos))
         && let Some(id) = file_id(best)
     {
         out.push(PendingAttachment {
@@ -120,6 +131,14 @@ mod tests {
                     {"file_id":"A","width":100,"height":100,"file_size":999999},
                     {"file_id":"B","width":200,"height":200,"file_size":10}]}),
                 vec![("image/jpeg", None, Some(10), "B")],
+            ),
+            (
+                "oversize original falls back to the next smaller size",
+                json!({"photo":[
+                    {"file_id":"HUGE","width":4000,"height":3000,"file_size":20000000},
+                    {"file_id":"FITS","width":1280,"height":960,"file_size":900000},
+                    {"file_id":"SMALL","width":90,"height":60,"file_size":1200}]}),
+                vec![("image/jpeg", None, Some(900000), "FITS")],
             ),
             (
                 "no dimensions falls back to file_size",

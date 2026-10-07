@@ -90,12 +90,15 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         // Every text-less envelope shares the constant id, so a media-only
         // message would collapse with its neighbours. Text messages keep the
         // old id byte for byte.
-        let unique = body_val
-            .get("update_id")
-            .and_then(Value::as_i64)
-            .or_else(|| message.get("message_id").and_then(Value::as_i64));
-        if let Some(unique) = unique {
-            envelope.id = format!("telegram:{unique}");
+        // `message_id` is only unique within a chat, so the fallback carries
+        // the chat id and cannot equal an `update_id` form.
+        if let Some(update_id) = body_val.get("update_id").and_then(Value::as_i64) {
+            envelope.id = format!("telegram:{update_id}");
+        } else if let (Some(chat), Some(mid)) = (
+            chat_id.as_deref(),
+            message.get("message_id").and_then(Value::as_i64),
+        ) {
+            envelope.id = format!("telegram:{chat}:{mid}");
         }
     }
     apply_fetch_refs(&mut envelope, pending);
@@ -600,5 +603,44 @@ mod tests {
         assert!(ev.attachments.is_empty());
         assert!(!ev.extensions.contains_key("attachment_fetch"));
         assert!(!ev.metadata.contains_key("attachments_dropped"));
+    }
+    #[test]
+    fn fallback_id_without_update_id_includes_the_chat() {
+        let id = |chat: i64, mid: i64| {
+            ingest_body(json!({"message": {"message_id": mid, "chat": {"id": chat},
+                "from": {"id": 6}, "photo": [{"file_id": "P", "width": 1, "height": 1}]}}))
+            .events[0]
+                .id
+                .clone()
+        };
+        assert_eq!(id(5, 7), "telegram:5:7");
+        assert_ne!(id(5, 7), id(6, 7));
+        assert_ne!(id(5, 7), "telegram:7");
+    }
+
+    #[test]
+    fn document_without_mime_is_dropped_by_the_allowlist_and_counted() {
+        let out = ingest_body(json!({"update_id": 9, "message": {
+            "chat": {"id": 5}, "from": {"id": 6}, "caption": "file",
+            "document": {"file_id": "D", "file_name": "x.bin"}}}));
+        let ev = &out.events[0];
+        assert_eq!(ev.text.as_deref(), Some("file"));
+        assert!(ev.attachments.is_empty());
+        assert_eq!(
+            ev.metadata.get("attachments_dropped").map(String::as_str),
+            Some("1")
+        );
+    }
+
+    #[test]
+    fn oversize_original_photo_falls_back_to_a_smaller_size() {
+        let out = ingest_body(json!({"update_id": 10, "message": {
+            "chat": {"id": 5}, "from": {"id": 6}, "photo": [
+                {"file_id":"HUGE","width":4000,"height":3000,"file_size":20000000},
+                {"file_id":"FITS","width":1280,"height":960,"file_size":900000}]}}));
+        assert_eq!(
+            out.events[0].extensions["attachment_fetch"],
+            json!([{"kind":"telegram_file","file_id":"FITS"}])
+        );
     }
 }
