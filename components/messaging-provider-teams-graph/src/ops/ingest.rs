@@ -513,6 +513,40 @@ mod tests {
     }
 
     #[test]
+    fn ingest_of_a_bot_activity_with_a_file_emits_no_attachments_in_v1() {
+        // The Graph provider's own Bot Framework ingest is deferred in v1: a
+        // Teams file upload or inline image must not reach the envelope here.
+        let token = valid_token("bot-app-id");
+        let input = build_ingest_input(Some(&format!("Bearer {token}")), Some("bot-app-id"), None);
+        let mut input: Value = serde_json::from_slice(&input).unwrap();
+        input["body_b64"] = json!(STANDARD.encode(
+            serde_json::to_vec(&json!({
+                "type": "message",
+                "text": "here",
+                "from": { "id": "user-1" },
+                "conversation": { "id": "conv-1" },
+                "id": "act-1",
+                "serviceUrl": "https://smba.trafficmanager.net/amer/",
+                "attachments": [
+                    {"contentType": "application/vnd.microsoft.teams.file.download.info",
+                     "name": "plan.pdf",
+                     "content": {"downloadUrl": "https://contoso.sharepoint.com/d", "fileType": "pdf"}},
+                    {"contentType": "image/png",
+                     "contentUrl": "https://smba.trafficmanager.net/amer/v3/attachments/1"}
+                ]
+            }))
+            .unwrap()
+        ));
+        let (status, body) = parse_response(ingest_http(&serde_json::to_vec(&input).unwrap()));
+        assert_eq!(status, 200);
+        let event = &body["events"][0];
+        assert_eq!(event["text"], "here");
+        assert!(event["attachments"].as_array().is_none_or(Vec::is_empty));
+        assert!(event["extensions"].get("attachment_fetch").is_none());
+        assert!(event["extensions"].get("artifacts").is_none());
+    }
+
+    #[test]
     fn ingest_valid_token_accepts_200() {
         let token = valid_token("bot-app-id");
         let input = build_ingest_input(Some(&format!("Bearer {token}")), Some("bot-app-id"), None);

@@ -367,4 +367,29 @@ mod tests {
             Some("me/messages/msg-1")
         );
     }
+
+    #[test]
+    fn email_deliberately_emits_no_attachments_in_v1() {
+        // Graph delegated tokens are not available to the host; deferred by decision
+        // (spec section 6.1). Remove this test only together with real support.
+        let user = AuthUserRefV1 {
+            user_id: "u1".to_string(),
+            token_key: "token".to_string(),
+            tenant_id: None,
+            email: None,
+            display_name: None,
+        };
+        let message = json!({
+            "subject": "Invoice",
+            "bodyPreview": "see attached",
+            "receivedDateTime": "2026-01-02T03:04:05Z",
+            "from": {"emailAddress": {"address": "sender@example.com"}},
+            "hasAttachments": true,
+            "attachments": [{"name": "a.pdf", "contentType": "application/pdf", "size": 1234}]
+        });
+        let env = channel_message_envelope(&message, &user, "msg-2", "me/messages/msg-2");
+        assert!(env.attachments.is_empty());
+        assert!(!env.extensions.contains_key("attachment_fetch"));
+        assert!(!env.extensions.contains_key("artifacts"));
+    }
 }
