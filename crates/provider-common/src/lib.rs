@@ -34,6 +34,7 @@ pub mod telegram_attachments;
 pub mod telemetry;
 pub mod test_macros;
 pub mod typing;
+pub mod whatsapp_attachments;
 
 pub use ac_converter::AdaptiveCardConverter;
 

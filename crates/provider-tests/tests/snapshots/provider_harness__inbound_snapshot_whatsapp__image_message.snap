@@ -1,0 +1,49 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+expression: value
+---
+{
+  "event": {
+    "attachments": [
+      {
+        "mime_type": "image/jpeg"
+      }
+    ],
+    "channel": "whatsapp",
+    "extensions": {
+      "attachment_fetch": [
+        {
+          "kind": "whatsapp_media",
+          "media_id": "MEDIA1"
+        }
+      ]
+    },
+    "from": {
+      "id": "<FIXED>",
+      "kind": "user"
+    },
+    "id": "<FIXED>",
+    "metadata": {
+      "channel_id": "whatsapp",
+      "from": "6281",
+      "phone_number_id": "555",
+      "universal": "true",
+      "wa_message_id": "wamid.A"
+    },
+    "session_id": "whatsapp",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": "ini apa?",
+    "to": [
+      {
+        "id": "<FIXED>",
+        "kind": "phone"
+      }
+    ]
+  },
+  "ok": true
+}

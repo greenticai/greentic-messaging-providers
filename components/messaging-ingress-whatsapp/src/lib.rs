@@ -105,4 +105,22 @@ mod tests {
 
         assert!(err.contains("invalid headers"), "{err}");
     }
+
+    /// This legacy path builds NO envelope (the host normalizes from `event`);
+    /// envelopes with media fetch references come from the provider's
+    /// `ingest_http`, which shares its mapping via
+    /// `provider_common::whatsapp_attachments`. Lock that media payloads pass
+    /// through untouched and that no half-built envelope appears here.
+    #[test]
+    fn legacy_ingress_passes_media_messages_through_untouched() {
+        let body = r#"{"entry":[{"changes":[{"value":{"messages":[{"id":"w1","type":"image","image":{"id":"M1","mime_type":"image/jpeg"}}]}}]}]}"#;
+        let out =
+            <Component as Guest>::handle_webhook("{}".to_string(), body.to_string()).expect("ok");
+        let parsed: Value = serde_json::from_str(&out).expect("json");
+        assert_eq!(
+            parsed["event"]["entry"][0]["changes"][0]["value"]["messages"][0]["image"]["id"],
+            "M1"
+        );
+        assert!(parsed.get("events").is_none());
+    }
 }
