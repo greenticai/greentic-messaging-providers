@@ -1477,7 +1477,7 @@ dependencies = [
 
 [[package]]
 name = "greentic-messaging-provider-common"
-version = "0.4.103"
+version = "0.4.104"
 dependencies = [
  "anyhow",
  "base64",
@@ -2247,7 +2247,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-slack"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",
@@ -2261,7 +2261,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-teams"
-version = "0.5.26"
+version = "0.5.27"
 dependencies = [
  "base64",
  "greentic-messaging-provider-common",
@@ -2275,7 +2275,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-telegram"
-version = "0.5.10"
+version = "0.5.11"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",
@@ -2286,7 +2286,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-whatsapp"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "greentic-telemetry",
  "serde",
@@ -2296,7 +2296,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-3aigent-gui"
-version = "0.5.35"
+version = "0.5.36"
 dependencies = [
  "base64",
  "chrono",
@@ -2345,7 +2345,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-slack"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "base64",
  "greentic-messaging-provider-common",
@@ -2358,7 +2358,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-teams-graph"
-version = "0.5.25"
+version = "0.5.26"
 dependencies = [
  "base64",
  "chrono",
@@ -2373,7 +2373,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-telegram"
-version = "0.5.10"
+version = "0.5.11"
 dependencies = [
  "base64",
  "greentic-messaging-provider-common",
@@ -2386,7 +2386,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webchat"
-version = "0.5.13"
+version = "0.5.14"
 dependencies = [
  "base64",
  "chrono",
@@ -2405,7 +2405,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webchat-gui"
-version = "0.5.46"
+version = "0.5.47"
 dependencies = [
  "base64",
  "chrono",
@@ -2424,7 +2424,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webex"
-version = "0.5.17"
+version = "0.5.18"
 dependencies = [
  "base64",
  "greentic-messaging-provider-common",
@@ -2440,7 +2440,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-whatsapp"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "base64",
  "greentic-messaging-provider-common",
@@ -3475,7 +3475,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slack"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",
@@ -3570,7 +3570,7 @@ checksum = "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
 
 [[package]]
 name = "teams"
-version = "0.5.25"
+version = "0.5.26"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",
@@ -3584,7 +3584,7 @@ dependencies = [
 
 [[package]]
 name = "telegram"
-version = "0.5.10"
+version = "0.5.11"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",
@@ -3597,7 +3597,7 @@ dependencies = [
 
 [[package]]
 name = "telegram-webhook"
-version = "0.5.10"
+version = "0.5.11"
 dependencies = [
  "greentic-telemetry",
  "serde",
@@ -4650,7 +4650,7 @@ dependencies = [
 
 [[package]]
 name = "webchat"
-version = "0.5.13"
+version = "0.5.14"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",
@@ -4681,7 +4681,7 @@ dependencies = [
 
 [[package]]
 name = "webex"
-version = "0.5.17"
+version = "0.5.18"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",
@@ -4693,7 +4693,7 @@ dependencies = [
 
 [[package]]
 name = "webex-webhook"
-version = "0.5.17"
+version = "0.5.18"
 dependencies = [
  "greentic-telemetry",
  "serde",
@@ -4712,7 +4712,7 @@ dependencies = [
 
 [[package]]
 name = "whatsapp"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",

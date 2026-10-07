@@ -1,7 +1,7 @@
 [package]
 name = "greentic-messaging-provider-common"
 edition.workspace = true
-version = "0.4.103"
+version = "0.4.104"
 license.workspace = true
 description = "Shared provider DTOs, helpers, errors, QA bridges, and compatibility utilities for Greentic messaging providers"
 repository = "https://github.com/greenticai/greentic-messaging-providers"
