@@ -1,0 +1,31 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+expression: value
+---
+{
+  "event": {
+    "channel": "teams",
+    "from": {
+      "id": "<FIXED>",
+      "kind": "user"
+    },
+    "id": "<FIXED>",
+    "metadata": {
+      "activityId": "act-1",
+      "conversationId": "conv-1",
+      "from": "29:u1",
+      "reply_to_id": "act-1",
+      "serviceUrl": "https://smba.trafficmanager.net/emea/",
+      "universal": "true"
+    },
+    "session_id": "teams",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": "here"
+  },
+  "ok": true
+}

@@ -1,3 +1,4 @@
+use provider_common::attachment_fetch::{FetchRef, PendingAttachment, UNKNOWN_MIME};
 use serde_json::{Map, Value, json};
 
 const USER_ENTERED_EVENT_TYPE: &str = "channel.user.entered";
@@ -346,6 +347,170 @@ fn first_string(map: &Map<String, Value>, keys: &[&str]) -> Option<String> {
     })
 }
 
+const FILE_DOWNLOAD_INFO: &str = "application/vnd.microsoft.teams.file.download.info";
+
+/// Inbound file references plus the number of attachments dropped here,
+/// before the shared checks in `apply_to_value` (which count their own).
+pub(crate) struct TeamsAttachments {
+    pub(crate) pending: Vec<PendingAttachment>,
+    pub(crate) skipped: usize,
+}
+
+/// Declared type from a Teams `fileType` (or the name's extension). Only a
+/// hint: the host sniffs the bytes. Unknown types become `UNKNOWN_MIME`,
+/// which the shared guard drops (and counts) for a `public` ref.
+fn mime_for_extension(file_type: &str) -> &'static str {
+    match file_type.to_ascii_lowercase().as_str() {
+        "pdf" => "application/pdf",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "txt" => "text/plain",
+        "md" | "markdown" => "text/markdown",
+        "csv" => "text/csv",
+        "json" => "application/json",
+        _ => UNKNOWN_MIME,
+    }
+}
+
+/// A Teams `downloadUrl` is a pre-authenticated SharePoint/OneDrive link.
+/// Only `https://<dns name>.sharepoint.com` with no userinfo and no port is
+/// trusted, so a crafted activity cannot point the host at another target
+/// (lookalike domains, IP literals, `localhost`). The shared guard checks the
+/// rest of the url shape and its length.
+fn is_teams_download_host(url: &str) -> bool {
+    let Some(rest) = url
+        .get(..8)
+        .filter(|p| p.eq_ignore_ascii_case("https://"))
+        .map(|_| &url[8..])
+    else {
+        return false;
+    };
+    let host = rest
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    host.bytes()
+        .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-')
+        && host.ends_with(".sharepoint.com")
+        && !host.starts_with('.')
+        && !host.contains("..")
+}
+
+fn warn_skipped(reason: &str) {
+    // A fixed reason only: never the url (a credential) or the file name.
+    use provider_common::telemetry::{Field, Level, field, log};
+    log(
+        Level::Warn,
+        "attachment dropped at the provider edge",
+        &[
+            Field {
+                key: field::PROVIDER,
+                value: "teams",
+            },
+            Field {
+                key: "reason",
+                value: reason,
+            },
+        ],
+    );
+}
+
+fn download_info_ref(attachment: &Value) -> Result<PendingAttachment, &'static str> {
+    let content = attachment
+        .get("content")
+        .ok_or("file without a download url")?;
+    let url = content
+        .get("downloadUrl")
+        .and_then(Value::as_str)
+        .ok_or("file without a download url")?;
+    if !is_teams_download_host(url) {
+        return Err("download url host not allowed");
+    }
+    let name = attachment.get("name").and_then(Value::as_str);
+    let file_type = content
+        .get("fileType")
+        .and_then(Value::as_str)
+        .or_else(|| name.and_then(|n| n.rsplit_once('.').map(|(_, ext)| ext)))
+        .unwrap_or_default();
+    Ok(PendingAttachment {
+        mime_type: mime_for_extension(file_type).to_string(),
+        name: name.map(str::to_string),
+        size_bytes: None,
+        fetch: FetchRef::Public {
+            url: url.to_string(),
+        },
+        inline_base64: None,
+    })
+}
+
+/// `activity.attachments[]` read for files. A file upload
+/// (`file.download.info`) becomes a `public` fetch ref. Inline images need
+/// the Bot Framework token, which the host does not hold: not served in v1,
+/// skipped and counted. Cards (`application/vnd.microsoft.card.*`) and any
+/// other content type are not files and are neither kept nor counted.
+pub(crate) fn teams_attachments(activity: &Value) -> TeamsAttachments {
+    let mut out = TeamsAttachments {
+        pending: Vec::new(),
+        skipped: 0,
+    };
+    let Some(items) = activity.get("attachments").and_then(Value::as_array) else {
+        return out;
+    };
+    for item in items {
+        let content_type = item
+            .get("contentType")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let result = if content_type == FILE_DOWNLOAD_INFO {
+            download_info_ref(item).map(Some)
+        } else if content_type.to_ascii_lowercase().starts_with("image/") {
+            Err("inline image not served")
+        } else {
+            Ok(None)
+        };
+        match result {
+            Ok(Some(pending)) => out.pending.push(pending),
+            Ok(None) => {}
+            Err(reason) => {
+                warn_skipped(reason);
+                out.skipped += 1;
+            }
+        }
+    }
+    out
+}
+
+/// The file refs alone (the skipped count is in [`teams_attachments`]).
+#[cfg(test)]
+pub(crate) fn teams_pending_attachments(activity: &Value) -> Vec<PendingAttachment> {
+    teams_attachments(activity).pending
+}
+
+/// Apply the file refs to a raw-JSON event and add the locally skipped
+/// attachments to `metadata.attachments_dropped`.
+fn apply_teams_attachments(event: &mut Value, activity: &Value) {
+    let parsed = teams_attachments(activity);
+    provider_common::attachment_fetch::apply_to_value(event, parsed.pending);
+    if parsed.skipped == 0 {
+        return;
+    }
+    let Some(metadata) = event.get_mut("metadata").and_then(Value::as_object_mut) else {
+        return;
+    };
+    let previous = metadata
+        .get("attachments_dropped")
+        .and_then(Value::as_str)
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(0);
+    metadata.insert(
+        "attachments_dropped".to_string(),
+        Value::String((previous + parsed.skipped).to_string()),
+    );
+}
+
 fn normalize_activity(activity: &Value, submit: Option<&SubmitPayload>) -> Value {
     let activity_id = activity
         .get("id")
@@ -423,7 +588,9 @@ fn normalize_activity(activity: &Value, submit: Option<&SubmitPayload>) -> Value
     if let Some(actor) = activity_actor(activity, "recipient") {
         event.insert("to".to_string(), Value::Array(vec![actor]));
     }
-    Value::Object(event)
+    let mut event = Value::Object(event);
+    apply_teams_attachments(&mut event, activity);
+    event
 }
 
 fn activity_type(activity: &Value) -> &str {
@@ -660,6 +827,203 @@ mod tests {
             result["events"][0]["metadata"]["idempotency_key"],
             "lifecycle.user_entered:teams:tenant-1:conv-1:user-1:app_installed"
         );
+    }
+
+    const DOWNLOAD_INFO: &str = "application/vnd.microsoft.teams.file.download.info";
+
+    fn file(name: &str, url: &str, file_type: &str) -> Value {
+        json!({"contentType": DOWNLOAD_INFO, "name": name,
+               "content": {"downloadUrl": url, "fileType": file_type}})
+    }
+
+    fn message(attachments: Value) -> Value {
+        json!({"type":"message","id":"a1","text":"t","conversation":{"id":"c"},
+               "attachments": attachments})
+    }
+
+    #[test]
+    fn file_download_info_becomes_a_public_ref_with_a_mime_from_the_extension() {
+        let activity = json!({"attachments":[file("plan.pdf","https://contoso.sharepoint.com/d?tempauth=x","pdf")]});
+        let pending = teams_pending_attachments(&activity);
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].mime_type, "application/pdf");
+        assert_eq!(pending[0].name.as_deref(), Some("plan.pdf"));
+        assert!(matches!(pending[0].fetch, FetchRef::Public { .. }));
+        assert!(pending[0].inline_base64.is_none());
+    }
+
+    #[test]
+    fn cards_and_http_urls_and_inline_bot_urls_are_not_files() {
+        let activity = json!({"attachments":[
+            {"contentType":"application/vnd.microsoft.card.adaptive","content":{}},
+            file("a.pdf","http://x.sharepoint.com/a","pdf"),
+            {"contentType":"image/png","contentUrl":"https://smba.trafficmanager.net/x/v3/attachments/1/views/original"}
+        ]});
+        assert!(teams_pending_attachments(&activity).is_empty());
+    }
+
+    #[test]
+    fn normalized_activity_carries_the_refs() {
+        let activity = message(json!([file("n.csv", "https://x.sharepoint.com/d", "csv")]));
+        let event = normalize_activity(&activity, None);
+        assert_eq!(event["attachments"][0]["mime_type"], "text/csv");
+        assert_eq!(event["attachments"][0]["name"], "n.csv");
+        assert!(event["attachments"][0]["url"].is_null());
+        assert_eq!(event["extensions"]["attachment_fetch"][0]["kind"], "public");
+        assert_eq!(
+            event["extensions"]["attachment_fetch"][0]["url"],
+            "https://x.sharepoint.com/d"
+        );
+        assert!(event["metadata"].get("attachments_dropped").is_none());
+    }
+
+    #[test]
+    fn hostile_download_urls_are_rejected_and_counted() {
+        let long = format!("https://x.sharepoint.com/{}", "a".repeat(3000));
+        let bad = [
+            "https://contoso.sharepoint.com.evil.test/d",
+            "https://evilsharepoint.com/d",
+            "https://sharepoint.com.evil.test/d",
+            "https://.sharepoint.com/d",
+            "http://contoso.sharepoint.com/d",
+            "https://user:pw@contoso.sharepoint.com/d",
+            "https://contoso.sharepoint.com@evil.test/d",
+            "https://10.0.0.1/d",
+            "https://127.0.0.1/d",
+            "https://[::1]/d",
+            "https://169.254.169.254/latest",
+            "https://localhost/d",
+            "https://contoso.sharepoint.com:8443/d",
+            "https://contoso.sharepoint.com\\evil.test/d",
+            "ftp://contoso.sharepoint.com/d",
+            long.as_str(),
+        ];
+        for url in bad {
+            let event = normalize_activity(&message(json!([file("a.pdf", url, "pdf")])), None);
+            assert!(event.get("attachments").is_none(), "kept {url:.80}");
+            assert!(event.get("extensions").is_none(), "{url:.80}");
+            assert_eq!(event["metadata"]["attachments_dropped"], "1", "{url:.80}");
+        }
+    }
+
+    #[test]
+    fn missing_download_url_or_content_is_dropped_and_counted() {
+        let activity = message(json!([
+            {"contentType": DOWNLOAD_INFO, "name": "a.pdf", "content": {"fileType": "pdf"}},
+            {"contentType": DOWNLOAD_INFO, "name": "b.pdf"},
+            {"contentType": DOWNLOAD_INFO, "name": "c.pdf", "content": {"downloadUrl": 7, "fileType": "pdf"}}
+        ]));
+        assert!(teams_pending_attachments(&activity).is_empty());
+        let event = normalize_activity(&activity, None);
+        assert!(event.get("extensions").is_none());
+        assert_eq!(event["metadata"]["attachments_dropped"], "3");
+    }
+
+    #[test]
+    fn inline_images_are_skipped_and_counted() {
+        let activity = message(json!([
+            {"contentType":"image/png","contentUrl":"https://smba.trafficmanager.net/x/v3/attachments/1/views/original","name":"i.png"},
+            {"contentType":"image/jpeg","contentUrl":"https://smba.trafficmanager.net/x/v3/attachments/2/views/original"}
+        ]));
+        let parsed = teams_attachments(&activity);
+        assert!(parsed.pending.is_empty());
+        assert_eq!(parsed.skipped, 2);
+        let event = normalize_activity(&activity, None);
+        assert!(event.get("extensions").is_none());
+        assert_eq!(event["metadata"]["attachments_dropped"], "2");
+    }
+
+    #[test]
+    fn mixed_card_file_and_inline_keeps_only_the_file() {
+        let activity = message(json!([
+            {"contentType":"application/vnd.microsoft.card.adaptive","content":{"type":"AdaptiveCard"}},
+            {"contentType":"application/vnd.microsoft.card.hero","content":{}},
+            {"contentType":"image/png","contentUrl":"https://smba.trafficmanager.net/x/v3/attachments/1"},
+            file("plan.pdf","https://contoso.sharepoint.com/d?tempauth=x","pdf")
+        ]));
+        let event = normalize_activity(&activity, None);
+        let attachments = event["attachments"].as_array().expect("attachments");
+        let refs = event["extensions"]["attachment_fetch"]
+            .as_array()
+            .expect("refs");
+        assert_eq!(attachments.len(), 1);
+        assert_eq!(refs.len(), 1);
+        assert_eq!(attachments[0]["mime_type"], "application/pdf");
+        assert_eq!(refs[0]["kind"], "public");
+        // The inline image is counted; cards are not files and not drops.
+        assert_eq!(event["metadata"]["attachments_dropped"], "1");
+    }
+
+    #[test]
+    fn the_same_download_url_twice_is_one_file() {
+        let url = "https://contoso.sharepoint.com/d?tempauth=x";
+        let activity = message(json!([
+            file("a.pdf", url, "pdf"),
+            file("b.pdf", url, "pdf")
+        ]));
+        let event = normalize_activity(&activity, None);
+        assert_eq!(event["attachments"].as_array().expect("a").len(), 1);
+        assert_eq!(event["attachments"][0]["name"], "a.pdf");
+        assert!(event["metadata"].get("attachments_dropped").is_none());
+    }
+
+    #[test]
+    fn names_are_sanitised() {
+        let activity = message(json!([file(
+            "../x/re\u{202E}fdp.exe\u{0007}",
+            "https://contoso.sharepoint.com/d",
+            "pdf"
+        )]));
+        let event = normalize_activity(&activity, None);
+        assert_eq!(event["attachments"][0]["name"], "refdp.exe");
+    }
+
+    #[test]
+    fn seven_files_are_capped_at_five() {
+        let files: Vec<Value> = (0..7)
+            .map(|i| {
+                file(
+                    &format!("f{i}.png"),
+                    &format!("https://c.sharepoint.com/{i}"),
+                    "png",
+                )
+            })
+            .collect();
+        let event = normalize_activity(&message(Value::Array(files)), None);
+        assert_eq!(event["attachments"].as_array().expect("a").len(), 5);
+        assert_eq!(
+            event["extensions"]["attachment_fetch"]
+                .as_array()
+                .expect("r")
+                .len(),
+            5
+        );
+        assert_eq!(event["attachments"][4]["name"], "f4.png");
+        assert_eq!(event["metadata"]["attachments_dropped"], "2");
+    }
+
+    #[test]
+    fn file_type_is_a_hint_with_the_name_extension_as_fallback() {
+        let activity = message(json!([
+            {"contentType": DOWNLOAD_INFO, "name": "notes.MD",
+             "content": {"downloadUrl": "https://c.sharepoint.com/1"}},
+            file("tool.exe", "https://c.sharepoint.com/2", "exe"),
+            file("x.svg", "https://c.sharepoint.com/3", "svg")
+        ]));
+        let event = normalize_activity(&activity, None);
+        assert_eq!(event["attachments"].as_array().expect("a").len(), 1);
+        assert_eq!(event["attachments"][0]["mime_type"], "text/markdown");
+        assert_eq!(event["metadata"]["attachments_dropped"], "2");
+    }
+
+    #[test]
+    fn a_message_without_attachments_is_unchanged() {
+        let event = normalize_activity(&message(json!([])), None);
+        assert!(event.get("attachments").is_none());
+        assert!(event.get("extensions").is_none());
+        assert!(event["metadata"].get("attachments_dropped").is_none());
+        let event = normalize_activity(&json!({"id":"a","conversation":{"id":"c"}}), None);
+        assert!(event.get("attachments").is_none());
     }
 
     #[test]

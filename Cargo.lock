@@ -2263,6 +2263,7 @@ name = "messaging-ingress-teams"
 version = "0.5.26"
 dependencies = [
  "base64",
+ "greentic-messaging-provider-common",
  "greentic-telemetry",
  "greentic-types 1.1.4",
  "serde",
