@@ -19,6 +19,7 @@ pub(crate) mod ac_helpers;
 pub(crate) mod ac_inputs;
 pub(crate) mod ac_to_html;
 pub(crate) mod encode;
+pub(crate) mod form_reply;
 pub(crate) mod http;
 pub(crate) mod identify;
 pub(crate) mod ingest;

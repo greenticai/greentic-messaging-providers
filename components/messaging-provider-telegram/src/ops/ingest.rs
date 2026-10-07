@@ -16,6 +16,8 @@ use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_oper
 use provider_common::lifecycle_events::{mark_user_entered, user_entered_idempotency_key};
 use serde_json::{Value, json};
 
+use super::form_reply;
+
 fn debug_enabled() -> bool {
     matches!(
         std::env::var("TELEGRAM_DEBUG")
@@ -125,6 +127,7 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
                     .metadata
                     .insert("reply_to_bot_message_id".to_string(), mid.to_string());
             }
+            submit_form_reply(&mut envelope, &text, reply_msg);
         }
     }
     let normalized = json!({
@@ -218,6 +221,42 @@ fn ingest_callback_query(body_val: &Value, callback: &Value) -> Vec<u8> {
         events: vec![envelope],
     };
     http_out_v1_bytes(&out)
+}
+
+/// Answer the card a typed reply responds to, as if its submit button had been
+/// pressed: the typed values become metadata (so they reach the card's
+/// `answers`) and the card's routing is restored. A reply that cannot be mapped
+/// onto the card's inputs is left as the plain form reply it was.
+///
+/// `or_insert`, not `insert`: input ids come from the card, and the trusted
+/// metadata derived from the authenticated Telegram update must win.
+fn submit_form_reply(envelope: &mut ChannelMessageEnvelope, text: &str, reply_msg: &Value) {
+    let Some(marker) = form_reply::marker_from_reply(reply_msg) else {
+        return;
+    };
+    let Some(answers) = form_reply::answers(&marker.ids, text) else {
+        return;
+    };
+    let submit_str = marker
+        .submit
+        .as_ref()
+        .map(Value::to_string)
+        .unwrap_or_default();
+    let (route_to_card, card_id, action_text) = parse_callback_data(&submit_str);
+    if !route_to_card.is_empty() {
+        envelope
+            .metadata
+            .insert("routeToCardId".into(), route_to_card);
+    }
+    if !card_id.is_empty() {
+        envelope.metadata.insert("cardId".into(), card_id);
+    }
+    if !submit_str.is_empty() {
+        envelope.text = Some(action_text);
+    }
+    for (id, value) in answers {
+        envelope.metadata.entry(id).or_insert(value);
+    }
 }
 
 /// Parse callback data which AC Action.Submit serialises as JSON.
@@ -469,6 +508,88 @@ mod tests {
                 .get("reply_to_bot_message_id")
                 .map(String::as_str),
             Some("11")
+        );
+    }
+
+    fn form_marker_url(ids: &[&str], submit: Value) -> String {
+        let html = form_reply::embed_marker(
+            "\u{270f}\u{fe0f} <b>Full name</b>",
+            &form_reply::FormMarker {
+                ids: ids.iter().map(|s| s.to_string()).collect(),
+                submit: Some(submit),
+            },
+        );
+        html.split('"').nth(1).expect("href").to_string()
+    }
+
+    #[test]
+    fn a_typed_reply_submits_the_card_it_answers() {
+        let url = form_marker_url(&["name", "email"], json!({"r": "thanks"}));
+        let out = ingest_body(json!({
+            "message": {
+                "message_id": 12,
+                "text": "Bima Pangestu\nbima@x.id",
+                "chat": {"id": 99},
+                "from": {"id": 42},
+                "reply_to_message": {
+                    "message_id": 11,
+                    "from": {"is_bot": true},
+                    "entities": [{"type": "text_link", "offset": 0, "length": 2, "url": url}]
+                }
+            }
+        }));
+
+        let event = &out.events[0];
+        let meta = |k: &str| event.metadata.get(k).map(String::as_str);
+        assert_eq!(meta("name"), Some("Bima Pangestu"));
+        assert_eq!(meta("email"), Some("bima@x.id"));
+        assert_eq!(meta("routeToCardId"), Some("thanks"));
+        assert_eq!(event.text.as_deref(), Some("[card:thanks]"));
+    }
+
+    #[test]
+    fn a_reply_that_does_not_fit_the_inputs_stays_a_plain_form_reply() {
+        let url = form_marker_url(&["name", "email"], json!({"r": "thanks"}));
+        let out = ingest_body(json!({
+            "message": {
+                "message_id": 12,
+                "text": "just one line",
+                "chat": {"id": 99},
+                "from": {"id": 42},
+                "reply_to_message": {
+                    "message_id": 11,
+                    "from": {"is_bot": true},
+                    "entities": [{"type": "text_link", "url": url}]
+                }
+            }
+        }));
+
+        let event = &out.events[0];
+        assert_eq!(event.text.as_deref(), Some("just one line"));
+        assert!(!event.metadata.contains_key("name"));
+        assert!(!event.metadata.contains_key("routeToCardId"));
+    }
+
+    #[test]
+    fn an_answer_never_overwrites_trusted_metadata() {
+        let url = form_marker_url(&["chat_id"], json!({"r": "thanks"}));
+        let out = ingest_body(json!({
+            "message": {
+                "message_id": 12,
+                "text": "attacker",
+                "chat": {"id": 99},
+                "from": {"id": 42},
+                "reply_to_message": {
+                    "message_id": 11,
+                    "from": {"is_bot": true},
+                    "entities": [{"type": "text_link", "url": url}]
+                }
+            }
+        }));
+
+        assert_eq!(
+            out.events[0].metadata.get("chat_id").map(String::as_str),
+            Some("99")
         );
     }
 
