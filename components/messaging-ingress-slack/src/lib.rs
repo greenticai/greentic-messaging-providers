@@ -10,7 +10,6 @@ use bindings::exports::provider::common0_0_2::ingress::Guest;
 use bindings::exports::provider::common0_0_3::ingress::Guest as ConfiguredIngressGuest;
 use bindings::greentic::secrets_store::secrets_store;
 use hmac::{Hmac, KeyInit, Mac};
-use provider_common::attachment_fetch::{FetchRef, PendingAttachment};
 use serde_json::{Map, Value, json};
 use sha2::Sha256;
 
@@ -257,53 +256,9 @@ fn envelope_from_payload(payload: &Value) -> Option<Value> {
         metadata.insert("event_ts".to_string(), Value::String(event_ts.to_string()));
     }
     metadata.append(&mut action_metadata);
-    provider_common::attachment_fetch::apply_to_value(&mut envelope, slack_files(payload));
+    provider_common::slack_attachments::apply_slack_files_to_value(&mut envelope, payload);
 
     Some(envelope)
-}
-
-/// Slack file URLs are only trusted on Slack's own hosts so a crafted event
-/// cannot make the host send the bot token elsewhere. The host part must be a
-/// plain DNS name (no userinfo, no port). Duplicated from the provider crate,
-/// as the components are separate crates (like `is_bot_message`).
-fn is_slack_file_host(url: &str) -> bool {
-    url.strip_prefix("https://")
-        .and_then(|rest| rest.split(['/', '?', '#']).next())
-        .is_some_and(|host| {
-            host.bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-')
-                && host.ends_with(".slack.com")
-        })
-}
-
-/// `files[]` of a `file_share` event as fetch references. Only the secret
-/// NAME of the bot token travels; the host resolves it.
-fn slack_files(payload: &Value) -> Vec<PendingAttachment> {
-    let Some(files) = payload.get("files").and_then(Value::as_array) else {
-        return Vec::new();
-    };
-    files
-        .iter()
-        .filter_map(|f| {
-            let url = f
-                .get("url_private_download")
-                .or_else(|| f.get("url_private"))
-                .and_then(Value::as_str)?;
-            if !is_slack_file_host(url) {
-                return None;
-            }
-            Some(PendingAttachment {
-                mime_type: f.get("mimetype").and_then(Value::as_str)?.to_string(),
-                name: f.get("name").and_then(Value::as_str).map(str::to_string),
-                size_bytes: f.get("size").and_then(Value::as_u64),
-                fetch: FetchRef::Bearer {
-                    url: url.to_string(),
-                    secret_key: "SLACK_BOT_TOKEN".to_string(),
-                },
-                inline_base64: None,
-            })
-        })
-        .collect()
 }
 
 fn envelope_from_parts(
@@ -563,6 +518,19 @@ mod tests {
         let before = envelope_from_payload(&plain).expect("envelope");
         assert_eq!(before["attachments"], json!([]));
         assert!(before["metadata"].get("attachments_dropped").is_none());
+    }
+
+    #[test]
+    fn legacy_ingress_counts_rejected_files_and_accepts_only_files_slack_com() {
+        let payload = json!({"type":"message","channel":"C1","user":"U1","text":"t","ts":"1.1",
+            "files":[
+                {"id":"F","name":"a.png","mimetype":"image/png","size":5,
+                 "url_private_download":"https://edge.slack.com/a.png"},
+                {"id":"G","name":"b.png","mimetype":"image/png","size":5,
+                 "url_private_download":"https://files.slack.com/b.png"}]});
+        let envelope = envelope_from_payload(&payload).expect("envelope");
+        assert_eq!(envelope["attachments"].as_array().map(Vec::len), Some(1));
+        assert_eq!(envelope["metadata"]["attachments_dropped"], "1");
     }
 
     #[test]

@@ -30,6 +30,7 @@ pub mod qa_helpers;
 pub mod qa_invoke_bridge;
 pub mod redact;
 pub mod render;
+pub mod slack_attachments;
 pub mod telegram_attachments;
 pub mod telemetry;
 pub mod test_macros;

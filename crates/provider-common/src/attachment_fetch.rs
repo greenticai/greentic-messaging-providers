@@ -298,6 +298,47 @@ fn warn_dropped(channel: &str, reason: &str) {
     );
 }
 
+/// Add `n` to `metadata["attachments_dropped"]` (no-op for 0).
+pub fn add_dropped(envelope: &mut ChannelMessageEnvelope, n: usize) {
+    if n == 0 {
+        return;
+    }
+    let previous = envelope
+        .metadata
+        .get("attachments_dropped")
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(0);
+    envelope.metadata.insert(
+        "attachments_dropped".to_string(),
+        (previous + n).to_string(),
+    );
+}
+
+/// [`add_dropped`] for an envelope held as raw JSON.
+pub fn add_dropped_value(envelope: &mut Value, n: usize) {
+    if n == 0 {
+        return;
+    }
+    let Some(map) = envelope.as_object_mut() else {
+        return;
+    };
+    let meta = map
+        .entry("metadata".to_string())
+        .or_insert_with(|| json!({}));
+    let Some(meta) = meta.as_object_mut() else {
+        return;
+    };
+    let previous = meta
+        .get("attachments_dropped")
+        .and_then(Value::as_str)
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(0);
+    meta.insert(
+        "attachments_dropped".to_string(),
+        json!((previous + n).to_string()),
+    );
+}
+
 /// Write pending attachments onto the envelope (`url` stays `None`), plus the
 /// parallel `extensions["attachment_fetch"]` list. Only items that pass the
 /// per-message cap and the MIME, size, https-url and inline-consistency checks
@@ -346,17 +387,7 @@ pub fn apply_fetch_refs(envelope: &mut ChannelMessageEnvelope, pending: Vec<Pend
         let fetch = serde_json::to_value(&item.fetch).unwrap_or(Value::Null);
         kept.push((attachment, fetch));
     }
-    if dropped > 0 {
-        let previous = envelope
-            .metadata
-            .get("attachments_dropped")
-            .and_then(|v| v.parse::<usize>().ok())
-            .unwrap_or(0);
-        envelope.metadata.insert(
-            "attachments_dropped".to_string(),
-            (previous + dropped).to_string(),
-        );
-    }
+    add_dropped(envelope, dropped);
     if kept.is_empty() {
         return;
     }
