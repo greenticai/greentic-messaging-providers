@@ -105,7 +105,9 @@ pub fn parse_update(body: &Value) -> ParsedUpdate {
             let phone = value
                 .get("metadata")
                 .and_then(|m| m.get("phone_number_id"))
-                .and_then(Value::as_str);
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|p| !p.is_empty());
             Some(
                 value
                     .get("messages")?
@@ -207,6 +209,19 @@ mod tests {
         assert_eq!(msgs[0].text, "ini apa?");
         assert_eq!(msgs[2].text, "halo");
         assert_eq!(msgs[1].id.as_deref(), Some("wamid.B"));
+    }
+
+    #[test]
+    fn a_blank_phone_number_id_is_treated_as_absent() {
+        let body = json!({"entry":[{"changes":[
+            {"value":{"metadata":{"phone_number_id":""},"messages":[{"id":"wamid.1","from":"1"}]}},
+            {"value":{"metadata":{"phone_number_id":"  "},"messages":[{"id":"wamid.2","from":"2"}]}},
+            {"value":{"metadata":{"phone_number_id":"777"},"messages":[{"id":"wamid.3","from":"3"}]}}]}]});
+        let numbers: Vec<Option<String>> = parse_messages(&body)
+            .into_iter()
+            .map(|m| m.phone_number_id)
+            .collect();
+        assert_eq!(numbers, [None, None, Some("777".to_string())]);
     }
 
     #[test]

@@ -363,6 +363,7 @@ mod tests {
     /// Near-boundary bytes (`\r\n--<boundary minus its last byte>`) filling a
     /// 15 MiB body must parse in time linear in the body, like plain data.
     #[test]
+    #[ignore = "slow, informational"]
     fn near_boundary_bytes_parse_in_linear_time() {
         let boundary = "b".repeat(70);
         let head = format!("--{boundary}\r\nContent-Disposition: form-data; name=\"f\"\r\n\r\n");

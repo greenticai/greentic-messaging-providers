@@ -30,7 +30,7 @@ ciborium.workspace = true
 greentic-types.workspace = true
 greentic-telemetry = { workspace = true }
 base64.workspace = true
-memchr = "2.8"
+memchr.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
