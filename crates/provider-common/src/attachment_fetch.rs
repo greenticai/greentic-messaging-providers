@@ -414,9 +414,9 @@ pub fn apply_fetch_refs(envelope: &mut ChannelMessageEnvelope, pending: Vec<Pend
 }
 
 /// Same as [`apply_fetch_refs`] for components that build envelopes as raw
-/// JSON. Replaces `attachments`, adds `extensions.attachment_fetch` and the
-/// `metadata.attachments_dropped` counter exactly as the typed variant does;
-/// when nothing is kept only the dropped counter can change.
+/// JSON: appends to `attachments`, keeps `extensions.attachment_fetch`
+/// index-aligned and accumulates `metadata.attachments_dropped`; when nothing
+/// is kept only the dropped counter can change.
 pub fn apply_to_value(envelope: &mut Value, pending: Vec<PendingAttachment>) {
     let channel = envelope
         .get("channel")
@@ -441,30 +441,43 @@ pub fn apply_to_value(envelope: &mut Value, pending: Vec<PendingAttachment>) {
         extensions: Default::default(),
     };
     apply_fetch_refs(&mut typed, pending);
+    let dropped = typed
+        .metadata
+        .get("attachments_dropped")
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(0);
+    add_dropped_value(envelope, dropped);
     let Some(map) = envelope.as_object_mut() else {
         return;
     };
-    if !typed.attachments.is_empty() {
-        map.insert(
-            "attachments".to_string(),
-            serde_json::to_value(&typed.attachments).unwrap_or(Value::Array(Vec::new())),
-        );
-    }
-    if let Some(refs) = typed.extensions.get(FETCH_KEY) {
-        let ext = map
-            .entry("extensions".to_string())
-            .or_insert_with(|| json!({}));
-        if let Some(ext_map) = ext.as_object_mut() {
-            ext_map.insert(FETCH_KEY.to_string(), refs.clone());
-        }
-    }
-    if let Some(dropped) = typed.metadata.get("attachments_dropped") {
-        let meta = map
-            .entry("metadata".to_string())
-            .or_insert_with(|| json!({}));
-        if let Some(meta_map) = meta.as_object_mut() {
-            meta_map.insert("attachments_dropped".to_string(), json!(dropped));
-        }
+    // Append, as `apply_fetch_refs` does: existing entries stay, the fetch list
+    // stays index-aligned with `{"kind":"none"}` for them.
+    let Some(Value::Array(new_refs)) = typed.extensions.remove(FETCH_KEY) else {
+        return;
+    };
+    let mut attachments = match map.remove("attachments") {
+        Some(Value::Array(items)) => items,
+        _ => Vec::new(),
+    };
+    let existing = attachments.len();
+    attachments.extend(
+        typed
+            .attachments
+            .iter()
+            .map(|a| serde_json::to_value(a).unwrap_or(Value::Null)),
+    );
+    map.insert("attachments".to_string(), Value::Array(attachments));
+    let ext = map
+        .entry("extensions".to_string())
+        .or_insert_with(|| json!({}));
+    if let Some(ext_map) = ext.as_object_mut() {
+        let mut refs = match ext_map.remove(FETCH_KEY) {
+            Some(Value::Array(items)) => items,
+            _ => Vec::new(),
+        };
+        refs.resize(existing, json!({ "kind": "none" }));
+        refs.extend(new_refs);
+        ext_map.insert(FETCH_KEY.to_string(), Value::Array(refs));
     }
 }
 
@@ -502,6 +515,35 @@ mod tests {
         apply_fetch_refs(&mut env, items);
         assert_eq!(env.attachments.len(), 5);
         assert!(!env.metadata.contains_key("attachments_dropped"));
+    }
+
+    #[test]
+    fn apply_to_value_appends_like_apply_fetch_refs() {
+        let card = json!({"mime_type": "application/vnd.microsoft.card.adaptive"});
+        let mut value = json!({"channel": "c", "attachments": [card], "metadata": {"attachments_dropped": "2"}});
+        let mut typed = empty_envelope();
+        typed
+            .attachments
+            .push(serde_json::from_value(card.clone()).expect("card"));
+        typed
+            .metadata
+            .insert("attachments_dropped".into(), "2".into());
+        let mut bad = pending(1);
+        bad[0].mime_type = "image/svg+xml".into();
+        for items in [pending(1), [pending(2).remove(1)].to_vec(), bad] {
+            apply_to_value(&mut value, items.clone());
+            apply_fetch_refs(&mut typed, items);
+        }
+        let typed = serde_json::to_value(&typed).expect("typed");
+        assert_eq!(value["attachments"], typed["attachments"]);
+        assert_eq!(value["attachments"].as_array().map(Vec::len), Some(3));
+        assert_eq!(
+            value["extensions"][FETCH_KEY],
+            typed["extensions"][FETCH_KEY]
+        );
+        assert_eq!(value["extensions"][FETCH_KEY][0], json!({"kind": "none"}));
+        assert_eq!(value["metadata"]["attachments_dropped"], "3");
+        assert_eq!(typed["metadata"]["attachments_dropped"], "3");
     }
 
     fn pending(n: usize) -> Vec<PendingAttachment> {
