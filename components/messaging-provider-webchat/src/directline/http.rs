@@ -509,23 +509,11 @@ where
     S: StateStore,
     SE: SecretStore,
 {
-    let authorization = match extract_bearer(request.headers.as_slice()) {
-        Some(token) => token,
-        None => return respond_unauthorized("missing Authorization header"),
-    };
-    let signing_key = match load_signing_key(request, secrets) {
-        Ok(key) => key,
-        Err(resp) => return resp,
-    };
-    let claims = match verify_token(&signing_key, &authorization) {
-        Ok(claims) => claims,
-        Err(err) => return respond_unauthorized(&format!("invalid token: {err:?}")),
-    };
-
-    let (conv_key, conversation) = match authorize_stored(state_store, &claims, conversation_id) {
-        Ok(found) => found,
-        Err(resp) => return resp,
-    };
+    let (claims, conv_key, conversation) =
+        match authorize_conversation_post(request, state_store, secrets, conversation_id) {
+            Ok(authorized) => authorized,
+            Err(resp) => return resp,
+        };
 
     let body = match decode_json_body(request) {
         Ok(value) => value,
@@ -616,7 +604,8 @@ fn respond_activity_accepted(
     respond_json_with_headers(201, body_value, headers)
 }
 
-/// Token, conversation binding and context checks for `/upload`.
+/// Token verification plus the shared ownership decision ([`authorize_stored`]),
+/// shared by `/activities` and `/upload`.
 fn authorize_conversation_post<S, SE>(
     request: &HttpInV1,
     state_store: &mut S,
@@ -633,19 +622,7 @@ where
     let signing_key = load_signing_key(request, secrets)?;
     let claims = verify_token(&signing_key, &authorization)
         .map_err(|err| respond_unauthorized(&format!("invalid token: {err:?}")))?;
-    if claims.conv.as_deref() != Some(conversation_id) {
-        return Err(respond_forbidden("token bound to different conversation"));
-    }
-    let conv_key = conversation_key(&claims.ctx, conversation_id);
-    let conversation: ConversationState = match state_store.read(&conv_key) {
-        Ok(Some(bytes)) => serde_json::from_slice(&bytes)
-            .map_err(|err| respond_error(500, "state_parse", err.to_string()))?,
-        Ok(None) => return Err(respond_not_found("conversation not found")),
-        Err(err) => return Err(respond_error(500, "state_read", err)),
-    };
-    if conversation.ctx != claims.ctx {
-        return Err(respond_forbidden("token context mismatch"));
-    }
+    let (conv_key, conversation) = authorize_stored(state_store, &claims, conversation_id)?;
     Ok((claims, conv_key, conversation))
 }
 
