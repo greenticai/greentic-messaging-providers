@@ -360,6 +360,19 @@ mod tests {
     }
 
     #[test]
+    fn commit_header_keeps_the_owner() {
+        let mut s = MemStore::default();
+        let owned = ConversationState::new_owned(ctx(), "acme:users:7", true);
+        write_header(&mut s, KEY, &owned).unwrap();
+        push(&mut s, "a0");
+        push(&mut s, "a1");
+        let header = read_header(&mut s, KEY).unwrap().unwrap();
+        assert_eq!(header.owner_sub.as_deref(), Some("acme:users:7"));
+        assert!(header.owner_verified);
+        assert_eq!(header.next_watermark, 2);
+    }
+
+    #[test]
     fn key_layout_is_zero_padded_under_the_conversation_key() {
         assert_eq!(
             activity_key(KEY, 7),
