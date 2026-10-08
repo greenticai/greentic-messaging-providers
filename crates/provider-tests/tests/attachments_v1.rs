@@ -279,6 +279,43 @@ fn every_expected_provider_output_follows_contract_c1() {
     }
 }
 
+/// Contract C1: `artifact://` + lowercase hex of 32 bytes (64 characters).
+fn is_canonical_artifact_id(value: &Value) -> bool {
+    value
+        .as_str()
+        .and_then(|u| u.strip_prefix("artifact://"))
+        .is_some_and(|hex| {
+            hex.len() == 64
+                && hex
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        })
+}
+
+fn is_sha256_hex(value: &Value) -> bool {
+    value.as_str().is_some_and(|hex| {
+        hex.len() == 64
+            && hex
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    })
+}
+
+/// sha256 of greentic-designer `tests/fixtures/attachments-v1/outbound-tool-result.json`,
+/// the C6 owner copy; this repo carries it byte for byte.
+const CANONICAL_OUTBOUND_TOOL_RESULT_SHA256: &str =
+    "50cfa9823558d97b300e0d95b0d031ba201267e3305e11e3228379961bcd2fd8";
+
+#[test]
+fn outbound_tool_result_is_the_designer_canonical_copy() {
+    let bytes = std::fs::read(dir().join("outbound-tool-result.json")).expect("read");
+    let sum: String = Sha256::digest(&bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    assert_eq!(sum, CANONICAL_OUTBOUND_TOOL_RESULT_SHA256);
+}
+
 #[test]
 fn after_host_urls_are_artifact_references_and_parallel() {
     let v = load("inbound-after-host.json");
@@ -286,20 +323,12 @@ fn after_host_urls_are_artifact_references_and_parallel() {
     let arts = v["extensions"]["artifacts"].as_array().expect("artifacts");
     assert_eq!(atts.len(), arts.len());
     for a in atts {
-        assert!(
-            a["url"]
-                .as_str()
-                .is_some_and(|u| u.starts_with("artifact://"))
-        );
+        assert!(is_canonical_artifact_id(&a["url"]), "{a}");
     }
     for art in arts {
         assert!(matches!(art["kind"].as_str(), Some("image" | "document")));
-        assert!(
-            art["text_ref"].is_null()
-                || art["text_ref"]
-                    .as_str()
-                    .is_some_and(|t| t.starts_with("artifact://"))
-        );
+        assert!(is_sha256_hex(&art["sha256"]), "{art}");
+        assert!(art["text_ref"].is_null() || is_canonical_artifact_id(&art["text_ref"]));
     }
 }
 
@@ -307,11 +336,7 @@ fn after_host_urls_are_artifact_references_and_parallel() {
 fn outbound_tool_result_has_the_c5_shape() {
     let v = load("outbound-tool-result.json");
     assert_eq!(v["ok"], true);
-    assert!(
-        v["artifact"]["id"]
-            .as_str()
-            .is_some_and(|u| u.starts_with("artifact://"))
-    );
+    assert!(is_canonical_artifact_id(&v["artifact"]["id"]), "{v}");
     assert!(v["artifact"]["mime_type"].is_string() && v["artifact"]["name"].is_string());
 }
 
