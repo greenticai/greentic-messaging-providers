@@ -339,3 +339,45 @@ fn a_corrupt_header_is_a_server_error_for_the_token_bound_to_it() {
         500
     );
 }
+
+fn refresh(state: &mut InMemoryStateStore, secrets: &TestSecretStore, token: &str) -> HttpOutV1 {
+    let request = build_request(
+        "POST",
+        "/v3/directline/tokens/refresh",
+        None,
+        None,
+        bearer(token),
+    )
+    .expect("request");
+    handle_directline_request(&request, state, secrets)
+}
+
+#[test]
+fn refresh_of_a_token_bound_to_a_missing_conversation_is_refused() {
+    let (mut state, secrets) = setup();
+    let gone = Uuid::new_v4().to_string();
+    let bound = issue_token(KEY, default_ctx(), "guest-a", Some(gone), false)
+        .expect("token")
+        .0;
+    let response = refresh(&mut state, &secrets, &bound);
+    assert_eq!(response.status, 404);
+    assert!(decode_body(&response).expect("body").get("token").is_none());
+}
+
+#[test]
+fn refresh_of_a_bound_token_from_another_context_is_refused() {
+    let (mut state, secrets) = setup();
+    let a = mint_anon(&mut state, &secrets, "guest-a");
+    let (conv_a, _) = create(&mut state, &secrets, &a);
+    let other_ctx = DirectLineContext {
+        env: "default".into(),
+        tenant: "other".into(),
+        team: None,
+    };
+    let foreign = issue_token(KEY, other_ctx, "guest-a", Some(conv_a), false)
+        .expect("token")
+        .0;
+    let response = refresh(&mut state, &secrets, &foreign);
+    assert_ne!(response.status, 200);
+    assert!(decode_body(&response).expect("body").get("token").is_none());
+}
