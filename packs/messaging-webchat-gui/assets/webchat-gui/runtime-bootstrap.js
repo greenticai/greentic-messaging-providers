@@ -2062,6 +2062,9 @@ console.log('[runtime-bootstrap] loaded');
     XHRProto.open = function (method, url) {
       this.__gtcMethod = (method || '').toUpperCase();
       this.__gtcUrl = url;
+      // An XHR may be reopened; a resume decided for an earlier request must not leak into this one.
+      this.__gtcResume = false;
+      this.__gtcResumeToken = null;
       var args = Array.prototype.slice.call(arguments);
       try {
         if (this.__gtcMethod === 'POST' && CONVERSATIONS_PATH_RE.test(conversationsPathOf(url))) {

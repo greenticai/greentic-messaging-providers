@@ -137,4 +137,43 @@ test.describe('conversation resume over XHR', () => {
     expect(await savedConversation(page)).toBeNull();
     expect(seen.slice(1).map((s) => [s.method, s.authorization])).toEqual([['GET', 'Bearer page-token']]);
   });
+
+  test('an XHR reused after a resume sends its next request untouched', async ({ page }) => {
+    const seen = await mockDirectLine(page, { status: 200 });
+    await page.goto(PAGE);
+    await openConversationViaXhr(page);
+    await page.reload();
+
+    await page.evaluate(
+      ({ base, id }) =>
+        new Promise<void>((resolve) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', base);
+          xhr.setRequestHeader('Authorization', 'Bearer page-token');
+          xhr.addEventListener(
+            'loadend',
+            () => {
+              xhr.open('POST', `${base}/${id}/activities`);
+              xhr.setRequestHeader('Content-Type', 'application/json');
+              xhr.setRequestHeader('Authorization', 'Bearer next-token');
+              xhr.addEventListener('loadend', () => resolve(), { once: true });
+              xhr.send(JSON.stringify({ type: 'message', text: 'hi' }));
+            },
+            { once: true },
+          );
+          xhr.send(JSON.stringify({ user: { id: 'u1' } }));
+        }),
+      { base: BASE, id: CONVERSATION_ID },
+    );
+
+    expect(seen.slice(1)).toEqual([
+      { method: 'GET', path: `${BASE}/${CONVERSATION_ID}`, body: null, authorization: 'Bearer conv-token-1' },
+      {
+        method: 'POST',
+        path: `${BASE}/${CONVERSATION_ID}/activities`,
+        body: JSON.stringify({ type: 'message', text: 'hi' }),
+        authorization: 'Bearer next-token',
+      },
+    ]);
+  });
 });
