@@ -375,7 +375,7 @@ fn mime_for_extension(file_type: &str) -> &'static str {
 }
 
 /// A Teams `downloadUrl` is a pre-authenticated SharePoint/OneDrive link.
-/// Only `https://<dns name>.sharepoint.com` with no userinfo and no port is
+/// Only `https://<one label>.sharepoint.com` with no userinfo and no port is
 /// trusted, so a crafted activity cannot point the host at another target
 /// (lookalike domains, IP literals, `localhost`). The shared guard checks the
 /// rest of the url shape and its length.
@@ -398,11 +398,14 @@ fn is_teams_download_host(url: &str) -> bool {
         .next()
         .unwrap_or("")
         .to_ascii_lowercase();
-    host.bytes()
-        .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-')
-        && host.ends_with(".sharepoint.com")
-        && !host.starts_with('.')
-        && !host.contains("..")
+    // Exactly one label before `.sharepoint.com`, matching the host-side
+    // `*.sharepoint.com` rule: `tenant.sharepoint.com`, never `a.b.sharepoint.com`.
+    host.strip_suffix(".sharepoint.com").is_some_and(|label| {
+        !label.is_empty()
+            && label
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+    })
 }
 
 fn warn_skipped(reason: &str) {
@@ -928,6 +931,8 @@ mod tests {
             "https://contoso.sharepoint.com\u{3002}evil.test/d",
             "https://contoso\u{FF0E}sharepoint.com/d",
             "https://sharepoint.com/d",
+            "https://a.b.sharepoint.com/d",
+            "https://contoso-my.files.sharepoint.com/d",
             long.as_str(),
         ];
         // Every case is checked so one run names all the urls that got through.
