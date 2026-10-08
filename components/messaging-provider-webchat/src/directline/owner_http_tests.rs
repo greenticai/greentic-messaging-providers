@@ -298,3 +298,44 @@ fn refresh_of_a_bound_token_keeps_its_conversation() {
         Some(conv_a.as_str())
     );
 }
+
+#[test]
+fn a_corrupt_header_answers_an_unbound_token_exactly_like_a_missing_conversation() {
+    let (mut state, secrets) = setup();
+    let corrupt_id = Uuid::new_v4().to_string();
+    state
+        .write(&default_conv_key(&corrupt_id), b"{not json")
+        .expect("write");
+    let missing_id = Uuid::new_v4().to_string();
+    let anon = mint_anon(&mut state, &secrets, "guest-b");
+    let verified = verified_unbound("acme:users:8");
+    for token in [&anon, &verified] {
+        let corrupt = reconnect(&mut state, &secrets, &corrupt_id, token);
+        assert_owner_required(&corrupt);
+        assert_eq!(corrupt, reconnect(&mut state, &secrets, &missing_id, token));
+        assert_eq!(
+            post(&mut state, &secrets, &corrupt_id, token),
+            post(&mut state, &secrets, &missing_id, token)
+        );
+        assert_eq!(
+            poll(&mut state, &secrets, &corrupt_id, token),
+            poll(&mut state, &secrets, &missing_id, token)
+        );
+    }
+}
+
+#[test]
+fn a_corrupt_header_is_a_server_error_for_the_token_bound_to_it() {
+    let (mut state, secrets) = setup();
+    let conv_id = Uuid::new_v4().to_string();
+    state
+        .write(&default_conv_key(&conv_id), b"{not json")
+        .expect("write");
+    let bound = issue_token(KEY, default_ctx(), "guest-a", Some(conv_id.clone()), false)
+        .expect("token")
+        .0;
+    assert_eq!(
+        reconnect(&mut state, &secrets, &conv_id, &bound).status,
+        500
+    );
+}
