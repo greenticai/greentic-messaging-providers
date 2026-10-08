@@ -1367,7 +1367,7 @@ fn respond_bad_request(message: &str) -> HttpOutV1 {
     respond_error(400, "bad_request", message)
 }
 
-fn respond_not_found(message: &str) -> HttpOutV1 {
+pub(super) fn respond_not_found(message: &str) -> HttpOutV1 {
     respond_error(404, "not_found", message)
 }
 
@@ -1389,6 +1389,13 @@ fn respond_unauthorized(message: &str) -> HttpOutV1 {
 
 fn respond_forbidden(message: &str) -> HttpOutV1 {
     respond_error(403, "forbidden", message)
+}
+
+pub(super) fn respond_forbidden_coded(code: &str, message: &str) -> HttpOutV1 {
+    respond_json(
+        403,
+        json!({ "error": "forbidden", "code": code, "message": message }),
+    )
 }
 
 fn respond_cors_preflight() -> HttpOutV1 {

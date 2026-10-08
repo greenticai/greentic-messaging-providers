@@ -6,6 +6,7 @@ pub mod oidc;
 pub mod oidc_config;
 #[cfg(test)]
 mod oidc_test_support;
+pub mod owner;
 pub mod state;
 pub mod store;
 
