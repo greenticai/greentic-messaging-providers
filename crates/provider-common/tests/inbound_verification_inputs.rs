@@ -115,3 +115,39 @@ fn whatsapp_app_secret_requirement_is_declared_optional_everywhere() -> Result<(
     }
     Ok(())
 }
+
+fn teams_source() -> PathBuf {
+    workspace_root().join("messaging-teams").join("assets")
+}
+
+#[test]
+fn teams_bot_app_id_is_an_optional_non_secret_question() -> Result<()> {
+    let question = setup_question(&teams_source().join("setup.yaml"), "ms_bot_app_id")?;
+    assert!(!flag(&question, "required"), "must stay optional");
+    assert!(!flag(&question, "secret"), "the app id is not a secret");
+    assert!(question.get("default").is_none());
+    assert!(question.get("visible_if").is_none());
+    let regex = question
+        .get("validate")
+        .and_then(|v| v.get("regex"))
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow!("ms_bot_app_id must validate its GUID shape"))?;
+    assert!(regex.starts_with('^') && regex.ends_with('$'));
+    Ok(())
+}
+
+// greentic-setup writes a non-secret answer into the pack config under its
+// question id, so the question must use the key the setup wizard writes.
+#[test]
+fn teams_question_and_setup_wizard_write_the_same_config_key() -> Result<()> {
+    let contract: JsonValue = serde_json::from_str(&fs::read_to_string(
+        teams_source().join("setup").join("backend-contract.json"),
+    )?)?;
+    let config = contract
+        .pointer("/runtime_outputs/config")
+        .and_then(JsonValue::as_object)
+        .ok_or_else(|| anyhow!("backend contract has no runtime_outputs.config"))?;
+    assert!(config.contains_key("ms_bot_app_id"));
+    setup_question(&teams_source().join("setup.yaml"), "ms_bot_app_id")?;
+    Ok(())
+}

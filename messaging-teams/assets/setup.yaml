@@ -1,6 +1,15 @@
 provider_id: messaging-teams
 version: 1
 title: Microsoft Teams setup
+questions:
+  - name: ms_bot_app_id
+    title: Bot app ID
+    kind: string
+    required: false
+    help: "Microsoft App ID of the Azure Bot (a GUID). Used to verify that requests come from Microsoft Teams for this bot. The setup wizard fills it in."
+    group: Connection
+    validate:
+      regex: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 setup_actions:
   - id: add-to-teams
     label: Add to Teams
