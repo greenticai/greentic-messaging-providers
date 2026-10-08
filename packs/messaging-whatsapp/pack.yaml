@@ -344,6 +344,8 @@ extensions:
             - token
           - answer_key: whatsapp_verify_token
             secret_key: WHATSAPP_VERIFY_TOKEN
+          - answer_key: whatsapp_app_secret
+            secret_key: WHATSAPP_APP_SECRET
         runtime:
           component_ref: messaging-provider-whatsapp
           export: schema-core-api

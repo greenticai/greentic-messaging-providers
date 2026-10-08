@@ -495,6 +495,10 @@
                 {
                   "answer_key": "whatsapp_verify_token",
                   "secret_key": "WHATSAPP_VERIFY_TOKEN"
+                },
+                {
+                  "answer_key": "whatsapp_app_secret",
+                  "secret_key": "WHATSAPP_APP_SECRET"
                 }
               ]
             },
@@ -547,6 +551,12 @@
       "name": "WHATSAPP_TOKEN",
       "scope": "tenant",
       "description": "WhatsApp Cloud API access token."
+    },
+    {
+      "name": "WHATSAPP_APP_SECRET",
+      "scope": "tenant",
+      "description": "Meta app secret used to verify webhook signatures (optional).",
+      "required": false
     }
   ],
   "capabilities_cache": [

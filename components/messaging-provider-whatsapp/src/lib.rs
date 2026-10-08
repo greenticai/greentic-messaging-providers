@@ -29,6 +29,7 @@ const WORLD_ID: &str = "component-v0-v6-v0";
 const DEFAULT_API_BASE: &str = "https://graph.facebook.com";
 const DEFAULT_API_VERSION: &str = "v19.0";
 const DEFAULT_TOKEN_KEY: &str = "WHATSAPP_TOKEN";
+const APP_SECRET_KEY: &str = "WHATSAPP_APP_SECRET";
 
 #[derive(Debug, Clone, Serialize)]
 struct ApplyAnswersResult {
@@ -247,6 +248,12 @@ fn apply_answers_impl(mode: &str, answers_cbor: Vec<u8>) -> Vec<u8> {
             &mut secrets_set,
         );
         collect_secret_answer(&answers, "token", DEFAULT_TOKEN_KEY, &mut secrets_set);
+        collect_secret_answer(
+            &answers,
+            "whatsapp_app_secret",
+            APP_SECRET_KEY,
+            &mut secrets_set,
+        );
     }
 
     if mode == "upgrade" {
@@ -294,6 +301,14 @@ fn apply_answers_impl(mode: &str, answers_cbor: Vec<u8>) -> Vec<u8> {
         if has("token") {
             collect_secret_answer(&answers, "token", DEFAULT_TOKEN_KEY, &mut secrets_set);
             merged.token = None;
+        }
+        if has("whatsapp_app_secret") {
+            collect_secret_answer(
+                &answers,
+                "whatsapp_app_secret",
+                APP_SECRET_KEY,
+                &mut secrets_set,
+            );
         }
         if merged.api_base_url.trim().is_empty() {
             merged.api_base_url = DEFAULT_API_BASE.to_string();
@@ -345,6 +360,9 @@ fn dispatch_json_invoke(op: &str, input_json: &[u8]) -> Vec<u8> {
         other => json_bytes(&json!({"ok": false, "error": format!("unsupported op: {other}")})),
     }
 }
+
+#[cfg(test)]
+mod app_secret_tests;
 
 #[cfg(test)]
 mod tests {

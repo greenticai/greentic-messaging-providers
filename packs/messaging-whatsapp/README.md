@@ -15,6 +15,7 @@ WhatsApp messaging provider — Cloud API with webhook ingress.
 ## Secrets
 - `WHATSAPP_TOKEN` — WhatsApp Cloud API access token
 - `WHATSAPP_VERIFY_TOKEN` — webhook verification token (optional)
+- `WHATSAPP_APP_SECRET` — Meta app secret; the host verifies `X-Hub-Signature-256` with it, and without it files are not read (optional)
 - `WHATSAPP_PHONE_NUMBER_ID` — phone number ID for sending
 
 ## Flows
