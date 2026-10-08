@@ -13,6 +13,7 @@ use super::caller::caller_header;
 use super::jwt::{DirectLineContext, TTL_SECONDS, issue_token, reissue_token, verify_token};
 use super::oidc::{OidcError, verify_access_token};
 use super::oidc_config::{self, OidcVerification};
+use super::owner::authorize_stored;
 use super::state::{
     ConversationState, StoredActivity, TypingSlot, conversation_key, sanitize_team,
     typing_activity, typing_key,
@@ -321,7 +322,7 @@ where
     let conversation_id = Uuid::new_v4().to_string();
     let key = conversation_key(&ctx, &conversation_id);
     let flow_hint = extract_flow_hint(&request.headers);
-    let mut conversation = ConversationState::new(ctx.clone());
+    let mut conversation = ConversationState::new_owned(ctx.clone(), &claims.sub, claims.verified);
     conversation.flow_binding = flow_hint.clone();
 
     if let Err(resp) = write_conversation_state(state_store, &key, &conversation) {
@@ -402,16 +403,10 @@ where
         Err(err) => return respond_unauthorized(&format!("invalid token: {err:?}")),
     };
 
-    if let Some(conversation_id) = claims.conv.as_deref() {
-        let conv_key = conversation_key(&claims.ctx, conversation_id);
-        let conversation = match load_conversation_state(state_store, &conv_key) {
-            Ok(state) => state,
-            Err(resp) => return resp,
-        };
-
-        if conversation.ctx != claims.ctx {
-            return respond_forbidden("token context mismatch");
-        }
+    if let Some(conversation_id) = claims.conv.as_deref()
+        && let Err(resp) = authorize_stored(state_store, &claims, conversation_id)
+    {
+        return resp;
     }
 
     let (token, _exp) = match reissue_token(&signing_key, &claims, claims.conv.clone()) {
@@ -460,29 +455,13 @@ where
         Err(err) => return respond_unauthorized(&format!("invalid token: {err:?}")),
     };
 
-    // Token must be bound to this conversation (or unbound for first reconnect)
-    if let Some(ref bound_conv) = claims.conv
-        && bound_conv != conversation_id
-    {
-        return respond_forbidden("token bound to different conversation");
+    if let Err(resp) = authorize_stored(state_store, &claims, conversation_id) {
+        return resp;
     }
-
-    let ctx = claims.ctx.clone();
-    let conv_key = conversation_key(&ctx, conversation_id);
-
-    // Verify conversation exists
-    match load_conversation_state(state_store, &conv_key) {
-        Ok(conversation) => {
-            if conversation.ctx != ctx {
-                return respond_forbidden("token context mismatch");
-            }
-        }
-        Err(resp) => return resp,
-    };
 
     // Issue a new token bound to this conversation, carrying the caller's
     // verified claims (see `reissue_token`).
-    let tenant_for_stream = ctx.tenant.clone();
+    let tenant_for_stream = claims.ctx.tenant.clone();
     let (token, _exp) =
         match reissue_token(&signing_key, &claims, Some(conversation_id.to_string())) {
             Ok(pair) => pair,
@@ -530,19 +509,10 @@ where
         Err(err) => return respond_unauthorized(&format!("invalid token: {err:?}")),
     };
 
-    if claims.conv.as_deref() != Some(conversation_id) {
-        return respond_forbidden("token bound to different conversation");
-    }
-
-    let conv_key = conversation_key(&claims.ctx, conversation_id);
-    let conversation = match load_conversation_state(state_store, &conv_key) {
-        Ok(state) => state,
+    let (conv_key, conversation) = match authorize_stored(state_store, &claims, conversation_id) {
+        Ok(found) => found,
         Err(resp) => return resp,
     };
-
-    if conversation.ctx != claims.ctx {
-        return respond_forbidden("token context mismatch");
-    }
 
     let body = match decode_json_body(request) {
         Ok(value) => value,
@@ -648,19 +618,10 @@ where
         Err(err) => return respond_unauthorized(&format!("invalid token: {err:?}")),
     };
 
-    if claims.conv.as_deref() != Some(conversation_id) {
-        return respond_forbidden("token bound to different conversation");
-    }
-
-    let conv_key = conversation_key(&claims.ctx, conversation_id);
-    let conversation = match load_conversation_state(state_store, &conv_key) {
-        Ok(state) => state,
+    let (conv_key, conversation) = match authorize_stored(state_store, &claims, conversation_id) {
+        Ok(found) => found,
         Err(resp) => return resp,
     };
-
-    if conversation.ctx != claims.ctx {
-        return respond_forbidden("token context mismatch");
-    }
 
     let watermark = match parse_watermark(request.query.as_deref()) {
         Ok(value) => value,
@@ -763,18 +724,6 @@ fn live_typing_activity<S: StateStore>(
     let slot: TypingSlot = serde_json::from_slice(&bytes).ok()?;
     let tail = activity_log::with_tail(store, conv_key, conversation, slot.since_watermark).ok()?;
     typing_activity(&slot, &tail, Utc::now().timestamp_millis())
-}
-
-fn load_conversation_state<S: StateStore>(
-    store: &mut S,
-    key: &str,
-) -> Result<ConversationState, HttpOutV1> {
-    match store.read(key) {
-        Ok(Some(bytes)) => serde_json::from_slice(&bytes)
-            .map_err(|err| respond_error(500, "state_parse", err.to_string())),
-        Ok(None) => Err(respond_not_found("conversation not found")),
-        Err(err) => Err(respond_error(500, "state_read", err)),
-    }
 }
 
 fn activity_to_value(activity: &StoredActivity) -> Value {
@@ -1336,7 +1285,7 @@ fn respond_json_with_headers(status: u16, payload: Value, headers: Vec<Header>) 
     }
 }
 
-fn respond_error(status: u16, error: &str, message: impl Into<String>) -> HttpOutV1 {
+pub(super) fn respond_error(status: u16, error: &str, message: impl Into<String>) -> HttpOutV1 {
     respond_json(
         status,
         json!({
@@ -1645,6 +1594,10 @@ mod tests {
             },
             conv_id,
         )
+    }
+
+    mod owner_http {
+        include!("owner_http_tests.rs");
     }
 
     fn read_conversation(

@@ -2,9 +2,10 @@
 
 use greentic_types::messaging::universal_dto::HttpOutV1;
 
-use super::http::{respond_forbidden_coded, respond_not_found};
+use super::http::{respond_error, respond_forbidden_coded, respond_not_found};
 use super::jwt::TokenClaims;
-use super::state::ConversationState;
+use super::state::{ConversationState, conversation_key};
+use super::store::StateStore;
 
 pub const OWNER_REQUIRED_CODE: &str = "ConversationOwnerRequired";
 pub const OWNER_REQUIRED_MESSAGE: &str =
@@ -77,6 +78,29 @@ pub fn authorize(
             _ => Err(Refusal::OwnerRequired),
         },
     }
+}
+
+/// Loads the conversation under the token's own context and authorizes it,
+/// returning its state key and header.
+pub fn authorize_stored<S: StateStore>(
+    store: &mut S,
+    claims: &TokenClaims,
+    conversation_id: &str,
+) -> Result<(String, ConversationState), HttpOutV1> {
+    let conv_key = conversation_key(&claims.ctx, conversation_id);
+    let lookup = match store.read(&conv_key) {
+        Ok(Some(bytes)) => match serde_json::from_slice(&bytes) {
+            Ok(state) => Lookup::Found(state),
+            // An unreadable header must not tell an unbound caller the id exists.
+            Err(_) if claims.conv.is_none() => Lookup::Missing,
+            Err(err) => return Err(respond_error(500, "state_parse", err.to_string())),
+        },
+        Ok(None) => Lookup::Missing,
+        Err(err) => return Err(respond_error(500, "state_read", err)),
+    };
+    authorize(claims, conversation_id, lookup)
+        .map(|authorized| (conv_key, authorized.into_conversation()))
+        .map_err(Refusal::into_response)
 }
 
 fn is_verified_owner(claims: &TokenClaims, state: &ConversationState) -> bool {
