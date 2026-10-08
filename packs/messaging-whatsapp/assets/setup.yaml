@@ -40,9 +40,9 @@ questions:
     title: API version
     kind: string
     required: true
-    default: "v17.0"
+    default: "v19.0"
     help: "WhatsApp Cloud API version"
-    placeholder: "v17.0"
+    placeholder: "v19.0"
     group: Connection
   - name: whatsapp_token
     title: WhatsApp access token

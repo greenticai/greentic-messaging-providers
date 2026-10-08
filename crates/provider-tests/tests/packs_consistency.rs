@@ -852,3 +852,48 @@ fn pack_wasms_are_not_behind_the_current_build() -> Result<()> {
     assert!(checked > 0, "no pack WASMs were checked");
     Ok(())
 }
+
+/// The WhatsApp Graph version a pack setup defaults to must be the one the provider code
+/// and the pack config schema default to; greentic-start reads this answer for media fetches.
+#[test]
+fn whatsapp_setup_api_version_default_matches_the_provider() -> Result<()> {
+    let root = workspace_root();
+    let source =
+        fs::read_to_string(root.join("components/messaging-provider-whatsapp/src/lib.rs"))?;
+    let code_default = source
+        .lines()
+        .find_map(|line| {
+            line.trim()
+                .strip_prefix("const DEFAULT_API_VERSION: &str = \"")
+        })
+        .and_then(|rest| rest.strip_suffix("\";"))
+        .context("DEFAULT_API_VERSION in the WhatsApp provider")?
+        .to_string();
+
+    let pack_dir = root.join("packs/messaging-whatsapp");
+    let setup: serde_yaml::Value =
+        serde_yaml::from_slice(&fs::read(pack_dir.join("assets/setup.yaml"))?)?;
+    let question = setup
+        .get("questions")
+        .and_then(serde_yaml::Value::as_sequence)
+        .into_iter()
+        .flatten()
+        .find(|q| q.get("name").and_then(serde_yaml::Value::as_str) == Some("api_version"))
+        .context("api_version question in the WhatsApp setup")?;
+    for field in ["default", "placeholder"] {
+        assert_eq!(
+            question.get(field).and_then(serde_yaml::Value::as_str),
+            Some(code_default.as_str()),
+            "setup.yaml api_version {field}"
+        );
+    }
+
+    let schema: Value = serde_json::from_slice(&fs::read(
+        pack_dir.join("assets/schemas/messaging/whatsapp/config.schema.json"),
+    )?)?;
+    assert_eq!(
+        schema["properties"]["api_version"]["default"].as_str(),
+        Some(code_default.as_str())
+    );
+    Ok(())
+}
