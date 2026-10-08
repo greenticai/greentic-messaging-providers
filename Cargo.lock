@@ -2809,6 +2809,7 @@ dependencies = [
  "greentic-types 1.1.4",
  "hmac 0.13.0",
  "insta",
+ "ring",
  "serde",
  "serde_json",
  "serde_yaml_gtc",

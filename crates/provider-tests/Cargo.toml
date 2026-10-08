@@ -22,3 +22,4 @@ wasmtime-wasi.workspace = true
 insta = { workspace = true }
 hmac = { workspace = true }
 sha2 = { workspace = true }
+ring = "0.17"

@@ -1,0 +1,14 @@
+NOT MEASURED
+
+Slack file download redirect trace (G21). No Slack test workspace was available
+when this file was created, so nothing here may widen a host list.
+
+To record (never commit a token; run from a scratch directory):
+
+  # URL = files[].url_private_download from a file_shared event (one PNG, one PDF)
+  curl -sS -o /dev/null -D - --max-redirs 0 -H "Authorization: Bearer $SLACK_BOT_TOKEN" "$URL" \
+    | grep -iE '^(HTTP/|location:)' | sed -E 's/\?.*$/?<redacted>/'
+  # then repeat for each Location target WITHOUT the Authorization header, status only
+
+Record per hop: host, status, whether it needed the bearer. Also the host of
+url_private_download for an Enterprise Grid / Slack Connect workspace if one exists.

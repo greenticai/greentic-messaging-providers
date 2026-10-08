@@ -556,6 +556,10 @@ fn is_webex_bot_email(value: &str) -> bool {
 }
 
 #[cfg(test)]
+#[path = "ingest_signature_vector_tests.rs"]
+mod signature_vector_tests;
+
+#[cfg(test)]
 mod signature_tests {
     use super::*;
     use greentic_types::messaging::universal_dto::Header;
