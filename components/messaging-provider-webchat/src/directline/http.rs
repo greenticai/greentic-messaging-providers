@@ -14,6 +14,7 @@ use super::jwt::{
     DirectLineContext, TTL_SECONDS, TokenClaims, issue_token, reissue_token, verify_token,
 };
 use super::oidc::{OidcError, verify_access_token};
+use super::oidc_config::{self, OidcVerification};
 use super::state::{
     ConversationState, StoredActivity, TypingSlot, conversation_key, sanitize_team,
     typing_activity, typing_key,
@@ -211,7 +212,14 @@ where
         return Ok(None);
     };
 
-    let Some(issuer) = config_str(request, "oidc_issuer") else {
+    // Resolved from the tenant's pack config only — see `oidc_config` for why
+    // the raw Greentic SSO answers count as well as `oidc_issuer`.
+    let Some(OidcVerification {
+        issuer,
+        audience,
+        required_scope,
+    }) = oidc_config::resolve(|key| config_scalar(request, key))
+    else {
         return Err(respond_error(
             401,
             "unauthorized",
@@ -227,10 +235,6 @@ where
             "oidc_issuer must use https",
         ));
     }
-    let audience =
-        config_str(request, "oidc_audience").unwrap_or_else(|| "webchat-gui".to_string());
-    let required_scope = config_str(request, "oidc_required_scope")
-        .unwrap_or_else(|| "greentic.webchat".to_string());
 
     let jwks_url = format!("{}/jwks.json", issuer.trim_end_matches('/'));
     let jwks_doc = match load_jwks(state_store, jwks, &jwks_url, now) {
@@ -1114,6 +1118,20 @@ fn config_str(request: &HttpInV1, key: &str) -> Option<String> {
     // Reading only that made oidc_issuer look unconfigured, and every verified
     // bearer was rejected with "oidc verification is not configured".
     decode_injected_config_str(cfg, key)
+}
+
+/// Like `config_str`, but also reads a JSON boolean as `"true"`/`"false"`:
+/// greentic-setup writes a toggle answer as either shape.
+fn config_scalar(request: &HttpInV1, key: &str) -> Option<String> {
+    if let Some(flag) = request
+        .config
+        .as_ref()
+        .and_then(|cfg| cfg.get(key))
+        .and_then(Value::as_bool)
+    {
+        return Some(flag.to_string());
+    }
+    config_str(request, key)
 }
 
 fn decode_injected_config_str(cfg: &Value, key: &str) -> Option<String> {
@@ -2609,6 +2627,120 @@ mod tests {
 
         let response =
             handle_directline_request_with_jwks(&request, &mut state, &secrets, &NoJwksFetcher);
+        assert_eq!(response.status, 401);
+    }
+
+    /// The pack config greentic-setup writes when Greentic SSO is switched on:
+    /// raw setup answers, booleans as strings, and NO `oidc_issuer` key (it is
+    /// not a setup question). Measured from a real bundle.
+    fn greentic_sso_answers() -> Value {
+        json!({
+            "oauth_enabled": "true",
+            "oauth_enable_greentic": "true",
+            "oauth_greentic_issuer": "https://acme.greentic-id.com",
+            "oauth_greentic_client_id": "webchat-gui",
+        })
+    }
+
+    fn mint_with_bearer(config: Value, access_token: &str, jwks: String) -> HttpOutV1 {
+        let mut state = InMemoryStateStore::new();
+        let mut secrets = TestSecretStore::new();
+        secrets.insert(TOKEN_SECRET_KEY, b"test-signing-key");
+        let mut request = token_request_with_config(config);
+        request.headers.push(Header {
+            name: "Authorization".into(),
+            value: format!("Bearer {access_token}"),
+        });
+        handle_directline_request_with_jwks(&request, &mut state, &secrets, &StaticJwks(jwks))
+    }
+
+    #[test]
+    fn greentic_sso_answers_alone_configure_bearer_verification() {
+        let (access_token, jwks) = crate::directline::oidc_test_support::signed_fixture(
+            "https://acme.greentic-id.com",
+            "webchat-gui",
+            "acme:users:7",
+            "openid greentic.webchat",
+            4_000_000_000,
+        );
+        let response = mint_with_bearer(greentic_sso_answers(), &access_token, jwks);
+        assert_eq!(response.status, 200, "{:?}", decode_body(&response));
+        let body = decode_body(&response).expect("json body");
+        let claims = verify_token(b"test-signing-key", body["token"].as_str().expect("token"))
+            .expect("direct line token verifies");
+        assert_eq!(claims.sub, "acme:users:7");
+        assert!(claims.verified);
+    }
+
+    #[test]
+    fn greentic_sso_answers_are_read_in_the_host_injected_b64_shape() {
+        let (access_token, jwks) = crate::directline::oidc_test_support::signed_fixture(
+            "https://acme.greentic-id.com",
+            "webchat-gui",
+            "acme:users:7",
+            "openid greentic.webchat",
+            4_000_000_000,
+        );
+        let mut encoded = serde_json::Map::new();
+        for (key, value) in greentic_sso_answers().as_object().expect("object") {
+            encoded.insert(
+                format!("{key}_b64"),
+                Value::String(
+                    general_purpose::STANDARD.encode(value.as_str().expect("string answer")),
+                ),
+            );
+        }
+        let response = mint_with_bearer(Value::Object(encoded), &access_token, jwks);
+        assert_eq!(response.status, 200, "{:?}", decode_body(&response));
+    }
+
+    #[test]
+    fn greentic_issuer_is_ignored_while_greentic_sso_is_switched_off() {
+        let (access_token, jwks) = crate::directline::oidc_test_support::signed_fixture(
+            "https://acme.greentic-id.com",
+            "webchat-gui",
+            "acme:users:7",
+            "openid greentic.webchat",
+            4_000_000_000,
+        );
+        let mut config = greentic_sso_answers();
+        config["oauth_enable_greentic"] = json!("false");
+        let response = mint_with_bearer(config, &access_token, jwks.clone());
+        assert_eq!(response.status, 401);
+
+        let mut config = greentic_sso_answers();
+        config["oauth_enabled"] = json!(false);
+        let response = mint_with_bearer(config, &access_token, jwks);
+        assert_eq!(response.status, 401);
+    }
+
+    #[test]
+    fn greentic_client_id_is_the_audience_checked() {
+        let (access_token, jwks) = crate::directline::oidc_test_support::signed_fixture(
+            "https://acme.greentic-id.com",
+            "webchat-gui",
+            "acme:users:7",
+            "openid greentic.webchat",
+            4_000_000_000,
+        );
+        let mut config = greentic_sso_answers();
+        config["oauth_greentic_client_id"] = json!("another-client");
+        let response = mint_with_bearer(config, &access_token, jwks);
+        assert_eq!(response.status, 401);
+    }
+
+    #[test]
+    fn an_explicit_oidc_issuer_still_wins_over_the_greentic_answer() {
+        let (access_token, jwks) = crate::directline::oidc_test_support::signed_fixture(
+            "https://acme.greentic-id.com",
+            "webchat-gui",
+            "acme:users:7",
+            "openid greentic.webchat",
+            4_000_000_000,
+        );
+        let mut config = greentic_sso_answers();
+        config["oidc_issuer"] = json!("https://other.greentic-id.com");
+        let response = mint_with_bearer(config, &access_token, jwks);
         assert_eq!(response.status, 401);
     }
 
