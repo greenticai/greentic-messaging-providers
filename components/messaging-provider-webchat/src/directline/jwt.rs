@@ -197,11 +197,9 @@ pub fn verify_token(secret: &[u8], token: &str) -> Result<TokenClaims, JwtError>
     mac.update(header.as_bytes());
     mac.update(b".");
     mac.update(payload.as_bytes());
-    let expected = mac.finalize().into_bytes();
     let decoded_sig = URL_SAFE_NO_PAD.decode(signature)?;
-    if expected.as_slice() != decoded_sig {
-        return Err(JwtError::InvalidSignature);
-    }
+    mac.verify_slice(&decoded_sig)
+        .map_err(|_| JwtError::InvalidSignature)?;
     let claims: TokenClaims = decode_segment(payload)?;
     let now = Utc::now().timestamp();
     // Allow a small clock-skew leeway (30 seconds) to avoid NotYetValid
@@ -282,6 +280,27 @@ mod tests {
             verify_token(b"wrong-hmac-key", &token),
             Err(JwtError::InvalidSignature)
         ));
+        Ok(())
+    }
+
+    #[test]
+    fn a_signature_of_the_wrong_length_is_invalid_not_a_panic() -> Result<(), JwtError> {
+        let signing_key = b"test-hmac-key";
+        let (token, _) = issue_token(signing_key, sample_ctx(), "user-123", None, false)?;
+        let (unsigned, signature) = token.rsplit_once('.').ok_or(JwtError::InvalidFormat)?;
+        let full = URL_SAFE_NO_PAD.decode(signature)?;
+        for tag in [
+            &full[..full.len() - 1],
+            &full[..1],
+            &[][..],
+            &[full.as_slice(), &[0u8]].concat()[..],
+        ] {
+            let forged = format!("{unsigned}.{}", URL_SAFE_NO_PAD.encode(tag));
+            assert!(matches!(
+                verify_token(signing_key, &forged),
+                Err(JwtError::InvalidSignature)
+            ));
+        }
         Ok(())
     }
 
