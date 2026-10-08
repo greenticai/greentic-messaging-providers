@@ -2058,6 +2058,7 @@ console.log('[runtime-bootstrap] loaded');
     var XHRProto = window.XMLHttpRequest.prototype;
     var origOpen = XHRProto.open;
     var origSend = XHRProto.send;
+    var origSetRequestHeader = XHRProto.setRequestHeader;
     XHRProto.open = function (method, url) {
       this.__gtcMethod = (method || '').toUpperCase();
       this.__gtcUrl = url;
@@ -2071,6 +2072,9 @@ console.log('[runtime-bootstrap] loaded');
             this.__gtcMethod = 'GET';
             this.__gtcUrl = args[1];
             this.__gtcResume = true;
+            // The saved conversation token is the only proof an anonymous visitor owns the
+            // conversation; the /token token proves nothing about it.
+            this.__gtcResumeToken = (typeof saved.token === 'string' && saved.token) ? saved.token : null;
             console.log('[bootstrap] resuming saved conversation:', saved.conversationId);
           }
         }
@@ -2078,6 +2082,12 @@ console.log('[runtime-bootstrap] loaded');
         // Resuming is best-effort; fall through to the original request.
       }
       return origOpen.apply(this, args);
+    };
+    XHRProto.setRequestHeader = function (name, value) {
+      if (this.__gtcResume && this.__gtcResumeToken && String(name).toLowerCase() === 'authorization') {
+        return origSetRequestHeader.call(this, name, 'Bearer ' + this.__gtcResumeToken);
+      }
+      return origSetRequestHeader.apply(this, arguments);
     };
     XHRProto.send = function (body) {
       var sendArgs = this.__gtcResume ? [] : arguments;

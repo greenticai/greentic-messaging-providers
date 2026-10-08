@@ -9,19 +9,25 @@ const BASE = '/v1/messaging/webchat/default/v3/directline/conversations';
 const CONVERSATION_ID = 'conv-resume-1';
 const PAGE = '/v1/web/webchat/default/?tenant=default';
 
-type Seen = { method: string; path: string; body: string | null };
+type Seen = { method: string; path: string; body: string | null; authorization: string | undefined };
 
-async function mockDirectLine(page: Page, resume: { status: number }) {
+const OWNER_REQUIRED = {
+  error: 'forbidden',
+  code: 'ConversationOwnerRequired',
+  message: 'this conversation belongs to another session; start a new conversation',
+};
+
+async function mockDirectLine(page: Page, resume: { status: number; body?: unknown }) {
   const seen: Seen[] = [];
   await page.route(CONVERSATIONS, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
-    seen.push({ method: request.method(), path, body: request.postData() });
+    seen.push({ method: request.method(), path, body: request.postData(), authorization: request.headers()['authorization'] });
     if (request.method() === 'POST') {
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
-        body: JSON.stringify({ conversationId: CONVERSATION_ID, streamUrl: `ws://example.test/${CONVERSATION_ID}/stream` }),
+        body: JSON.stringify({ conversationId: CONVERSATION_ID, token: 'conv-token-1', streamUrl: `ws://example.test/${CONVERSATION_ID}/stream` }),
       });
       return;
     }
@@ -31,7 +37,7 @@ async function mockDirectLine(page: Page, resume: { status: number }) {
       body: JSON.stringify(
         resume.status === 200
           ? { conversationId: CONVERSATION_ID, token: 'reissued', streamUrl: `ws://example.test/${CONVERSATION_ID}/stream?fresh=1` }
-          : { error: 'gone' },
+          : (resume.body ?? { error: 'gone' }),
       ),
     });
   });
@@ -46,6 +52,7 @@ async function openConversationViaXhr(page: Page) {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', url);
         xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('Authorization', 'Bearer page-token');
         xhr.responseType = 'json';
         xhr.addEventListener('loadend', () => resolve(xhr.status));
         xhr.send(JSON.stringify({ user: { id: 'u1' } }));
@@ -77,7 +84,10 @@ test.describe('conversation resume over XHR', () => {
     await page.reload();
     await openConversationViaXhr(page);
 
-    expect(seen.slice(1)).toEqual([{ method: 'GET', path: `${BASE}/${CONVERSATION_ID}`, body: null }]);
+    expect(seen[0].authorization).toBe('Bearer page-token');
+    expect(seen.slice(1)).toEqual([
+      { method: 'GET', path: `${BASE}/${CONVERSATION_ID}`, body: null, authorization: 'Bearer conv-token-1' },
+    ]);
     const refreshed = await savedConversation(page);
     expect(refreshed?.conversationId).toBe(CONVERSATION_ID);
     expect(refreshed?.streamUrl).toContain('fresh=1');
@@ -106,5 +116,25 @@ test.describe('conversation resume over XHR', () => {
     await page.waitForTimeout(1000);
     expect(loads).toBe(1);
     expect(await savedConversation(page)).toBeNull();
+  });
+
+  test('a saved record without a token resumes with the page token and fails closed', async ({ page }) => {
+    const seen = await mockDirectLine(page, { status: 403, body: OWNER_REQUIRED });
+    await page.goto(PAGE);
+    await openConversationViaXhr(page);
+    await page.evaluate(() => {
+      const key = Object.keys(localStorage).find((k) => k.startsWith('greentic:v2:dl:conversation:')) as string;
+      const record = JSON.parse(localStorage.getItem(key) as string);
+      delete record.token;
+      localStorage.setItem(key, JSON.stringify(record));
+    });
+    await page.reload();
+
+    let loads = 0;
+    page.on('load', () => { loads += 1; });
+    await openConversationViaXhr(page);
+    await expect.poll(() => loads).toBe(1);
+    expect(await savedConversation(page)).toBeNull();
+    expect(seen.slice(1).map((s) => [s.method, s.authorization])).toEqual([['GET', 'Bearer page-token']]);
   });
 });
