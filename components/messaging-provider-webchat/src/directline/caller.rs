@@ -60,6 +60,16 @@ pub fn caller_block(claims: &TokenClaims) -> Value {
         block.insert("team".into(), Value::String(team.to_string()));
     }
     if claims.verified {
+        // Verbatim: the runner refuses an issuer with surrounding whitespace
+        // rather than normalising it, so it is not trimmed here either.
+        if let Some(iss) = claims
+            .extra
+            .get(super::jwt::IDP_ISS_CLAIM)
+            .and_then(Value::as_str)
+            .filter(|iss| !iss.is_empty())
+        {
+            block.insert("iss".into(), Value::String(iss.to_string()));
+        }
         if let Some(groups) = string_array(claims.extra.get("groups")) {
             block.insert("groups".into(), groups);
         }
@@ -177,6 +187,37 @@ mod tests {
         assert_eq!(block, json!({"user_verified": true, "sub": "alice"}));
         let block = caller_block(&claims(true, None, json!({"groups": "hr"})));
         assert!(block.get("groups").is_none());
+    }
+
+    #[test]
+    fn a_verified_token_carries_the_identity_providers_issuer_verbatim() {
+        let block = caller_block(&claims(
+            true,
+            None,
+            json!({"idp_iss": "https://Acme.greentic-id.com/"}),
+        ));
+        assert_eq!(
+            block,
+            json!({"user_verified": true, "sub": "alice", "iss": "https://Acme.greentic-id.com/"})
+        );
+    }
+
+    #[test]
+    fn an_unverified_token_never_asserts_an_issuer() {
+        let block = caller_block(&claims(
+            false,
+            None,
+            json!({"idp_iss": "https://acme.greentic-id.com"}),
+        ));
+        assert_eq!(block, json!({"user_verified": false, "sub": "alice"}));
+    }
+
+    #[test]
+    fn an_empty_or_non_string_issuer_is_omitted() {
+        for bad in [json!(""), json!(7), json!(["https://a"]), json!(null)] {
+            let block = caller_block(&claims(true, None, json!({ "idp_iss": bad })));
+            assert!(block.get("iss").is_none(), "{block}");
+        }
     }
 
     #[test]
