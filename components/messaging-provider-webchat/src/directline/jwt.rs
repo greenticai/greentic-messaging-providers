@@ -127,6 +127,24 @@ pub fn issue_token(
     sign_new_token(secret, ctx, sub, conv, verified, Map::new())
 }
 
+/// The claim carrying the identity provider issuer a verified `sub` was checked
+/// against. Present only on a `verified` token; the caller block publishes it as
+/// `iss` so a ledger keyed by `sub` can tell two issuers' users apart.
+pub const IDP_ISS_CLAIM: &str = "idp_iss";
+
+/// Mint the token of a bearer verified against `idp_iss`.
+pub fn issue_verified_token(
+    secret: &[u8],
+    ctx: DirectLineContext,
+    sub: &str,
+    conv: Option<String>,
+    idp_iss: &str,
+) -> Result<(String, i64), JwtError> {
+    let mut extra = Map::new();
+    extra.insert(IDP_ISS_CLAIM.into(), Value::String(idp_iss.to_string()));
+    sign_new_token(secret, ctx, sub, conv, true, extra)
+}
+
 /// Re-issue `claims` — same `sub`, `ctx`, `verified` and carried extra claims —
 /// bound to `conv`, with a fresh lifetime.
 ///
@@ -145,7 +163,14 @@ pub fn reissue_token(
         &claims.sub,
         conv,
         claims.verified,
-        carried_extra_claims(&claims.extra),
+        {
+            let mut extra = carried_extra_claims(&claims.extra);
+            // Only a verified token may name an issuer.
+            if !claims.verified {
+                extra.remove(IDP_ISS_CLAIM);
+            }
+            extra
+        },
     )
 }
 
@@ -445,6 +470,65 @@ mod tests {
         );
         extra.insert("role".into(), serde_json::json!("admin"));
         assert!(carried_extra_claims(&extra).is_empty());
+    }
+
+    #[test]
+    fn a_verified_issue_stamps_the_identity_providers_issuer() -> Result<(), JwtError> {
+        let key = b"test-hmac-key";
+        let (token, _) = issue_verified_token(
+            key,
+            sample_ctx(),
+            "acme:users:7",
+            None,
+            "https://acme.greentic-id.com",
+        )?;
+        let claims = verify_token(key, &token)?;
+        assert!(claims.verified);
+        assert_eq!(
+            claims.extra.get(IDP_ISS_CLAIM),
+            Some(&serde_json::json!("https://acme.greentic-id.com"))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn an_anonymous_issue_carries_no_identity_provider_issuer() -> Result<(), JwtError> {
+        let key = b"test-hmac-key";
+        let (token, _) = issue_token(key, sample_ctx(), "guest-1", None, false)?;
+        let claims = verify_token(key, &token)?;
+        assert!(!claims.extra.contains_key(IDP_ISS_CLAIM));
+        Ok(())
+    }
+
+    #[test]
+    fn reissue_keeps_the_identity_providers_issuer_on_a_verified_token() -> Result<(), JwtError> {
+        let key = b"test-hmac-key";
+        let token = token_with_extra(key, serde_json::json!({"idp_iss": "https://idp.example"}));
+        let claims = verify_token(key, &token)?;
+        let (reissued, _) = reissue_token(key, &claims, Some("conv-1".into()))?;
+        let again = verify_token(key, &reissued)?;
+        assert_eq!(
+            again.extra.get(IDP_ISS_CLAIM),
+            Some(&serde_json::json!("https://idp.example"))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn reissue_drops_an_identity_provider_issuer_from_an_unverified_token() -> Result<(), JwtError>
+    {
+        let key = b"test-hmac-key";
+        let token = token_with_extra(
+            key,
+            serde_json::json!({"verified": false, "idp_iss": "https://evil.example", "role": "x"}),
+        );
+        let claims = verify_token(key, &token)?;
+        assert!(!claims.verified);
+        let (reissued, _) = reissue_token(key, &claims, None)?;
+        let again = verify_token(key, &reissued)?;
+        assert!(!again.extra.contains_key(IDP_ISS_CLAIM));
+        assert_eq!(again.extra.get("role"), Some(&serde_json::json!("x")));
+        Ok(())
     }
 
     #[test]
