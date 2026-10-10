@@ -34,6 +34,12 @@ pub struct ConversationState {
     pub flow_binding: Option<String>,
     #[serde(default)]
     pub layout: u8,
+    /// Creating token's `sub`; `None` = legacy, reachable only with a token bound to it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner_sub: Option<String>,
+    /// Only a verified owner can be matched by `sub`; an anonymous `sub` is client-chosen.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub owner_verified: bool,
 }
 
 impl ConversationState {
@@ -44,6 +50,16 @@ impl ConversationState {
             activities: Vec::new(),
             flow_binding: None,
             layout: LAYOUT_PER_ACTIVITY,
+            owner_sub: None,
+            owner_verified: false,
+        }
+    }
+
+    pub fn new_owned(ctx: DirectLineContext, sub: &str, verified: bool) -> Self {
+        ConversationState {
+            owner_sub: Some(sub.to_string()),
+            owner_verified: verified,
+            ..ConversationState::new(ctx)
         }
     }
 
@@ -255,6 +271,56 @@ mod tests {
         let first = state.bump_watermark();
         assert_eq!(first, 0);
         assert_eq!(state.next_watermark, 1);
+    }
+
+    const LEGACY_HEADER: &str =
+        r#"{"ctx":{"env":"e","tenant":"t","team":null},"next_watermark":3,"layout":2}"#;
+
+    #[test]
+    fn a_header_without_owner_fields_reads_as_legacy() {
+        let state: ConversationState = serde_json::from_str(LEGACY_HEADER).expect("legacy header");
+        assert_eq!(state.owner_sub, None);
+        assert!(!state.owner_verified);
+    }
+
+    #[test]
+    fn a_legacy_header_round_trips_byte_identically() {
+        let state: ConversationState = serde_json::from_str(LEGACY_HEADER).expect("legacy header");
+        let bytes = serde_json::to_vec(&state).expect("serialize");
+        assert_eq!(
+            bytes,
+            br#"{"ctx":{"env":"e","tenant":"t","team":null},"next_watermark":3,"flow_binding":null,"layout":2}"#
+        );
+    }
+
+    #[test]
+    fn an_owned_header_round_trips() {
+        let ctx = DirectLineContext {
+            env: "e".into(),
+            tenant: "t".into(),
+            team: None,
+        };
+        let state = ConversationState::new_owned(ctx, "acme:users:7", true);
+        let json = serde_json::to_string(&state).expect("serialize");
+        assert!(
+            json.contains(r#""owner_sub":"acme:users:7","owner_verified":true"#),
+            "{json}"
+        );
+        let back: ConversationState = serde_json::from_str(&json).expect("parse");
+        assert_eq!(back, state);
+    }
+
+    #[test]
+    fn an_anonymous_owner_omits_the_verified_flag() {
+        let ctx = DirectLineContext {
+            env: "e".into(),
+            tenant: "t".into(),
+            team: None,
+        };
+        let state = ConversationState::new_owned(ctx, "guest-1", false);
+        let json = serde_json::to_string(&state).expect("serialize");
+        assert!(json.contains(r#""owner_sub":"guest-1""#), "{json}");
+        assert!(!json.contains("owner_verified"), "{json}");
     }
 
     #[test]
