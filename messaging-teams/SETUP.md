@@ -37,6 +37,11 @@ Set `public_base_url` to the printed `…trycloudflare.com` host (Advanced confi
 You do **two device-code logins** (Graph + Azure management); the rest is automatic.
 At the end click **Add to Teams** and message the bot → **7/7**.
 
+The bot's app id (`ms_bot_app_id`) is what the host verifies each Bot Framework
+token's audience against. The wizard writes it; a deployment configured without
+the wizard sets the optional **Bot app ID** setup answer instead. Without it,
+Teams text still flows but files from Teams are not read.
+
 ## Test (no Microsoft account)
 
 ```bash

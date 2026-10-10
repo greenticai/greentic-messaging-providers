@@ -1,0 +1,19 @@
+{
+  "envelopes": [
+    {
+      "attachments": [
+        {
+          "mime_type": "image/jpeg",
+          "size_bytes": 98000
+        }
+      ],
+      "attachment_fetch": [
+        {
+          "kind": "telegram_file",
+          "file_id": "LARGE"
+        }
+      ],
+      "attachments_dropped": null
+    }
+  ]
+}

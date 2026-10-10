@@ -141,6 +141,7 @@ mod tests {
             person_id: id.map(str::to_string),
             room_type: room_type.map(str::to_string),
             attachments: Vec::new(),
+            pending: Vec::new(),
         }
     }
 

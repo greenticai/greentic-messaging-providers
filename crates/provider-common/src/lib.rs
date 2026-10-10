@@ -18,19 +18,24 @@
 
 pub mod ac_converter;
 pub mod approval;
+pub mod attachment_fetch;
 pub mod component_v0_6;
 pub mod helpers;
 pub mod http_compat;
 pub mod identify;
 pub mod lifecycle_events;
 pub mod lifecycle_keys;
+pub mod multipart;
 pub mod qa_helpers;
 pub mod qa_invoke_bridge;
 pub mod redact;
 pub mod render;
+pub mod slack_attachments;
+pub mod telegram_attachments;
 pub mod telemetry;
 pub mod test_macros;
 pub mod typing;
+pub mod whatsapp_attachments;
 
 pub use ac_converter::AdaptiveCardConverter;
 

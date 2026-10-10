@@ -229,4 +229,19 @@ mod tests {
         assert!(no_scope.from.is_none());
         assert!(no_scope.to.is_empty());
     }
+
+    #[test]
+    fn teams_graph_path_deliberately_emits_no_attachments_in_v1() {
+        // Teams Graph is deferred in v1 (only the Bot Framework path reads
+        // files). Remove this test only together with real support.
+        let envelope = build_team_envelope(
+            "see file".to_string(),
+            Some("user-1".to_string()),
+            Some("team-1".to_string()),
+            Some("channel-1".to_string()),
+        );
+        assert!(envelope.attachments.is_empty());
+        assert!(!envelope.extensions.contains_key("attachment_fetch"));
+        assert!(!envelope.extensions.contains_key("artifacts"));
+    }
 }

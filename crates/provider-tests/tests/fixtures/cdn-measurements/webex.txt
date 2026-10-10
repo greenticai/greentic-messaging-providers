@@ -1,0 +1,13 @@
+NOT MEASURED
+
+Webex file download redirect trace (G21). No Webex test bot was available when
+this file was created, so nothing here may widen a host list.
+
+To record (never commit a token; run from a scratch directory):
+
+  # WEBEX_CONTENT_URL = files[0] of a message with an attachment
+  curl -sS -o /dev/null -D - --max-redirs 0 -H "Authorization: Bearer $WEBEX_BOT_TOKEN" \
+    "$WEBEX_CONTENT_URL" | grep -iE '^(HTTP/|location:)' | sed -E 's/\?.*$/?<redacted>/'
+  # then repeat for each Location target WITHOUT the Authorization header, status only
+
+Record per hop: host, status, whether it needed the bearer.

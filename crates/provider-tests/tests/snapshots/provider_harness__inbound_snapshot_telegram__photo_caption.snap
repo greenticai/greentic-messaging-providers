@@ -1,0 +1,49 @@
+---
+source: crates/provider-tests/tests/provider_harness.rs
+expression: value
+---
+{
+  "event": {
+    "attachments": [
+      {
+        "mime_type": "image/jpeg",
+        "size_bytes": 98000
+      }
+    ],
+    "channel": "telegram",
+    "extensions": {
+      "attachment_fetch": [
+        {
+          "file_id": "LARGE",
+          "kind": "telegram_file"
+        }
+      ]
+    },
+    "from": {
+      "id": "<FIXED>",
+      "kind": "user"
+    },
+    "id": "<FIXED>",
+    "metadata": {
+      "chat_id": "1001",
+      "from": "42",
+      "locale": "id",
+      "universal": "true"
+    },
+    "session_id": "1001",
+    "tenant": {
+      "attempt": 0,
+      "env": "default",
+      "tenant": "default",
+      "tenant_id": "default"
+    },
+    "text": "what is this?",
+    "to": [
+      {
+        "id": "<FIXED>",
+        "kind": "chat"
+      }
+    ]
+  },
+  "ok": true
+}

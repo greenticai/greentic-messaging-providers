@@ -159,7 +159,7 @@ GREENTIC_ENV=dev gtc op demo send \
 ### Slack
 
 1. Create a Slack App at [api.slack.com/apps](https://api.slack.com/apps)
-2. Add Bot Token Scopes: `chat:write`, `channels:read`, `groups:read`
+2. Add Bot Token Scopes: `chat:write`, `channels:read`, `groups:read` (add `files:read` so the bot can read files shared with it; without it file shares are delivered but the host cannot download them)
 3. Install app to workspace, copy Bot User OAuth Token (`xoxb-...`)
 4. Seed the token
 5. Set Event Subscriptions URL: `{NGROK_URL}/v1/messaging/ingress/messaging-slack/default/default`
@@ -175,7 +175,7 @@ App Manifest (JSON) for quick setup:
   },
   "oauth_config": {
     "scopes": {
-      "bot": ["chat:write", "channels:read", "groups:read", "im:history", "channels:history", "groups:history"]
+      "bot": ["chat:write", "channels:read", "groups:read", "im:history", "channels:history", "groups:history", "files:read"]
     }
   },
   "settings": {

@@ -14,6 +14,7 @@ serde.workspace = true
 serde_json.workspace = true
 slack-auth-core.workspace = true
 wit-bindgen.workspace = true
+provider-common.workspace = true
 
 [dev-dependencies]
 greentic-types.workspace = true

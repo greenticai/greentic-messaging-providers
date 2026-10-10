@@ -12,6 +12,7 @@
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use greentic_types::messaging::universal_dto::{HttpInV1, HttpOutV1};
 use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_operator_http_in};
+use provider_common::slack_attachments::apply_slack_files;
 use serde_json::{Value, json};
 
 use super::modal::{handle_view_submission, open_slack_modal};
@@ -221,6 +222,7 @@ fn ingest_http_at(
         .then(|| slack_auth_core::caller_for_event(&body_val))
         .flatten();
     let mut envelope = build_slack_envelope(text, channel.clone(), sender);
+    apply_slack_files(&mut envelope, &payload);
     set_verified_caller(&mut envelope, caller);
     if let Some(locale) = user_locale {
         envelope.metadata.insert("locale".to_string(), locale);
@@ -514,6 +516,89 @@ pub(super) fn urldecode(input: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use provider_common::slack_attachments::slack_files;
+
+    fn slack_file(id: &str, mime: &str, name: &str, url: &str) -> Value {
+        json!({"id": id, "name": name, "mimetype": mime, "size": 10, "url_private_download": url})
+    }
+
+    #[test]
+    fn file_share_event_yields_fetch_refs_without_the_token() {
+        let payload = json!({
+            "type": "message", "subtype": "file_share", "channel": "C1", "user": "U1",
+            "text": "see attached",
+            "files": [
+                slack_file("F1", "application/pdf", "report.pdf",
+                    "https://files.slack.com/files-pri/T1-F1/download/report.pdf"),
+                slack_file("F2", "image/svg+xml", "x.svg",
+                    "https://files.slack.com/files-pri/T1-F2/download/x.svg")
+            ]
+        });
+        let mut envelope =
+            build_slack_envelope("see attached".into(), Some("C1".into()), Some("U1".into()));
+        provider_common::attachment_fetch::apply_fetch_refs(
+            &mut envelope,
+            slack_files(&payload).pending,
+        );
+        assert_eq!(envelope.attachments.len(), 1, "svg is rejected");
+        assert_eq!(envelope.attachments[0].mime_type, "application/pdf");
+        assert!(envelope.attachments[0].url.is_none());
+        let refs = &envelope.extensions["attachment_fetch"];
+        assert_eq!(refs[0]["kind"], "bearer");
+        assert_eq!(refs[0]["secret_key"], "SLACK_BOT_TOKEN");
+        let all = serde_json::to_string(&envelope).unwrap();
+        assert!(!all.contains("xoxb-"), "no token material in the envelope");
+    }
+
+    #[test]
+    fn slack_files_with_non_slack_hosts_are_ignored() {
+        let payload = json!({"files": [slack_file("F", "image/png", "a.png", "https://evil.example/a.png"),
+            slack_file("G", "image/png", "b.png", "https://files.slack.com.evil.example/b.png"),
+            slack_file("H", "image/png", "c.png", "https://user@files.slack.com/c.png")]});
+        assert!(slack_files(&payload).pending.is_empty());
+    }
+
+    #[test]
+    fn rejected_slack_files_are_counted_as_dropped() {
+        let body = json!({"type":"event_callback","team_id":"T1","event":{
+            "type":"message","subtype":"file_share","channel":"C1","user":"U1","text":"hi","ts":"1.1",
+            "files":[slack_file("F1","image/png","a.png","https://files.slack.com/a.png"),
+                slack_file("F2","image/png","b.png","https://edge.slack.com/b.png"),
+                slack_file("F3","image/png","c.png","https://evil.test/c.png")]}});
+        let out = ingest_http(&request(body.to_string().as_bytes(), json!({})));
+        let out: Value = serde_json::from_slice(&out).expect("out");
+        let env = &out["events"][0];
+        assert_eq!(env["attachments"].as_array().map(Vec::len), Some(1));
+        assert_eq!(env["metadata"]["attachments_dropped"], "2");
+    }
+
+    #[test]
+    fn url_private_is_the_fallback_when_no_download_url() {
+        let payload = json!({"files": [{"id":"F","name":"a.png","mimetype":"image/png","size":1,
+            "url_private":"https://files.slack.com/files-pri/T-F/a.png"}]});
+        assert_eq!(slack_files(&payload).pending.len(), 1);
+    }
+
+    #[test]
+    fn ingest_http_emits_attachments_for_file_share_and_none_for_plain_text() {
+        let body = json!({"type":"event_callback","team_id":"T1","event":{
+            "type":"message","subtype":"file_share","channel":"C1","user":"U1","text":"hi","ts":"1.1",
+            "files":[slack_file("F1","image/png","a.png","https://files.slack.com/files-pri/T1-F1/a.png")]}});
+        let out = ingest_http(&request(body.to_string().as_bytes(), json!({})));
+        let out: Value = serde_json::from_slice(&out).expect("out");
+        let env = &out["events"][0];
+        assert_eq!(env["attachments"][0]["mime_type"], "image/png");
+        assert!(env["attachments"][0]["url"].is_null());
+        assert_eq!(env["extensions"]["attachment_fetch"][0]["kind"], "bearer");
+
+        let plain = json!({"type":"event_callback","team_id":"T1","event":{
+            "type":"message","channel":"C1","user":"U1","text":"hi","ts":"1.2"}});
+        let out = ingest_http(&request(plain.to_string().as_bytes(), json!({})));
+        let out: Value = serde_json::from_slice(&out).expect("out");
+        let env = &out["events"][0];
+        assert!(env["attachments"].as_array().is_none_or(Vec::is_empty));
+        assert!(env["extensions"].get("attachment_fetch").is_none());
+    }
 
     const NOW: i64 = 1_800_000_000;
     const SECRET: &str = "test-slack-signing-secret";

@@ -28,7 +28,9 @@
   "sendBoxTextColor": "#334155",
   "sendBoxBorderTop": "1px solid #e2e8f0",
 
-  "hideUploadButton": true,
+  "hideUploadButton": false,
+  "enableUploadThumbnail": false,
+  "uploadAccept": "image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/markdown,text/csv,application/json,.txt,.md,.csv,.json",
 
   "suggestedActionBorderColor": "#e2e8f0",
   "suggestedActionBackgroundColor": "#f1f5f9",

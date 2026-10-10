@@ -1,0 +1,19 @@
+{
+  "envelopes": [
+    {
+      "attachments": [
+        {
+          "mime_type": "application/pdf",
+          "name": "plan.pdf"
+        }
+      ],
+      "attachment_fetch": [
+        {
+          "kind": "public",
+          "url": "https://contoso.sharepoint.com/personal/u/_layouts/15/download.aspx?UniqueId=1&tempauth=x"
+        }
+      ],
+      "attachments_dropped": null
+    }
+  ]
+}

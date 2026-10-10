@@ -1,0 +1,24 @@
+{
+  "headers": {
+    "x-provider": "webex",
+    "x-scenario": "files"
+  },
+  "body": {
+    "resource": "messages",
+    "event": "created",
+    "data": {
+      "id": "msg-1",
+      "roomId": "room-1",
+      "personEmail": "a@b.test"
+    }
+  },
+  "message": {
+    "id": "msg-1",
+    "roomId": "room-1",
+    "personEmail": "a@b.test",
+    "text": "see file",
+    "files": [
+      "https://webexapis.com/v1/contents/abc123"
+    ]
+  }
+}

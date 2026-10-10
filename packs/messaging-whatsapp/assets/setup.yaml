@@ -40,9 +40,9 @@ questions:
     title: API version
     kind: string
     required: true
-    default: "v17.0"
+    default: "v19.0"
     help: "WhatsApp Cloud API version"
-    placeholder: "v17.0"
+    placeholder: "v19.0"
     group: Connection
   - name: whatsapp_token
     title: WhatsApp access token
@@ -60,3 +60,11 @@ questions:
     secret: true
     help: "Custom token for webhook verification (you choose this value)"
     group: Authentication
+  - name: whatsapp_app_secret
+    title: WhatsApp app secret
+    kind: string
+    required: false
+    secret: true
+    help: "App secret from Meta App Dashboard (App settings → Basic). Used to verify that webhook calls come from Meta. Without it, files sent on WhatsApp are not read."
+    group: Authentication
+    docs_url: "https://developers.facebook.com/docs/graph-api/webhooks/getting-started#event-notifications"

@@ -257,6 +257,7 @@ fn envelope_from_payload(payload: &Value) -> Option<Value> {
         metadata.insert("event_ts".to_string(), Value::String(event_ts.to_string()));
     }
     metadata.append(&mut action_metadata);
+    provider_common::slack_attachments::apply_slack_files_to_value(&mut envelope, payload);
 
     Some(envelope)
 }
@@ -473,6 +474,57 @@ fn header_value(headers: &Map<String, Value>, key: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_ingress_emits_fetch_refs_for_files() {
+        let payload = json!({"type":"message","subtype":"file_share","channel":"C1","user":"U1","text":"t",
+            "ts":"1.1","files":[{"id":"F1","name":"a.png","mimetype":"image/png","size":5,
+            "url_private_download":"https://files.slack.com/files-pri/T-F/download/a.png"}]});
+        let envelope = envelope_from_payload(&payload).expect("envelope");
+        assert_eq!(envelope["attachments"][0]["mime_type"], "image/png");
+        assert!(envelope["attachments"][0]["url"].is_null());
+        assert_eq!(
+            envelope["extensions"]["attachment_fetch"][0]["kind"],
+            "bearer"
+        );
+        assert_eq!(
+            envelope["extensions"]["attachment_fetch"][0]["secret_key"],
+            "SLACK_BOT_TOKEN"
+        );
+    }
+
+    #[test]
+    fn legacy_ingress_ignores_foreign_hosts_and_leaves_plain_text_unchanged() {
+        let foreign = json!({"type":"message","channel":"C1","user":"U1","text":"t","ts":"1.1",
+            "files":[{"id":"F","name":"a.png","mimetype":"image/png","size":5,
+            "url_private_download":"https://evil.example/a.png"}]});
+        let envelope = envelope_from_payload(&foreign).expect("envelope");
+        assert_eq!(envelope["attachments"], json!([]));
+        assert!(
+            envelope
+                .get("extensions")
+                .and_then(|e| e.get("attachment_fetch"))
+                .is_none()
+        );
+
+        let plain = json!({"type":"message","channel":"C1","user":"U1","text":"t","ts":"1.2"});
+        let before = envelope_from_payload(&plain).expect("envelope");
+        assert_eq!(before["attachments"], json!([]));
+        assert!(before["metadata"].get("attachments_dropped").is_none());
+    }
+
+    #[test]
+    fn legacy_ingress_counts_rejected_files_and_accepts_only_files_slack_com() {
+        let payload = json!({"type":"message","channel":"C1","user":"U1","text":"t","ts":"1.1",
+            "files":[
+                {"id":"F","name":"a.png","mimetype":"image/png","size":5,
+                 "url_private_download":"https://edge.slack.com/a.png"},
+                {"id":"G","name":"b.png","mimetype":"image/png","size":5,
+                 "url_private_download":"https://files.slack.com/b.png"}]});
+        let envelope = envelope_from_payload(&payload).expect("envelope");
+        assert_eq!(envelope["attachments"].as_array().map(Vec::len), Some(1));
+        assert_eq!(envelope["metadata"]["attachments_dropped"], "1");
+    }
 
     #[test]
     fn header_lookup_is_case_insensitive() {

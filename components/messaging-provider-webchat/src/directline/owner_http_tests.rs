@@ -381,3 +381,61 @@ fn refresh_of_a_bound_token_from_another_context_is_refused() {
     assert_ne!(response.status, 200);
     assert!(decode_body(&response).expect("body").get("token").is_none());
 }
+
+fn upload(
+    state: &mut InMemoryStateStore,
+    secrets: &TestSecretStore,
+    conv_id: &str,
+    token: &str,
+) -> HttpOutV1 {
+    let body = multipart_body("BB", "image/png", b"\x89PNG\r\n\x1a\nOWNER-UPLOAD");
+    handle_directline_request(&upload_request(conv_id, token, "BB", body), state, secrets)
+}
+
+#[test]
+fn threat_b_cannot_upload_into_as_conversation() {
+    let (mut state, secrets) = setup();
+    let a = mint_anon(&mut state, &secrets, "guest-a");
+    let (conv_a, a_bound) = create(&mut state, &secrets, &a);
+    let b = mint_anon(&mut state, &secrets, "guest-b");
+    let verified_b = verified_unbound("acme:users:8");
+    let before = decode_body(&poll(&mut state, &secrets, &conv_a, &a_bound)).expect("body");
+
+    assert_owner_required(&upload(&mut state, &secrets, &conv_a, &b));
+    assert_owner_required(&upload(&mut state, &secrets, &conv_a, &verified_b));
+
+    let after = decode_body(&poll(&mut state, &secrets, &conv_a, &a_bound)).expect("body");
+    assert_eq!(before, after);
+}
+
+#[test]
+fn an_unbound_upload_to_a_random_id_is_indistinguishable() {
+    let (mut state, secrets) = setup();
+    let a = mint_anon(&mut state, &secrets, "guest-a");
+    let (conv_a, _) = create(&mut state, &secrets, &a);
+    let b = mint_anon(&mut state, &secrets, "guest-b");
+    let random = Uuid::new_v4().to_string();
+    assert_eq!(
+        upload(&mut state, &secrets, &conv_a, &b),
+        upload(&mut state, &secrets, &random, &b)
+    );
+}
+
+#[test]
+fn anonymous_owner_uploads_with_its_bound_token() {
+    let (mut state, secrets) = setup();
+    let a = mint_anon(&mut state, &secrets, "guest-a");
+    let (conv_a, a_bound) = create(&mut state, &secrets, &a);
+    let response = upload(&mut state, &secrets, &conv_a, &a_bound);
+    assert_eq!(response.status, 201, "{:?}", decode_body(&response));
+}
+
+#[test]
+fn verified_owner_can_upload_with_an_unbound_verified_token() {
+    let (mut state, secrets) = setup();
+    let owner = mint_verified_user_token(&mut state, &secrets);
+    let (conv_a, _) = create(&mut state, &secrets, &owner);
+    let fresh = verified_unbound("acme:users:7");
+    let response = upload(&mut state, &secrets, &conv_a, &fresh);
+    assert_eq!(response.status, 201, "{:?}", decode_body(&response));
+}

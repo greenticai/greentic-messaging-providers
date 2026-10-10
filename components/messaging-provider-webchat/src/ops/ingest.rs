@@ -35,7 +35,11 @@ use super::helpers::{
     decode_body_json, extract_activity_text, extract_text, non_empty_string, route_from_value,
     tenant_channel_from_value, user_from_value,
 };
+use super::ingest_upload::{
+    is_activities_path, is_upload_path, pending_from_upload, validated_upload,
+};
 use super::oauth::{handle_auth_config, handle_oauth_token_exchange};
+use provider_common::attachment_fetch::apply_fetch_refs;
 
 pub(crate) fn handle_ingest(input_json: &[u8]) -> Vec<u8> {
     let parsed: Value = match serde_json::from_slice(input_json) {
@@ -214,7 +218,7 @@ fn bool_from_config_value(value: &Value) -> Option<bool> {
 ///
 /// Separated from `handle_directline_path` so the envelope-stamping logic
 /// (flow_hint, locale, metadata) can be tested without WASM host bindings.
-fn stamp_ingest_envelopes(request: &HttpInV1, dl_path: &str, out: &mut HttpOutV1) {
+pub(super) fn stamp_ingest_envelopes(request: &HttpInV1, dl_path: &str, out: &mut HttpOutV1) {
     // Taken before anything else, and unconditionally, so the internal header
     // never reaches the client whichever branch below runs (or none does).
     let caller = take_caller_block(&mut out.headers);
@@ -370,11 +374,32 @@ fn stamp_ingest_envelopes(request: &HttpInV1, dl_path: &str, out: &mut HttpOutV1
 
     // Emit ChannelMessageEnvelope for POST /activities so the operator can
     // forward user messages to the flow engine.
+    let is_upload = is_upload_path(dl_path);
     if request.method.eq_ignore_ascii_case("POST")
-        && dl_path.contains("/activities")
+        && (is_activities_path(dl_path) || is_upload)
         && out.status == 201
     {
-        let body = decode_body_json(&request.body_b64).unwrap_or(Value::Null);
+        // An upload's bytes are not in state: re-run the route's own pure parse.
+        let (body, pending) = if is_upload {
+            let Some(upload) = validated_upload(request) else {
+                telemetry::emit(
+                    Level::Warn,
+                    PROVIDER_TYPE,
+                    "accepted upload could not be re-read; no envelope emitted",
+                    &[],
+                );
+                return;
+            };
+            (
+                Value::Object(upload.activity),
+                pending_from_upload(upload.files),
+            )
+        } else {
+            (
+                decode_body_json(&request.body_b64).unwrap_or(Value::Null),
+                Vec::new(),
+            )
+        };
         let text = extract_activity_text(&body);
         let action_value = body.get("value"); // Action.Submit data from AC buttons
         // The actor comes from the verified X-Greentic-User response header
@@ -400,7 +425,7 @@ fn stamp_ingest_envelopes(request: &HttpInV1, dl_path: &str, out: &mut HttpOutV1
         let (env_id, tenant_id) = extract_context_from_response_headers(&out.headers)
             .unwrap_or_else(|| ("default".to_string(), "default".to_string()));
         // For Action.Submit, derive a text label from the action data.
-        let effective_text = if text.is_empty() {
+        let effective_text = if text.is_empty() && !is_upload {
             action_value
                 .and_then(|v| {
                     v.get("step")
@@ -493,6 +518,9 @@ fn stamp_ingest_envelopes(request: &HttpInV1, dl_path: &str, out: &mut HttpOutV1
             .map(|h| h.value.clone())
         {
             envelope.metadata.insert("flow_hint".to_string(), flow);
+        }
+        if !pending.is_empty() {
+            apply_fetch_refs(&mut envelope, pending);
         }
         out.events.push(envelope);
     }

@@ -9,5 +9,6 @@ mod oidc_test_support;
 pub mod owner;
 pub mod state;
 pub mod store;
+pub mod upload;
 
 pub use http::{handle_directline_request, handle_directline_request_with_jwks};

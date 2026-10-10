@@ -29,6 +29,7 @@ Common setup values include:
 | --- | --- | --- |
 | `WHATSAPP_TOKEN` | Yes | WhatsApp Cloud API access token. |
 | `WHATSAPP_VERIFY_TOKEN` | Optional, recommended for ingress | Token used during webhook verification. |
+| `WHATSAPP_APP_SECRET` | Optional, needed for inbound files | Meta app secret. The host verifies each webhook's `X-Hub-Signature-256` with it; without it text still flows but files are not read. |
 
 Nightly e2e uses `E2E_WHATSAPP_TOKEN`, `E2E_WHATSAPP_PHONE_NUMBER_ID`, and `E2E_WHATSAPP_TO`.
 

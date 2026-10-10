@@ -1,0 +1,38 @@
+{
+  "envelopes": [
+    {
+      "attachments": [
+        {
+          "mime_type": "image/jpeg"
+        }
+      ],
+      "attachment_fetch": [
+        {
+          "kind": "whatsapp_media",
+          "media_id": "MEDIA1"
+        }
+      ],
+      "attachments_dropped": null
+    },
+    {
+      "attachments": [
+        {
+          "mime_type": "application/pdf",
+          "name": "x.pdf"
+        }
+      ],
+      "attachment_fetch": [
+        {
+          "kind": "whatsapp_media",
+          "media_id": "MEDIA2"
+        }
+      ],
+      "attachments_dropped": null
+    },
+    {
+      "attachments": [],
+      "attachment_fetch": null,
+      "attachments_dropped": null
+    }
+  ]
+}

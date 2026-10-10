@@ -209,7 +209,7 @@ struct BotHeader {
 /// - Requires and validates expiration time
 /// - Validates issuer is in the allowed list
 ///
-/// Phase 2 (follow-up): RSA signature verification against Bot Framework JWKS.
+/// Not an authenticity proof: greentic-start verifies the signature (`inbound_verify`).
 pub(crate) fn validate_jwt(token: &str, app_id: &str) -> Result<BotClaims, String> {
     let header = decode_jwt_header(token)?;
     let alg = header.alg.as_deref().unwrap_or("").trim();
@@ -361,6 +361,19 @@ mod tests {
             claims.service_url.as_deref(),
             Some("https://smba.trafficmanager.net/amer/")
         );
+    }
+
+    #[test]
+    fn validate_jwt_does_not_verify_the_signature() {
+        let claims = json!({
+            "iss": "https://api.botframework.com",
+            "aud": "bot-app-id",
+            "exp": 4_102_444_800_u64
+        });
+        let token = fake_signed_token(claims);
+        let (unsigned, _) = token.rsplit_once('.').expect("three segments");
+        let forged = format!("{unsigned}.AAAA");
+        assert!(validate_jwt(&forged, "bot-app-id").is_ok());
     }
 
     #[test]

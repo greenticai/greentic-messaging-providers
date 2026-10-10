@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 greentic-telemetry = { workspace = true }
+provider-common.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 wit-bindgen.workspace = true

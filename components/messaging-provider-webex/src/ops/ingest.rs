@@ -22,7 +22,9 @@ use sha1::Sha1;
 use super::caller::{
     CALLER_EXT_KEY, HostMessageSource, MessageSource, NotVerified, Verification, verified_caller,
 };
-use super::ingest_helpers::{build_webhook_envelope, build_webhook_metadata, pick_sender};
+use super::ingest_helpers::{
+    build_webhook_envelope, build_webhook_metadata, envelope_from_details, pick_sender,
+};
 #[cfg(not(test))]
 use crate::DEFAULT_WEBHOOK_SECRET_KEY;
 #[cfg(not(test))]
@@ -474,54 +476,15 @@ pub(super) fn handle_webhook_event_with(
         match source.token() {
             Ok(token) => match source.fetch_message(&message_id, &api_base, &token) {
                 Ok(details) => {
-                    let session_id = details
-                        .room_id
-                        .clone()
-                        .or(webhook_room.clone())
-                        .unwrap_or_else(|| message_id.clone());
-                    let sender = pick_sender(&details.person_email, &details.person_id)
-                        .or_else(|| pick_sender(&webhook_person_email, &webhook_person_id));
-                    let text = details
-                        .markdown
-                        .as_deref()
-                        .filter(|value| !value.trim().is_empty())
-                        .map(ToOwned::to_owned)
-                        .or_else(|| details.text.clone())
-                        .unwrap_or_default();
-                    let attachment_types = if details.attachments.is_empty() {
-                        None
-                    } else {
-                        Some(
-                            details
-                                .attachments
-                                .iter()
-                                .map(|a| a.mime_type.clone())
-                                .collect::<Vec<_>>()
-                                .join(","),
-                        )
-                    };
-                    let metadata = build_webhook_metadata(
+                    let mut envelope = envelope_from_details(
+                        &details,
+                        &message_id,
+                        webhook_room.as_ref(),
+                        webhook_person_email.as_ref(),
+                        webhook_person_id.as_ref(),
                         resource,
                         event,
-                        Some(&message_id),
-                        details.room_id.as_ref().or(webhook_room.as_ref()),
-                        details
-                            .person_email
-                            .as_ref()
-                            .or(webhook_person_email.as_ref()),
-                        details.person_id.as_ref().or(webhook_person_id.as_ref()),
-                        None,
-                        attachment_types.clone(),
                         cfg.default_locale.as_ref(),
-                        Some(200),
-                    );
-                    let mut envelope = build_webhook_envelope(
-                        text,
-                        session_id,
-                        sender,
-                        metadata,
-                        details.attachments.clone(),
-                        Some(&message_id),
                     );
                     if let Some(caller) = verified_caller(verification, resource, event, &details) {
                         envelope
@@ -656,6 +619,10 @@ pub(super) fn handle_webhook_event_with(
 fn is_webex_bot_email(value: &str) -> bool {
     value.to_ascii_lowercase().ends_with("@webex.bot")
 }
+
+#[cfg(test)]
+#[path = "ingest_signature_vector_tests.rs"]
+mod signature_vector_tests;
 
 #[cfg(test)]
 mod signature_tests {
@@ -800,6 +767,7 @@ mod signature_tests {
                 person_id: id.map(str::to_string),
                 room_type: room_type.map(str::to_string),
                 attachments: Vec::new(),
+                pending: Vec::new(),
             })
         }
         fn fetch_action(&self, _: &str, _: &str, _: &str) -> Result<Value, String> {

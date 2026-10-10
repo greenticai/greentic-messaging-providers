@@ -1,0 +1,19 @@
+{
+  "attachments": [
+    {
+      "mime_type": "image/png",
+      "url": "artifact://3bcb1d02c81468be98d1322608bd8c29d2d94eb4b5bc7da654686351a7ba39c7",
+      "name": "a.png",
+      "size_bytes": 3
+    }
+  ],
+  "extensions": {
+    "artifacts": [
+      {
+        "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "kind": "image",
+        "text_ref": null
+      }
+    ]
+  }
+}
