@@ -9,9 +9,7 @@ mod bindings {
 use bindings::exports::provider::common0_0_2::ingress::Guest;
 use bindings::exports::provider::common0_0_3::ingress::Guest as ConfiguredIngressGuest;
 use bindings::greentic::secrets_store::secrets_store;
-use hmac::{Hmac, KeyInit, Mac};
 use serde_json::{Map, Value, json};
-use sha2::Sha256;
 
 const SIGNING_SECRET_KEY: &str = "SLACK_SIGNING_SECRET";
 const USER_ENTERED_EVENT_TYPE: &str = "channel.user.entered";
@@ -59,24 +57,27 @@ fn get_optional_secret(key: &str) -> Option<Result<String, String>> {
     }
 }
 
+/// Verify `X-Slack-Signature` against the raw body.
+///
+/// The check itself (HMAC, 300 s replay window, constant-time compare) is
+/// `slack_auth_core::verify_request`, shared with `messaging-provider-slack`.
+/// The wall clock comes from the component's own WASI clock.
 fn verify_signature(headers: &Map<String, Value>, body: &str, secret: &str) -> Result<(), String> {
+    verify_signature_at(headers, body, secret, slack_auth_core::now_unix_secs())
+}
+
+fn verify_signature_at(
+    headers: &Map<String, Value>,
+    body: &str,
+    secret: &str,
+    now_secs: i64,
+) -> Result<(), String> {
     let signature = header_value(headers, "x-slack-signature")
         .ok_or_else(|| "validation error: missing signature".to_string())?;
     let timestamp = header_value(headers, "x-slack-request-timestamp")
         .ok_or_else(|| "validation error: missing timestamp".to_string())?;
-
-    let basestring = format!("v0:{timestamp}:{body}");
-    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes())
-        .map_err(|_| "validation error: invalid secret".to_string())?;
-    mac.update(basestring.as_bytes());
-    let signature_bytes = mac.finalize().into_bytes();
-    let computed = format!("v0={}", hex_encode(&signature_bytes));
-
-    if computed == signature {
-        Ok(())
-    } else {
-        Err("validation error: invalid signature".to_string())
-    }
+    slack_auth_core::verify_request(secret, &signature, &timestamp, body.as_bytes(), now_secs)
+        .map_err(|err| format!("validation error: {err}"))
 }
 
 fn normalize_body(headers: &Map<String, Value>, body_json: &str) -> Result<String, String> {
@@ -469,14 +470,6 @@ fn header_value(headers: &Map<String, Value>, key: &str) -> Option<String> {
         })
 }
 
-fn hex_encode(bytes: &[u8]) -> String {
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for b in bytes {
-        out.push_str(&format!("{:02x}", b));
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -492,33 +485,64 @@ mod tests {
         );
     }
 
+    const NOW: i64 = 1_800_000_000;
+
+    fn signed_headers(secret: &str, timestamp: i64, body: &str) -> Map<String, Value> {
+        use hmac::{Hmac, KeyInit, Mac};
+        let mut mac = Hmac::<sha2::Sha256>::new_from_slice(secret.as_bytes()).expect("hmac");
+        mac.update(format!("v0:{timestamp}:{body}").as_bytes());
+        let hex: String = mac
+            .finalize()
+            .into_bytes()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        let mut headers = Map::new();
+        headers.insert(
+            "x-slack-signature".into(),
+            Value::String(format!("v0={hex}")),
+        );
+        headers.insert(
+            "x-slack-request-timestamp".into(),
+            Value::String(timestamp.to_string()),
+        );
+        headers
+    }
+
     #[test]
     fn signature_verification_accepts_expected_hmac() {
         let body = r#"{"type":"event_callback"}"#;
-        let timestamp = "1700000000";
         let signing_key = ["signing", "key"].join("-");
-        let basestring = format!("v0:{timestamp}:{body}");
-        let mut mac = Hmac::<Sha256>::new_from_slice(signing_key.as_bytes()).expect("hmac");
-        mac.update(basestring.as_bytes());
-        let signature = format!("v0={}", hex_encode(&mac.finalize().into_bytes()));
-        let mut headers = Map::new();
+        let mut headers = signed_headers(&signing_key, NOW, body);
+
+        verify_signature_at(&headers, body, &signing_key, NOW).expect("valid signature");
+
+        let sig = headers["x-slack-signature"].as_str().unwrap().to_string();
         headers.insert(
             "x-slack-signature".to_string(),
-            Value::String(signature.clone()),
+            Value::String(format!("{sig}bad")),
         );
-        headers.insert(
-            "x-slack-request-timestamp".to_string(),
-            Value::String(timestamp.into()),
-        );
-
-        verify_signature(&headers, body, &signing_key).expect("valid signature");
-
-        headers.insert(
-            "x-slack-signature".to_string(),
-            Value::String(format!("{signature}bad")),
-        );
-        let err = verify_signature(&headers, body, &signing_key).expect_err("bad signature");
+        let err = verify_signature_at(&headers, body, &signing_key, NOW).expect_err("bad");
         assert!(err.contains("invalid signature"), "{err}");
+    }
+
+    #[test]
+    fn a_stale_or_future_timestamp_is_refused_despite_a_valid_signature() {
+        let body = r#"{"type":"event_callback"}"#;
+        let key = "k-secret";
+        for ts in [NOW - 301, NOW + 301, 1_700_000_000] {
+            let headers = signed_headers(key, ts, body);
+            let err = verify_signature_at(&headers, body, key, NOW).expect_err("replay window");
+            assert!(err.contains("timestamp"), "{err}");
+        }
+        let headers = signed_headers(key, NOW - 300, body);
+        verify_signature_at(&headers, body, key, NOW).expect("edge of the window");
+    }
+
+    #[test]
+    fn a_missing_header_is_refused() {
+        let err = verify_signature_at(&Map::new(), "{}", "k", NOW).expect_err("missing");
+        assert!(err.contains("missing signature"), "{err}");
     }
 
     #[test]

@@ -11,7 +11,7 @@ use provider_common::http_compat::{http_out_error, http_out_v1_bytes};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
-use super::build_slack_envelope;
+use super::{build_slack_envelope, set_verified_caller};
 use crate::bindings::greentic::http::http_client as client;
 use crate::config::get_secret_string;
 use crate::{DEFAULT_API_BASE, DEFAULT_BOT_TOKEN_KEY};
@@ -202,7 +202,10 @@ pub(super) fn open_slack_modal(
 /// Handle `view_submission` — user submitted a Slack modal that was opened
 /// from an AC Input.Text button. Extract input values, merge with the
 /// original action data (from private_metadata), and create an envelope.
-pub(super) fn handle_view_submission(submission: &Value) -> Vec<u8> {
+///
+/// `verified` is true only when the provider authenticated the request itself;
+/// it alone allows a caller block to be stamped.
+pub(super) fn handle_view_submission(submission: &Value, verified: bool) -> Vec<u8> {
     let user = submission
         .get("user")
         .and_then(|v| v.get("id"))
@@ -286,7 +289,11 @@ pub(super) fn handle_view_submission(submission: &Value) -> Vec<u8> {
         "[modal:submit]".to_string()
     };
 
+    let caller = verified
+        .then(|| slack_auth_core::caller_for_view_submission(submission, channel.as_deref()))
+        .flatten();
     let mut envelope = build_slack_envelope(action_text, channel.clone(), user);
+    set_verified_caller(&mut envelope, caller);
     // Forward all action data fields to metadata.
     if let Some(obj) = action_data.as_object() {
         for (k, v) in obj {

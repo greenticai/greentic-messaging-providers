@@ -86,6 +86,25 @@ pub(super) fn build_slack_envelope(
     }
 }
 
+/// Stamp the verified caller block onto an inbound envelope.
+///
+/// `caller` must come from `slack_auth_core::caller_for_*` and only for a
+/// request whose signature the provider itself verified (see
+/// `ingest::request_is_authentic`). `None` leaves the envelope anonymous, and
+/// any `caller` already present is removed: nothing the sender wrote may stand
+/// in for a verified identity.
+pub(super) fn set_verified_caller(
+    envelope: &mut ChannelMessageEnvelope,
+    caller: Option<serde_json::Value>,
+) {
+    envelope.extensions.remove(slack_auth_core::CALLER_EXT_KEY);
+    if let Some(block) = caller {
+        envelope
+            .extensions
+            .insert(slack_auth_core::CALLER_EXT_KEY.to_string(), block);
+    }
+}
+
 pub(super) fn mark_slack_user_entered(
     envelope: &mut ChannelMessageEnvelope,
     reason: &str,

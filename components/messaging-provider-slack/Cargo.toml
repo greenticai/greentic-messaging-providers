@@ -16,6 +16,11 @@ greentic-types.workspace = true
 wit-bindgen.workspace = true
 base64.workspace = true
 provider-common.workspace = true
+slack-auth-core.workspace = true
+
+[dev-dependencies]
+hmac.workspace = true
+sha2.workspace = true
 
 [package.metadata.component]
 package = "greentic:messaging-provider-slack-core"
