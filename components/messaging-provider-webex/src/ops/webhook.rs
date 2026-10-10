@@ -228,11 +228,23 @@ fn setup_webhook_with_sender(
     } else {
         wlog("setup_webhook: done with FAILURES — see per-webhook results above");
     }
+    let signing_secret_missing = setup.secret.is_none_or(|secret| secret.trim().is_empty());
     json!({
         "ok": all_ok,
         "target_url": setup.target_url,
         "webhook_url": setup.target_url,
         "webhooks": results,
+        "signing_secret_missing": signing_secret_missing,
+        "warning": if signing_secret_missing {
+            Value::String(
+                "No webhook signing secret is configured: inbound Webex webhooks are not \
+                 verified and carry no verified caller (the per-end-user ledger stays off). \
+                 Set webhook_secret / WEBEX_WEBHOOK_SECRET and re-run setup."
+                    .to_string(),
+            )
+        } else {
+            Value::Null
+        },
     })
 }
 
@@ -729,6 +741,13 @@ mod tests {
     }
 
     fn run_setup_with_existing(existing: Vec<Value>) -> (Value, Vec<RecordedRequest>) {
+        run_setup_with_secret(existing, Some("secret"))
+    }
+
+    fn run_setup_with_secret(
+        existing: Vec<Value>,
+        secret: Option<&str>,
+    ) -> (Value, Vec<RecordedRequest>) {
         let mut requests = Vec::new();
         let mut created = 0usize;
         let parsed = json!({});
@@ -773,7 +792,7 @@ mod tests {
                     target_url: TARGET_URL,
                     instance: INSTANCE,
                     room_id: None,
-                    secret: Some("secret"),
+                    secret,
                 },
                 &parsed,
                 &mut send,
@@ -943,6 +962,23 @@ mod tests {
                 && body.get("filter").is_none()
                 && body["targetUrl"] == TARGET_URL
         }));
+    }
+
+    #[test]
+    fn setup_flags_a_missing_signing_secret_without_failing() {
+        let (result, _) = run_setup_with_secret(Vec::new(), None);
+        assert_eq!(result["ok"], true);
+        assert_eq!(result["signing_secret_missing"], true);
+        assert!(
+            result["warning"]
+                .as_str()
+                .is_some_and(|w| w.contains("verified caller"))
+        );
+        let (blank, _) = run_setup_with_secret(Vec::new(), Some("  "));
+        assert_eq!(blank["signing_secret_missing"], true);
+        let (present, _) = run_setup_with_existing(Vec::new());
+        assert_eq!(present["signing_secret_missing"], false);
+        assert!(present["warning"].is_null());
     }
 
     #[test]

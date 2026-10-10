@@ -13,6 +13,7 @@
 //! summarisation) live directly in this file because they are used by both the
 //! `send` and `ingest` paths.
 
+mod caller;
 mod encode;
 mod identify;
 mod ingest;
