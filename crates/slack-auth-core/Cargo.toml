@@ -1,0 +1,12 @@
+[package]
+name = "slack-auth-core"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+description = "Slack request authentication and verified-caller derivation shared by the Slack ingress and provider components"
+
+[dependencies]
+hmac.workspace = true
+sha2.workspace = true
+serde_json.workspace = true
