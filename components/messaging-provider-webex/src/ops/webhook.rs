@@ -173,6 +173,12 @@ fn setup_webhook_with_sender(
         stale.len()
     ));
     for wh in &stale {
+        wlog(&format!(
+            "setup_webhook: deleting {} ({}.{}) — it no longer matches the desired target URL or signing secret",
+            value_str(wh, "name"),
+            value_str(wh, "resource"),
+            value_str(wh, "event"),
+        ));
         let result = delete_webhook(setup.api_base, setup.token, wh, send);
         if result.get("ok").and_then(Value::as_bool) != Some(true) {
             all_ok = false;
@@ -508,6 +514,28 @@ fn same_owned_webhook(wh: &Value, spec: &WebhookSpec) -> bool {
 fn existing_matches(wh: &Value, spec: &WebhookSpec) -> bool {
     same_owned_webhook(wh, spec)
         && wh.get("targetUrl").and_then(Value::as_str) == Some(spec.target_url.as_str())
+        && secret_matches(wh, spec)
+}
+
+/// Webex signs every delivery with the secret the webhook was created with, and
+/// returns that secret when the webhook is read. A webhook created by another
+/// process (an older instance still booting during a rollout, a previous deploy)
+/// can therefore point at the right URL and still sign with a secret this
+/// process does not hold: every delivery then fails signature verification and
+/// is dropped without a reply. Keeping such a webhook is the bug, so a differing
+/// secret makes it stale.
+///
+/// Nothing to compare when no secret is configured, and a webhook the API
+/// returned without one is treated as matching (unknown, not different) so a
+/// Webex that stops echoing it does not recreate the webhooks on every start.
+fn secret_matches(wh: &Value, spec: &WebhookSpec) -> bool {
+    let Some(want) = spec.secret.as_deref().filter(|value| !value.is_empty()) else {
+        return true;
+    };
+    match wh.get("secret").and_then(Value::as_str) {
+        Some(have) if !have.is_empty() => have == want,
+        _ => true,
+    }
 }
 
 fn create_webhook(
@@ -947,6 +975,100 @@ mod tests {
         assert!(webhooks.iter().all(|item| item["action"] == "keep"));
         assert!(!requests.iter().any(|request| request.method == "POST"));
         assert!(!requests.iter().any(|request| request.method == "DELETE"));
+    }
+
+    fn with_secret(mut wh: Value, secret: &str) -> Value {
+        wh["secret"] = json!(secret);
+        wh
+    }
+
+    fn three_current_webhooks(secret: Option<&str>) -> Vec<Value> {
+        let all = vec![
+            current_webhook(
+                "greentic-webex-demo-default-messages-mentioned-created",
+                "messages",
+                "created",
+                Some(&format!("mentionedPeople={BOT_PERSON_ID}")),
+            ),
+            current_webhook(
+                "greentic-webex-demo-default-messages-direct-created",
+                "messages",
+                "created",
+                Some("roomType=direct"),
+            ),
+            current_webhook(
+                "greentic-webex-demo-default-attachment-actions-created",
+                "attachmentActions",
+                "created",
+                None,
+            ),
+        ];
+        match secret {
+            Some(secret) => all.into_iter().map(|wh| with_secret(wh, secret)).collect(),
+            None => all,
+        }
+    }
+
+    #[test]
+    fn setup_recreates_webhooks_whose_signing_secret_differs() {
+        // Same names, same target URL, but created with another secret: every
+        // delivery would fail signature verification, so they must be replaced.
+        let (result, requests) =
+            run_setup_with_existing(three_current_webhooks(Some("old-secret")));
+
+        assert_eq!(result["ok"], true);
+        let deletes = requests.iter().filter(|r| r.method == "DELETE").count();
+        let posts: Vec<&RecordedRequest> = requests.iter().filter(|r| r.method == "POST").collect();
+        assert_eq!(deletes, 3, "the three mismatched webhooks are deleted");
+        assert_eq!(posts.len(), 3, "and created again");
+        assert!(posts.iter().all(|r| r.body["secret"] == "secret"));
+    }
+
+    #[test]
+    fn setup_keeps_webhooks_whose_signing_secret_matches() {
+        let (result, requests) = run_setup_with_existing(three_current_webhooks(Some("secret")));
+
+        assert_eq!(result["ok"], true);
+        assert!(
+            !requests
+                .iter()
+                .any(|r| r.method == "POST" || r.method == "DELETE")
+        );
+    }
+
+    #[test]
+    fn a_webhook_listed_without_a_secret_is_not_treated_as_different() {
+        // The base fixtures carry no secret field: unknown must not churn.
+        let (_, requests) = run_setup_with_existing(three_current_webhooks(None));
+        assert!(
+            !requests
+                .iter()
+                .any(|r| r.method == "POST" || r.method == "DELETE")
+        );
+    }
+
+    #[test]
+    fn no_configured_secret_never_counts_as_a_mismatch() {
+        let spec = webhook_specs(
+            "demo",
+            "https://example.com/hook",
+            None,
+            Some("bot-123"),
+            None,
+        )
+        .remove(0);
+        let existing = with_secret(
+            webhook_value(
+                "wh-1",
+                &spec.name,
+                spec.resource,
+                spec.event,
+                spec.filter.as_deref(),
+                "https://example.com/hook",
+            ),
+            "whatever",
+        );
+        assert!(existing_matches(&existing, &spec));
     }
 
     #[test]

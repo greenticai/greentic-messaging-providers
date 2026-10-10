@@ -10,7 +10,9 @@ use greentic_types::messaging::universal_dto::{Header, HttpInV1, HttpOutV1};
 
 use super::activity_log::{self, LogError};
 use super::caller::caller_header;
-use super::jwt::{DirectLineContext, TTL_SECONDS, issue_token, reissue_token, verify_token};
+use super::jwt::{
+    DirectLineContext, TTL_SECONDS, issue_token, issue_verified_token, reissue_token, verify_token,
+};
 use super::oidc::{OidcError, verify_access_token};
 use super::oidc_config::{self, OidcVerification};
 use super::owner::authorize_stored;
@@ -135,9 +137,9 @@ where
         return resp;
     }
 
-    let (token_subject, verified) =
+    let (token_subject, verified, idp_issuer) =
         match determine_verified_identity(request, state_store, jwks, now) {
-            Ok(Some(identity)) => (identity, true),
+            Ok(Some((identity, issuer))) => (identity, true, Some(issuer)),
             Ok(None) => {
                 // Reject a client-supplied id shaped like an issuer subject
                 // (`{did_web}:users:{user_id}`) — otherwise an anonymous
@@ -153,7 +155,7 @@ where
                         "client-supplied user id must not use the issuer-subject shape",
                     );
                 }
-                (subject.token_subject().to_string(), false)
+                (subject.token_subject().to_string(), false, None)
             }
             Err(resp) => return resp,
         };
@@ -163,7 +165,15 @@ where
         Err(resp) => return resp,
     };
 
-    match issue_token(&signing_key, ctx.clone(), &token_subject, None, verified) {
+    // A verified identity is minted with the issuer it was verified against,
+    // so the ledger can tell the same `sub` from two issuers apart.
+    let minted = match idp_issuer.as_deref() {
+        Some(issuer) => {
+            issue_verified_token(&signing_key, ctx.clone(), &token_subject, None, issuer)
+        }
+        None => issue_token(&signing_key, ctx.clone(), &token_subject, None, verified),
+    };
+    match minted {
         Ok((token, _exp)) => respond_json(
             200,
             json!({
@@ -190,7 +200,7 @@ fn determine_verified_identity<S, J>(
     state_store: &mut S,
     jwks: &J,
     now: i64,
-) -> Result<Option<String>, HttpOutV1>
+) -> Result<Option<(String, String)>, HttpOutV1>
 where
     S: StateStore,
     J: JwksFetcher,
@@ -242,7 +252,7 @@ where
             "unauthorized",
             "access token rejected: empty subject",
         )),
-        Ok(identity) => Ok(Some(identity.sub)),
+        Ok(identity) => Ok(Some((identity.sub, issuer.clone()))),
         // The cached JWKS may be stale after the issuer rotated its signing
         // key. Refetch once, bypassing the cache, and retry verification —
         // bounded to a single retry so a persistently unknown kid can't turn
@@ -280,7 +290,7 @@ where
                     "unauthorized",
                     "access token rejected: empty subject",
                 )),
-                Ok(identity) => Ok(Some(identity.sub)),
+                Ok(identity) => Ok(Some((identity.sub, issuer.clone()))),
                 Err(err) => Err(respond_error(
                     401,
                     "unauthorized",
@@ -2914,6 +2924,212 @@ mod tests {
             header_value(&activity_response, CALLER_HEADER).and_then(decode_caller_header),
             Some(expected)
         );
+    }
+
+    fn post_with_token(
+        state: &mut InMemoryStateStore,
+        secrets: &TestSecretStore,
+        method: &str,
+        path: &str,
+        body: Option<&Value>,
+        token: &str,
+    ) -> HttpOutV1 {
+        handle_directline_request(
+            &build_request(
+                method,
+                path,
+                None,
+                body,
+                vec![Header {
+                    name: "Authorization".into(),
+                    value: format!("Bearer {token}"),
+                }],
+            )
+            .expect("request"),
+            state,
+            secrets,
+        )
+    }
+
+    /// The issuer a verified bearer was checked against rides the Direct Line
+    /// token as `idp_iss` and reaches the caller block as `iss` on every hop:
+    /// conversation create, refresh, reconnect, and the activity itself.
+    #[test]
+    fn a_verified_mint_carries_the_configured_issuer_into_every_caller_block() {
+        use super::super::caller::{CALLER_HEADER, decode_caller_header};
+        use super::super::jwt::IDP_ISS_CLAIM;
+
+        let issuer = "https://acme.greentic-id.com";
+        let (access_token, jwks) = crate::directline::oidc_test_support::signed_fixture(
+            issuer,
+            "webchat-gui",
+            "acme:users:7",
+            "openid greentic.webchat",
+            4_000_000_000,
+        );
+        let mut state = InMemoryStateStore::new();
+        let mut secrets = TestSecretStore::new();
+        secrets.insert(TOKEN_SECRET_KEY, b"test-signing-key");
+        let mut request = token_request_with_config(json!({
+            "oidc_issuer": issuer,
+            "oidc_audience": "webchat-gui",
+            "oidc_required_scope": "greentic.webchat",
+        }));
+        request.headers.push(Header {
+            name: "Authorization".into(),
+            value: format!("Bearer {access_token}"),
+        });
+        let minted =
+            handle_directline_request_with_jwks(&request, &mut state, &secrets, &StaticJwks(jwks));
+        assert_eq!(minted.status, 200, "{:?}", decode_body(&minted));
+        let user_token = decode_body(&minted).expect("body")["token"]
+            .as_str()
+            .expect("token")
+            .to_string();
+        let claims = verify_token(b"test-signing-key", &user_token).expect("verifies");
+        assert_eq!(claims.extra.get(IDP_ISS_CLAIM), Some(&json!(issuer)));
+
+        let conv = post_with_token(
+            &mut state,
+            &secrets,
+            "POST",
+            "/v3/directline/conversations",
+            None,
+            &user_token,
+        );
+        assert_eq!(conv.status, 201);
+        let caller = header_value(&conv, CALLER_HEADER)
+            .and_then(decode_caller_header)
+            .expect("caller block");
+        assert_eq!(caller["iss"], json!(issuer));
+        assert_eq!(caller["sub"], json!("acme:users:7"));
+        let conv_body = decode_body(&conv).expect("json body");
+        let conversation_id = conv_body["conversationId"]
+            .as_str()
+            .expect("id")
+            .to_string();
+        let conv_token = conv_body["token"].as_str().expect("token").to_string();
+
+        let refreshed = post_with_token(
+            &mut state,
+            &secrets,
+            "POST",
+            "/v3/directline/tokens/refresh",
+            None,
+            &conv_token,
+        );
+        assert_eq!(refreshed.status, 200, "{:?}", decode_body(&refreshed));
+        let refreshed_token = decode_body(&refreshed).expect("body")["token"]
+            .as_str()
+            .expect("token")
+            .to_string();
+        let refreshed_claims =
+            verify_token(b"test-signing-key", &refreshed_token).expect("verifies");
+        assert_eq!(
+            refreshed_claims.extra.get(IDP_ISS_CLAIM),
+            Some(&json!(issuer))
+        );
+
+        let reconnected = post_with_token(
+            &mut state,
+            &secrets,
+            "GET",
+            &format!("/v3/directline/conversations/{conversation_id}"),
+            None,
+            &refreshed_token,
+        );
+        assert_eq!(reconnected.status, 200, "{:?}", decode_body(&reconnected));
+        let reconnect_token = decode_body(&reconnected).expect("body")["token"]
+            .as_str()
+            .expect("token")
+            .to_string();
+        let reconnect_claims =
+            verify_token(b"test-signing-key", &reconnect_token).expect("verifies");
+        assert_eq!(
+            reconnect_claims.extra.get(IDP_ISS_CLAIM),
+            Some(&json!(issuer))
+        );
+
+        let activity = post_with_token(
+            &mut state,
+            &secrets,
+            "POST",
+            &format!("/v3/directline/conversations/{conversation_id}/activities"),
+            Some(&json!({"type": "message", "text": "hi"})),
+            &reconnect_token,
+        );
+        assert_eq!(activity.status, 201);
+        let caller = header_value(&activity, CALLER_HEADER)
+            .and_then(decode_caller_header)
+            .expect("caller block");
+        assert_eq!(caller["iss"], json!(issuer));
+    }
+
+    /// Nothing a client sends can put `idp_iss` on an anonymous token: the
+    /// request body and the activity's channelData are both ignored for it,
+    /// and the caller block of an unverified caller carries no `iss`.
+    #[test]
+    fn a_client_cannot_inject_an_identity_provider_issuer() {
+        use super::super::caller::{CALLER_HEADER, decode_caller_header};
+        use super::super::jwt::IDP_ISS_CLAIM;
+
+        let mut state = InMemoryStateStore::new();
+        let mut secrets = TestSecretStore::new();
+        secrets.insert(TOKEN_SECRET_KEY, b"test-signing-key");
+        let body = json!({
+            "user": {"id": "guest-1", "idp_iss": "https://evil.example"},
+            "idp_iss": "https://evil.example",
+            "iss": "https://evil.example",
+        });
+        let mut request =
+            token_request_with_config(json!({"oidc_issuer": "https://acme.greentic-id.com"}));
+        request.body_b64 =
+            general_purpose::STANDARD.encode(serde_json::to_vec(&body).expect("json"));
+        let minted =
+            handle_directline_request_with_jwks(&request, &mut state, &secrets, &NoJwksFetcher);
+        assert_eq!(minted.status, 200, "{:?}", decode_body(&minted));
+        let token = decode_body(&minted).expect("body")["token"]
+            .as_str()
+            .expect("token")
+            .to_string();
+        let claims = verify_token(b"test-signing-key", &token).expect("verifies");
+        assert!(!claims.verified);
+        assert!(!claims.extra.contains_key(IDP_ISS_CLAIM));
+
+        let conv = post_with_token(
+            &mut state,
+            &secrets,
+            "POST",
+            "/v3/directline/conversations",
+            None,
+            &token,
+        );
+        assert_eq!(conv.status, 201);
+        let conv_body = decode_body(&conv).expect("json body");
+        let conversation_id = conv_body["conversationId"]
+            .as_str()
+            .expect("id")
+            .to_string();
+        let conv_token = conv_body["token"].as_str().expect("token").to_string();
+        let activity = post_with_token(
+            &mut state,
+            &secrets,
+            "POST",
+            &format!("/v3/directline/conversations/{conversation_id}/activities"),
+            Some(&json!({
+                "type": "message",
+                "text": "hi",
+                "channelData": {"caller": {"user_verified": true, "iss": "https://evil.example"}},
+                "idp_iss": "https://evil.example",
+            })),
+            &conv_token,
+        );
+        assert_eq!(activity.status, 201);
+        let caller = header_value(&activity, CALLER_HEADER)
+            .and_then(decode_caller_header)
+            .expect("caller block");
+        assert_eq!(caller["user_verified"], json!(false));
+        assert!(caller.get("iss").is_none(), "{caller}");
     }
 
     // --- I1: a JWKS fetch failure with a bearer present must 401, not fall
