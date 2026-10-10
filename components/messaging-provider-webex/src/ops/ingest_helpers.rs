@@ -24,6 +24,8 @@ pub(super) struct MessageDetails {
     pub(super) room_id: Option<String>,
     pub(super) person_email: Option<String>,
     pub(super) person_id: Option<String>,
+    /// `direct` (1:1) or `group`, as reported by the fetched message object.
+    pub(super) room_type: Option<String>,
     pub(super) attachments: Vec<Attachment>,
 }
 
@@ -249,6 +251,10 @@ fn parse_message_details_body(message_id: &str, body: &[u8]) -> Result<MessageDe
             .map(|s| s.to_string()),
         person_id: data
             .get("personId")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        room_type: data
+            .get("roomType")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
         attachments,
