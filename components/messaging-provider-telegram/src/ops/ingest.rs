@@ -16,6 +16,7 @@ use provider_common::http_compat::{http_out_error, http_out_v1_bytes, parse_oper
 use provider_common::lifecycle_events::{mark_user_entered, user_entered_idempotency_key};
 use serde_json::{Value, json};
 
+use super::caller::{CALLER_EXT_KEY, host_verified, verified_caller};
 use super::form_reply;
 
 fn debug_enabled() -> bool {
@@ -54,6 +55,12 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
     let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
+    // Did greentic-start authenticate this webhook (secret token matched a
+    // configured ref)? Only then may a verified caller be stamped.
+    let marked = serde_json::from_slice::<Value>(input_json)
+        .map(|input| host_verified(&input))
+        .unwrap_or(false);
+    let caller = verified_caller(&body_val, marked);
 
     // Handle callback_query (inline keyboard button clicks — e.g. AC Action.Submit).
     let has_callback = body_val.get("callback_query").is_some();
@@ -68,7 +75,7 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             .unwrap_or_default()
     );
     if let Some(callback) = body_val.get("callback_query") {
-        return ingest_callback_query(&body_val, callback);
+        return ingest_callback_query(&body_val, callback, caller);
     }
 
     let message = body_val.get("message").cloned().unwrap_or(Value::Null);
@@ -82,6 +89,7 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         from.clone(),
         msg_locale,
     );
+    stamp_caller(&mut envelope, caller);
     if is_start_command(&text) {
         let idempotency_key = user_entered_idempotency_key(
             "telegram",
@@ -147,7 +155,16 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
     http_out_v1_bytes(&out)
 }
 
-fn ingest_callback_query(body_val: &Value, callback: &Value) -> Vec<u8> {
+/// Put the verified caller block on the envelope, if there is one.
+fn stamp_caller(envelope: &mut ChannelMessageEnvelope, caller: Option<Value>) {
+    if let Some(block) = caller {
+        envelope
+            .extensions
+            .insert(CALLER_EXT_KEY.to_string(), block);
+    }
+}
+
+fn ingest_callback_query(body_val: &Value, callback: &Value, caller: Option<Value>) -> Vec<u8> {
     let callback_id = callback
         .get("id")
         .and_then(|v| v.as_str())
@@ -172,6 +189,7 @@ fn ingest_callback_query(body_val: &Value, callback: &Value) -> Vec<u8> {
     let cb_locale = extract_language_code(callback);
     let mut envelope =
         build_telegram_envelope_with_locale(action_text, chat_id.clone(), from.clone(), cb_locale);
+    stamp_caller(&mut envelope, caller);
     if !route_to_card.is_empty() {
         envelope
             .metadata
@@ -403,11 +421,89 @@ mod tests {
     use serde_json::json;
 
     fn ingest_body(body: Value) -> HttpOutV1 {
+        ingest_with_headers(body, Vec::new())
+    }
+
+    fn marked() -> Vec<greentic_types::messaging::universal_dto::Header> {
+        vec![greentic_types::messaging::universal_dto::Header {
+            name: "x-greentic-auth-verified".into(),
+            value: "telegram".into(),
+        }]
+    }
+
+    fn private_text() -> Value {
+        json!({"message": {
+            "from": {"id": 42, "is_bot": false},
+            "chat": {"id": 42, "type": "private"},
+            "text": "hello"
+        }})
+    }
+
+    #[test]
+    fn marked_private_message_carries_the_verified_caller() {
+        let out = ingest_with_headers(private_text(), marked());
+        assert_eq!(
+            out.events[0].extensions.get("caller"),
+            Some(&json!({"user_verified": true, "sub": "42", "iss": "telegram"}))
+        );
+    }
+
+    #[test]
+    fn unmarked_private_message_carries_no_caller() {
+        let out = ingest_body(private_text());
+        assert!(!out.events[0].extensions.contains_key("caller"));
+    }
+
+    #[test]
+    fn a_body_cannot_smuggle_a_caller_even_when_marked() {
+        let mut body = private_text();
+        body["message"]["extensions"] = json!({"caller": {"user_verified": true, "sub": "9"}});
+        body["extensions"] = json!({"caller": {"user_verified": true, "sub": "9"}});
+        let out = ingest_body(body.clone());
+        assert!(!out.events[0].extensions.contains_key("caller"));
+        let out = ingest_with_headers(body, marked());
+        assert_eq!(out.events[0].extensions.get("caller").unwrap()["sub"], "42");
+    }
+
+    #[test]
+    fn marked_group_message_carries_no_caller() {
+        let out = ingest_with_headers(
+            json!({"message": {
+                "from": {"id": 42, "is_bot": false},
+                "chat": {"id": -100, "type": "supergroup"},
+                "text": "hello"
+            }}),
+            marked(),
+        );
+        assert!(!out.events[0].extensions.contains_key("caller"));
+    }
+
+    #[test]
+    fn marked_private_callback_query_carries_the_verified_caller() {
+        let body = json!({"callback_query": {
+            "id": "cb-1",
+            "from": {"id": 42, "is_bot": false},
+            "message": {"chat": {"id": 42, "type": "private"}},
+            "data": "{\"r\":\"c\"}"
+        }});
+        let marked_out = ingest_with_headers(body.clone(), marked());
+        assert_eq!(
+            marked_out.events[0].extensions.get("caller").unwrap()["sub"],
+            "42"
+        );
+        let plain = ingest_body(body);
+        assert!(!plain.events[0].extensions.contains_key("caller"));
+    }
+
+    fn ingest_with_headers(
+        body: Value,
+        headers: Vec<greentic_types::messaging::universal_dto::Header>,
+    ) -> HttpOutV1 {
         let request = HttpInV1 {
             method: "POST".to_string(),
             path: "/telegram".to_string(),
             query: None,
-            headers: Vec::new(),
+            headers,
             body_b64: STANDARD.encode(serde_json::to_vec(&body).expect("body json")),
             binding_id: None,
             route_hint: None,
