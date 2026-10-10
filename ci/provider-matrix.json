@@ -184,7 +184,7 @@
     },
     "slack": {
       "pack": "messaging-slack",
-      "version": "0.5.22",
+      "version": "0.5.23",
       "ghcr_target": "ghcr.io/greenticai/messaging-slack",
       "shared_crate_dependency": "greentic-messaging-provider-common@0.4.102",
       "e2e": {
@@ -294,7 +294,7 @@
     },
     "telegram": {
       "pack": "messaging-telegram",
-      "version": "0.5.11",
+      "version": "0.5.12",
       "ghcr_target": "ghcr.io/greenticai/messaging-telegram",
       "shared_crate_dependency": "greentic-messaging-provider-common@0.4.102",
       "e2e": {
@@ -424,7 +424,7 @@
     },
     "webex": {
       "pack": "messaging-webex",
-      "version": "0.5.18",
+      "version": "0.5.19",
       "ghcr_target": "ghcr.io/greenticai/messaging-webex",
       "shared_crate_dependency": "greentic-messaging-provider-common@0.4.102",
       "e2e": {
