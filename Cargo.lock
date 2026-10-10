@@ -2246,7 +2246,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-slack"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "greentic-telemetry",
  "greentic-types 1.1.4",
@@ -2273,7 +2273,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-ingress-telegram"
-version = "0.5.10"
+version = "0.5.12"
 dependencies = [
  "greentic-telemetry",
  "serde",
@@ -2342,7 +2342,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-slack"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "base64",
  "greentic-messaging-provider-common",
@@ -2373,7 +2373,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-telegram"
-version = "0.5.11"
+version = "0.5.12"
 dependencies = [
  "base64",
  "greentic-messaging-provider-common",
@@ -2424,7 +2424,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webex"
-version = "0.5.18"
+version = "0.5.19"
 dependencies = [
  "base64",
  "greentic-messaging-provider-common",
@@ -3475,7 +3475,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slack"
-version = "0.5.22"
+version = "0.5.23"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",
@@ -3593,7 +3593,7 @@ dependencies = [
 
 [[package]]
 name = "telegram"
-version = "0.5.10"
+version = "0.5.12"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",
@@ -3606,7 +3606,7 @@ dependencies = [
 
 [[package]]
 name = "telegram-webhook"
-version = "0.5.10"
+version = "0.5.12"
 dependencies = [
  "greentic-telemetry",
  "serde",
@@ -4690,7 +4690,7 @@ dependencies = [
 
 [[package]]
 name = "webex"
-version = "0.5.18"
+version = "0.5.19"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",
@@ -4702,7 +4702,7 @@ dependencies = [
 
 [[package]]
 name = "webex-webhook"
-version = "0.5.18"
+version = "0.5.19"
 dependencies = [
  "greentic-telemetry",
  "serde",
