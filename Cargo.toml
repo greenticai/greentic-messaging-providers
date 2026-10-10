@@ -63,6 +63,7 @@ urlencoding = "2"
 uuid = { version = "1", features = ["v4"] }
 wasmtime = { version = "45", features = ["component-model", "cache"] }
 wasmtime-wasi = "45"
+slack-auth-core = { path = "crates/slack-auth-core" }
 webchat-directline-core = { path = "crates/webchat-directline-core" }
 wit-bindgen = "0.57"
 zip = "8"

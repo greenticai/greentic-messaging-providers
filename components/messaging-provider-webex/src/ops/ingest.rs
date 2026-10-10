@@ -19,14 +19,18 @@ use serde_json::{Value, json};
 // foxguard: ignore[rs/no-weak-hash]
 use sha1::Sha1;
 
+use super::caller::{
+    CALLER_EXT_KEY, HostMessageSource, MessageSource, NotVerified, Verification, verified_caller,
+};
 use super::ingest_helpers::{
-    build_webhook_envelope, build_webhook_metadata, envelope_from_details, fetch_action_details,
-    fetch_message_details, pick_sender,
+    build_webhook_envelope, build_webhook_metadata, envelope_from_details, pick_sender,
 };
 #[cfg(not(test))]
 use crate::DEFAULT_WEBHOOK_SECRET_KEY;
-use crate::config::{get_secret_string, load_config};
-use crate::{DEFAULT_API_BASE, DEFAULT_TOKEN_KEY, PROVIDER_TYPE, ProviderConfig};
+#[cfg(not(test))]
+use crate::config::get_secret_string;
+use crate::config::load_config;
+use crate::{DEFAULT_API_BASE, PROVIDER_TYPE, ProviderConfig};
 
 pub(crate) struct IngestOutcome {
     pub(crate) envelope: Option<ChannelMessageEnvelope>,
@@ -48,16 +52,31 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
     let cfg = load_config(&json!({})).unwrap_or_default();
-    if let Some(secret) = cfg
+    let secret = cfg
         .webhook_secret
         .clone()
-        .or_else(resolve_webhook_secret_for_verification)
-        && !verify_webex_signature(&request.headers, &body_bytes, &secret)
-    {
-        return http_out_error(401, "invalid Webex webhook signature");
+        .or_else(resolve_webhook_secret_for_verification);
+    // Computed ONCE, here; the envelope builder only consumes this value.
+    let verification =
+        match check_request_signature(&request.headers, &body_bytes, secret.as_deref()) {
+            Ok(verification) => verification,
+            Err(SignatureRejected) => {
+                return http_out_error(401, "invalid Webex webhook signature");
+            }
+        };
+    if let Verification::Unverified(reason) = verification {
+        telemetry::emit(
+            Level::Warn,
+            PROVIDER_TYPE,
+            "webex webhook signature NOT verified; admitting without a verified caller",
+            &[Field {
+                key: field::ERROR,
+                value: reason.as_str(),
+            }],
+        );
     }
     let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
-    let outcome = handle_webhook_event(&body_val, &cfg);
+    let outcome = handle_webhook_event(&body_val, &cfg, verification);
 
     let mut normalized = json!({
         "ok": outcome.error.is_none(),
@@ -87,6 +106,34 @@ fn resolve_webhook_secret_for_verification() -> Option<String> {
 #[cfg(test)]
 fn resolve_webhook_secret_for_verification() -> Option<String> {
     None
+}
+
+/// The signature was present-and-required but did not match.
+struct SignatureRejected;
+
+/// Check the webhook signature once and report what was actually proven.
+///
+/// Admission is unchanged: no secret (or an unreadable secret store) admits the
+/// request, a resolved secret with a missing or wrong signature rejects it.
+/// What changed is that the two admitted cases are no longer indistinguishable:
+/// only a resolved, non-empty secret whose signature matched is `Verified`.
+fn check_request_signature(
+    headers: &[greentic_types::messaging::universal_dto::Header],
+    body: &[u8],
+    secret: Option<&str>,
+) -> Result<Verification, SignatureRejected> {
+    let Some(secret) = secret else {
+        return Ok(Verification::Unverified(NotVerified::NoSecret));
+    };
+    if !verify_webex_signature(headers, body, secret) {
+        return Err(SignatureRejected);
+    }
+    if secret.trim().is_empty() {
+        // An HMAC keyed by nothing is computable by anyone: it admits (as before)
+        // but proves nothing.
+        return Ok(Verification::Unverified(NotVerified::EmptySecret));
+    }
+    Ok(Verification::Verified)
 }
 
 fn verify_webex_signature(
@@ -145,7 +192,20 @@ fn constant_time_eq_hex(actual: &str, expected: &str) -> bool {
         == 0
 }
 
-pub(crate) fn handle_webhook_event(body: &Value, cfg: &ProviderConfig) -> IngestOutcome {
+pub(crate) fn handle_webhook_event(
+    body: &Value,
+    cfg: &ProviderConfig,
+    verification: Verification,
+) -> IngestOutcome {
+    handle_webhook_event_with(body, cfg, verification, &HostMessageSource)
+}
+
+pub(super) fn handle_webhook_event_with(
+    body: &Value,
+    cfg: &ProviderConfig,
+    verification: Verification,
+    source: &dyn MessageSource,
+) -> IngestOutcome {
     let resource = body
         .get("resource")
         .and_then(|s| s.as_str())
@@ -307,8 +367,8 @@ pub(crate) fn handle_webhook_event(body: &Value, cfg: &ProviderConfig) -> Ingest
         let sender = pick_sender(&webhook_person_email, &webhook_person_id);
 
         // Fetch action details to get user inputs.
-        let inputs = match get_secret_string(DEFAULT_TOKEN_KEY) {
-            Ok(token) => match fetch_action_details(action_id, &api_base, &token) {
+        let inputs = match source.token() {
+            Ok(token) => match source.fetch_action(action_id, &api_base, &token) {
                 Ok(details) => details,
                 Err(err) => {
                     let detail = redact::error_message(&err);
@@ -413,10 +473,10 @@ pub(crate) fn handle_webhook_event(body: &Value, cfg: &ProviderConfig) -> Ingest
             .unwrap_or(DEFAULT_API_BASE)
             .trim_end_matches('/')
             .to_string();
-        match get_secret_string(DEFAULT_TOKEN_KEY) {
-            Ok(token) => match fetch_message_details(&message_id, &api_base, &token) {
+        match source.token() {
+            Ok(token) => match source.fetch_message(&message_id, &api_base, &token) {
                 Ok(details) => {
-                    let envelope = envelope_from_details(
+                    let mut envelope = envelope_from_details(
                         &details,
                         &message_id,
                         webhook_room.as_ref(),
@@ -426,6 +486,11 @@ pub(crate) fn handle_webhook_event(body: &Value, cfg: &ProviderConfig) -> Ingest
                         event,
                         cfg.default_locale.as_ref(),
                     );
+                    if let Some(caller) = verified_caller(verification, resource, event, &details) {
+                        envelope
+                            .extensions
+                            .insert(CALLER_EXT_KEY.to_string(), caller);
+                    }
                     return IngestOutcome {
                         envelope: Some(envelope),
                         status: 200,
@@ -602,6 +667,7 @@ mod signature_tests {
                 }
             }),
             &cfg,
+            Verification::Verified,
         );
 
         assert_eq!(outcome.status, 200);
@@ -633,6 +699,7 @@ mod signature_tests {
                 }
             }),
             &cfg,
+            Verification::Verified,
         );
 
         assert_eq!(outcome.status, 200);
@@ -668,6 +735,190 @@ mod signature_tests {
             envelope.metadata.get("user_id").map(String::as_str),
             Some("person-1")
         );
+    }
+
+    // ---- verified caller (end to end through the ingest decision) ----
+
+    use crate::ops::caller::{MessageSource, NotVerified};
+    use crate::ops::ingest_helpers::MessageDetails;
+
+    /// `(room_type, person_email, person_id)` of the fetched message.
+    type Fetched = (
+        Option<&'static str>,
+        Option<&'static str>,
+        Option<&'static str>,
+    );
+
+    struct FakeSource {
+        message: Result<Fetched, String>,
+    }
+
+    impl MessageSource for FakeSource {
+        fn token(&self) -> Result<String, String> {
+            Ok("bot-token".into())
+        }
+        fn fetch_message(&self, _: &str, _: &str, _: &str) -> Result<MessageDetails, String> {
+            let (room_type, email, id) = self.message.clone()?;
+            Ok(MessageDetails {
+                markdown: None,
+                text: Some("hello".into()),
+                room_id: Some("room-1".into()),
+                person_email: email.map(str::to_string),
+                person_id: id.map(str::to_string),
+                room_type: room_type.map(str::to_string),
+                attachments: Vec::new(),
+                pending: Vec::new(),
+            })
+        }
+        fn fetch_action(&self, _: &str, _: &str, _: &str) -> Result<Value, String> {
+            Ok(json!({"cardId": "c1"}))
+        }
+    }
+
+    fn test_cfg() -> ProviderConfig {
+        ProviderConfig {
+            enabled: true,
+            public_base_url: "https://example.com".to_string(),
+            default_room_id: None,
+            default_to_person_email: None,
+            api_base_url: Some(DEFAULT_API_BASE.to_string()),
+            bot_token: None,
+            webhook_secret: None,
+            default_locale: None,
+        }
+    }
+
+    fn message_event() -> Value {
+        json!({"resource":"messages","event":"created","data":{
+            "id":"m1","roomId":"room-1","personId":"webhook-person","personEmail":"webhook@example.com"}})
+    }
+
+    fn run(
+        body: &Value,
+        verification: Verification,
+        message: Result<Fetched, String>,
+    ) -> IngestOutcome {
+        handle_webhook_event_with(body, &test_cfg(), verification, &FakeSource { message })
+    }
+
+    fn caller_of(outcome: &IngestOutcome) -> Option<&Value> {
+        outcome.envelope.as_ref()?.extensions.get("caller")
+    }
+
+    fn signed_headers(secret: &str, body: &[u8]) -> Vec<Header> {
+        vec![Header {
+            name: "X-Spark-Signature".into(),
+            value: hmac_sha1_hex(secret.as_bytes(), body).expect("hmac"),
+        }]
+    }
+
+    #[test]
+    fn signed_fetched_direct_message_stamps_the_fetched_person_id() {
+        let body = serde_json::to_vec(&message_event()).expect("json");
+        let verification =
+            check_request_signature(&signed_headers("s3cret", &body), &body, Some("s3cret"))
+                .map_err(|_| "rejected")
+                .expect("accepted");
+        assert_eq!(verification, Verification::Verified);
+        let out = run(
+            &message_event(),
+            verification,
+            Ok((
+                Some("direct"),
+                Some("ada@example.com"),
+                Some("fetched-person"),
+            )),
+        );
+        assert_eq!(out.status, 200);
+        assert_eq!(
+            caller_of(&out),
+            Some(&json!({"user_verified": true, "sub": "fetched-person", "iss": "webex"}))
+        );
+        // the webhook body's identity and the email are never the sub
+        let text = caller_of(&out).expect("caller").to_string();
+        assert!(!text.contains("webhook-person") && !text.contains("ada@example.com"));
+    }
+
+    #[test]
+    fn no_secret_admits_without_a_caller_and_without_a_new_rejection() {
+        let body = serde_json::to_vec(&message_event()).expect("json");
+        let verification = check_request_signature(&[], &body, None)
+            .map_err(|_| "rejected")
+            .expect("still admitted");
+        assert_eq!(
+            verification,
+            Verification::Unverified(NotVerified::NoSecret)
+        );
+        let out = run(
+            &message_event(),
+            verification,
+            Ok((Some("direct"), Some("ada@example.com"), Some("p1"))),
+        );
+        assert_eq!(out.status, 200);
+        assert!(out.envelope.is_some());
+        assert!(caller_of(&out).is_none());
+    }
+
+    #[test]
+    fn an_empty_secret_admits_a_matching_signature_but_proves_nothing() {
+        let body = b"{}";
+        let verification = check_request_signature(&signed_headers("", body), body, Some(""))
+            .map_err(|_| "rejected")
+            .expect("admitted");
+        assert_eq!(
+            verification,
+            Verification::Unverified(NotVerified::EmptySecret)
+        );
+    }
+
+    #[test]
+    fn wrong_or_missing_signature_is_still_rejected() {
+        let body = b"{}";
+        let wrong = signed_headers("other", body);
+        assert!(check_request_signature(&wrong, body, Some("s3cret")).is_err());
+        assert!(check_request_signature(&[], body, Some("s3cret")).is_err());
+    }
+
+    #[test]
+    fn group_space_bot_sender_and_malformed_id_get_no_caller() {
+        let v = Verification::Verified;
+        let cases = [
+            (Some("group"), Some("ada@example.com"), Some("p1")),
+            (Some("direct"), Some("bot@webex.bot"), Some("p1")),
+            (Some("direct"), Some("ada@example.com"), Some(" p1")),
+            (Some("direct"), Some("ada@example.com"), None),
+        ];
+        for case in cases {
+            let out = run(&message_event(), v, Ok(case));
+            assert_eq!(out.status, 200, "{case:?}");
+            assert!(out.envelope.is_some(), "{case:?}");
+            assert!(caller_of(&out).is_none(), "{case:?}");
+        }
+    }
+
+    #[test]
+    fn fetch_failure_falls_back_without_a_caller_even_when_verified() {
+        let out = run(&message_event(), Verification::Verified, Err("boom".into()));
+        assert_eq!(out.status, 502);
+        assert!(caller_of(&out).is_none());
+    }
+
+    #[test]
+    fn memberships_and_attachment_actions_never_carry_a_caller() {
+        let membership = json!({"resource":"memberships","event":"created","data":{
+            "id":"mb1","roomId":"room-1","personId":"p1","personEmail":"ada@example.com"}});
+        let action = json!({"resource":"attachmentActions","event":"created","data":{
+            "id":"a1","roomId":"room-1","personId":"p1","personEmail":"ada@example.com"}});
+        for body in [membership, action] {
+            let out = run(
+                &body,
+                Verification::Verified,
+                Ok((Some("direct"), Some("ada@example.com"), Some("p1"))),
+            );
+            assert_eq!(out.status, 200);
+            assert!(out.envelope.is_some());
+            assert!(caller_of(&out).is_none(), "{body}");
+        }
     }
 
     #[test]

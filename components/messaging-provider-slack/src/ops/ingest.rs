@@ -16,11 +16,63 @@ use provider_common::slack_attachments::apply_slack_files;
 use serde_json::{Value, json};
 
 use super::modal::{handle_view_submission, open_slack_modal};
-use super::{build_slack_envelope, mark_slack_user_entered};
+use super::{build_slack_envelope, mark_slack_user_entered, set_verified_caller};
+use crate::DEFAULT_SIGNING_SECRET_KEY;
 use crate::bindings::greentic::http::http_client as client;
-use crate::config::{ProviderConfig, load_config, resolve_bot_token};
+use crate::config::{ProviderConfig, get_secret_string, load_config, resolve_bot_token};
+
+/// Decide whether this request provably came from Slack.
+///
+/// A verified caller is an identity claim, so it is only ever stamped when the
+/// provider itself checked `X-Slack-Signature` (HMAC-SHA256 over
+/// `v0:{timestamp}:{raw body}`, 300 s replay window) against the signing
+/// secret stored at setup. The same `slack_auth_core::verify_request` runs in
+/// `messaging-ingress-slack`, the component greentic-start's webhook gate
+/// uses; this check does not rely on that gate having run.
+///
+/// Fails closed: no secret, no header, a stale timestamp or a mismatch all
+/// read as "not authentic". It never rejects the request: the host gate owns
+/// refusal, and an unauthenticated delivery keeps flowing as an anonymous one.
+fn request_is_authentic(
+    request: &HttpInV1,
+    body: &[u8],
+    signing_secret: &dyn Fn() -> Option<String>,
+    now_secs: i64,
+) -> bool {
+    let header = |name: &str| {
+        request
+            .headers
+            .iter()
+            .find(|h| h.name.eq_ignore_ascii_case(name))
+            .map(|h| h.value.as_str())
+    };
+    let (Some(signature), Some(timestamp)) = (
+        header("x-slack-signature"),
+        header("x-slack-request-timestamp"),
+    ) else {
+        return false;
+    };
+    // Read the secret only for a request that claims to be signed.
+    let Some(secret) = signing_secret().filter(|s| !s.is_empty()) else {
+        return false;
+    };
+    slack_auth_core::verify_request(&secret, signature, timestamp, body, now_secs).is_ok()
+}
 
 pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
+    ingest_http_at(
+        input_json,
+        &|| get_secret_string(DEFAULT_SIGNING_SECRET_KEY).ok(),
+        slack_auth_core::now_unix_secs(),
+    )
+}
+
+/// [`ingest_http`] with the signing secret and the clock injected.
+fn ingest_http_at(
+    input_json: &[u8],
+    signing_secret: &dyn Fn() -> Option<String>,
+    now_secs: i64,
+) -> Vec<u8> {
     // Try native greentic-types format first, fall back to operator format
     let request = match serde_json::from_slice::<HttpInV1>(input_json) {
         Ok(req) => req,
@@ -34,6 +86,7 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         Err(err) => return http_out_error(400, &format!("invalid body encoding: {err}")),
     };
     let body_val: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
+    let authentic = request_is_authentic(&request, &body_bytes, signing_secret, now_secs);
 
     // Slack URL verification challenge — must respond with the challenge value.
     // Sent when setting Event Subscriptions or Interactivity Request URL.
@@ -87,13 +140,13 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
         };
 
     if let Some(submission) = view_submission_payload {
-        return handle_view_submission(&submission);
+        return handle_view_submission(&submission, authentic);
     }
 
     if let Some(interactive) = interactive_payload {
         // The provider config rides on the ingest input, not on Slack's payload.
         let host_input: Value = serde_json::from_slice(input_json).unwrap_or(Value::Null);
-        return handle_block_actions(&interactive, &host_input);
+        return handle_block_actions(&interactive, &host_input, authentic);
     }
 
     // Drop Slack retries — only process the first delivery.
@@ -165,8 +218,12 @@ pub(crate) fn ingest_http(input_json: &[u8]) -> Vec<u8> {
             .as_ref()
             .and_then(|c| fetch_slack_user_locale(c, uid))
     });
+    let caller = authentic
+        .then(|| slack_auth_core::caller_for_event(&body_val))
+        .flatten();
     let mut envelope = build_slack_envelope(text, channel.clone(), sender);
     apply_slack_files(&mut envelope, &payload);
+    set_verified_caller(&mut envelope, caller);
     if let Some(locale) = user_locale {
         envelope.metadata.insert("locale".to_string(), locale);
     }
@@ -250,7 +307,7 @@ fn slack_team_id(body: &Value) -> Option<String> {
 /// If the button is flagged as a modal trigger we open a Slack modal via
 /// `views.open`; otherwise we produce a channel envelope carrying the
 /// action's metadata for downstream routing.
-fn handle_block_actions(interactive: &Value, host_input: &Value) -> Vec<u8> {
+fn handle_block_actions(interactive: &Value, host_input: &Value, authentic: bool) -> Vec<u8> {
     // Approval decisions are routed first: the generic path below forwards every
     // action-value key into envelope metadata, which would splat the decision
     // token across telemetry.
@@ -345,7 +402,11 @@ fn handle_block_actions(interactive: &Value, host_input: &Value) -> Vec<u8> {
             )
         };
 
+    let caller = authentic
+        .then(|| slack_auth_core::caller_for_block_actions(interactive))
+        .flatten();
     let mut envelope = build_slack_envelope(action_text, channel.clone(), sender);
+    set_verified_caller(&mut envelope, caller);
     // Forward ALL Action.Submit data fields to metadata for MCP routing.
     if let Ok(val) = serde_json::from_str::<Value>(action_value_str)
         && let Some(obj) = val.as_object()
@@ -539,6 +600,9 @@ mod tests {
         assert!(env["extensions"].get("attachment_fetch").is_none());
     }
 
+    const NOW: i64 = 1_800_000_000;
+    const SECRET: &str = "test-slack-signing-secret";
+
     fn request(body: &[u8], headers: Value) -> Vec<u8> {
         serde_json::to_vec(&json!({
             "method": "POST",
@@ -548,6 +612,11 @@ mod tests {
             "body_b64": STANDARD.encode(body)
         }))
         .expect("request")
+    }
+
+    /// Native tests have no secret store: the unauthenticated path.
+    fn ingest_http(input_json: &[u8]) -> Vec<u8> {
+        ingest_http_at(input_json, &|| None, NOW)
     }
 
     fn parse_out(bytes: Vec<u8>) -> HttpOutV1 {
@@ -739,6 +808,204 @@ mod tests {
         let body = String::from_utf8(body).expect("utf8");
         assert!(body.contains("replace_original"));
         assert!(!body.contains(token));
+    }
+
+    // --- verified caller -------------------------------------------------
+
+    fn sign(secret: &str, ts: i64, body: &[u8]) -> String {
+        use hmac::{Hmac, KeyInit, Mac};
+        let mut mac = Hmac::<sha2::Sha256>::new_from_slice(secret.as_bytes()).expect("hmac");
+        mac.update(format!("v0:{ts}:").as_bytes());
+        mac.update(body);
+        let hex: String = mac
+            .finalize()
+            .into_bytes()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        format!("v0={hex}")
+    }
+
+    /// Run `body` through ingest as Slack would deliver it, signed with `key`
+    /// at `ts`, while the provider holds `stored` as its signing secret.
+    fn deliver(body: &Value, key: &str, ts: i64, stored: Option<&str>) -> HttpOutV1 {
+        let raw = body.to_string();
+        let headers = json!([
+            {"name": "X-Slack-Signature", "value": sign(key, ts, raw.as_bytes())},
+            {"name": "X-Slack-Request-Timestamp", "value": ts.to_string()}
+        ]);
+        let stored = stored.map(str::to_string);
+        parse_out(ingest_http_at(
+            &request(raw.as_bytes(), headers),
+            &move || stored.clone(),
+            NOW,
+        ))
+    }
+
+    fn dm() -> Value {
+        json!({
+            "type": "event_callback",
+            "team_id": "T111",
+            "event": {"type": "message", "channel": "D999", "channel_type": "im",
+                      "user": "U123ABC", "text": "hello"}
+        })
+    }
+
+    fn caller_of(out: &HttpOutV1) -> Option<Value> {
+        assert_eq!(out.events.len(), 1, "exactly one envelope");
+        out.events[0].extensions.get("caller").cloned()
+    }
+
+    #[test]
+    fn a_signed_dm_is_stamped_with_the_verified_caller() {
+        let out = deliver(&dm(), SECRET, NOW, Some(SECRET));
+        assert_eq!(
+            caller_of(&out),
+            Some(json!({"user_verified": true, "sub": "U123ABC", "iss": "slack:T111"}))
+        );
+    }
+
+    #[test]
+    fn no_caller_unless_the_provider_verified_the_signature() {
+        // Wrong secret, stale, future, missing secret, empty secret.
+        assert_eq!(caller_of(&deliver(&dm(), "other", NOW, Some(SECRET))), None);
+        assert_eq!(
+            caller_of(&deliver(&dm(), SECRET, NOW - 301, Some(SECRET))),
+            None
+        );
+        assert_eq!(
+            caller_of(&deliver(&dm(), SECRET, NOW + 301, Some(SECRET))),
+            None
+        );
+        assert_eq!(caller_of(&deliver(&dm(), SECRET, NOW, None)), None);
+        assert_eq!(caller_of(&deliver(&dm(), SECRET, NOW, Some(""))), None);
+
+        // No signature headers at all.
+        let unsigned = parse_out(ingest_http_at(
+            &request(dm().to_string().as_bytes(), json!([])),
+            &|| Some(SECRET.to_string()),
+            NOW,
+        ));
+        assert_eq!(caller_of(&unsigned), None);
+
+        // Signature over a different body.
+        let raw = dm().to_string();
+        let headers = json!([
+            {"name": "x-slack-signature", "value": sign(SECRET, NOW, b"{}")},
+            {"name": "x-slack-request-timestamp", "value": NOW.to_string()}
+        ]);
+        let forged = parse_out(ingest_http_at(
+            &request(raw.as_bytes(), headers),
+            &|| Some(SECRET.to_string()),
+            NOW,
+        ));
+        assert_eq!(caller_of(&forged), None);
+    }
+
+    #[test]
+    fn a_sender_written_caller_never_survives() {
+        let mut body = dm();
+        body["event"]["extensions"] = json!({"caller": {"user_verified": true, "sub": "U999"}});
+        let out = deliver(&body, "other", NOW, Some(SECRET));
+        assert_eq!(caller_of(&out), None);
+    }
+
+    #[test]
+    fn channels_groups_and_multiparty_dms_get_no_caller() {
+        for (channel, ty) in [("C999", "channel"), ("G999", "group"), ("G998", "mpim")] {
+            let mut body = dm();
+            body["event"]["channel"] = json!(channel);
+            body["event"]["channel_type"] = json!(ty);
+            let out = deliver(&body, SECRET, NOW, Some(SECRET));
+            assert_eq!(caller_of(&out), None, "{channel}/{ty}");
+        }
+    }
+
+    #[test]
+    fn bot_events_get_no_caller_and_no_envelope() {
+        let mut body = dm();
+        body["event"]["bot_id"] = json!("B1");
+        let out = deliver(&body, SECRET, NOW, Some(SECRET));
+        assert!(out.events.is_empty(), "bot messages are dropped");
+    }
+
+    #[test]
+    fn grid_and_connect_select_the_issuer() {
+        let mut grid = dm();
+        grid["enterprise_id"] = json!("E555");
+        let out = deliver(&grid, SECRET, NOW, Some(SECRET));
+        assert_eq!(caller_of(&out).unwrap()["iss"], "slack:E555");
+
+        let mut connect = dm();
+        connect["event"]["user_team"] = json!("T222");
+        let out = deliver(&connect, SECRET, NOW, Some(SECRET));
+        assert_eq!(caller_of(&out).unwrap()["iss"], "slack:T222");
+    }
+
+    #[test]
+    fn malformed_ids_are_omitted_not_sent() {
+        let mut body = dm();
+        body["event"]["user"] = json!("not a slack id");
+        let out = deliver(&body, SECRET, NOW, Some(SECRET));
+        assert_eq!(caller_of(&out), None);
+        let mut body = dm();
+        body["team_id"] = json!("bad team");
+        let out = deliver(&body, SECRET, NOW, Some(SECRET));
+        assert_eq!(caller_of(&out), None);
+    }
+
+    #[test]
+    fn a_signed_dm_block_action_is_stamped_and_a_channel_one_is_not() {
+        let click = |channel: &str| {
+            json!({
+                "type": "block_actions",
+                "user": {"id": "U123ABC", "team_id": "T111"},
+                "team": {"id": "T111"},
+                "channel": {"id": channel},
+                "actions": [{"action_id": "go", "value": "{\"routeToCardId\":\"c2\"}"}]
+            })
+        };
+        let out = deliver(&click("D999"), SECRET, NOW, Some(SECRET));
+        assert_eq!(
+            caller_of(&out),
+            Some(json!({"user_verified": true, "sub": "U123ABC", "iss": "slack:T111"}))
+        );
+        assert_eq!(
+            caller_of(&deliver(&click("C999"), SECRET, NOW, Some(SECRET))),
+            None
+        );
+        assert_eq!(
+            caller_of(&deliver(&click("D999"), "other", NOW, Some(SECRET))),
+            None
+        );
+    }
+
+    #[test]
+    fn a_signed_dm_view_submission_is_stamped_and_a_channel_one_is_not() {
+        let submit = |channel: &str| {
+            json!({
+                "type": "view_submission",
+                "user": {"id": "U123ABC", "team_id": "T111"},
+                "team": {"id": "T111"},
+                "view": {
+                    "private_metadata": json!({"_channel": channel}).to_string(),
+                    "state": {"values": {}}
+                }
+            })
+        };
+        let out = deliver(&submit("D999"), SECRET, NOW, Some(SECRET));
+        assert_eq!(
+            caller_of(&out),
+            Some(json!({"user_verified": true, "sub": "U123ABC", "iss": "slack:T111"}))
+        );
+        assert_eq!(
+            caller_of(&deliver(&submit("C999"), SECRET, NOW, Some(SECRET))),
+            None
+        );
+        assert_eq!(
+            caller_of(&deliver(&submit("D999"), "other", NOW, Some(SECRET))),
+            None
+        );
     }
 
     #[test]

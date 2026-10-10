@@ -25,6 +25,8 @@ pub(super) struct MessageDetails {
     pub(super) room_id: Option<String>,
     pub(super) person_email: Option<String>,
     pub(super) person_id: Option<String>,
+    /// `direct` (1:1) or `group`, as reported by the fetched message object.
+    pub(super) room_type: Option<String>,
     /// Interactive cards (`attachments[]`); never downloadable files.
     pub(super) attachments: Vec<Attachment>,
     /// Uploaded files (`files[]`) as fetch references, applied to the
@@ -254,6 +256,10 @@ fn parse_message_details_body(body: &[u8]) -> Result<MessageDetails, String> {
             .map(|s| s.to_string()),
         person_id: data
             .get("personId")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        room_type: data
+            .get("roomType")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
         attachments,

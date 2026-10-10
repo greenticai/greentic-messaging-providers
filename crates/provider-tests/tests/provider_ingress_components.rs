@@ -314,7 +314,14 @@ mod slack {
 
         let secret = "signing-secret";
         let body = r#"{"type":"event_callback"}"#;
-        let timestamp = "1700000000";
+        // The component enforces Slack's 300 s replay window against the WASI
+        // wall clock, so the request must be signed for "now".
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_secs()
+            .to_string();
+        let timestamp = timestamp.as_str();
         let basestring = format!("v0:{timestamp}:{body}");
         let signature = slack_signature(secret, &basestring);
         let headers = json!({
