@@ -1222,3 +1222,66 @@ button[data-action="logout"]:hover,
     font-size: 16px !important;
   }
 }
+
+/* Attachment cards.
+ *
+ * Web Chat renders a sent file as `.webchat__fileContent` inside the sender's
+ * bubble. The stock look put the file name in the link colour (green) on the
+ * teal user bubble, which is unreadable, and stretched the card across the
+ * whole row. This makes it a compact, readable file chip. The bubble's own
+ * background is set inline by the shell and is left alone. */
+.webchat__stacked-layout__attachment-row .webchat__bubble {
+  max-width: 340px !important;
+}
+
+.webchat__fileContent {
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+  min-width: 240px;
+  padding: 10px 14px !important;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.14) !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  box-shadow: none !important;
+  color: #fff;
+}
+
+.webchat__fileContent::before {
+  content: "";
+  flex: 0 0 36px;
+  height: 36px;
+  border-radius: 10px;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230e7490' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 3v5h5'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 20px;
+}
+
+.webchat__fileContent__badge {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.webchat__fileContent__fileName {
+  color: #fff !important;
+  font-weight: 600;
+  font-size: 14px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none !important;
+}
+
+.webchat__fileContent__size {
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.webchat__fileContent__downloadIcon {
+  display: none;
+}
