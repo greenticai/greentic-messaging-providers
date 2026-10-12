@@ -2409,7 +2409,7 @@ dependencies = [
 
 [[package]]
 name = "messaging-provider-webchat-gui"
-version = "0.5.50"
+version = "0.5.51"
 dependencies = [
  "base64",
  "chrono",
