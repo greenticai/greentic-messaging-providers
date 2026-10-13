@@ -13,7 +13,9 @@
 //
 // - `user_verified` — the token's `verified` claim.
 // - `sub` — the token's `sub`.
-// - `team` — the token's signed `ctx.team`.
+// - `team`, `teams` — ONLY the verified `team_slugs` claim (see below). Never
+//   `ctx.team`: that is parsed from the request's `?team=` query parameter,
+//   which the client controls, so it is routing context and not identity.
 // - `groups`, `role` — extra claims on the token (greentic-start#584 carries
 //   an identity provider's claims through its re-mint). Emitted only when the
 //   token is `verified`: a consumer must gate on `user_verified` anyway, and
@@ -56,10 +58,18 @@ pub fn caller_block(claims: &TokenClaims) -> Value {
     if let Some(sub) = non_empty(&claims.sub) {
         block.insert("sub".into(), Value::String(sub.to_string()));
     }
-    if let Some(team) = claims.ctx.team.as_deref().and_then(non_empty) {
-        block.insert("team".into(), Value::String(team.to_string()));
-    }
     if claims.verified {
+        // The team grant comes only from the verified `team_slugs` claim of a
+        // token whose signature and issuer already checked out. An unverified
+        // token, or one with no valid slug, stays team-less (anonymous).
+        let teams = verified_teams(claims.extra.get(super::jwt::TEAMS_CLAIM));
+        if let Some(first) = teams.first() {
+            block.insert("team".into(), Value::String(first.clone()));
+            block.insert(
+                "teams".into(),
+                Value::Array(teams.iter().cloned().map(Value::String).collect()),
+            );
+        }
         // Verbatim: the runner refuses an issuer with surrounding whitespace
         // rather than normalising it, so it is not trimmed here either.
         if let Some(iss) = claims
@@ -101,6 +111,39 @@ pub fn decode_caller_header(value: &str) -> Option<Value> {
     let block: Value = serde_json::from_slice(&bytes).ok()?;
     block.get("user_verified")?.as_bool()?;
     Some(block)
+}
+
+/// Upper bound on the team slugs a caller block carries.
+pub const MAX_TEAMS: usize = 50;
+
+/// The team slugs a `team_slugs` claim yields: a JSON array whose string entries are
+/// DNS labels (1-63 chars of `a-z0-9-`, not starting or ending with `-`).
+/// Invalid entries are dropped, the rest sorted, de-duplicated and capped at
+/// [`MAX_TEAMS`]. Anything that is not an array yields no teams.
+pub fn verified_teams(claim: Option<&Value>) -> Vec<String> {
+    let Some(items) = claim.and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    let mut slugs: Vec<String> = items
+        .iter()
+        .filter_map(Value::as_str)
+        .filter(|slug| is_dns_label(slug))
+        .map(str::to_string)
+        .collect();
+    slugs.sort();
+    slugs.dedup();
+    slugs.truncate(MAX_TEAMS);
+    slugs
+}
+
+fn is_dns_label(slug: &str) -> bool {
+    !slug.is_empty()
+        && slug.len() <= 63
+        && !slug.starts_with('-')
+        && !slug.ends_with('-')
+        && slug
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
 }
 
 fn non_empty(value: &str) -> Option<&str> {
@@ -146,13 +189,13 @@ mod tests {
     fn a_verified_token_yields_sub_team_groups_and_role() {
         let block = caller_block(&claims(
             true,
-            Some("ops"),
-            json!({"groups": ["hr", "ops"], "role": "manager", "email": "a@x"}),
+            Some("evil"),
+            json!({"groups": ["hr", "ops"], "role": "manager", "email": "a@x", "team_slugs": ["ops"]}),
         ));
         assert_eq!(
             block,
             json!({
-                "user_verified": true, "sub": "alice", "team": "ops",
+                "user_verified": true, "sub": "alice", "team": "ops", "teams": ["ops"],
                 "groups": ["hr", "ops"], "role": "manager",
             })
         );
@@ -169,12 +212,82 @@ mod tests {
         let block = caller_block(&claims(
             false,
             Some("ops"),
-            json!({"groups": ["admins"], "role": "admin"}),
+            json!({"groups": ["admins"], "role": "admin", "team_slugs": ["ops"]}),
         ));
-        assert_eq!(
-            block,
-            json!({"user_verified": false, "sub": "alice", "team": "ops"})
-        );
+        assert_eq!(block, json!({"user_verified": false, "sub": "alice"}));
+    }
+
+    #[test]
+    fn verified_teams_are_published_as_the_first_sorted_slug_and_the_list() {
+        let block = caller_block(&claims(
+            true,
+            None,
+            json!({"team_slugs": ["sales", "ops", "ops"]}),
+        ));
+        assert_eq!(block["team"], json!("ops"));
+        assert_eq!(block["teams"], json!(["ops", "sales"]));
+    }
+
+    #[test]
+    fn a_verified_token_without_a_teams_claim_carries_no_team() {
+        let block = caller_block(&claims(true, None, json!({"groups": ["hr"]})));
+        assert!(block.get("team").is_none() && block.get("teams").is_none());
+    }
+
+    #[test]
+    fn the_request_controlled_context_team_is_never_identity() {
+        // `ctx.team` is parsed from `?team=` and must not reach the block,
+        // verified or not, with or without a `team_slugs` claim.
+        for verified in [true, false] {
+            let block = caller_block(&claims(verified, Some("evil"), json!({})));
+            assert!(block.get("team").is_none(), "{block}");
+            assert!(block.get("teams").is_none(), "{block}");
+        }
+        let block = caller_block(&claims(true, Some("evil"), json!({"team_slugs": ["ops"]})));
+        assert_eq!(block["team"], json!("ops"));
+        assert_eq!(block["teams"], json!(["ops"]));
+    }
+
+    #[test]
+    fn invalid_slugs_are_dropped_and_the_list_is_capped() {
+        let teams = verified_teams(Some(&json!([
+            "ok",
+            "Upper",
+            "-lead",
+            "trail-",
+            "has space",
+            "a.b",
+            "",
+            7,
+            null,
+            "x".repeat(64)
+        ])));
+        assert_eq!(teams, vec!["ok".to_string()]);
+        assert!(verified_teams(Some(&json!("ops"))).is_empty());
+        assert!(verified_teams(None).is_empty());
+
+        let many: Vec<String> = (0..80).map(|i| format!("t{i:02}")).collect();
+        let capped = verified_teams(Some(&json!(many)));
+        assert_eq!(capped.len(), MAX_TEAMS);
+        assert_eq!(capped[0], "t00");
+    }
+
+    #[test]
+    fn the_issuers_opaque_teams_ids_are_never_used_as_slugs() {
+        let block = caller_block(&claims(true, None, json!({"teams": ["team_ab12cd"]})));
+        assert!(block.get("team").is_none() && block.get("teams").is_none());
+        let block = caller_block(&claims(
+            true,
+            None,
+            json!({"teams": ["team_ab12cd"], "team_slugs": ["ops"]}),
+        ));
+        assert_eq!(block["teams"], json!(["ops"]));
+    }
+
+    #[test]
+    fn a_token_with_only_invalid_slugs_carries_no_team() {
+        let block = caller_block(&claims(true, None, json!({"team_slugs": ["BAD", "-x"]})));
+        assert!(block.get("team").is_none() && block.get("teams").is_none());
     }
 
     #[test]
