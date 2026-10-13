@@ -9,11 +9,12 @@ use uuid::Uuid;
 use greentic_types::messaging::universal_dto::{Header, HttpInV1, HttpOutV1};
 
 use super::activity_log::{self, LogError};
-use super::caller::caller_header;
+use super::caller::{caller_header, verified_teams};
 use super::jwt::{
-    DirectLineContext, TTL_SECONDS, TokenClaims, issue_token, reissue_token, verify_token,
+    DirectLineContext, TTL_SECONDS, TokenClaims, issue_token, issue_verified_token_with_teams,
+    reissue_token, verify_token,
 };
-use super::oidc::{OidcError, verify_access_token};
+use super::oidc::{OidcError, VerifiedIdentity, verify_access_token};
 use super::oidc_config::{self, OidcVerification};
 use super::owner::authorize_stored;
 use super::state::{
@@ -148,9 +149,9 @@ where
         return resp;
     }
 
-    let (token_subject, verified) =
+    let (token_subject, verified, teams) =
         match determine_verified_identity(request, state_store, jwks, now) {
-            Ok(Some(identity)) => (identity, true),
+            Ok(Some(identity)) => (identity.sub, true, verified_teams(identity.teams.as_ref())),
             Ok(None) => {
                 // Reject a client-supplied id shaped like an issuer subject
                 // (`{did_web}:users:{user_id}`) — otherwise an anonymous
@@ -166,7 +167,7 @@ where
                         "client-supplied user id must not use the issuer-subject shape",
                     );
                 }
-                (subject.token_subject().to_string(), false)
+                (subject.token_subject().to_string(), false, Vec::new())
             }
             Err(resp) => return resp,
         };
@@ -176,7 +177,12 @@ where
         Err(resp) => return resp,
     };
 
-    match issue_token(&signing_key, ctx.clone(), &token_subject, None, verified) {
+    let minted = if verified {
+        issue_verified_token_with_teams(&signing_key, ctx.clone(), &token_subject, &teams)
+    } else {
+        issue_token(&signing_key, ctx.clone(), &token_subject, None, false)
+    };
+    match minted {
         Ok((token, _exp)) => respond_json(
             200,
             json!({
@@ -203,7 +209,7 @@ fn determine_verified_identity<S, J>(
     state_store: &mut S,
     jwks: &J,
     now: i64,
-) -> Result<Option<String>, HttpOutV1>
+) -> Result<Option<VerifiedIdentity>, HttpOutV1>
 where
     S: StateStore,
     J: JwksFetcher,
@@ -255,7 +261,7 @@ where
             "unauthorized",
             "access token rejected: empty subject",
         )),
-        Ok(identity) => Ok(Some(identity.sub)),
+        Ok(identity) => Ok(Some(identity)),
         // The cached JWKS may be stale after the issuer rotated its signing
         // key. Refetch once, bypassing the cache, and retry verification —
         // bounded to a single retry so a persistently unknown kid can't turn
@@ -293,7 +299,7 @@ where
                     "unauthorized",
                     "access token rejected: empty subject",
                 )),
-                Ok(identity) => Ok(Some(identity.sub)),
+                Ok(identity) => Ok(Some(identity)),
                 Err(err) => Err(respond_error(
                     401,
                     "unauthorized",
@@ -2530,6 +2536,84 @@ mod tests {
         assert!(claims.verified);
     }
 
+    fn mint_with_access_claims(extra: serde_json::Value, query: Option<&str>) -> TokenClaims {
+        let (access_token, jwks) = crate::directline::oidc_test_support::signed_fixture_with_claims(
+            "https://acme.greentic-id.com",
+            "webchat-gui",
+            "acme:users:7",
+            "openid greentic.webchat",
+            4_000_000_000,
+            extra,
+        );
+        let mut state = InMemoryStateStore::new();
+        let mut secrets = TestSecretStore::new();
+        secrets.insert(TOKEN_SECRET_KEY, b"test-signing-key");
+        let mut request = token_request_with_config(json!({
+            "oidc_issuer": "https://acme.greentic-id.com",
+            "oidc_audience": "webchat-gui",
+            "oidc_required_scope": "greentic.webchat",
+        }));
+        request.query = query.map(str::to_string);
+        request.headers.push(Header {
+            name: "Authorization".into(),
+            value: format!("Bearer {access_token}"),
+        });
+        let response =
+            handle_directline_request_with_jwks(&request, &mut state, &secrets, &StaticJwks(jwks));
+        assert_eq!(response.status, 200);
+        let body = decode_body(&response).expect("json body");
+        let token = body["token"].as_str().expect("token string");
+        verify_token(b"test-signing-key", token).expect("direct line token verifies")
+    }
+
+    #[test]
+    fn a_verified_teams_claim_is_published_in_the_caller_block() {
+        use super::super::caller::caller_block;
+        let claims = mint_with_access_claims(json!({"teams": ["sales", "Bad Slug", "ops"]}), None);
+        assert_eq!(
+            caller_block(&claims),
+            json!({
+                "user_verified": true, "sub": "acme:users:7",
+                "team": "ops", "teams": ["ops", "sales"],
+            })
+        );
+    }
+
+    #[test]
+    fn a_verified_token_without_a_teams_claim_publishes_no_team() {
+        use super::super::caller::caller_block;
+        let claims = mint_with_access_claims(json!({}), None);
+        assert_eq!(
+            caller_block(&claims),
+            json!({"user_verified": true, "sub": "acme:users:7"})
+        );
+    }
+
+    #[test]
+    fn the_team_query_parameter_never_becomes_the_callers_team() {
+        use super::super::caller::caller_block;
+        let claims = mint_with_access_claims(json!({}), Some("team=evil"));
+        assert_eq!(claims.ctx.team.as_deref(), Some("evil"));
+        let block = caller_block(&claims);
+        assert!(block.get("team").is_none() && block.get("teams").is_none());
+
+        let claims = mint_with_access_claims(json!({"teams": ["ops"]}), Some("team=evil"));
+        assert_eq!(caller_block(&claims)["team"], json!("ops"));
+    }
+
+    #[test]
+    fn an_anonymous_token_never_carries_a_team_even_with_the_query_parameter() {
+        use super::super::caller::caller_block;
+        let (token, _) = issue_token(b"k", parse_context(Some("team=evil")), "guest", None, false)
+            .expect("token");
+        let claims = verify_token(b"k", &token).expect("verifies");
+        assert!(caller_block(&claims).get("team").is_none());
+        let (verified, _) =
+            issue_verified_token_with_teams(b"k", parse_context(None), "u", &["ops".to_string()])
+                .expect("token");
+        assert!(verify_token(b"k", &verified).expect("ok").verified);
+    }
+
     #[test]
     fn an_invalid_bearer_is_rejected_with_401() {
         let (_, jwks) = crate::directline::oidc_test_support::signed_fixture(
@@ -2985,7 +3069,7 @@ mod tests {
             },
             conv: None,
             verified: true,
-            extra: json!({"groups": ["hr"], "role": "manager"})
+            extra: json!({"groups": ["hr"], "role": "manager", "teams": ["ops"]})
                 .as_object()
                 .cloned()
                 .expect("object"),
@@ -3010,7 +3094,7 @@ mod tests {
         );
         assert_eq!(conv_response.status, 201);
         let expected = json!({
-            "user_verified": true, "sub": "acme:users:7", "team": "ops",
+            "user_verified": true, "sub": "acme:users:7", "team": "ops", "teams": ["ops"],
             "groups": ["hr"], "role": "manager",
         });
         assert_eq!(

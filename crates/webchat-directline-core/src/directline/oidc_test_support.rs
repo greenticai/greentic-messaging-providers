@@ -57,3 +57,26 @@ pub fn signed_fixture(iss: &str, aud: &str, sub: &str, scope: &str, exp: i64) ->
     let jwks = jwks_json(&[jwk_json(&signing_key, &kid)]);
     (token, jwks)
 }
+
+/// Like [`signed_fixture`], with extra claims merged into the signed payload.
+pub fn signed_fixture_with_claims(
+    iss: &str,
+    aud: &str,
+    sub: &str,
+    scope: &str,
+    exp: i64,
+    extra: Value,
+) -> (String, String) {
+    let signing_key = generate_key();
+    let kid = kid_for(&signing_key);
+    let header = serde_json::json!({"alg": "ES256", "typ": "JWT", "kid": kid});
+    let mut claims = claims_json(iss, aud, sub, scope, exp);
+    if let (Some(target), Some(source)) = (claims.as_object_mut(), extra.as_object()) {
+        for (name, value) in source {
+            target.insert(name.clone(), value.clone());
+        }
+    }
+    let token = sign_raw(&signing_key, &header, &claims);
+    let jwks = jwks_json(&[jwk_json(&signing_key, &kid)]);
+    (token, jwks)
+}
