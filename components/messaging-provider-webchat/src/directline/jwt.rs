@@ -132,11 +132,11 @@ pub fn issue_token(
 /// `iss` so a ledger keyed by `sub` can tell two issuers' users apart.
 pub const IDP_ISS_CLAIM: &str = "idp_iss";
 
-/// The claim carrying the verified team slugs of the caller: a sorted,
+/// The claim (the issuer's `team_slugs`; its opaque `teams` ids are never read) carrying the verified team slugs of the caller: a sorted,
 /// de-duplicated array of DNS-label strings taken from the Greentic SSO access
 /// token's own `teams` claim after its signature verified. Present only on a
 /// `verified` token; the caller block publishes it as `team` / `teams`.
-pub const TEAMS_CLAIM: &str = "teams";
+pub const TEAMS_CLAIM: &str = "team_slugs";
 
 /// Mint a token for a bearer that verified, carrying its already-sanitised
 /// team slugs (see `caller::verified_teams`). An empty list adds no claim.

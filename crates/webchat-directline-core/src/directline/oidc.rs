@@ -6,7 +6,7 @@ use serde::Deserialize;
 #[derive(Debug)]
 pub struct VerifiedIdentity {
     pub sub: String,
-    /// The issuer's raw `teams` claim from the verified access token. It is
+    /// The issuer's raw `team_slugs` claim (never its opaque `teams` ids) from the verified access token. It is
     /// unvalidated here (any JSON shape); `caller::verified_teams` is the one
     /// place that decides which slugs survive.
     pub teams: Option<serde_json::Value>,
@@ -47,7 +47,7 @@ struct AccessClaims {
     #[serde(default)]
     nbf: Option<i64>,
     #[serde(default)]
-    teams: Option<serde_json::Value>,
+    team_slugs: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -199,7 +199,7 @@ pub fn verify_access_token(
 
     Ok(VerifiedIdentity {
         sub: claims.sub,
-        teams: claims.teams,
+        teams: claims.team_slugs,
     })
 }
 

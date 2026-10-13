@@ -13,7 +13,7 @@
 //
 // - `user_verified` — the token's `verified` claim.
 // - `sub` — the token's `sub`.
-// - `team`, `teams` — ONLY the verified `teams` claim (see below). Never
+// - `team`, `teams` — ONLY the verified `team_slugs` claim (see below). Never
 //   `ctx.team`: that is parsed from the request's `?team=` query parameter,
 //   which the client controls, so it is routing context and not identity.
 // - `groups`, `role` — extra claims on the token (greentic-start#584 carries
@@ -59,7 +59,7 @@ pub fn caller_block(claims: &TokenClaims) -> Value {
         block.insert("sub".into(), Value::String(sub.to_string()));
     }
     if claims.verified {
-        // The team grant comes only from the verified `teams` claim of a
+        // The team grant comes only from the verified `team_slugs` claim of a
         // token whose signature and issuer already checked out. An unverified
         // token, or one with no valid slug, stays team-less (anonymous).
         let teams = verified_teams(claims.extra.get(super::jwt::TEAMS_CLAIM));
@@ -116,7 +116,7 @@ pub fn decode_caller_header(value: &str) -> Option<Value> {
 /// Upper bound on the team slugs a caller block carries.
 pub const MAX_TEAMS: usize = 50;
 
-/// The team slugs a `teams` claim yields: a JSON array whose string entries are
+/// The team slugs a `team_slugs` claim yields: a JSON array whose string entries are
 /// DNS labels (1-63 chars of `a-z0-9-`, not starting or ending with `-`).
 /// Invalid entries are dropped, the rest sorted, de-duplicated and capped at
 /// [`MAX_TEAMS`]. Anything that is not an array yields no teams.
@@ -190,7 +190,7 @@ mod tests {
         let block = caller_block(&claims(
             true,
             Some("evil"),
-            json!({"groups": ["hr", "ops"], "role": "manager", "email": "a@x", "teams": ["ops"]}),
+            json!({"groups": ["hr", "ops"], "role": "manager", "email": "a@x", "team_slugs": ["ops"]}),
         ));
         assert_eq!(
             block,
@@ -212,7 +212,7 @@ mod tests {
         let block = caller_block(&claims(
             false,
             Some("ops"),
-            json!({"groups": ["admins"], "role": "admin", "teams": ["ops"]}),
+            json!({"groups": ["admins"], "role": "admin", "team_slugs": ["ops"]}),
         ));
         assert_eq!(block, json!({"user_verified": false, "sub": "alice"}));
     }
@@ -222,7 +222,7 @@ mod tests {
         let block = caller_block(&claims(
             true,
             None,
-            json!({"teams": ["sales", "ops", "ops"]}),
+            json!({"team_slugs": ["sales", "ops", "ops"]}),
         ));
         assert_eq!(block["team"], json!("ops"));
         assert_eq!(block["teams"], json!(["ops", "sales"]));
@@ -237,13 +237,13 @@ mod tests {
     #[test]
     fn the_request_controlled_context_team_is_never_identity() {
         // `ctx.team` is parsed from `?team=` and must not reach the block,
-        // verified or not, with or without a `teams` claim.
+        // verified or not, with or without a `team_slugs` claim.
         for verified in [true, false] {
             let block = caller_block(&claims(verified, Some("evil"), json!({})));
             assert!(block.get("team").is_none(), "{block}");
             assert!(block.get("teams").is_none(), "{block}");
         }
-        let block = caller_block(&claims(true, Some("evil"), json!({"teams": ["ops"]})));
+        let block = caller_block(&claims(true, Some("evil"), json!({"team_slugs": ["ops"]})));
         assert_eq!(block["team"], json!("ops"));
         assert_eq!(block["teams"], json!(["ops"]));
     }
@@ -273,8 +273,20 @@ mod tests {
     }
 
     #[test]
+    fn the_issuers_opaque_teams_ids_are_never_used_as_slugs() {
+        let block = caller_block(&claims(true, None, json!({"teams": ["team_ab12cd"]})));
+        assert!(block.get("team").is_none() && block.get("teams").is_none());
+        let block = caller_block(&claims(
+            true,
+            None,
+            json!({"teams": ["team_ab12cd"], "team_slugs": ["ops"]}),
+        ));
+        assert_eq!(block["teams"], json!(["ops"]));
+    }
+
+    #[test]
     fn a_token_with_only_invalid_slugs_carries_no_team() {
-        let block = caller_block(&claims(true, None, json!({"teams": ["BAD", "-x"]})));
+        let block = caller_block(&claims(true, None, json!({"team_slugs": ["BAD", "-x"]})));
         assert!(block.get("team").is_none() && block.get("teams").is_none());
     }
 

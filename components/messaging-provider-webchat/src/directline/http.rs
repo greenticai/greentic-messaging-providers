@@ -2569,7 +2569,10 @@ mod tests {
     #[test]
     fn a_verified_teams_claim_is_published_in_the_caller_block() {
         use super::super::caller::caller_block;
-        let claims = mint_with_access_claims(json!({"teams": ["sales", "Bad Slug", "ops"]}), None);
+        let claims = mint_with_access_claims(
+            json!({"team_slugs": ["sales", "Bad Slug", "ops"], "teams": ["team_x1"]}),
+            None,
+        );
         assert_eq!(
             caller_block(&claims),
             json!({
@@ -2597,7 +2600,7 @@ mod tests {
         let block = caller_block(&claims);
         assert!(block.get("team").is_none() && block.get("teams").is_none());
 
-        let claims = mint_with_access_claims(json!({"teams": ["ops"]}), Some("team=evil"));
+        let claims = mint_with_access_claims(json!({"team_slugs": ["ops"]}), Some("team=evil"));
         assert_eq!(caller_block(&claims)["team"], json!("ops"));
     }
 
@@ -3069,7 +3072,7 @@ mod tests {
             },
             conv: None,
             verified: true,
-            extra: json!({"groups": ["hr"], "role": "manager", "teams": ["ops"]})
+            extra: json!({"groups": ["hr"], "role": "manager", "team_slugs": ["ops"]})
                 .as_object()
                 .cloned()
                 .expect("object"),
