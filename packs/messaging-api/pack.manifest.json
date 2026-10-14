@@ -94,7 +94,7 @@
             "methods": [
               "GET"
             ],
-            "pattern": "/v1/messaging/api/{tenant}/conversations/{conversation_id}/stream",
+            "pattern": "/v1/messaging/api/{tenant}/conversations/{path*}",
             "provider_op": "ingest_http"
           },
           {
@@ -103,7 +103,7 @@
             "methods": [
               "GET"
             ],
-            "pattern": "/v1/messaging/api/{tenant}/{bundle}/conversations/{conversation_id}/stream",
+            "pattern": "/v1/messaging/api/{tenant}/{bundle}/conversations/{path*}",
             "provider_op": "ingest_http"
           }
         ]

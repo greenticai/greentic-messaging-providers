@@ -11,7 +11,7 @@ Programmatic channel: send by REST, receive by SSE stream, polling or webhook.
 ## Routes (`ingest_http`)
 - `POST /v1/messaging/api/{tenant}/messages` - body `{conversation_id?, client_message_id, text | card}`, answers `202 {conversation_id, message_id}`
 - `GET  /v1/messaging/api/{tenant}/messages?conversation_id=&after=` - polling, answers `{events, next_cursor}`
-- `GET  /v1/messaging/api/{tenant}[/{bundle}]/conversations/{id}/stream` - auth-only probe used by greentic-start, which serves the SSE stream itself; answers `200` for a good key and `401` otherwise, touches no state
+- `GET  /v1/messaging/api/{tenant}[/{bundle}]/conversations/{id}/stream` (declared as `conversations/{path*}`) - auth-only probe used by greentic-start, which serves the SSE stream itself; answers `200` for a good key and `401` otherwise, touches no state
 - Both require `Authorization: Bearer <api key>`; failures are a bare `{"error":{"code":..}}`.
 
 ## Event log
