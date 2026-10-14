@@ -136,6 +136,60 @@ fn post_message<E: Env + ?Sized>(
     }
 }
 
-fn get_messages(_store: &mut dyn StateStore, _req: &HttpRequest) -> IngestResult {
-    IngestResult::reply(HttpResponse::error(501, "not_implemented"))
+/// Percent-decode a query value; `None` when it is not valid UTF-8.
+fn query_value(query: &str, name: &str) -> Option<Option<String>> {
+    let raw = query.split('&').find_map(|pair| {
+        let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
+        (k == name).then_some(v)
+    })?;
+    let bytes = raw.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'%' if i + 2 < bytes.len() => {
+                let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).ok();
+                match hex.and_then(|h| u8::from_str_radix(h, 16).ok()) {
+                    Some(b) => {
+                        out.push(b);
+                        i += 3;
+                    }
+                    None => return Some(None),
+                }
+            }
+            b'%' => return Some(None),
+            b'+' => {
+                out.push(b' ');
+                i += 1;
+            }
+            b => {
+                out.push(b);
+                i += 1;
+            }
+        }
+    }
+    Some(String::from_utf8(out).ok())
+}
+
+fn get_messages(store: &mut dyn StateStore, req: &HttpRequest) -> IngestResult {
+    let conversation = match query_value(&req.query, "conversation_id") {
+        Some(Some(id)) if valid_id(&id) => id,
+        _ => return IngestResult::reply(HttpResponse::error(400, "invalid_conversation_id")),
+    };
+    let after = match query_value(&req.query, "after") {
+        None => 0,
+        Some(Some(text)) => match text.parse::<u64>() {
+            Ok(n) => n,
+            Err(_) => return IngestResult::reply(HttpResponse::error(400, "invalid_cursor")),
+        },
+        Some(None) => return IngestResult::reply(HttpResponse::error(400, "invalid_cursor")),
+    };
+    match log::poll(store, &conversation, after) {
+        // Typed value serialized directly: field order is the fixture's.
+        Ok(out) => IngestResult::reply(HttpResponse {
+            status: 200,
+            body: serde_json::to_vec(&out).unwrap_or_default(),
+        }),
+        Err(err) => store_failure(&err),
+    }
 }

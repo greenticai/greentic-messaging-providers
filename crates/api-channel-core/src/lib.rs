@@ -18,6 +18,8 @@ pub mod webhook;
 #[cfg(test)]
 mod fixtures_tests;
 #[cfg(test)]
+mod ingest_get_tests;
+#[cfg(test)]
 mod ingest_post_tests;
 #[cfg(test)]
 mod log_tests;
