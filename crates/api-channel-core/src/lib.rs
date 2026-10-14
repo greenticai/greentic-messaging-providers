@@ -1,0 +1,13 @@
+//! Pure logic of the `messaging-api` channel.
+//!
+//! Everything here is host-neutral: state, time, randomness and outbound HTTP
+//! arrive through the traits in [`env`] and [`store`], so the WASM component is
+//! a thin adapter and every rule is testable natively.
+
+pub mod env;
+pub mod event;
+pub mod log;
+pub mod store;
+
+#[cfg(test)]
+mod fixtures_tests;
