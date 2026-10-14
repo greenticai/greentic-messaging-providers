@@ -12,6 +12,7 @@ pub mod http;
 pub mod ingest;
 pub mod log;
 pub mod send;
+pub mod setup;
 pub mod store;
 pub mod webhook;
 
@@ -25,3 +26,5 @@ mod ingest_post_tests;
 mod log_tests;
 #[cfg(test)]
 mod send_tests;
+#[cfg(test)]
+mod setup_tests;
