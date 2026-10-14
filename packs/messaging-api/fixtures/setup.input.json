@@ -1,0 +1,9 @@
+{
+  "mode": "setup",
+  "config": {
+    "enabled": true
+  },
+  "secrets": {
+    "API_CHANNEL_API_KEY": "test-api-key-0123456789"
+  }
+}

@@ -1,0 +1,14 @@
+[package]
+name = "api-channel-core"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+description = "Pure logic of the messaging-api channel: event log with a monotonic cursor, bearer auth, webhook signing, HTTP ingest."
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+sha2.workspace = true
+hmac.workspace = true
+base64.workspace = true

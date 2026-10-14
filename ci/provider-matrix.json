@@ -22,7 +22,8 @@
     "messaging-provider-webex",
     "messaging-provider-whatsapp",
     "messaging-provider-webchat",
-    "messaging-provider-webchat-gui"
+    "messaging-provider-webchat-gui",
+    "messaging-provider-api"
   ],
   "all_packs": [
     "messaging-dummy",
@@ -37,7 +38,8 @@
     "messaging-webex",
     "messaging-http",
     "messaging-websocket",
-    "messaging-whatsapp"
+    "messaging-whatsapp",
+    "messaging-api"
   ],
   "shared_paths": [
     ".github/workflows/",
@@ -545,6 +547,33 @@
         "packs/messaging-whatsapp/",
         "ci/secrets/whatsapp.secrets-pack.yaml",
         "crates/provider-tests/tests/provider_core_whatsapp.rs"
+      ]
+    },
+    "api": {
+      "pack": "messaging-api",
+      "version": "0.5.0",
+      "ghcr_target": "ghcr.io/greenticai/messaging-api",
+      "shared_crate_dependency": "greentic-messaging-provider-common@0.4.102",
+      "e2e": {
+        "external_service": "api",
+        "required_secrets": [],
+        "optional_secrets": [],
+        "fixture_path": "e2e/providers/api",
+        "test_command": "python3 ci/e2e/provider_e2e.py run --provider api",
+        "operation": "pack load and fixture smoke",
+        "readback": "local artifact validation"
+      },
+      "components": [
+        "messaging-provider-api"
+      ],
+      "manifests": [
+        "components/messaging-provider-api/Cargo.toml"
+      ],
+      "paths": [
+        "components/messaging-provider-api/",
+        "crates/api-channel-core/",
+        "packs/messaging-api/",
+        "docs/fixtures/api-channel/"
       ]
     }
   }

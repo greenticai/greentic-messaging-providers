@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "API channel config",
+  "type": "object",
+  "properties": {
+    "enabled": {
+      "type": "boolean",
+      "description": "Enable this channel"
+    },
+    "webhook_url": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://",
+      "description": "HTTPS endpoint that receives signed events"
+    }
+  },
+  "required": [
+    "enabled"
+  ],
+  "additionalProperties": false
+}

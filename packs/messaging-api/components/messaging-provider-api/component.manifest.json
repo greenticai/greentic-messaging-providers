@@ -1,0 +1,120 @@
+{
+  "id": "messaging-provider-api",
+  "name": "messaging-provider-api",
+  "version": "0.5.0",
+  "world": "greentic:component/component-v0-v6-v0@0.6.1",
+  "description": "Programmatic API messaging channel (REST send; SSE, polling or webhook receive).",
+  "profiles": {
+    "default": "default",
+    "supported": [
+      "default"
+    ]
+  },
+  "config_schema": {
+    "provider_config": {
+      "format": "json",
+      "path": "schemas/messaging/api/public.config.schema.json"
+    }
+  },
+  "secret_requirements": [
+    {
+      "name": "API_CHANNEL_API_KEY",
+      "scope": "tenant",
+      "description": "Bearer API key clients present."
+    },
+    {
+      "name": "API_CHANNEL_WEBHOOK_SECRET",
+      "scope": "tenant",
+      "description": "Webhook signing secret."
+    }
+  ],
+  "operations": [
+    {
+      "name": "qa-spec",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "default",
+              "setup",
+              "upgrade",
+              "remove"
+            ]
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "description": "CBOR-encoded QA specification",
+        "additionalProperties": true,
+        "properties": {
+          "questions": {
+            "type": "array",
+            "description": "List of questions in the QA spec"
+          }
+        }
+      }
+    },
+    {
+      "name": "apply-answers",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "default",
+              "setup",
+              "upgrade",
+              "remove"
+            ]
+          },
+          "answers_cbor": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "CBOR-encoded answers"
+          }
+        },
+        "required": [
+          "mode",
+          "answers_cbor"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "description": "CBOR-encoded result with config and optional cleanup plan",
+        "additionalProperties": true,
+        "properties": {
+          "config": {
+            "type": "object",
+            "description": "Provider configuration"
+          }
+        }
+      }
+    }
+  ],
+  "capabilities": {
+    "wasi": {},
+    "host": {
+      "state": {
+        "read": true,
+        "write": true
+      },
+      "http": {
+        "client": true
+      },
+      "secrets": {
+        "read": true
+      }
+    }
+  }
+}

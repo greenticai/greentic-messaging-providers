@@ -1,0 +1,14 @@
+{
+  "config_patch": {
+    "enabled": true
+  },
+  "secrets_patch": {
+    "set": {
+      "API_CHANNEL_API_KEY": "test-api-key-0123456789"
+    },
+    "delete": []
+  },
+  "webhook_ops": [],
+  "subscription_ops": [],
+  "oauth_ops": []
+}

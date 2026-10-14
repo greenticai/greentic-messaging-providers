@@ -1,0 +1,27 @@
+provider_id: api
+version: 1
+title: API channel setup
+questions:
+  - name: api_key
+    title: API key
+    kind: string
+    required: true
+    secret: true
+    help: "Bearer token API clients send in the Authorization header. At least 16 characters."
+    group: Authentication
+  - name: webhook_url
+    title: Webhook URL
+    kind: string
+    required: false
+    help: "Optional https endpoint that receives each event, signed with the webhook secret."
+    placeholder: "https://example.com/hooks/greentic"
+    group: Delivery
+    validate:
+      regex: "^https://"
+  - name: webhook_secret
+    title: Webhook signing secret
+    kind: string
+    required: false
+    secret: true
+    help: "Required when a webhook URL is set. Used to sign X-Greentic-Signature."
+    group: Delivery

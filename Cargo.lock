@@ -129,6 +129,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
+name = "api-channel-core"
+version = "0.5.3"
+dependencies = [
+ "base64",
+ "hmac 0.13.0",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+]
+
+[[package]]
 name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2311,6 +2322,21 @@ dependencies = [
  "urlencoding",
  "uuid",
  "webchat-directline-core",
+ "wit-bindgen 0.57.1",
+]
+
+[[package]]
+name = "messaging-provider-api"
+version = "0.5.0"
+dependencies = [
+ "api-channel-core",
+ "base64",
+ "chrono",
+ "greentic-messaging-provider-common",
+ "greentic-types 1.2.38173118925",
+ "serde",
+ "serde_json",
+ "uuid",
  "wit-bindgen 0.57.1",
 ]
 

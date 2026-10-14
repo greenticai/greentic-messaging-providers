@@ -1,0 +1,22 @@
+package greentic:component@0.6.1;
+
+use greentic:http/http-client@1.1.0 as http-client;
+use greentic:secrets-store/secrets-store@1.0.0;
+use greentic:state/state-store@1.1.0;
+use greentic:provider-schema-core/schema-core-api@1.0.0;
+use provider:common/ingress@0.0.2;
+use provider:common/ingress@0.0.3 as configured-ingress;
+
+world component-v0-v6-v0 {
+  import http-client;
+  import secrets-store;
+  import state-store;
+  export descriptor;
+  export runtime;
+  export qa;
+  export component-i18n;
+  export schema-core-api;
+  // The runtime dispatches inbound HTTP (POST/GET /messages) through this.
+  export ingress;
+  export configured-ingress;
+}
