@@ -4,9 +4,12 @@
 //! arrive through the traits in [`env`] and [`store`], so the WASM component is
 //! a thin adapter and every rule is testable natively.
 
+pub mod auth;
 pub mod config;
 pub mod env;
 pub mod event;
+pub mod http;
+pub mod ingest;
 pub mod log;
 pub mod send;
 pub mod store;
@@ -14,6 +17,8 @@ pub mod webhook;
 
 #[cfg(test)]
 mod fixtures_tests;
+#[cfg(test)]
+mod ingest_post_tests;
 #[cfg(test)]
 mod log_tests;
 #[cfg(test)]
