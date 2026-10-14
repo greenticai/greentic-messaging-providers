@@ -11,3 +11,5 @@ pub mod store;
 
 #[cfg(test)]
 mod fixtures_tests;
+#[cfg(test)]
+mod log_tests;
