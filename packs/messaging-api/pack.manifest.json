@@ -80,30 +80,11 @@
           },
           {
             "domain": "messaging",
-            "id": "api-messages-bundle",
-            "methods": [
-              "GET",
-              "POST"
-            ],
-            "pattern": "/v1/messaging/api/{tenant}/{bundle}/messages",
-            "provider_op": "ingest_http"
-          },
-          {
-            "domain": "messaging",
             "id": "api-stream-probe",
             "methods": [
               "GET"
             ],
             "pattern": "/v1/messaging/api/{tenant}/conversations/{path*}",
-            "provider_op": "ingest_http"
-          },
-          {
-            "domain": "messaging",
-            "id": "api-stream-probe-bundle",
-            "methods": [
-              "GET"
-            ],
-            "pattern": "/v1/messaging/api/{tenant}/{bundle}/conversations/{path*}",
             "provider_op": "ingest_http"
           }
         ]
@@ -187,17 +168,8 @@
     {
       "name": "API_CHANNEL_WEBHOOK_SECRET",
       "scope": "tenant",
-      "description": "Webhook signing secret."
-    },
-    {
-      "name": "DUMMY_API_TOKEN",
-      "scope": "tenant",
-      "description": "Dummy provider token (redacted in describe/config metadata)."
-    },
-    {
-      "name": "DUMMY_TOKEN",
-      "scope": "tenant",
-      "description": "Dummy token used for conformance setup validation."
+      "description": "Webhook signing secret.",
+      "required": false
     }
   ]
 }
