@@ -124,3 +124,40 @@ fn encode_marks_a_failed_turn_without_forwarding_the_engine_text() {
     assert_eq!(body["failed"], true);
     assert!(!raw.contains("boom with internal detail"));
 }
+
+#[test]
+fn the_hosts_operator_shaped_ingress_input_is_understood() {
+    // greentic-start sends query as `[[k, v]]` pairs and headers as tuples,
+    // which the native `HttpInV1` cannot deserialize.
+    let input = json!({
+        "v": 1,
+        "provider": "messaging.api",
+        "method": "GET",
+        "path": "/v1/messaging/api/acme/messages",
+        "query": [["conversation_id", "c1"], ["after", "2"]],
+        "headers": [["Authorization", "Bearer k"]],
+        "body_b64": "",
+    });
+    let bytes = serde_json::to_vec(&input).expect("json");
+    let (request, config) = crate::ops::core_request(&bytes).expect("parsed");
+    assert_eq!(request.method, "GET");
+    assert_eq!(request.query, "conversation_id=c1&after=2");
+    assert_eq!(request.header("authorization"), Some("Bearer k"));
+    assert!(config.is_none());
+}
+
+#[test]
+fn the_native_http_in_shape_still_parses() {
+    let input = json!({
+        "method": "POST",
+        "path": "/v1/messaging/api/acme/messages",
+        "query": "x=1",
+        "headers": [{"name": "Authorization", "value": "Bearer k"}],
+        "body_b64": STANDARD.encode(b"{}"),
+    });
+    let bytes = serde_json::to_vec(&input).expect("json");
+    let (request, _) = crate::ops::core_request(&bytes).expect("parsed");
+    assert_eq!(request.query, "x=1");
+    assert_eq!(request.body, b"{}".to_vec());
+    assert_eq!(request.header("authorization"), Some("Bearer k"));
+}

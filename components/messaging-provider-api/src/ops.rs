@@ -7,12 +7,13 @@ use api_channel_core::ingest::ingest_http as core_ingest;
 use api_channel_core::log::run_poll_events;
 use api_channel_core::send::run_send;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
-use greentic_types::messaging::universal_dto::{Header, HttpInV1, HttpOutV1, ProviderPayloadV1};
+use greentic_types::messaging::universal_dto::{Header, HttpOutV1, ProviderPayloadV1};
 use greentic_types::{Actor, ChannelMessageEnvelope, EnvId, MessageMetadata, TenantCtx, TenantId};
 use provider_common::helpers::{
     RenderPlanConfig, decode_encode_message, encode_error, json_bytes, render_plan_common,
     resolve_adaptive_card, send_payload_dispatch,
 };
+use provider_common::http_compat::parse_operator_http_in;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
@@ -72,30 +73,38 @@ pub(crate) fn envelope(inbound: &Inbound, tenant: &str) -> Result<ChannelMessage
     })
 }
 
-fn ingest_http(input: &[u8]) -> Vec<u8> {
-    let Ok(request) = serde_json::from_slice::<HttpInV1>(input) else {
-        return json_bytes(&json!({"ok": false, "error": "invalid ingest_http input"}));
-    };
+/// Decode the ingress input into the core request plus the host-injected
+/// config. The host sends query and headers as pair lists, which the native
+/// `HttpInV1` cannot read; `parse_operator_http_in` accepts both shapes.
+pub(crate) fn core_request(input: &[u8]) -> Result<(HttpRequest, Option<Value>), String> {
+    let request = parse_operator_http_in(input)?;
     let body = STANDARD
         .decode(request.body_b64.as_bytes())
         .unwrap_or_default();
-    let config = load_config(request.config.as_ref());
-    let core_request = HttpRequest {
-        method: request.method.clone(),
-        path: request.path.clone(),
-        query: request.query.clone().unwrap_or_default(),
+    let core = HttpRequest {
+        method: request.method,
+        path: request.path,
+        query: request.query.unwrap_or_default(),
         headers: request
             .headers
-            .iter()
-            .map(|h| (h.name.clone(), h.value.clone()))
+            .into_iter()
+            .map(|h| (h.name, h.value))
             .collect(),
         body,
     };
+    Ok((core, request.config))
+}
+
+fn ingest_http(input: &[u8]) -> Vec<u8> {
+    let Ok((core_request, injected_config)) = core_request(input) else {
+        return json_bytes(&json!({"ok": false, "error": "invalid ingest_http input"}));
+    };
+    let config = load_config(injected_config.as_ref());
     let result = core_ingest(&mut HostStore, &mut HostEnv, &config, &core_request);
 
     let mut events = Vec::new();
     if let Some(inbound) = &result.inbound {
-        let tenant = tenant_from_path(&request.path).unwrap_or("default");
+        let tenant = tenant_from_path(&core_request.path).unwrap_or("default");
         match envelope(inbound, tenant) {
             Ok(env) => events.push(env),
             Err(_) => {
