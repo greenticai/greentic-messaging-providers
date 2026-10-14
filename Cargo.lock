@@ -1119,7 +1119,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1453,7 +1453,7 @@ dependencies = [
  "clap",
  "greentic-interfaces",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "serde",
  "serde_json",
  "serde_yaml_gtc",
@@ -1469,7 +1469,7 @@ dependencies = [
  "greentic-messaging-provider-common",
  "greentic-messaging-renderer",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "insta",
  "serde",
  "serde_json",
@@ -1484,7 +1484,7 @@ dependencies = [
  "ciborium",
  "glob",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "jsonschema",
  "memchr",
  "once_cell",
@@ -1503,7 +1503,7 @@ name = "greentic-messaging-renderer"
 version = "0.5.3"
 dependencies = [
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -1521,7 +1521,7 @@ dependencies = [
  "greentic-interfaces-wasmtime",
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "hmac 0.13.0",
  "http",
  "once_cell",
@@ -1581,9 +1581,9 @@ dependencies = [
 
 [[package]]
 name = "greentic-types"
-version = "1.1.4"
+version = "1.2.38173118925"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9553e9c3e1a357f14da4a44581d506b2771325da9a71ee7a499679e6d695ff83"
+checksum = "09f44801a3cb6fe595e6929f0cd547ed9ab027e6a293da0f83bae9674f768e4d"
 dependencies = [
  "anyhow",
  "blake3",
@@ -2218,7 +2218,7 @@ version = "0.1.1"
 dependencies = [
  "anyhow",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "serde",
  "serde_json",
 ]
@@ -2251,7 +2251,7 @@ version = "0.5.24"
 dependencies = [
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "hmac 0.13.0",
  "serde",
  "serde_json",
@@ -2267,7 +2267,7 @@ dependencies = [
  "base64",
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "serde",
  "serde_json",
  "urlencoding",
@@ -2303,7 +2303,7 @@ dependencies = [
  "chrono",
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "hmac 0.13.0",
  "serde",
  "serde_json",
@@ -2321,7 +2321,7 @@ dependencies = [
  "base64",
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -2336,7 +2336,7 @@ dependencies = [
  "chrono",
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -2351,7 +2351,7 @@ dependencies = [
  "base64",
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "hmac 0.13.0",
  "serde",
  "serde_json",
@@ -2368,7 +2368,7 @@ dependencies = [
  "chrono",
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "serde",
  "serde_json",
  "urlencoding",
@@ -2382,7 +2382,7 @@ dependencies = [
  "base64",
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "serde",
  "serde_json",
  "wit-bindgen 0.57.1",
@@ -2396,7 +2396,7 @@ dependencies = [
  "chrono",
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "hmac 0.13.0",
  "serde",
  "serde_json",
@@ -2415,7 +2415,7 @@ dependencies = [
  "chrono",
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "hmac 0.13.0",
  "serde",
  "serde_json",
@@ -2433,7 +2433,7 @@ dependencies = [
  "base64",
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "hmac 0.13.0",
  "serde",
  "serde_json",
@@ -2449,7 +2449,7 @@ dependencies = [
  "base64",
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "serde",
  "serde_json",
  "wit-bindgen 0.57.1",
@@ -2500,7 +2500,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2810,7 +2810,7 @@ dependencies = [
  "greentic-interfaces-wasmtime",
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "hmac 0.13.0",
  "insta",
  "ring",
@@ -3109,7 +3109,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3629,7 +3629,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4682,7 +4682,7 @@ dependencies = [
  "chrono",
  "greentic-messaging-provider-common",
  "greentic-telemetry",
- "greentic-types 1.1.4",
+ "greentic-types 1.2.38173118925",
  "hmac 0.13.0",
  "p256",
  "rand_core 0.6.4",
@@ -4798,7 +4798,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
