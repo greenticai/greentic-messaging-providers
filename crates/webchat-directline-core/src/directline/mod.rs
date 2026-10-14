@@ -2,6 +2,7 @@ pub mod activity_log;
 pub mod caller;
 pub mod http;
 pub mod jwt;
+pub mod microsoft_authority;
 pub mod oidc;
 pub mod oidc_config;
 #[cfg(test)]

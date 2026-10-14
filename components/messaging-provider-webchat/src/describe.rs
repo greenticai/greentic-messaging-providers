@@ -214,6 +214,8 @@ pub(crate) const I18N_KEYS: &[&str] = &[
     "webchat.schema.config.oauth_microsoft_client_id.description",
     "webchat.schema.config.oauth_microsoft_client_secret.title",
     "webchat.schema.config.oauth_microsoft_client_secret.description",
+    "webchat.schema.config.oauth_microsoft_authority.title",
+    "webchat.schema.config.oauth_microsoft_authority.description",
     "webchat.schema.config.oauth_github_client_id.title",
     "webchat.schema.config.oauth_github_client_id.description",
     "webchat.schema.config.oauth_github_client_secret.title",
@@ -249,6 +251,8 @@ pub(crate) const I18N_KEYS: &[&str] = &[
     "webchat.qa.oauth.microsoft.client_id.help",
     "webchat.qa.oauth.microsoft.client_secret",
     "webchat.qa.oauth.microsoft.client_secret.help",
+    "webchat.qa.oauth.microsoft.authority",
+    "webchat.qa.oauth.microsoft.authority.help",
     "webchat.qa.oauth.github.enable",
     "webchat.qa.oauth.github.enable.help",
     "webchat.qa.oauth.github.client_id",
@@ -341,6 +345,13 @@ fn oauth_questions() -> Vec<QaQuestionSpec> {
             "oauth_microsoft_client_secret",
             "webchat.qa.oauth.microsoft.client_secret",
             "webchat.qa.oauth.microsoft.client_secret.help",
+            skip_unless_provider("oauth_enable_microsoft"),
+        ),
+        oauth_question(
+            "oauth_microsoft_authority",
+            "webchat.qa.oauth.microsoft.authority",
+            "webchat.qa.oauth.microsoft.authority.help",
+            false,
             skip_unless_provider("oauth_enable_microsoft"),
         ),
         // ── GitHub ──
@@ -591,6 +602,14 @@ pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
         "webchat.qa.oauth.microsoft.client_secret.help",
         "Copy from Azure App Registration → Certificates & secrets",
     ),
+    (
+        "webchat.qa.oauth.microsoft.authority",
+        "Microsoft authority (optional)",
+    ),
+    (
+        "webchat.qa.oauth.microsoft.authority.help",
+        "Leave empty for 'common' (any work, school or personal account). Use 'organizations', 'consumers', your tenant ID or your tenant domain to restrict who can sign in. The app registration must be configured for the same audience.",
+    ),
     // GitHub
     ("webchat.qa.oauth.github.enable", "Enable GitHub login"),
     (
@@ -734,6 +753,14 @@ pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
     (
         "webchat.schema.config.oauth_microsoft_client_secret.description",
         "Client secret from Azure App Registration for OAuth sign-in",
+    ),
+    (
+        "webchat.schema.config.oauth_microsoft_authority.title",
+        "Microsoft OAuth authority",
+    ),
+    (
+        "webchat.schema.config.oauth_microsoft_authority.description",
+        "Entra authority for Microsoft sign-in: common (default), organizations, consumers, a tenant ID or a tenant domain",
     ),
     (
         "webchat.schema.config.oauth_github_client_id.title",
@@ -1016,6 +1043,14 @@ fn config_schema() -> SchemaIr {
                 schema_secret(
                     "webchat.schema.config.oauth_microsoft_client_secret.title",
                     "webchat.schema.config.oauth_microsoft_client_secret.description",
+                ),
+            ),
+            (
+                "oauth_microsoft_authority",
+                false,
+                schema_str(
+                    "webchat.schema.config.oauth_microsoft_authority.title",
+                    "webchat.schema.config.oauth_microsoft_authority.description",
                 ),
             ),
             (
