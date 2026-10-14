@@ -95,3 +95,27 @@ fn remove_deletes_both_secrets() {
     assert!(patch.delete.contains(&WEBHOOK_SECRET_SECRET.to_string()));
     assert!(out.remove.expect("remove").remove_all);
 }
+
+#[test]
+fn the_pack_setup_fixtures_match_what_apply_answers_produces() {
+    let dir = format!(
+        "{}/../../packs/messaging-api/fixtures",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let read = |name: &str| -> serde_json::Value {
+        let text = std::fs::read_to_string(format!("{dir}/{name}")).expect("fixture");
+        serde_json::from_str(&text).expect("json")
+    };
+    let input = read("setup.input.json");
+    let expected = read("setup.expected.plan.json");
+    let mut answers = json!({"api_key": input["secrets"]["API_CHANNEL_API_KEY"]});
+    if let Some(enabled) = input["config"].get("enabled") {
+        answers["enabled"] = enabled.clone();
+    }
+    let out = apply_answers(input["mode"].as_str().expect("mode"), &answers);
+    assert!(out.ok, "{:?}", out.error);
+    let config = serde_json::to_value(out.config).expect("config");
+    assert_eq!(config, expected["config_patch"]);
+    let patch = serde_json::to_value(out.secrets_patch).expect("patch");
+    assert_eq!(patch, expected["secrets_patch"]);
+}

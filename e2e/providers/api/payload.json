@@ -1,0 +1,7 @@
+{
+  "text": "Greentic dummy provider e2e smoke",
+  "destination": {
+    "kind": "test",
+    "id": "dummy"
+  }
+}

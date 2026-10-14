@@ -1,0 +1,51 @@
+pack:
+  id: messaging-api
+  name: Messaging API
+  version: 0.5.0
+  publisher: Greentic
+  kind: application
+provider:
+  provider_type: messaging.api
+  provider_id: api
+  ops:
+  - send
+  - ingest_http
+  - poll_events
+  - qa-spec
+  - apply-answers
+  - i18n-keys
+  capabilities:
+    render_tiers:
+    - tier-a
+components:
+  adapter:
+    id: messaging-provider-api
+    component_ref: local:../../packs/messaging-api/components/messaging-provider-api.wasm
+    world: greentic:provider/schema-core@1.0.0
+    export: schema-core-api
+flows:
+  include:
+  - default
+  - diagnostics
+  - sync_subscriptions
+source:
+  pack_dir: ../../packs/messaging-api
+  extensions:
+    include:
+    - greentic.provider-extension.v1
+    - greentic.messaging.validators.v1
+    - messaging.provider_flow_hints
+contract:
+  ingress:
+    mode: default
+  webhooks:
+    required: false
+  subscriptions:
+    required: false
+requirements:
+  required_args: []
+  optional_args: []
+  examples:
+  - args: {}
+    text: ''
+  notes: ''

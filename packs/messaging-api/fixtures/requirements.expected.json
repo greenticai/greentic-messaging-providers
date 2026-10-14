@@ -1,0 +1,17 @@
+{
+  "provider": "messaging.api",
+  "config_required": [
+    "enabled"
+  ],
+  "config_optional": [
+    "webhook_url"
+  ],
+  "secret_required": [
+    "API_CHANNEL_API_KEY"
+  ],
+  "secret_optional": [
+    "API_CHANNEL_WEBHOOK_SECRET"
+  ],
+  "oauth_required": false,
+  "subscriptions_required": false
+}
