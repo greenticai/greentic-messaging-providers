@@ -98,3 +98,27 @@ fn the_hosts_injected_config_reaches_the_send_input() {
     let plain = send_input(&encode_payload("c1", Some("hi"), None, false, false)).expect("input");
     assert!(plain.get("config").is_none());
 }
+
+#[test]
+fn a_sent_event_announces_itself_so_the_host_can_wake_streams() {
+    use crate::egress::notify_metadata;
+    let mut payload = encode_payload("c1", Some("hi"), None, false, false);
+    payload["tenant"] = json!("acme");
+    let sent = json!({"ok": true, "cursor": 7, "delivery_failed": false});
+    let meta = notify_metadata(&payload, &sent).expect("metadata");
+    assert_eq!(meta["tenant"], "acme");
+    assert_eq!(meta["conversation_id"], "c1");
+    assert_eq!(meta["watermark_bumped"], 7);
+
+    // The delivery_failed marker took the next cursor.
+    let sent = json!({"ok": true, "cursor": 7, "delivery_failed": true});
+    assert_eq!(
+        notify_metadata(&payload, &sent).expect("m")["watermark_bumped"],
+        8
+    );
+
+    // Nothing to announce when the send failed or the tenant is unknown.
+    assert!(notify_metadata(&payload, &json!({"ok": false})).is_none());
+    let no_tenant = encode_payload("c1", Some("hi"), None, false, false);
+    assert!(notify_metadata(&no_tenant, &json!({"ok": true, "cursor": 1})).is_none());
+}

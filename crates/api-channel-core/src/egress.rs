@@ -79,3 +79,22 @@ fn build_send_input(payload: &Value) -> Result<Value, &'static str> {
         "items": items,
     }))
 }
+
+/// The `_greentic` block greentic-start reads from a `send_payload` result to
+/// wake the streams of that conversation at once instead of on their next
+/// poll. `None` when the send failed or the payload names no tenant.
+pub fn notify_metadata(payload: &Value, sent: &Value) -> Option<Value> {
+    if sent.get("ok").and_then(Value::as_bool) != Some(true) {
+        return None;
+    }
+    let tenant = payload.get("tenant").and_then(Value::as_str)?;
+    let conversation = payload.get("session_id").and_then(Value::as_str)?;
+    let cursor = sent.get("cursor").and_then(Value::as_u64)?;
+    // A `delivery_failed` marker was appended right after the event.
+    let bump = u64::from(sent.get("delivery_failed").and_then(Value::as_bool) == Some(true));
+    Some(json!({
+        "tenant": tenant,
+        "conversation_id": conversation,
+        "watermark_bumped": cursor + bump,
+    }))
+}

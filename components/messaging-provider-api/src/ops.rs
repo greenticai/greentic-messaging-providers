@@ -1,7 +1,7 @@
 //! JSON op dispatch: ingest_http, send, poll_events and the egress pipeline.
 
 use crate::host::{HostEnv, HostStore, load_config};
-use api_channel_core::egress::{encode_payload, send_input};
+use api_channel_core::egress::{encode_payload, notify_metadata, send_input};
 use api_channel_core::http::{HttpRequest, Inbound};
 use api_channel_core::ingest::ingest_http as core_ingest;
 use api_channel_core::log::run_poll_events;
@@ -206,12 +206,15 @@ fn send_payload(input: &[u8]) -> Vec<u8> {
         };
         let out = send(send_in.to_string().as_bytes());
         // Never forward host or provider text; the generic code is enough.
-        let ok = serde_json::from_slice::<Value>(&out)
-            .ok()
-            .and_then(|v| v.get("ok").and_then(Value::as_bool))
-            .unwrap_or(false);
-        if ok {
-            json_bytes(&json!({"ok": true}))
+        let sent = serde_json::from_slice::<Value>(&out).unwrap_or(Value::Null);
+        if sent.get("ok").and_then(Value::as_bool) == Some(true) {
+            let mut reply = json!({"ok": true});
+            if let (Some(meta), Some(map)) =
+                (notify_metadata(&payload, &sent), reply.as_object_mut())
+            {
+                map.insert("_greentic".into(), meta);
+            }
+            json_bytes(&reply)
         } else {
             json_bytes(&json!({"ok": false, "error": "send failed"}))
         }
