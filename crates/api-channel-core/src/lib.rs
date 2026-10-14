@@ -6,6 +6,7 @@
 
 pub mod auth;
 pub mod config;
+pub mod egress;
 pub mod env;
 pub mod event;
 pub mod http;
@@ -16,6 +17,8 @@ pub mod setup;
 pub mod store;
 pub mod webhook;
 
+#[cfg(test)]
+mod egress_tests;
 #[cfg(test)]
 mod fixtures_tests;
 #[cfg(test)]

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEFAULT_PACKAGES=("questions" "secrets-probe" "slack" "teams" "telegram" "telegram-webhook" "webchat" "webex" "webex-webhook" "whatsapp" "messaging-ingress-slack" "messaging-ingress-teams" "messaging-ingress-telegram" "messaging-ingress-whatsapp" "messaging-provider-dummy" "messaging-provider-telegram" "messaging-provider-teams-graph" "messaging-provider-email" "messaging-provider-slack" "messaging-provider-webex" "messaging-provider-whatsapp" "messaging-provider-webchat" "messaging-provider-webchat-gui" "messaging-provider-3aigent-gui")
+DEFAULT_PACKAGES=("questions" "secrets-probe" "slack" "teams" "telegram" "telegram-webhook" "webchat" "webex" "webex-webhook" "whatsapp" "messaging-ingress-slack" "messaging-ingress-teams" "messaging-ingress-telegram" "messaging-ingress-whatsapp" "messaging-provider-dummy" "messaging-provider-telegram" "messaging-provider-teams-graph" "messaging-provider-email" "messaging-provider-slack" "messaging-provider-webex" "messaging-provider-whatsapp" "messaging-provider-webchat" "messaging-provider-webchat-gui" "messaging-provider-3aigent-gui" "messaging-provider-api")
 
 if [ -n "${COMPONENT_FILTER:-}" ]; then
   PACKAGES=()

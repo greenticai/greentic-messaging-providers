@@ -2326,6 +2326,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "messaging-provider-api"
+version = "0.5.0"
+dependencies = [
+ "api-channel-core",
+ "base64",
+ "chrono",
+ "greentic-messaging-provider-common",
+ "greentic-types 1.2.38173118925",
+ "serde",
+ "serde_json",
+ "uuid",
+ "wit-bindgen 0.57.1",
+]
+
+[[package]]
 name = "messaging-provider-dummy"
 version = "0.5.1"
 dependencies = [
