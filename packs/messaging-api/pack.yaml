@@ -61,6 +61,18 @@ extensions:
         - POST
         pattern: /v1/messaging/api/{tenant}/{bundle}/messages
         provider_op: ingest_http
+      - domain: messaging
+        id: api-stream-probe
+        methods:
+        - GET
+        pattern: /v1/messaging/api/{tenant}/conversations/{conversation_id}/stream
+        provider_op: ingest_http
+      - domain: messaging
+        id: api-stream-probe-bundle
+        methods:
+        - GET
+        pattern: /v1/messaging/api/{tenant}/{bundle}/conversations/{conversation_id}/stream
+        provider_op: ingest_http
   greentic.messaging.validators.v1:
     kind: greentic.messaging.validators.v1
     version: 0.5.0

@@ -1,4 +1,5 @@
-//! The `ingest_http` op: `POST /messages` (send) and `GET /messages` (poll).
+//! The `ingest_http` op: `POST /messages` (send), `GET /messages` (poll) and
+//! `GET /conversations/{id}/stream` (auth-only probe for the host's SSE route).
 
 use crate::auth::bearer_ok;
 use crate::config::ApiConfig;
@@ -38,6 +39,14 @@ pub fn ingest_http<E: Env + ?Sized>(
     if !bearer_ok(req, config.api_key.as_deref()) {
         return IngestResult::reply(HttpResponse::error(401, "unauthorized"));
     }
+    if is_stream_path(&req.path) {
+        // Auth-only probe for the host's SSE route: the bearer was verified
+        // above, there is nothing else to do and no state is touched.
+        return match req.method.to_ascii_uppercase().as_str() {
+            "GET" => IngestResult::reply(HttpResponse::json(200, &json!({"ok": true}))),
+            _ => IngestResult::reply(HttpResponse::error(405, "method_not_allowed")),
+        };
+    }
     if !req.path.trim_end_matches('/').ends_with("/messages") {
         return IngestResult::reply(HttpResponse::error(404, "not_found"));
     }
@@ -46,6 +55,12 @@ pub fn ingest_http<E: Env + ?Sized>(
         "GET" => get_messages(store, req),
         _ => IngestResult::reply(HttpResponse::error(405, "method_not_allowed")),
     }
+}
+
+/// `.../conversations/{id}/stream`, the path greentic-start serves as SSE.
+fn is_stream_path(path: &str) -> bool {
+    let segments: Vec<&str> = path.trim_matches('/').split('/').collect();
+    matches!(segments.as_slice(), [.., "conversations", id, "stream"] if !id.is_empty())
 }
 
 fn valid_id(id: &str) -> bool {
