@@ -154,6 +154,16 @@ questions:
     visible_if:
       field: oauth_enable_microsoft
       eq: "true"
+  - name: oauth_microsoft_authority
+    title: Microsoft authority
+    kind: string
+    required: false
+    help: "Leave empty for 'common'. Use 'organizations', 'consumers', your tenant ID or tenant domain to restrict who can sign in."
+    placeholder: "common"
+    group: OAuth - Microsoft
+    visible_if:
+      field: oauth_enable_microsoft
+      eq: "true"
 
   # ── GitHub ───────────────────────────────────────────────
   - name: oauth_enable_github

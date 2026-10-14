@@ -17,6 +17,7 @@ use serde_json::{Value, json};
 use crate::bindings::greentic::http::http_client as client;
 use crate::directline::ConfigAwareSecretStore;
 use crate::directline::store::SecretStore as _;
+use webchat_directline_core::directline::microsoft_authority;
 
 /// Return OAuth configuration as JSON for the frontend SPA.
 /// Reads oauth_* fields from secrets store (host interface).
@@ -77,11 +78,14 @@ pub(super) fn handle_auth_config(request: &HttpInV1) -> Vec<u8> {
             }
             if read_secret("oauth_enable_microsoft").as_deref() == Some("true")
                 && let Some(client_id) = read_secret("oauth_microsoft_client_id")
+                && let Ok((auth_url, token_url)) = microsoft_authority::endpoints(
+                    read_secret("oauth_microsoft_authority").as_deref(),
+                )
             {
                 list.push(json!({
                     "id": "microsoft", "label": "Microsoft",
-                    "auth_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-                    "token_url": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+                    "auth_url": auth_url,
+                    "token_url": token_url,
                     "client_id": client_id, "scopes": "openid profile email"
                 }));
             }

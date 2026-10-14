@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use uuid::Uuid;
+use webchat_directline_core::directline::microsoft_authority;
 
 use crate::PROVIDER_TYPE;
 use crate::config::{
@@ -437,6 +438,17 @@ fn apply_answers_impl(
         });
     }
 
+    if let Some(error) = microsoft_authority_error(&answers) {
+        return canonical_cbor_bytes(&ApplyAnswersResult {
+            ok: false,
+            config: None,
+            secrets_patch: None,
+            remove: None,
+            diagnostics: Vec::new(),
+            error: Some(error),
+        });
+    }
+
     let mut merged = existing_config_from_answers(&answers).unwrap_or_else(default_config_out);
     let mut secrets_set = BTreeMap::new();
     let answer_obj = answers.as_object();
@@ -536,6 +548,7 @@ fn apply_answers_impl(
         if has("oauth_enable_greentic")
             || has("oauth_enable_google")
             || has("oauth_enable_microsoft")
+            || has("oauth_microsoft_authority")
             || has("oauth_enable_github")
             || has("oauth_enable_custom")
             || has("oauth_providers")
@@ -672,6 +685,15 @@ fn take_existing_jwt_key(config: &mut ProviderConfigOut) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+fn microsoft_authority_error(answers: &Value) -> Option<String> {
+    let value = optional_string_from(answers, "oauth_microsoft_authority")?;
+    microsoft_authority::endpoints(Some(&value)).err().map(|_| {
+        format!(
+            "config validation failed: oauth_microsoft_authority must be common, organizations, consumers, a tenant id or a tenant domain, got {value}"
+        )
+    })
+}
+
 fn presentation_mode_from_answers(answers: &Value) -> Option<Result<PresentationMode, String>> {
     let value = optional_string_from(answers, "presentation_mode")?;
     Some(match value.as_str() {
@@ -734,14 +756,18 @@ fn compose_oauth_providers(answers: &Value) -> Option<String> {
         providers.push(p);
     }
 
-    // Microsoft (well-known URLs)
+    // Microsoft (authority defaults to `common`; an invalid one is validated
+    // at apply time and here fails closed by omitting the button)
     if is_truthy(answers, "oauth_enable_microsoft")
         && let Some(client_id) = optional_string_from(answers, "oauth_microsoft_client_id")
+        && let Ok((auth_url, token_url)) = microsoft_authority::endpoints(
+            optional_string_from(answers, "oauth_microsoft_authority").as_deref(),
+        )
     {
         let mut p = json!({
             "id": "microsoft", "label": "Microsoft",
-            "auth_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-            "token_url": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            "auth_url": auth_url,
+            "token_url": token_url,
             "client_id": client_id, "scopes": "openid profile email"
         });
         if let Some(s) = optional_string_from(answers, "oauth_microsoft_client_secret") {
@@ -1124,6 +1150,97 @@ mod tests {
         assert_eq!(list[0]["client_id"], json!("webchat-gui"));
         assert_eq!(list[0]["issuer"], json!("https://acme.greentic-id.com"));
         assert_eq!(list[1]["id"], json!("google"));
+    }
+
+    fn microsoft_provider(extra: Value) -> Value {
+        let mut answers = json!({
+            "oauth_enabled": true,
+            "oauth_enable_microsoft": true,
+            "oauth_microsoft_client_id": "ms-client",
+        });
+        for (key, value) in extra.as_object().expect("object") {
+            answers[key] = value.clone();
+        }
+        let composed = compose_oauth_providers(&answers).expect("providers composed");
+        let parsed: Value = serde_json::from_str(&composed).expect("valid json");
+        parsed[0].clone()
+    }
+
+    #[test]
+    fn microsoft_defaults_to_the_common_authority_unchanged() {
+        let p = microsoft_provider(json!({}));
+        assert_eq!(
+            p["auth_url"],
+            json!("https://login.microsoftonline.com/common/oauth2/v2.0/authorize")
+        );
+        assert_eq!(
+            p["token_url"],
+            json!("https://login.microsoftonline.com/common/oauth2/v2.0/token")
+        );
+        let blank = microsoft_provider(json!({"oauth_microsoft_authority": "  "}));
+        assert_eq!(blank, p);
+    }
+
+    #[test]
+    fn microsoft_authority_pins_both_endpoints() {
+        let p = microsoft_provider(json!({
+            "oauth_microsoft_authority": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+        }));
+        assert_eq!(
+            p["auth_url"],
+            json!(
+                "https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/oauth2/v2.0/authorize"
+            )
+        );
+        assert_eq!(
+            p["token_url"],
+            json!(
+                "https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/oauth2/v2.0/token"
+            )
+        );
+    }
+
+    #[test]
+    fn an_invalid_microsoft_authority_is_refused_at_setup() {
+        let value = apply_setup(json!({
+            "public_base_url": "https://chat.example.com",
+            "mode": "local_queue",
+            "route": "webchat",
+            "oauth_enabled": true,
+            "oauth_enable_microsoft": true,
+            "oauth_microsoft_client_id": "ms-client",
+            "oauth_microsoft_authority": "evil.example/x",
+        }));
+        assert_eq!(value["ok"], false);
+        assert!(error_text(&value).contains("oauth_microsoft_authority"));
+    }
+
+    #[test]
+    fn an_invalid_microsoft_authority_never_composes_a_button() {
+        let answers = json!({
+            "oauth_enable_microsoft": true,
+            "oauth_microsoft_client_id": "ms-client",
+            "oauth_microsoft_authority": "a/b",
+        });
+        assert!(compose_oauth_providers(&answers).is_none());
+    }
+
+    #[test]
+    fn setup_composes_the_pinned_authority_into_the_config() {
+        let value = apply_setup(json!({
+            "public_base_url": "https://chat.example.com",
+            "mode": "local_queue",
+            "route": "webchat",
+            "oauth_enabled": true,
+            "oauth_enable_microsoft": true,
+            "oauth_microsoft_client_id": "ms-client",
+            "oauth_microsoft_authority": "organizations",
+        }));
+        assert_eq!(value["ok"], true, "{value}");
+        let providers = value["config"]["oauth_providers"]
+            .as_str()
+            .expect("oauth_providers");
+        assert!(providers.contains("/organizations/oauth2/v2.0/authorize"));
     }
 
     #[test]
