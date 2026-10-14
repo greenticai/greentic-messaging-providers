@@ -176,13 +176,18 @@ fn encode(input: &[u8]) -> Vec<u8> {
         .metadata
         .get("awaiting_input")
         .is_some_and(|v| v == "true");
-    let payload = encode_payload(
+    let mut payload = encode_payload(
         &message.session_id,
         message.text.as_deref(),
         resolve_adaptive_card(&message),
         failed,
         awaiting,
     );
+    // The host adds the deployment's provider config only to envelope-shaped
+    // bodies, which it recognises by `tenant` plus `session_id`.
+    if let Some(map) = payload.as_object_mut() {
+        map.insert("tenant".into(), json!(message.tenant.tenant.as_str()));
+    }
     let body = serde_json::to_vec(&payload).unwrap_or_default();
     let payload = ProviderPayloadV1 {
         content_type: "application/json".to_string(),

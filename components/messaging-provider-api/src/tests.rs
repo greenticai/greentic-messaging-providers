@@ -117,6 +117,19 @@ fn encode_carries_session_text_and_card() {
 }
 
 #[test]
+fn encode_names_the_tenant_so_the_host_injects_the_provider_config() {
+    // greentic-start folds provider config into an encoded body only when it
+    // holds both `tenant` and `session_id`; without it `send` never sees the
+    // webhook URL.
+    let body = encoded_body(&ops::dispatch(
+        "encode",
+        &envelope_json(Some("hi"), None, false),
+    ));
+    assert!(body.get("tenant").and_then(|t| t.as_str()).is_some());
+    assert!(body.get("session_id").is_some());
+}
+
+#[test]
 fn encode_marks_a_failed_turn_without_forwarding_the_engine_text() {
     let out = ops::dispatch("encode", &envelope_json(None, None, true));
     let raw = String::from_utf8_lossy(&out).to_string();
