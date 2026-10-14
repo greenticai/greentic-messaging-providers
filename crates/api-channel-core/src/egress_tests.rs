@@ -75,3 +75,26 @@ fn an_empty_reply_or_a_missing_session_is_refused() {
     assert!(send_input(&encode_payload("c1", None, None, false, false)).is_err());
     assert!(send_input(&json!({"text": "x"})).is_err());
 }
+
+#[test]
+fn the_hosts_injected_config_reaches_the_send_input() {
+    // greentic-start folds the deployment's config overrides into the encoded
+    // payload body; without forwarding them the webhook URL never arrives.
+    let mut payload = encode_payload("c1", Some("hi"), None, false, false);
+    payload["config"] = json!({"webhook_url": "https://hook.example.com/x"});
+    let input = send_input(&payload).expect("send input");
+    assert_eq!(input["config"]["webhook_url"], "https://hook.example.com/x");
+
+    let failed = send_input(&json!({
+        "session_id": "c1", "failed": true,
+        "config": {"webhook_url": "https://hook.example.com/x"}
+    }))
+    .expect("send input");
+    assert_eq!(
+        failed["config"]["webhook_url"],
+        "https://hook.example.com/x"
+    );
+
+    let plain = send_input(&encode_payload("c1", Some("hi"), None, false, false)).expect("input");
+    assert!(plain.get("config").is_none());
+}

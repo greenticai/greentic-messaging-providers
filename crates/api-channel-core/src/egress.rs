@@ -27,7 +27,21 @@ pub fn encode_payload(
 }
 
 /// Turn an encoded payload into the `send` op input.
+///
+/// The host folds the deployment's provider config into the payload body; it
+/// is carried over so `send` can see the webhook URL.
 pub fn send_input(payload: &Value) -> Result<Value, &'static str> {
+    let mut input = build_send_input(payload)?;
+    if let (Some(config), Some(map)) = (
+        payload.get("config").filter(|c| !c.is_null()),
+        input.as_object_mut(),
+    ) {
+        map.insert("config".into(), config.clone());
+    }
+    Ok(input)
+}
+
+fn build_send_input(payload: &Value) -> Result<Value, &'static str> {
     let conversation = payload
         .get("session_id")
         .and_then(Value::as_str)
