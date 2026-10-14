@@ -67,7 +67,7 @@ fn build_send_input(payload: &Value) -> Result<Value, &'static str> {
         items.push(json!({
             "kind": "card",
             "card": card,
-            "fallback": text.unwrap_or("Interactive content"),
+            "fallback": card_fallback(card, text),
         }));
     } else if let Some(text) = text {
         items.push(json!({"kind": "text", "text": text}));
@@ -78,6 +78,41 @@ fn build_send_input(payload: &Value) -> Result<Value, &'static str> {
         "type": if awaiting { "input_required" } else { "message" },
         "items": items,
     }))
+}
+
+/// Constant used when neither the card nor the envelope has any text.
+pub const CARD_FALLBACK: &str = "Interactive content";
+
+/// Plain-text stand-in for a card: its first non-empty `TextBlock` text, else
+/// the envelope text, else [`CARD_FALLBACK`].
+fn card_fallback(card: &Value, envelope_text: Option<&str>) -> String {
+    first_text_block(card)
+        .or_else(|| envelope_text.map(str::to_owned))
+        .unwrap_or_else(|| CARD_FALLBACK.to_owned())
+}
+
+fn first_text_block(node: &Value) -> Option<String> {
+    match node {
+        Value::Object(map) => {
+            let own = (map.get("type").and_then(Value::as_str) == Some("TextBlock"))
+                .then(|| map.get("text").and_then(Value::as_str))
+                .flatten()
+                .map(str::trim)
+                .filter(|t| !t.is_empty())
+                .map(str::to_owned);
+            // Content containers first: map keys are sorted, and `actions`
+            // sorts ahead of `body`.
+            own.or_else(|| {
+                ["body", "items", "columns", "facts"]
+                    .iter()
+                    .filter_map(|key| map.get(*key))
+                    .find_map(first_text_block)
+            })
+            .or_else(|| map.values().find_map(first_text_block))
+        }
+        Value::Array(items) => items.iter().find_map(first_text_block),
+        _ => None,
+    }
 }
 
 /// The `_greentic` block greentic-start reads from a `send_payload` result to

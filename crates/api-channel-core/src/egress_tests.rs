@@ -122,3 +122,41 @@ fn a_sent_event_announces_itself_so_the_host_can_wake_streams() {
     let no_tenant = encode_payload("c1", Some("hi"), None, false, false);
     assert!(notify_metadata(&no_tenant, &json!({"ok": true, "cursor": 1})).is_none());
 }
+
+fn card_fallback_for(card: serde_json::Value, text: Option<&str>) -> String {
+    match deliver(encode_payload("c1", text, Some(card), false, false))
+        .items
+        .remove(0)
+    {
+        Item::Card { fallback, .. } => fallback,
+        other => panic!("expected a card item, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_card_fallback_is_the_first_text_block_of_the_card() {
+    let card = json!({"type": "AdaptiveCard", "body": [
+        {"type": "Image", "url": "https://example.test/a.png"},
+        {"type": "Container", "items": [{"type": "TextBlock", "text": "  You said: hi  "}]},
+        {"type": "TextBlock", "text": "later"}
+    ]});
+    assert_eq!(card_fallback_for(card, Some("envelope")), "You said: hi");
+}
+
+#[test]
+fn a_card_without_text_falls_back_to_the_envelope_text_then_the_constant() {
+    let card = json!({"type": "AdaptiveCard", "body": [{"type": "TextBlock", "text": " "}]});
+    assert_eq!(
+        card_fallback_for(card.clone(), Some("envelope")),
+        "envelope"
+    );
+    assert_eq!(card_fallback_for(card, None), "Interactive content");
+}
+
+#[test]
+fn card_content_is_preferred_over_text_hidden_in_actions() {
+    let card = json!({"type": "AdaptiveCard",
+        "actions": [{"type": "Action.ShowCard", "card": {"body": [{"type": "TextBlock", "text": "hidden"}]}}],
+        "body": [{"type": "TextBlock", "text": "visible"}]});
+    assert_eq!(card_fallback_for(card, None), "visible");
+}
