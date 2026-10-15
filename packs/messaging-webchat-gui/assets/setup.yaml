@@ -164,6 +164,16 @@ questions:
     visible_if:
       field: oauth_enable_microsoft
       eq: "true"
+  - name: oauth_microsoft_allowed_tenants
+    title: Allowed Microsoft tenants
+    kind: string
+    required: false
+    help: "Comma-separated tenant IDs. Needed to recognise verified Microsoft users when the authority is common, organizations or consumers; without it visitors chat anonymously. Not needed for a single-tenant authority."
+    placeholder: "72f988bf-86f1-41af-91ab-2d7cd011db47"
+    group: OAuth - Microsoft
+    visible_if:
+      field: oauth_enable_microsoft
+      eq: "true"
 
   # ── GitHub ───────────────────────────────────────────────
   - name: oauth_enable_github

@@ -80,6 +80,27 @@ pub fn caller_block(claims: &TokenClaims) -> Value {
         {
             block.insert("iss".into(), Value::String(iss.to_string()));
         }
+        // Only a Microsoft sign-in token carries these (the mint sets them
+        // after verifying the id_token); descriptive, never an authorization
+        // input. Other issuers' extra claims stay out of the block.
+        let microsoft = claims
+            .extra
+            .get(super::jwt::IDP_ISS_CLAIM)
+            .and_then(Value::as_str)
+            .is_some_and(|iss| iss.starts_with("https://login.microsoftonline.com/"));
+        for key in ["tid", "oid", "email", "name"]
+            .into_iter()
+            .filter(|_| microsoft)
+        {
+            if let Some(value) = claims
+                .extra
+                .get(key)
+                .and_then(Value::as_str)
+                .and_then(non_empty)
+            {
+                block.insert(key.into(), Value::String(value.to_string()));
+            }
+        }
         if let Some(groups) = string_array(claims.extra.get("groups")) {
             block.insert("groups".into(), groups);
         }
@@ -313,6 +334,21 @@ mod tests {
             block,
             json!({"user_verified": true, "sub": "alice", "iss": "https://Acme.greentic-id.com/"})
         );
+    }
+
+    #[test]
+    fn a_microsoft_identity_carries_tenant_object_email_and_name() {
+        let ms = json!({
+            "idp_iss": "https://login.microsoftonline.com/t/v2.0",
+            "tid": "t", "oid": "o", "email": "a@x", "name": "Ada",
+        });
+        let block = caller_block(&claims(true, None, ms.clone()));
+        assert_eq!(block["tid"], json!("t"));
+        assert_eq!(block["oid"], json!("o"));
+        assert_eq!(block["email"], json!("a@x"));
+        assert_eq!(block["name"], json!("Ada"));
+        let unverified = caller_block(&claims(false, None, ms));
+        assert!(unverified.get("email").is_none() && unverified.get("tid").is_none());
     }
 
     #[test]

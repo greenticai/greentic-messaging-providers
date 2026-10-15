@@ -1,8 +1,8 @@
 # WebChat "Sign in with Microsoft": authority and verified identity
 
-Status: part (a) implemented (`oauth_microsoft_authority`); part (b) is a design
-proposal only. Nothing in (b) is implemented, and nothing here was exercised
-against a real Entra tenant.
+Status: parts (a) (`oauth_microsoft_authority`) and (b) (verified identity,
+below) are implemented. Nothing here was exercised against a real Entra tenant:
+the verifier is covered by unit tests with locally generated RSA keys.
 
 ## What exists today
 
@@ -14,8 +14,10 @@ against a real Entra tenant.
 | Direct Line mint | `webchat-directline-core::http::handle_tokens` | Mints a token with `verified: true` only when the request carries `Authorization: Bearer` that verifies; otherwise anonymous. |
 | Bearer flag | `runtime-bootstrap.js` (`greentic_bearer`) | Set only on the Greentic SSO fallback path. A Microsoft login never sets it, so `/token` is called with no `Authorization` header. |
 
-Consequence: the Microsoft button is a UI gate. After sign-in the Direct Line
-token is anonymous and `extensions.caller` carries `user_verified: false`.
+Before part (b) the Microsoft button was only a UI gate: the Direct Line token
+was anonymous and `extensions.caller` carried `user_verified: false`. The table
+above describes that earlier state; part (b) below replaces the last two rows
+for Microsoft.
 
 ## Why the existing verifier cannot be reused
 
@@ -61,79 +63,73 @@ a POST to that URL. A caller can therefore point it at any HTTPS host. Pinning
 `token_url` to the configured provider is a separate hardening change, and is
 easy now that the authority is a single configured value.
 
-## Part (b): carrying the verified identity (proposal, not implemented)
+## Part (b): the verified Microsoft identity
 
-### What greentic-start and the runner already accept
+### Flow
 
-Checked against greentic-start `origin/develop` and greentic-runner
-`origin/develop` (read, not run):
+1. The browser sends a random `nonce` on the authorize request (kept in session
+   storage) and keeps the **id_token** from the token exchange.
+2. `POST /token` carries `Authorization: Bearer <id_token>` plus
+   `X-Greentic-Idp: microsoft` and `X-Greentic-Nonce: <nonce>`. The header pair
+   is what selects the Microsoft path; without it the existing Greentic bearer
+   path is untouched. An id_token that has expired signs the visitor out rather
+   than minting an anonymous token behind a signed-in UI.
+3. `webchat-directline-core::oidc_entra` verifies it (RS256 via the `rsa`
+   crate, see below) and the Direct Line token is minted `verified: true` with
+   `sub = ms:<tid>:<oid>` and the extra claims `idp_iss`, `tid`, `oid` and,
+   when present, `email` (`preferred_username`, else `email`) and `name`.
+4. `caller_block` publishes `tid`, `oid`, `email` and `name` in
+   `extensions.caller` only for a token whose `idp_iss` is a
+   `login.microsoftonline.com` issuer, so no other issuer's extra claims start
+   appearing. The runner's typed readers ignore the extra keys; a flow reads them
+   from the raw block.
 
-- The Direct Line token is HS256 under the provider's `jwt_signing_key`;
-  greentic-start re-mints it and carries extra claims through, dropping
-  reserved names (`directline_session.rs::RESERVED_CLAIMS`), capped at 4096
-  bytes.
-- The provider builds the caller block (`caller::caller_block`) from the
-  verified token: `user_verified`, `sub`, `team`/`teams`, `iss`, `groups`,
-  `role`. greentic-start only strips a client-supplied block on non-provider
-  ingress; the provider is the trust boundary.
-- The runner's typed readers (`CallerWire`, `ComponentCaller`) decode
-  `user_verified`, `sub`, `team`, `groups`, `role` and ignore other keys. Extra
-  keys (`email`, `name`, `tid`, `oid`) therefore ride the raw block only; a
-  flow reaches them through the raw payload, not through `_caller`. Whether to
-  add typed fields upstream is a product choice, not a prerequisite.
+### What is verified
 
-So no greentic-start change is required to carry `sub`, `iss` and extra claims.
-The work is in this repo.
+Discovery `https://login.microsoftonline.com/<authority>/v2.0/.well-known/openid-configuration`
+gives `jwks_uri`, which must be https on `login.microsoftonline.com`. Both
+documents go through the same cache and refetch-on-unknown-`kid` cooldown as the
+Greentic JWKS. Then: signature (`alg` must be RS256, `kid` matched), the token's
+own `tid` is a GUID and `iss == https://login.microsoftonline.com/<tid>/v2.0`,
+`aud == oauth_microsoft_client_id`, `exp`/`nbf` with 60 s leeway, `nonce` equal
+to the browser's, and an `oid`.
 
-### Required changes
+### Which tenants
 
-1. **Browser** (`runtime-bootstrap.js`, `oauth.js`)
-   - Generate a `nonce`, send it on the authorize request, keep it in session
-     storage.
-   - For `provider.id === "microsoft"` keep the **id_token** (audience = our
-     client id), not the Graph `access_token`, and send it as the `Bearer` on
-     `/token`, as the Greentic path does with `greentic_bearer`. The ID token is
-     the only Entra token whose `aud` is our app and whose claims we can verify.
-2. **Verifier** (new, in `webchat-directline-core`)
-   - Fetch `https://login.microsoftonline.com/<authority>/v2.0/.well-known/openid-configuration`,
-     read `jwks_uri`, restrict both to `login.microsoftonline.com` over https,
-     cache like the existing JWKS cache with the same refetch cooldown.
-   - Verify RS256, pin `alg` (no `none`, no HS*), match `kid`.
-   - Check `aud == oauth_microsoft_client_id`, `exp`/`nbf` with a small skew,
-     `nonce` against the value the browser sends, and
-     `iss == https://login.microsoftonline.com/<tid>/v2.0` using the token's own
-     `tid`. With a single-tenant authority `tid` must also equal that tenant.
-   - Needs an RSA verification dependency (RustCrypto `rsa` + `sha2`) that builds
-     for `wasm32-wasip2`. That is new third-party code inside a signed pack, so
-     it needs an explicit decision and a lockfile review.
-3. **Mint** (`handle_tokens`): on a verified Entra token, mint with
-   `verified: true`, `sub = "ms:<tid>:<oid>"`, and extra claims `idp_iss`,
-   `tid`, `oid`, and optionally `email` (`preferred_username`/`email`) and `name`.
-   `ms:` keeps it clear of the Greentic `...:users:...` subject shape that
-   anonymous callers are already forbidden to claim. `caller_block` then emits
-   the extra fields when `verified`.
+- **Single-tenant authority** (GUID or domain): the token's `tid` must equal it.
+  For a domain, the tenant is the one named by the discovery document's issuer.
+- **`common`, `organizations`, `consumers`**: the new optional answer
+  `oauth_microsoft_allowed_tenants` (comma-separated GUIDs) is required. With it
+  empty, no verified identity is minted: the visitor chats anonymously exactly as
+  before (a presented token is ignored, not rejected). A malformed list is
+  refused at setup and disables minting if it reaches run time raw. With a
+  non-empty list, a token from another tenant is a 401.
 
-### Decisions that are not settled by the code
+A presented Microsoft token that fails verification is a 401, never a downgrade
+to anonymous.
 
-- **Tenant allow-list.** With `common` or `organizations`, any Entra tenant's
-  user passes signature verification. `(tid, oid)` is a correct identity, but a
-  flow that treats "verified" as "ours" would admit every tenant. Proposal: a
-  multi-tenant authority requires an `oauth_microsoft_allowed_tenants` list;
-  a single-tenant authority needs none.
-- **Subject.** `oid` (stable per tenant) vs `sub` (pairwise per app). Proposal
-  `ms:<tid>:<oid>`.
-- **Email and name** are not verified identifiers (`email` is optional and
-  mutable; never use it for authorization). Carry as descriptive claims only, or
-  omit for privacy.
-- **Lifetime.** A Direct Line token lives 24h and refresh re-issues the same
-  claims, so a verified identity can outlive the Entra session (ID token ~1h).
-  The Greentic path has the same property; say so in the operator docs or shorten
-  verified-token TTL.
-- **Nonce.** A nonce supplied by the browser and checked by the provider binds
-  the ID token to the login attempt only as strongly as session storage does; it
-  is not a server-issued challenge.
-- **Dependency.** Whether to add an RSA crate to the component, or verify at the
-  edge (greentic-start) and keep the component dependency-free.
+### Dependency
+
+`rsa 0.9` (default features off, `std` + `sha2`) pulls in `num-bigint-dig`,
+`pkcs1`, `rand 0.8` and a second `sha2` major (0.10, RustCrypto's own pairing
+for `rsa`). It builds for `wasm32-wasip2`. It is used only to verify. `rsa` 0.9
+carries RUSTSEC-2023-0071 (Marvin, a timing side channel in private-key
+operations); no private key is ever loaded in the component.
+
+### Known limits
+
+- `email`/`name` are descriptive only; never authorize on them.
+- A Direct Line token lives 24 h and refresh re-issues the same claims, so a
+  verified identity can outlive the Entra session (id_token ~1 h). The browser
+  signs out when its id_token expires, but the server does not re-check.
+- The nonce is browser-chosen and bound to the login only as strongly as session
+  storage; it is not a server-issued challenge.
+- The identity settings are read from the raw setup answers
+  (`oauth_enable_microsoft`, `oauth_microsoft_client_id`,
+  `oauth_microsoft_authority`, `oauth_microsoft_allowed_tenants`), the shape
+  `greentic-setup` writes, as the Greentic SSO fallback does.
+- `assets/webchat-gui/oauth.js` is not loaded by any page and was not changed;
+  `runtime-bootstrap.js` carries the live flow.
 
 ### Cross-repo
 

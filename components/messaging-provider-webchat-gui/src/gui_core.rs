@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use uuid::Uuid;
-use webchat_directline_core::directline::microsoft_authority;
+use webchat_directline_core::directline::{microsoft_authority, oidc_entra};
 
 use crate::PROVIDER_TYPE;
 use crate::config::{
@@ -438,7 +438,9 @@ fn apply_answers_impl(
         });
     }
 
-    if let Some(error) = microsoft_authority_error(&answers) {
+    if let Some(error) =
+        microsoft_authority_error(&answers).or_else(|| microsoft_tenants_error(&answers))
+    {
         return canonical_cbor_bytes(&ApplyAnswersResult {
             ok: false,
             config: None,
@@ -690,6 +692,15 @@ fn microsoft_authority_error(answers: &Value) -> Option<String> {
     microsoft_authority::endpoints(Some(&value)).err().map(|_| {
         format!(
             "config validation failed: oauth_microsoft_authority must be common, organizations, consumers, a tenant id or a tenant domain, got {value}"
+        )
+    })
+}
+
+fn microsoft_tenants_error(answers: &Value) -> Option<String> {
+    let value = optional_string_from(answers, "oauth_microsoft_allowed_tenants")?;
+    (!oidc_entra::allowed_tenants_valid(&value)).then(|| {
+        format!(
+            "config validation failed: oauth_microsoft_allowed_tenants must be comma-separated tenant GUIDs, got {value}"
         )
     })
 }
@@ -1213,6 +1224,27 @@ mod tests {
         }));
         assert_eq!(value["ok"], false);
         assert!(error_text(&value).contains("oauth_microsoft_authority"));
+    }
+
+    #[test]
+    fn a_malformed_microsoft_tenant_allow_list_is_refused_at_setup() {
+        let base = json!({
+            "public_base_url": "https://chat.example.com",
+            "mode": "local_queue",
+            "route": "webchat",
+            "oauth_enabled": true,
+            "oauth_enable_microsoft": true,
+            "oauth_microsoft_client_id": "ms-client",
+        });
+        let mut bad = base.clone();
+        bad["oauth_microsoft_allowed_tenants"] = json!("contoso.com");
+        let value = apply_setup(bad);
+        assert_eq!(value["ok"], false);
+        assert!(error_text(&value).contains("oauth_microsoft_allowed_tenants"));
+        let mut good = base;
+        good["oauth_microsoft_allowed_tenants"] =
+            json!("72f988bf-86f1-41af-91ab-2d7cd011db47, 00000000-0000-0000-0000-000000000001");
+        assert_eq!(apply_setup(good)["ok"], true);
     }
 
     #[test]

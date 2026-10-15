@@ -980,6 +980,8 @@ console.log('[runtime-bootstrap] loaded');
       sessionStorage.removeItem(oauthStorageKey('provider'));
       sessionStorage.removeItem(oauthStorageKey('greentic_bearer'));
       sessionStorage.removeItem(oauthStorageKey('greentic_fallback'));
+      sessionStorage.removeItem(oauthStorageKey('ms_id_token'));
+      sessionStorage.removeItem(oauthStorageKey('ms_nonce'));
     } catch (_) { /* sessionStorage unavailable */ }
   }
 
@@ -1115,6 +1117,14 @@ console.log('[runtime-bootstrap] loaded');
         } catch (_) {}
       }
       console.log('[oauth] authenticated:', userInfo.name || userInfo.email || 'user');
+      // The ID token (aud = our client id) is the only Entra token the server can
+      // verify; it is sent as the Direct Line bearer. Without one, or without the
+      // nonce it must carry, the visitor chats anonymously as before.
+      try {
+        if (storedProvider && storedProvider.id === 'microsoft' && tokens.id_token) {
+          sessionStorage.setItem(oauthStorageKey('ms_id_token'), tokens.id_token);
+        }
+      } catch (_) { /* anonymous Direct Line is the fallback */ }
       saveOAuthSession(tokens.access_token || tokens.id_token || 'authenticated', 'oauth-code');
       try {
         if (userInfo.name) sessionStorage.setItem(oauthStorageKey('user_name'), userInfo.name);
@@ -1397,6 +1407,13 @@ console.log('[runtime-bootstrap] loaded');
 
     var scopes = provider.scope || provider.scopes || 'openid profile email';
     var state = 'webchat-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    var microsoftNonce = null;
+    if (provider.id === 'microsoft') {
+      microsoftNonce = generateCodeVerifier();
+      try {
+        sessionStorage.setItem(oauthStorageKey('ms_nonce'), microsoftNonce);
+      } catch (_) { microsoftNonce = null; }
+    }
 
     try {
       sessionStorage.setItem(oauthStorageKey('state'), state);
@@ -1414,6 +1431,7 @@ console.log('[runtime-bootstrap] loaded');
         access_type: 'offline',
         prompt: 'select_account'
       });
+      if (microsoftNonce) params.set('nonce', microsoftNonce);
 
       var authorizeUrl = trustedHttpUrl(provider.auth_url) + '?' + params.toString();
       console.log('[oauth] redirecting to provider:', provider.id, provider.auth_url);
@@ -2163,6 +2181,32 @@ console.log('[runtime-bootstrap] loaded');
     return Promise.resolve(null);
   }
 
+  // The Microsoft ID token and the nonce its authorize request carried, for the
+  // server to verify. null when this visitor did not sign in with Microsoft;
+  // GREENTIC_SESSION_DEAD when the ID token has expired (a re-mint would
+  // otherwise silently turn a signed-in visitor anonymous).
+  function microsoftDirectLineIdentity() {
+    var idToken = null;
+    var nonce = null;
+    try {
+      idToken = sessionStorage.getItem(oauthStorageKey('ms_id_token'));
+      nonce = sessionStorage.getItem(oauthStorageKey('ms_nonce'));
+    } catch (_) {}
+    if (!idToken || !nonce) return null;
+    try {
+      var parts = idToken.split('.');
+      var payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (payload.exp && payload.exp * 1000 <= Date.now()) {
+        console.error('[oauth] Microsoft session expired; signing out');
+        performLogout();
+        return GREENTIC_SESSION_DEAD;
+      }
+    } catch (_) {
+      return null;
+    }
+    return { idToken: idToken, nonce: nonce };
+  }
+
   var DIRECT_LINE_TOKEN_PATH =
     /\/v1\/messaging\/webchat\/[^/]+(?:\/[^/]+)?\/token$|\/v3\/directline\/tokens\/generate$/i;
 
@@ -2208,9 +2252,18 @@ console.log('[runtime-bootstrap] loaded');
           // never mint an anonymous token on the strength of a dead session.
           return new Promise(function () {});
         }
+        var microsoft = accessToken ? null : microsoftDirectLineIdentity();
+        if (microsoft === GREENTIC_SESSION_DEAD) {
+          return new Promise(function () {});
+        }
         if (accessToken) {
           nextInit.headers = nextInit.headers || {};
           nextInit.headers['Authorization'] = 'Bearer ' + accessToken;
+        } else if (microsoft) {
+          nextInit.headers = nextInit.headers || {};
+          nextInit.headers['Authorization'] = 'Bearer ' + microsoft.idToken;
+          nextInit.headers['X-Greentic-Idp'] = 'microsoft';
+          nextInit.headers['X-Greentic-Nonce'] = microsoft.nonce;
         }
         return originalFetch(input, nextInit).then(function (response) {
           if (response.status === 429) {

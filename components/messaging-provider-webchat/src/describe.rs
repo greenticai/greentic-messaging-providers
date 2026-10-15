@@ -216,6 +216,8 @@ pub(crate) const I18N_KEYS: &[&str] = &[
     "webchat.schema.config.oauth_microsoft_client_secret.description",
     "webchat.schema.config.oauth_microsoft_authority.title",
     "webchat.schema.config.oauth_microsoft_authority.description",
+    "webchat.schema.config.oauth_microsoft_allowed_tenants.title",
+    "webchat.schema.config.oauth_microsoft_allowed_tenants.description",
     "webchat.schema.config.oauth_github_client_id.title",
     "webchat.schema.config.oauth_github_client_id.description",
     "webchat.schema.config.oauth_github_client_secret.title",
@@ -253,6 +255,8 @@ pub(crate) const I18N_KEYS: &[&str] = &[
     "webchat.qa.oauth.microsoft.client_secret.help",
     "webchat.qa.oauth.microsoft.authority",
     "webchat.qa.oauth.microsoft.authority.help",
+    "webchat.qa.oauth.microsoft.allowed_tenants",
+    "webchat.qa.oauth.microsoft.allowed_tenants.help",
     "webchat.qa.oauth.github.enable",
     "webchat.qa.oauth.github.enable.help",
     "webchat.qa.oauth.github.client_id",
@@ -351,6 +355,13 @@ fn oauth_questions() -> Vec<QaQuestionSpec> {
             "oauth_microsoft_authority",
             "webchat.qa.oauth.microsoft.authority",
             "webchat.qa.oauth.microsoft.authority.help",
+            false,
+            skip_unless_provider("oauth_enable_microsoft"),
+        ),
+        oauth_question(
+            "oauth_microsoft_allowed_tenants",
+            "webchat.qa.oauth.microsoft.allowed_tenants",
+            "webchat.qa.oauth.microsoft.allowed_tenants.help",
             false,
             skip_unless_provider("oauth_enable_microsoft"),
         ),
@@ -610,6 +621,14 @@ pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
         "webchat.qa.oauth.microsoft.authority.help",
         "Leave empty for 'common' (any work, school or personal account). Use 'organizations', 'consumers', your tenant ID or your tenant domain to restrict who can sign in. The app registration must be configured for the same audience.",
     ),
+    (
+        "webchat.qa.oauth.microsoft.allowed_tenants",
+        "Allowed Microsoft tenant IDs (optional)",
+    ),
+    (
+        "webchat.qa.oauth.microsoft.allowed_tenants.help",
+        "Comma-separated tenant GUIDs. Required for visitors to be recognised as verified Microsoft users when the authority is common, organizations or consumers; without it they chat anonymously. Not needed when the authority is a single tenant.",
+    ),
     // GitHub
     ("webchat.qa.oauth.github.enable", "Enable GitHub login"),
     (
@@ -761,6 +780,14 @@ pub(crate) const I18N_PAIRS: &[(&str, &str)] = &[
     (
         "webchat.schema.config.oauth_microsoft_authority.description",
         "Entra authority for Microsoft sign-in: common (default), organizations, consumers, a tenant ID or a tenant domain",
+    ),
+    (
+        "webchat.schema.config.oauth_microsoft_allowed_tenants.title",
+        "Allowed Microsoft tenants",
+    ),
+    (
+        "webchat.schema.config.oauth_microsoft_allowed_tenants.description",
+        "Comma-separated tenant GUIDs whose users are recognised as verified Microsoft identities on a multi-tenant authority",
     ),
     (
         "webchat.schema.config.oauth_github_client_id.title",
@@ -1051,6 +1078,14 @@ fn config_schema() -> SchemaIr {
                 schema_str(
                     "webchat.schema.config.oauth_microsoft_authority.title",
                     "webchat.schema.config.oauth_microsoft_authority.description",
+                ),
+            ),
+            (
+                "oauth_microsoft_allowed_tenants",
+                false,
+                schema_str(
+                    "webchat.schema.config.oauth_microsoft_allowed_tenants.title",
+                    "webchat.schema.config.oauth_microsoft_allowed_tenants.description",
                 ),
             ),
             (
