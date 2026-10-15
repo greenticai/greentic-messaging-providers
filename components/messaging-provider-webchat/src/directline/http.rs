@@ -11,11 +11,12 @@ use greentic_types::messaging::universal_dto::{Header, HttpInV1, HttpOutV1};
 use super::activity_log::{self, LogError};
 use super::caller::{caller_header, verified_teams};
 use super::jwt::{
-    DirectLineContext, TTL_SECONDS, TokenClaims, issue_token, issue_verified_token_with_teams,
-    reissue_token, verify_token,
+    DirectLineContext, IDP_ISS_CLAIM, TTL_SECONDS, TokenClaims, issue_token,
+    issue_verified_token_with_extra, issue_verified_token_with_teams, reissue_token, verify_token,
 };
 use super::oidc::{OidcError, VerifiedIdentity, verify_access_token};
 use super::oidc_config::{self, OidcVerification};
+use super::oidc_entra::{self, EntraError, EntraIdentity};
 use super::owner::authorize_stored;
 use super::state::{
     ConversationState, StoredActivity, TypingSlot, conversation_key, sanitize_team,
@@ -149,35 +150,55 @@ where
         return resp;
     }
 
-    let (token_subject, verified, teams) =
-        match determine_verified_identity(request, state_store, jwks, now) {
-            Ok(Some(identity)) => (identity.sub, true, verified_teams(identity.teams.as_ref())),
-            Ok(None) => {
-                // Reject a client-supplied id shaped like an issuer subject
-                // (`{did_web}:users:{user_id}`) — otherwise an anonymous
-                // caller can self-declare exactly the id a verified bearer
-                // would have produced, and the two become indistinguishable
-                // downstream. Guest ids are UUIDs and never contain a colon.
-                if let RateLimitSubject::User(ref id) = subject
-                    && id.contains(":users:")
-                {
-                    return respond_error(
-                        400,
-                        "invalid_user_id",
-                        "client-supplied user id must not use the issuer-subject shape",
-                    );
+    let microsoft = match microsoft_identity(request, state_store, jwks, now) {
+        Ok(outcome) => outcome,
+        Err(resp) => return resp,
+    };
+    let (token_subject, verified, teams) = match &microsoft {
+        MicrosoftOutcome::Verified(identity) => (identity.sub.clone(), true, Vec::new()),
+        other => {
+            let resolved = if matches!(other, MicrosoftOutcome::NotRequested) {
+                determine_verified_identity(request, state_store, jwks, now)
+            } else {
+                Ok(None)
+            };
+            match resolved {
+                Ok(Some(identity)) => (identity.sub, true, verified_teams(identity.teams.as_ref())),
+                Ok(None) => {
+                    // Reject a client-supplied id shaped like an issuer subject
+                    // (`{did_web}:users:{user_id}`) — otherwise an anonymous
+                    // caller can self-declare exactly the id a verified bearer
+                    // would have produced, and the two become indistinguishable
+                    // downstream. Guest ids are UUIDs and never contain a colon.
+                    if let RateLimitSubject::User(ref id) = subject
+                        && id.contains(":users:")
+                    {
+                        return respond_error(
+                            400,
+                            "invalid_user_id",
+                            "client-supplied user id must not use the issuer-subject shape",
+                        );
+                    }
+                    (subject.token_subject().to_string(), false, Vec::new())
                 }
-                (subject.token_subject().to_string(), false, Vec::new())
+                Err(resp) => return resp,
             }
-            Err(resp) => return resp,
-        };
+        }
+    };
 
     let signing_key = match load_signing_key(request, secrets) {
         Ok(key) => key,
         Err(resp) => return resp,
     };
 
-    let minted = if verified {
+    let minted = if let MicrosoftOutcome::Verified(identity) = &microsoft {
+        issue_verified_token_with_extra(
+            &signing_key,
+            ctx.clone(),
+            &identity.sub,
+            microsoft_claims(identity),
+        )
+    } else if verified {
         issue_verified_token_with_teams(&signing_key, ctx.clone(), &token_subject, &teams)
     } else {
         issue_token(&signing_key, ctx.clone(), &token_subject, None, false)
@@ -196,6 +217,106 @@ where
             format!("failed to mint token: {err:?}"),
         ),
     }
+}
+
+const IDP_HEADER: &str = "X-Greentic-Idp";
+const IDP_NONCE_HEADER: &str = "X-Greentic-Nonce";
+const MICROSOFT_IDP: &str = "microsoft";
+
+enum MicrosoftOutcome {
+    /// The request did not ask for the Microsoft identity path.
+    NotRequested,
+    /// It did, but no verified identity may be minted: mint anonymously.
+    Anonymous,
+    Verified(EntraIdentity),
+}
+
+fn header_value(headers: &[Header], name: &str) -> Option<String> {
+    headers
+        .iter()
+        .find(|h| h.name.eq_ignore_ascii_case(name))
+        .map(|h| h.value.trim().to_string())
+        .filter(|v| !v.is_empty())
+}
+
+fn microsoft_claims(identity: &EntraIdentity) -> Map<String, Value> {
+    let mut extra = Map::new();
+    extra.insert(IDP_ISS_CLAIM.into(), json!(identity.issuer));
+    extra.insert("tid".into(), json!(identity.tid));
+    extra.insert("oid".into(), json!(identity.oid));
+    if let Some(email) = &identity.email {
+        extra.insert("email".into(), json!(email));
+    }
+    if let Some(name) = &identity.name {
+        extra.insert("name".into(), json!(name));
+    }
+    extra
+}
+
+/// The Entra id_token path of `/tokens`, selected by `X-Greentic-Idp:
+/// microsoft`. Without a configuration that allows minting an identity (see
+/// `oidc_entra::resolve`) the bearer is ignored and the caller stays
+/// anonymous; a token that is presented and fails verification is a 401.
+fn microsoft_identity<S, J>(
+    request: &HttpInV1,
+    state_store: &mut S,
+    jwks: &J,
+    now: i64,
+) -> Result<MicrosoftOutcome, HttpOutV1>
+where
+    S: StateStore,
+    J: JwksFetcher,
+{
+    if header_value(&request.headers, IDP_HEADER).as_deref() != Some(MICROSOFT_IDP) {
+        return Ok(MicrosoftOutcome::NotRequested);
+    }
+    let Some(bearer) = extract_bearer(&request.headers) else {
+        return Ok(MicrosoftOutcome::Anonymous);
+    };
+    let Some(config) = oidc_entra::resolve(|key| config_scalar(request, key)) else {
+        return Ok(MicrosoftOutcome::Anonymous);
+    };
+    let reject =
+        |why: &str| respond_error(401, "unauthorized", format!("id token rejected: {why}"));
+    let Some(nonce) = header_value(&request.headers, IDP_NONCE_HEADER) else {
+        return Err(reject("missing nonce"));
+    };
+
+    let discovery_url = config.discovery_url();
+    let discovery = load_jwks(state_store, jwks, &discovery_url, now)
+        .map_err(|err| reject(&format!("discovery unavailable: {err}")))
+        .and_then(|doc| {
+            oidc_entra::parse_discovery(&doc).map_err(|err| reject(&format!("{err:?}")))
+        })?;
+    let single_tenant = oidc_entra::single_tenant(&config, &discovery);
+    let verify = |doc: &str| {
+        oidc_entra::verify_id_token(
+            &bearer,
+            doc,
+            &oidc_entra::Expect {
+                config: &config,
+                single_tenant: single_tenant.as_deref(),
+                nonce: &nonce,
+                now,
+            },
+        )
+    };
+    let jwks_url = discovery.jwks_uri.as_str();
+    let doc = load_jwks(state_store, jwks, jwks_url, now)
+        .map_err(|err| reject(&format!("jwks unavailable: {err}")))?;
+    let result = match verify(&doc) {
+        // Same bounded refetch as the Greentic path: a rotated signing key
+        // is retried once, behind the per-URL cooldown.
+        Err(EntraError::UnknownKey) if jwks_refetch_allowed(state_store, jwks_url, now) => {
+            let fresh = refetch_jwks(state_store, jwks, jwks_url, now)
+                .map_err(|err| reject(&format!("jwks unavailable: {err}")))?;
+            verify(&fresh)
+        }
+        other => other,
+    };
+    result
+        .map(MicrosoftOutcome::Verified)
+        .map_err(|err| reject(&format!("{err:?}")))
 }
 
 /// Resolves the subject of an OIDC bearer, if one was presented.
@@ -1735,6 +1856,11 @@ mod tests {
 
     mod owner_http {
         include!("owner_http_tests.rs");
+    }
+
+    mod microsoft_identity {
+        use super::*;
+        include!("microsoft_identity_tests.rs");
     }
 
     fn read_conversation(

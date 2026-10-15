@@ -15,6 +15,7 @@ base64.workspace = true
 chrono.workspace = true
 hmac.workspace = true
 p256.workspace = true
+rsa.workspace = true
 sha2.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 urlencoding.workspace = true

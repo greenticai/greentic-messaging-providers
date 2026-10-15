@@ -156,6 +156,17 @@ pub fn issue_verified_token_with_teams(
     sign_new_token(secret, ctx, sub, None, true, extra)
 }
 
+/// Mint a token for an identity verified by an external provider, carrying
+/// its already-sanitised claims (issuer, tenant, descriptive fields).
+pub fn issue_verified_token_with_extra(
+    secret: &[u8],
+    ctx: DirectLineContext,
+    sub: &str,
+    extra: Map<String, Value>,
+) -> Result<(String, i64), JwtError> {
+    sign_new_token(secret, ctx, sub, None, true, extra)
+}
+
 /// Mint the token of a bearer verified against `idp_iss`.
 pub fn issue_verified_token(
     secret: &[u8],

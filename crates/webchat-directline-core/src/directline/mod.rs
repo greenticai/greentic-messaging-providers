@@ -6,6 +6,9 @@ pub mod microsoft_authority;
 pub mod oauth_token_url;
 pub mod oidc;
 pub mod oidc_config;
+pub mod oidc_entra;
+#[cfg(test)]
+mod oidc_entra_test_support;
 #[cfg(test)]
 mod oidc_test_support;
 pub mod owner;
