@@ -3,6 +3,7 @@ pub mod caller;
 pub mod http;
 pub mod jwt;
 pub mod microsoft_authority;
+pub mod oauth_token_url;
 pub mod oidc;
 pub mod oidc_config;
 #[cfg(test)]

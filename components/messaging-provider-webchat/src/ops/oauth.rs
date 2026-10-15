@@ -18,6 +18,7 @@ use crate::bindings::greentic::http::http_client as client;
 use crate::directline::ConfigAwareSecretStore;
 use crate::directline::store::SecretStore as _;
 use webchat_directline_core::directline::microsoft_authority;
+use webchat_directline_core::directline::oauth_token_url::{self, TokenUrlError};
 
 /// Return OAuth configuration as JSON for the frontend SPA.
 /// Reads oauth_* fields from secrets store (host interface).
@@ -149,14 +150,14 @@ pub(super) fn handle_oauth_token_exchange(request: &HttpInV1) -> Vec<u8> {
     };
 
     let provider_id = payload["provider_id"].as_str().unwrap_or("");
-    let token_url = payload["token_url"].as_str().unwrap_or("");
+    let requested_token_url = payload["token_url"].as_str();
     let code = payload["code"].as_str().unwrap_or("");
     let redirect_uri = payload["redirect_uri"].as_str().unwrap_or("");
     let client_id = payload["client_id"].as_str().unwrap_or("");
     let code_verifier = payload["code_verifier"].as_str().unwrap_or("");
 
-    if token_url.is_empty() || code.is_empty() || client_id.is_empty() {
-        return http_out_error(400, "missing required fields: token_url, code, client_id");
+    if code.is_empty() || client_id.is_empty() {
+        return http_out_error(400, "missing required fields: code, client_id");
     }
 
     // Look up client_secret from secrets store based on provider_id
@@ -169,6 +170,22 @@ pub(super) fn handle_oauth_token_exchange(request: &HttpInV1) -> Vec<u8> {
             .and_then(|bytes| String::from_utf8(bytes).ok())
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
+    };
+
+    // The token endpoint comes from configuration, never from the request: the
+    // stored client_secret is attached to this POST, so a caller-chosen host
+    // would receive it. A `token_url` in the body may only repeat the configured one.
+    let token_url = match oauth_token_url::resolve(provider_id, requested_token_url, &read_secret) {
+        Ok(url) => url,
+        Err(TokenUrlError::UnknownProvider) => {
+            return http_out_error(400, "unknown or unconfigured provider_id");
+        }
+        Err(TokenUrlError::NotHttps) => {
+            return http_out_error(400, "the configured token endpoint must be https");
+        }
+        Err(TokenUrlError::Mismatch) => {
+            return http_out_error(400, "token_url does not match the configured provider");
+        }
     };
 
     // Look up client_secret: try individual key first, then pre-composed oauth_providers
@@ -222,7 +239,7 @@ pub(super) fn handle_oauth_token_exchange(request: &HttpInV1) -> Vec<u8> {
     // Call the OAuth provider's token endpoint
     let http_req = client::Request {
         method: "POST".into(),
-        url: token_url.to_string(),
+        url: token_url,
         headers: vec![(
             "Content-Type".into(),
             "application/x-www-form-urlencoded".into(),
