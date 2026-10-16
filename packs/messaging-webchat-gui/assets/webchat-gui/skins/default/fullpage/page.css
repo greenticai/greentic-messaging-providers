@@ -1230,7 +1230,10 @@ button[data-action="logout"]:hover,
  * teal user bubble, which is unreadable, and stretched the card across the
  * whole row. This makes it a compact, readable file chip. The bubble's own
  * background is set inline by the shell and is left alone. */
-.webchat__stacked-layout__attachment-row .webchat__bubble {
+/* Only a bubble that holds a file chip is capped. An Adaptive Card is an
+ * attachment too, so the unscoped rule capped every card at 340px (and the
+ * 70% card width then narrowed it again to about 236px). */
+.webchat__stacked-layout__attachment-row .webchat__bubble:has(.webchat__fileContent) {
   max-width: 340px !important;
 }
 
