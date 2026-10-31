@@ -278,6 +278,31 @@ console.log('[runtime-bootstrap] loaded');
     document.head.appendChild(style);
   }
 
+  // A file the visitor attaches is drawn inside THEIR bubble, whose fill this
+  // file forces to the brand colour. Web Chat paints the file name and the
+  // download icon in the tenant accent (`.webchat__fileContent__fileName`
+  // colour and `.webchat__fileContent__downloadIcon` fill), so a tenant whose
+  // accent is close to the bubble fill got a name and an icon the same colour
+  // as the background, with only the bubble's own text legible. Inside a user
+  // bubble they follow the bubble's text colour instead.
+  function ensureUserBubbleFileStyle() {
+    if (document.getElementById('greentic-user-bubble-file-style')) return;
+    var style = document.createElement('style');
+    style.id = 'greentic-user-bubble-file-style';
+    style.textContent = [
+      '.webchat__bubble--from-user .webchat__fileContent,',
+      '.webchat__bubble--from-user .webchat__fileContent__buttonLink,',
+      '.webchat__bubble--from-user .webchat__fileContent__fileName,',
+      '.webchat__bubble--from-user .webchat__fileContent__size {',
+      '  color: inherit !important;',
+      '}',
+      '.webchat__bubble--from-user .webchat__fileContent__downloadIcon {',
+      '  fill: currentColor !important;',
+      '}'
+    ].join('\n');
+    document.head.appendChild(style);
+  }
+
   function markAdaptiveCardBubbles(root) {
     var scope = root && root.querySelectorAll ? root : document;
     var cards = scope.querySelectorAll('.ac-adaptiveCard');
@@ -324,6 +349,7 @@ console.log('[runtime-bootstrap] loaded');
   document.documentElement.style.setProperty('--greentic-adaptive-card-width', resolveAdaptiveCardWidth());
   setTimeout(function () {
     ensureAdaptiveCardWidthStyle();
+    ensureUserBubbleFileStyle();
     ensureAdaptiveCardWidthObserver();
     startTypingIndicator();
   }, 0);
