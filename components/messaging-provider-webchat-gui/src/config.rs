@@ -54,6 +54,8 @@ pub(crate) struct ProviderConfig {
     pub(crate) brand_logo_url: Option<String>,
     #[serde(default)]
     pub(crate) typing_indicator: Option<String>,
+    #[serde(default)]
+    pub(crate) allowed_embed_origins: Option<String>,
     #[serde(default = "default_text_input_enabled")]
     pub(crate) text_input_enabled: bool,
     #[serde(default = "default_auto_start_on_open")]
@@ -97,6 +99,12 @@ pub(crate) struct ProviderConfigOut {
     /// `typing_indicator`, where runtime-bootstrap.js reads it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) typing_indicator: Option<String>,
+    /// Origins allowed to frame the hosted chat page, canonical and
+    /// comma-joined (see `embed_origins`). greentic-start reads it from the
+    /// provider config and serves `frame-ancestors 'self' <origins>`; absent
+    /// keeps the page without any framing header.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) allowed_embed_origins: Option<String>,
     #[serde(default = "default_text_input_enabled")]
     pub(crate) text_input_enabled: bool,
     #[serde(default = "default_auto_start_on_open")]
@@ -141,6 +149,7 @@ pub(crate) fn default_config_out() -> ProviderConfigOut {
         brand_name: None,
         brand_logo_url: None,
         typing_indicator: None,
+        allowed_embed_origins: None,
         text_input_enabled: default_text_input_enabled(),
         auto_start_on_open: default_auto_start_on_open(),
         nav_links: Vec::new(),
@@ -185,6 +194,15 @@ fn validate_typing_indicator(value: Option<&str>, prefix: &str) -> Result<(), St
         Some(style) => Err(format!(
             "{prefix}: typing_indicator must be one of shimmer|pulse|dots, got `{style}`"
         )),
+    }
+}
+
+fn validate_allowed_embed_origins(value: Option<&str>, prefix: &str) -> Result<(), String> {
+    match value {
+        None => Ok(()),
+        Some(raw) => crate::embed_origins::normalise_allowed_embed_origins(raw)
+            .map(|_| ())
+            .map_err(|e| format!("{prefix}: {e}")),
     }
 }
 
@@ -244,6 +262,10 @@ pub(crate) fn validate_config_out(config: &ProviderConfigOut) -> Result<(), Stri
         config.typing_indicator.as_deref(),
         "config validation failed",
     )?;
+    validate_allowed_embed_origins(
+        config.allowed_embed_origins.as_deref(),
+        "config validation failed",
+    )?;
     if has_greentic_provider(config)
         && !config
             .oidc_issuer
@@ -279,6 +301,7 @@ pub(crate) fn validate_provider_config(mut cfg: ProviderConfig) -> Result<Provid
         "invalid config",
     )?;
     validate_typing_indicator(cfg.typing_indicator.as_deref(), "invalid config")?;
+    validate_allowed_embed_origins(cfg.allowed_embed_origins.as_deref(), "invalid config")?;
     if cfg.presentation_mode == PresentationMode::EmbedWebcomponent {
         cfg.nav_links.clear();
     }
@@ -333,6 +356,7 @@ pub(crate) fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         "brand_name",
         "brand_logo_url",
         "typing_indicator",
+        "allowed_embed_origins",
         "text_input_enabled",
         "auto_start_on_open",
         "nav_links",
@@ -361,6 +385,7 @@ pub(crate) fn load_config(input: &Value) -> Result<ProviderConfig, String> {
         "brand_name",
         "brand_logo_url",
         "typing_indicator",
+        "allowed_embed_origins",
         "text_input_enabled",
         "auto_start_on_open",
         "nav_links",
