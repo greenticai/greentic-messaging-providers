@@ -314,6 +314,16 @@ questions:
     help: "How the chat shows that the assistant is working on a reply. shimmer: \"Thinking…\" with a sweeping highlight (default). pulse: one breathing dot. dots: three dots in a bubble."
     group: Branding
 
+  - name: allowed_embed_origins
+    title: Allowed embedder origins
+    kind: string
+    required: false
+    placeholder: "https://intranet.example.com, https://www.example.com"
+    help: "Websites allowed to show this chat in a frame (inline frame or chat bubble), as origins like https://intranet.example.com, separated by commas. When set, other sites cannot frame the chat. Leave empty to keep the current behaviour (no framing restriction). No wildcards or paths."
+    group: Embedding
+    validate:
+      regex: "^\\s*(https?://[^\\s,/?#@*]+[\\s,]*)*$"
+
   - name: presentation_mode
     title: Presentation mode
     kind: enum

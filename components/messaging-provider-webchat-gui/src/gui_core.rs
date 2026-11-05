@@ -609,6 +609,25 @@ fn apply_answers_impl(
             optional_string_from(&answers, "typing_indicator").map(|v| v.to_ascii_lowercase());
     }
 
+    // Same clearing rule: an answered-but-blank list removes the restriction.
+    // A list with any invalid entry is refused whole rather than half applied.
+    if has("allowed_embed_origins") {
+        let raw = optional_string_from(&answers, "allowed_embed_origins").unwrap_or_default();
+        match crate::embed_origins::normalise_allowed_embed_origins(&raw) {
+            Ok(normalised) => merged.allowed_embed_origins = normalised,
+            Err(error) => {
+                return canonical_cbor_bytes(&ApplyAnswersResult {
+                    ok: false,
+                    config: None,
+                    secrets_patch: None,
+                    remove: None,
+                    diagnostics: Vec::new(),
+                    error: Some(format!("config validation failed: {error}")),
+                });
+            }
+        }
+    }
+
     if has("oauth_greentic_issuer") {
         merged.oidc_issuer = optional_string_from(&answers, "oauth_greentic_issuer");
     }
@@ -1053,6 +1072,59 @@ mod tests {
         }));
         assert_eq!(value["ok"], false);
         assert!(error_text(&value).contains("typing_indicator"));
+    }
+
+    #[test]
+    fn apply_answers_round_trips_allowed_embed_origins() {
+        let value = apply_setup(json!({
+            "public_base_url": "https://chat.example.com",
+            "route": "webchat",
+            "allowed_embed_origins": " https://Intranet.Example.com , https://a.example.com:8443 "
+        }));
+        assert_eq!(value["ok"], true, "{value}");
+        assert_eq!(
+            value["config"]["allowed_embed_origins"],
+            "https://intranet.example.com,https://a.example.com:8443"
+        );
+
+        // Unset: nothing is written, so the served page is unchanged.
+        let value = apply_setup(json!({
+            "public_base_url": "https://chat.example.com",
+            "route": "webchat"
+        }));
+        assert_eq!(value["ok"], true, "{value}");
+        assert!(value["config"].get("allowed_embed_origins").is_none());
+    }
+
+    #[test]
+    fn apply_answers_clears_allowed_embed_origins_on_a_blank_answer() {
+        let value = apply_setup(json!({
+            "public_base_url": "https://chat.example.com",
+            "route": "webchat",
+            "allowed_embed_origins": "   "
+        }));
+        assert_eq!(value["ok"], true, "{value}");
+        assert!(value["config"].get("allowed_embed_origins").is_none());
+    }
+
+    #[test]
+    fn apply_answers_rejects_invalid_allowed_embed_origins() {
+        for bad in [
+            "*",
+            "https://ok.example.com, http://evil.example.com",
+            "https://a.example.com/x",
+        ] {
+            let value = apply_setup(json!({
+                "public_base_url": "https://chat.example.com",
+                "route": "webchat",
+                "allowed_embed_origins": bad
+            }));
+            assert_eq!(value["ok"], false, "{bad}");
+            assert!(
+                error_text(&value).contains("allowed_embed_origins"),
+                "{bad}"
+            );
+        }
     }
 
     #[test]

@@ -13,6 +13,7 @@ pub(crate) mod config;
 #[path = "../../messaging-provider-webchat/src/describe.rs"]
 mod describe;
 pub(crate) mod directline;
+mod embed_origins;
 mod gui_core;
 #[path = "../../messaging-provider-webchat/src/ops/mod.rs"]
 mod ops;
