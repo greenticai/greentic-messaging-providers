@@ -18,6 +18,8 @@ pub(crate) mod config;
 mod describe;
 #[path = "../../messaging-provider-webchat-gui/src/directline/mod.rs"]
 pub(crate) mod directline;
+#[path = "../../messaging-provider-webchat-gui/src/embed_origins.rs"]
+mod embed_origins;
 #[path = "../../messaging-provider-webchat-gui/src/gui_core.rs"]
 mod gui_core;
 #[path = "../../messaging-provider-webchat/src/ops/mod.rs"]
